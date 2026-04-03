@@ -15,7 +15,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/anthropics/computer-pilot",
+    "url": "https://github.com/relixiaobo/computer-pilot",
     "directory": "plugin"
   },
   "files": [

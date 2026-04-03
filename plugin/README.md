@@ -1,57 +1,75 @@
 # computer-pilot plugin
 
-Agent plugin for [computer-pilot](https://github.com/anthropics/computer-pilot) — teach AI coding agents to control the macOS desktop via CLI.
-
-## What it does
-
-Adds a skill that teaches Claude Code (and other AI agents) how to use the `cu` CLI tool to:
-- Observe desktop UI via Accessibility tree, OCR, and screenshots
-- Click buttons, type text, send keyboard shortcuts
-- Navigate macOS apps (Spotlight, menus, dialogs)
-- Automate desktop workflows
+Agent plugin for [computer-pilot](https://github.com/relixiaobo/computer-pilot) — teach AI agents to control the macOS desktop via CLI.
 
 ## Install
 
-### 1. Install cu binary
+### Step 1: Install cu binary
 
 ```bash
-git clone https://github.com/anthropics/computer-pilot.git
-cd computer-pilot
-cargo build --release
+# Option A: Build from source
+git clone https://github.com/relixiaobo/computer-pilot.git
+cd computer-pilot && cargo build --release
 sudo cp target/release/cu /usr/local/bin/
-cu setup   # grant permissions
+
+# Option B: Download prebuilt (macOS Apple Silicon)
+curl -L https://github.com/relixiaobo/computer-pilot/releases/latest/download/cu-arm64 -o /usr/local/bin/cu
+chmod +x /usr/local/bin/cu
 ```
 
-### 2. Install plugin
+### Step 2: Grant permissions
 
 ```bash
-# Via Claude Code
-/install-plugin computer-pilot-plugin
-
-# Or manually
-cd plugin && npm pack
+cu setup
 ```
+
+### Step 3: Install plugin in Claude Code
+
+```
+/install-plugin computer-pilot-plugin
+```
+
+## What it does
+
+Adds a skill that teaches Claude Code how to use `cu` to:
+- **Observe**: snapshot UI elements (AX tree), OCR, screenshots
+- **Act**: click, type, keyboard shortcuts, scroll, drag
+- **Automate**: open apps, navigate menus, handle dialogs, file operations
 
 ## Usage
 
-Once installed, Claude Code automatically activates the skill when you ask it to interact with desktop apps:
+Once installed, Claude Code automatically uses `cu` when you ask it to interact with desktop apps:
 
-- "Open Calculator and compute 2+3"
-- "Take a screenshot of Chrome"
-- "Find the Submit button in Safari and click it"
-- "Open System Settings and change the wallpaper"
+```
+"Open Calculator and compute 2+3"
+"Take a screenshot of Chrome"
+"Open System Settings and enable Dark Mode"
+```
 
-Or use the `/desktop` command directly:
+Or use the `/desktop` command:
 
 ```
 /desktop open Finder and create a new folder called "test"
 ```
 
-## Skill content
+## Commands (12)
 
-The plugin teaches the agent:
-- **Core workflow**: observe → act → verify
-- **12 commands**: snapshot, click, key, type, scroll, hover, drag, screenshot, ocr, wait, apps, setup
-- **macOS patterns**: Spotlight app launch, menu navigation, dialog handling, clipboard
-- **Perception tiers**: AX tree (cheapest) → OCR → screenshot (most expensive)
-- **Best practices**: always use --app, refs are ephemeral, verify after every action
+| Command | What it does |
+|---------|-------------|
+| `cu setup` | Check permissions |
+| `cu apps` | List running apps |
+| `cu snapshot` | AX tree with [ref] numbers |
+| `cu click` | Click by ref or coordinates |
+| `cu key` | Keyboard shortcut |
+| `cu type` | Type text |
+| `cu scroll` | Scroll |
+| `cu hover` | Move mouse |
+| `cu drag` | Drag |
+| `cu screenshot` | Window capture |
+| `cu ocr` | Vision OCR |
+| `cu wait` | Wait for condition |
+
+## Links
+
+- [GitHub](https://github.com/relixiaobo/computer-pilot)
+- [cu --help](https://github.com/relixiaobo/computer-pilot#commands-12)
