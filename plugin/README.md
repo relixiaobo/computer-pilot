@@ -26,7 +26,8 @@ cu setup
 ### Step 3: Install plugin in Claude Code
 
 ```
-/install-plugin computer-pilot-plugin
+/plugin marketplace add relixiaobo/computer-pilot
+/plugin install computer-pilot-plugin@relixiaobo-computer-pilot
 ```
 
 ## What it does

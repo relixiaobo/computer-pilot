@@ -48,8 +48,11 @@ cu setup
 
 ### Claude Code Plugin
 
+In Claude Code, run:
+
 ```
-/install-plugin computer-pilot-plugin
+/plugin marketplace add relixiaobo/computer-pilot
+/plugin install computer-pilot-plugin@relixiaobo-computer-pilot
 ```
 
 This teaches Claude Code how to use `cu` automatically — just ask it to interact with desktop apps.
