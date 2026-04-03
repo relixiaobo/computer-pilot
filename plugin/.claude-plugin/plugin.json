@@ -1,0 +1,14 @@
+{
+  "name": "computer-pilot",
+  "description": "Control the macOS desktop via CLI — snapshot UI elements, click, type, keyboard shortcuts, screenshot, OCR. Uses the Accessibility API for precise element targeting.",
+  "version": "0.1.0",
+  "author": {
+    "name": "computer-pilot"
+  },
+  "homepage": "https://github.com/anthropics/computer-pilot",
+  "repository": "https://github.com/anthropics/computer-pilot",
+  "license": "MIT",
+  "keywords": ["desktop", "automation", "macos", "accessibility", "computer-use", "gui"],
+  "skills": "./skills/",
+  "commands": ["./commands/desktop.md"]
+}

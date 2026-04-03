@@ -1,0 +1,35 @@
+{
+  "name": "computer-pilot-plugin",
+  "version": "0.1.0",
+  "description": "Agent plugin for computer-pilot — teach AI coding agents to control the macOS desktop via CLI",
+  "keywords": [
+    "computer-pilot",
+    "agent-skills",
+    "claude-code",
+    "codex",
+    "desktop",
+    "automation",
+    "macos",
+    "accessibility"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anthropics/computer-pilot",
+    "directory": "plugin"
+  },
+  "files": [
+    ".claude-plugin/",
+    "skills/",
+    "commands/",
+    "README.md"
+  ],
+  "agents": {
+    "skills": [
+      {
+        "name": "computer-pilot",
+        "path": "./skills/computer-pilot"
+      }
+    ]
+  }
+}
