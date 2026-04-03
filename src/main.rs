@@ -141,6 +141,13 @@ enum Cmd {
         #[arg(long)]
         full: bool,
     },
+    /// Copy text to system clipboard
+    Copy {
+        /// Text to copy (reads from stdin if omitted)
+        text: Option<String>,
+    },
+    /// Read system clipboard contents
+    Paste,
 }
 
 // ── Main ────────────────────────────────────────────────────────────────────
@@ -179,6 +186,8 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), String> {
         Cmd::Hover { x, y } => cmd_hover(json, x, y),
         Cmd::Drag { x1, y1, x2, y2 } => cmd_drag(json, x1, y1, x2, y2),
         Cmd::Screenshot { app, path, full } => cmd_screenshot(json, app, path, full),
+        Cmd::Copy { text } => cmd_copy(json, text),
+        Cmd::Paste => cmd_paste(json),
     }
 }
 
@@ -428,6 +437,52 @@ fn cmd_screenshot(json: bool, app: Option<String>, path: Option<String>, full: b
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
+
+fn cmd_copy(json: bool, text: Option<String>) -> Result<(), String> {
+    let content = match text {
+        Some(t) => t,
+        None => {
+            // Read from stdin
+            use std::io::Read;
+            let mut buf = String::new();
+            std::io::stdin().read_to_string(&mut buf).map_err(|e| format!("stdin read failed: {e}"))?;
+            buf
+        }
+    };
+
+    let mut child = std::process::Command::new("pbcopy")
+        .stdin(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("pbcopy failed: {e}"))?;
+
+    use std::io::Write;
+    if let Some(ref mut stdin) = child.stdin {
+        stdin.write_all(content.as_bytes()).map_err(|e| format!("write failed: {e}"))?;
+    }
+    child.wait().map_err(|e| format!("pbcopy failed: {e}"))?;
+
+    if json {
+        ok(serde_json::json!({"ok": true, "length": content.len()}))
+    } else {
+        println!("Copied {} bytes to clipboard", content.len());
+        Ok(())
+    }
+}
+
+fn cmd_paste(json: bool) -> Result<(), String> {
+    let output = std::process::Command::new("pbpaste")
+        .output()
+        .map_err(|e| format!("pbpaste failed: {e}"))?;
+
+    let text = String::from_utf8_lossy(&output.stdout).to_string();
+
+    if json {
+        ok(serde_json::json!({"ok": true, "text": text}))
+    } else {
+        print!("{text}");
+        Ok(())
+    }
+}
 
 fn ok(value: serde_json::Value) -> Result<(), String> {
     emit(&value);

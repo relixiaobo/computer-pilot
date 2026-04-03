@@ -59,6 +59,7 @@ unsafe extern "C" {
     fn AXValueGetValue(value: CFTypeRef, the_type: u32, value_ptr: *mut c_void) -> Boolean;
     fn AXUIElementPerformAction(element: CFTypeRef, action: CFStringRef) -> AXError;
     fn AXUIElementSetAttributeValue(element: CFTypeRef, attribute: CFStringRef, value: CFTypeRef) -> AXError;
+    fn AXUIElementSetMessagingTimeout(element: CFTypeRef, timeout_secs: f32) -> AXError;
     fn AXUIElementCopyMultipleAttributeValues(
         element: CFTypeRef,
         attributes: CFArrayRef,
@@ -170,6 +171,18 @@ unsafe fn cfstring_to_string(cf: CFStringRef) -> Option<String> {
 }
 
 // ── AX helpers ──────────────────────────────────────────────────────────────
+
+/// Per-element AX IPC timeout in seconds. Prevents Chrome/Electron hangs.
+const AX_TIMEOUT_SECS: f32 = 3.0;
+
+/// Create an AXUIElement for an app with a per-element timeout set.
+unsafe fn create_app_element(pid: i32) -> CFTypeRef {
+    let el = AXUIElementCreateApplication(pid);
+    if !el.is_null() {
+        AXUIElementSetMessagingTimeout(el, AX_TIMEOUT_SECS);
+    }
+    el
+}
 
 /// Get a raw attribute value (+1 retained). Caller must `CFRelease`.
 unsafe fn ax_attr(element: CFTypeRef, name: &str) -> Option<CFTypeRef> {
@@ -615,7 +628,7 @@ unsafe fn find_element_by_ref(
 
 fn resolve_ref(pid: i32, ref_id: usize, perform_actions: bool) -> Result<(bool, f64, f64), String> {
     unsafe {
-        let app_el = AXUIElementCreateApplication(pid);
+        let app_el = create_app_element(pid);
         if app_el.is_null() {
             return Err("failed to create AX element for application".into());
         }
@@ -654,7 +667,7 @@ pub fn ax_find_element(pid: i32, ref_id: usize, _limit: usize) -> Result<(bool, 
 #[allow(dead_code)]
 pub fn window_bounds(pid: i32) -> Option<(f64, f64, f64, f64)> {
     unsafe {
-        let app_el = AXUIElementCreateApplication(pid);
+        let app_el = create_app_element(pid);
         if app_el.is_null() {
             return None;
         }
@@ -679,7 +692,7 @@ pub fn window_bounds(pid: i32) -> Option<(f64, f64, f64, f64)> {
 /// Take an accessibility snapshot of the app identified by `pid`.
 pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
     unsafe {
-        let app_el = AXUIElementCreateApplication(pid);
+        let app_el = create_app_element(pid);
         if app_el.is_null() {
             return SnapshotResult {
                 ok: false,

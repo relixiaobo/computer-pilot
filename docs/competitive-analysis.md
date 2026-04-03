@@ -8,13 +8,13 @@
 |---|:---:|:---:|:---:|:---:|:---:|:---:|
 | AX Tree 快照 | ✅ | ❌ | ✅ | ✅ | ❌ | ✅ |
 | 批量 AX 属性读取 | ⭕ | — | ✅ | ✅ | — | ✅ |
-| Per-element 超时 | ❌ | — | ✅ 3s | ✅ 2s | — | ✅ |
+| Per-element 超时 | ⭕ 3s | — | ✅ 3s | ✅ 2s | — | ✅ |
 | Numbered refs | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ |
 | Ref 持久化 | ❌ | — | ❌ | ✅ | — | — |
 | 截图 | ✅ CGWindowList | ✅ | ✅ | ❌ | ✅ | ✅ |
 | 无需激活截图 | ✅ | ✅ | ✅ | — | ✅ | ✅ |
 | OCR | ⭕ Vision (objc2) | ❌ | ❌ | ❌ | ❌ | ✅ |
-| 视觉模型 fallback | ❌ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| 视觉模型 fallback | N/A (agent自带) | ✅ 内置 | ✅ ShowUI-2B | ❌ | ❌ | ❌ |
 | Chrome CDP | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ |
 | 坐标偏移量 | ✅ | — | ❌ | ❌ | ✅ | ❌ |
 | Auto-snapshot | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
@@ -35,7 +35,7 @@
 | Hover | ⭕ | ✅ | ❓ | ✅ | ✅ | ✅ |
 | Hold key / 修饰键 | ⭕ --shift/--cmd/--alt | ✅ | ❌ | ❌ | ✅ | ❌ |
 | Wait 条件 | ⭕ --text/--ref/--gone | ✅ | ❌ | ✅ | ❌ | ✅ |
-| 剪贴板 | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ |
+| 剪贴板 | ⭕ copy/paste | ❌ | ❌ | ✅ | ❌ | ❌ |
 
 ## 工程
 
@@ -52,4 +52,4 @@
 
 ---
 
-*Last updated: 2026-04-03 — Added: scroll, double-click, hover, drag, wait, modifiers, OCR, batch AX, 14-step click chain*
+*Last updated: 2026-04-03 — Added: scroll, double-click, hover, drag, wait, modifiers, OCR, batch AX, 14-step click chain, per-element timeout, clipboard*
