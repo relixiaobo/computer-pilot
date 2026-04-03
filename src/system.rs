@@ -103,17 +103,16 @@ JSON.stringify({ apps: apps });
 // ── AppleScript string escaping ──────────────────────────────────────────────
 
 /// Escape a string for safe embedding in an AppleScript double-quoted literal.
-/// Handles backslash, double-quote, and control characters.
+/// AppleScript doesn't support C-style escapes (\n, \t). We only escape
+/// backslash and double-quote. Control characters are stripped since AppleScript
+/// `keystroke` only handles printable text.
 fn applescript_escape(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for c in s.chars() {
         match c {
             '\\' => out.push_str("\\\\"),
             '"' => out.push_str("\\\""),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            c if c.is_control() => {} // strip other control chars
+            c if c.is_control() => {} // strip — AppleScript can't keystroke control chars
             c => out.push(c),
         }
     }

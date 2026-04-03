@@ -149,7 +149,10 @@ unsafe fn save_cgimage_as_png(image: CFTypeRef, path: &str) -> Result<(), String
         return Err("failed to create file URL".into());
     }
 
-    let png_type = cfstr("public.png").ok_or("failed to create type string")?;
+    let png_type = match cfstr("public.png") {
+        Some(t) => t,
+        None => { CFRelease(url); return Err("failed to create type string".into()); }
+    };
     let dest = CGImageDestinationCreateWithURL(url, png_type, 1, std::ptr::null());
     CFRelease(png_type);
     CFRelease(url);

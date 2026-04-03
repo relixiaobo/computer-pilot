@@ -112,8 +112,14 @@ pub fn double_click(x: f64, y: f64, mods: Modifiers) -> Result<(), String> {
         for count in [1i64, 2] {
             let down = CGEventCreateMouseEvent(std::ptr::null(), CG_EVENT_LEFT_MOUSE_DOWN, p, CG_MOUSE_BUTTON_LEFT);
             let up = CGEventCreateMouseEvent(std::ptr::null(), CG_EVENT_LEFT_MOUSE_UP, p, CG_MOUSE_BUTTON_LEFT);
-            if !down.is_null() { CGEventSetIntegerValueField(down, K_CG_MOUSE_EVENT_CLICK_STATE, count); }
-            if !up.is_null() { CGEventSetIntegerValueField(up, K_CG_MOUSE_EVENT_CLICK_STATE, count); }
+            // Validate both before posting either — prevents leaking one if the other is null
+            if down.is_null() || up.is_null() {
+                if !down.is_null() { CFRelease(down as CFTypeRef); }
+                if !up.is_null() { CFRelease(up as CFTypeRef); }
+                return Err("failed to create double-click events".into());
+            }
+            CGEventSetIntegerValueField(down, K_CG_MOUSE_EVENT_CLICK_STATE, count);
+            CGEventSetIntegerValueField(up, K_CG_MOUSE_EVENT_CLICK_STATE, count);
             post(down, mods)?;
             post(up, mods)?;
         }
@@ -172,12 +178,13 @@ pub fn drag(x1: f64, y1: f64, x2: f64, y2: f64, mods: Modifiers) -> Result<(), S
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
 
-        // Always release mouse
-        let _ = post(CGEventCreateMouseEvent(std::ptr::null(), CG_EVENT_LEFT_MOUSE_UP, to, CG_MOUSE_BUTTON_LEFT), mods);
+        // Always release mouse — surface release failure if drag succeeded
+        let release_result = post(CGEventCreateMouseEvent(std::ptr::null(), CG_EVENT_LEFT_MOUSE_UP, to, CG_MOUSE_BUTTON_LEFT), mods);
 
         if let Some(e) = drag_err {
             return Err(e);
         }
+        release_result?;
     }
     Ok(())
 }

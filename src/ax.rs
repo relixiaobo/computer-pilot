@@ -175,13 +175,20 @@ unsafe fn cfstring_to_string(cf: CFStringRef) -> Option<String> {
 /// Per-element AX IPC timeout in seconds. Prevents Chrome/Electron hangs.
 const AX_TIMEOUT_SECS: f32 = 3.0;
 
-/// Create an AXUIElement for an app with a per-element timeout set.
+/// Create an AXUIElement for an app with timeout set.
 unsafe fn create_app_element(pid: i32) -> CFTypeRef {
     let el = AXUIElementCreateApplication(pid);
     if !el.is_null() {
         AXUIElementSetMessagingTimeout(el, AX_TIMEOUT_SECS);
     }
     el
+}
+
+/// Set timeout on a window/child element (timeout may not inherit from parent).
+unsafe fn set_element_timeout(el: CFTypeRef) {
+    if !el.is_null() {
+        AXUIElementSetMessagingTimeout(el, AX_TIMEOUT_SECS);
+    }
 }
 
 /// Get a raw attribute value (+1 retained). Caller must `CFRelease`.
@@ -399,9 +406,24 @@ unsafe fn walk(
         return;
     }
 
-    // Single IPC call to read all attributes
+    // Single IPC call to read all attributes. On failure, fall back to
+    // individual reads for AXChildren so we don't lose entire subtrees.
     let values = batch_read(element, batch_keys);
     if values.is_null() {
+        // Fallback: still try to recurse into children via single read
+        if let Some(children) = ax_attr(element, "AXChildren") {
+            if CFGetTypeID(children) == CFArrayGetTypeID() {
+                let count = CFArrayGetCount(children);
+                for i in 0..count {
+                    let child = CFArrayGetValueAtIndex(children, i);
+                    if !child.is_null() {
+                        walk(child, out, counter, limit, depth + 1, depth_limited, batch_keys);
+                        if out.len() >= limit { break; }
+                    }
+                }
+            }
+            CFRelease(children);
+        }
         return;
     }
 
@@ -493,13 +515,14 @@ unsafe fn try_ax_actions(element: CFTypeRef) -> Option<&'static str> {
         CFRelease(children);
     }
 
-    // Step 7: Set AXValue (toggle checkboxes, etc.)
+    // Step 7: Toggle AXValue for checkboxes/switches
     let role = ax_string(element, "AXRole").unwrap_or_default();
-    if role == "AXCheckBox" {
-        if let Some(val_ref) = ax_attr(element, "AXValue") {
-            // Toggle: if current value is 0, set to 1; if 1, set to 0
-            CFRelease(val_ref);
-            // AXPress should have worked for checkboxes, but try AXValue as fallback
+    if role == "AXCheckBox" || role == "AXSwitch" {
+        // Try setting to 1 (checked), then 0 (unchecked) — one will be the toggle
+        if try_set_value(element, "AXValue", kCFBooleanTrue)
+            || try_set_value(element, "AXValue", kCFBooleanFalse)
+        {
+            return Some("ax-toggle");
         }
     }
 
@@ -557,6 +580,13 @@ unsafe fn try_action(element: CFTypeRef, action: &str) -> bool {
     let Some(action_str) = cfstr(action) else { return false };
     let err = AXUIElementPerformAction(element, action_str);
     CFRelease(action_str);
+    err == AX_OK
+}
+
+unsafe fn try_set_value(element: CFTypeRef, attr: &str, val: CFTypeRef) -> bool {
+    let Some(key) = cfstr(attr) else { return false };
+    let err = AXUIElementSetAttributeValue(element, key, val);
+    CFRelease(key);
     err == AX_OK
 }
 
@@ -635,6 +665,7 @@ fn resolve_ref(pid: i32, ref_id: usize, perform_actions: bool) -> Result<(bool, 
 
         let window_el = ax_attr(app_el, "AXFocusedWindow")
             .or_else(|| ax_attr(app_el, "AXMainWindow"));
+        if let Some(w) = window_el { set_element_timeout(w); }
 
         let walk_root = window_el.unwrap_or(app_el);
 
@@ -674,6 +705,7 @@ pub fn window_bounds(pid: i32) -> Option<(f64, f64, f64, f64)> {
 
         let window = ax_attr(app_el, "AXFocusedWindow")
             .or_else(|| ax_attr(app_el, "AXMainWindow"));
+        if let Some(w) = window { set_element_timeout(w); }
 
         let result = window.and_then(|w| {
             let pos = ax_position(w)?;
@@ -734,6 +766,7 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
         // Resolve the target window
         let window_el = ax_attr(app_el, "AXFocusedWindow")
             .or_else(|| ax_attr(app_el, "AXMainWindow"));
+        if let Some(w) = window_el { set_element_timeout(w); }
 
         let window_title = window_el
             .and_then(|w| ax_string(w, "AXTitle"))
@@ -743,11 +776,20 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
 
         // Walk the element tree with batch attribute reading
         let batch_keys = create_batch_keys();
+        if batch_keys.is_null() {
+            if let Some(w) = window_el { CFRelease(w); }
+            CFRelease(app_el);
+            return SnapshotResult {
+                ok: false, app: app_name.to_string(), window: window_title,
+                elements: vec![], limit, truncated: false, depth_limited: false,
+                error: Some("failed to create AX batch attribute keys".into()),
+            };
+        }
         let mut elements = Vec::new();
         let mut counter = 0usize;
         let mut depth_limited = false;
         walk(walk_root, &mut elements, &mut counter, limit, 0, &mut depth_limited, batch_keys);
-        if !batch_keys.is_null() { CFRelease(batch_keys); }
+        CFRelease(batch_keys);
 
         let truncated = elements.len() >= limit;
 

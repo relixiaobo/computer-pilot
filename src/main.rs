@@ -131,6 +131,12 @@ enum Cmd {
         y1: f64,
         x2: f64,
         y2: f64,
+        #[arg(long)]
+        shift: bool,
+        #[arg(long)]
+        cmd: bool,
+        #[arg(long)]
+        alt: bool,
     },
     /// Capture a silent screenshot (no app activation needed)
     Screenshot {
@@ -184,7 +190,10 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), String> {
         }
         Cmd::Scroll { direction, amount, x, y } => cmd_scroll(json, direction, amount, x, y),
         Cmd::Hover { x, y } => cmd_hover(json, x, y),
-        Cmd::Drag { x1, y1, x2, y2 } => cmd_drag(json, x1, y1, x2, y2),
+        Cmd::Drag { x1, y1, x2, y2, shift, cmd, alt } => {
+            let mods = mouse::Modifiers { shift, cmd, alt, ctrl: false };
+            cmd_drag(json, x1, y1, x2, y2, mods)
+        }
         Cmd::Screenshot { app, path, full } => cmd_screenshot(json, app, path, full),
         Cmd::Copy { text } => cmd_copy(json, text),
         Cmd::Paste => cmd_paste(json),
@@ -401,8 +410,8 @@ fn cmd_hover(json: bool, x: f64, y: f64) -> Result<(), String> {
     else { println!("Hover at ({x}, {y})"); Ok(()) }
 }
 
-fn cmd_drag(json: bool, x1: f64, y1: f64, x2: f64, y2: f64) -> Result<(), String> {
-    mouse::drag(x1, y1, x2, y2, mouse::Modifiers::default())?;
+fn cmd_drag(json: bool, x1: f64, y1: f64, x2: f64, y2: f64, mods: mouse::Modifiers) -> Result<(), String> {
+    mouse::drag(x1, y1, x2, y2, mods)?;
     if json { ok(serde_json::json!({"ok": true, "from": {"x": x1, "y": y1}, "to": {"x": x2, "y": y2}})) }
     else { println!("Dragged ({x1},{y1}) → ({x2},{y2})"); Ok(()) }
 }
@@ -459,7 +468,10 @@ fn cmd_copy(json: bool, text: Option<String>) -> Result<(), String> {
     if let Some(ref mut stdin) = child.stdin {
         stdin.write_all(content.as_bytes()).map_err(|e| format!("write failed: {e}"))?;
     }
-    child.wait().map_err(|e| format!("pbcopy failed: {e}"))?;
+    let status = child.wait().map_err(|e| format!("pbcopy failed: {e}"))?;
+    if !status.success() {
+        return Err(format!("pbcopy exited with code {}", status.code().unwrap_or(-1)));
+    }
 
     if json {
         ok(serde_json::json!({"ok": true, "length": content.len()}))
@@ -473,6 +485,10 @@ fn cmd_paste(json: bool) -> Result<(), String> {
     let output = std::process::Command::new("pbpaste")
         .output()
         .map_err(|e| format!("pbpaste failed: {e}"))?;
+
+    if !output.status.success() {
+        return Err(format!("pbpaste exited with code {}", output.status.code().unwrap_or(-1)));
+    }
 
     let text = String::from_utf8_lossy(&output.stdout).to_string();
 
