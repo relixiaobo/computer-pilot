@@ -1,0 +1,34 @@
+{
+  "model": "gpt-4o",
+  "passed": 0,
+  "total": 3,
+  "results": [
+    {
+      "task_id": "07709761-78b1-8043-ffb2-eebaeed08109",
+      "task": "I want to know the version of the app Voice Memos installed on my mac. Help me navigate to the page that shows this. ",
+      "status": "done",
+      "grade": false,
+      "steps": 1,
+      "input_tokens": 834,
+      "output_tokens": 4
+    },
+    {
+      "task_id": "0cbfcae1-68d0-b418-db91-19ecb98a4284",
+      "task": "Get me to the Diffusers github page. Use private browsing. ",
+      "status": "fail",
+      "grade": false,
+      "steps": 7,
+      "input_tokens": 19144,
+      "output_tokens": 58
+    },
+    {
+      "task_id": "0e224b29-14f7-3629-ee27-13a9789a997d",
+      "task": "Launch Dictionary, and open the window (usually the about window) that shows its version. ",
+      "status": "done",
+      "grade": false,
+      "steps": 1,
+      "input_tokens": 825,
+      "output_tokens": 106
+    }
+  ]
+}

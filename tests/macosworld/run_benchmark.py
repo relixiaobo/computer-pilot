@@ -20,6 +20,7 @@ Usage:
 import argparse
 import json
 import os
+import shlex
 import subprocess
 import sys
 import time
@@ -55,6 +56,14 @@ def cu_raw(args: list[str]) -> str:
             [CU] + args, capture_output=True, text=True, timeout=30
         )
         return result.stdout.strip()
+    except Exception as e:
+        return json.dumps({"ok": False, "error": str(e)})
+
+def cu_line(line: str) -> str:
+    """Run a cu command from a string line, handling quoted args properly."""
+    try:
+        parts = shlex.split(line)
+        return cu_raw(parts)
     except Exception as e:
         return json.dumps({"ok": False, "error": str(e)})
 
@@ -115,7 +124,7 @@ def _call_openai(model: str, messages: list[dict]) -> tuple[str, int, int]:
     client = openai.OpenAI()
     response = client.chat.completions.create(
         model=model,
-        max_tokens=4096,
+        max_completion_tokens=4096,
         messages=[{"role": "system", "content": SYSTEM_PROMPT}] + messages,
     )
     text = response.choices[0].message.content
@@ -158,7 +167,11 @@ Running apps:
 UI Snapshot:
 {snapshot[:3000]}
 
-What cu commands should I run? Output commands one per line. Say DONE when finished, FAIL if stuck."""
+What cu commands should I run next?
+- Output cu commands one per line
+- After commands execute, you'll see the results, then decide the next step
+- Say DONE (with NO commands) only AFTER verifying the task is complete via snapshot
+- Say FAIL (with NO commands) only if truly stuck after multiple attempts"""
 
         messages.append({"role": "user", "content": user_msg})
 
@@ -178,30 +191,33 @@ What cu commands should I run? Output commands one per line. Say DONE when finis
         if verbose:
             print(f"  Step {step}: {response[:150]}...")
 
-        # Check completion
-        if "DONE" in response:
-            status = "done"
-            break
-        if "FAIL" in response:
-            status = "fail"
-            break
-
-        # Execute cu commands
+        # Execute ALL cu commands first, THEN check DONE/FAIL
         results = []
         for line in response.split('\n'):
             line = line.strip().strip('`').strip()
             if line.startswith('cu '):
+                cmd_part = line[3:]  # Remove 'cu ' prefix
                 if verbose:
-                    print(f"    $ {line}")
-                r = cu_raw(line.split()[1:])  # Remove 'cu' prefix
-                results.append(f"$ {line}\n{r[:500]}")
+                    print(f"    $ cu {cmd_part}")
+                r = cu_line(cmd_part)
+                results.append(f"$ cu {cmd_part}\n{r[:500]}")
                 if verbose:
                     print(f"      → {r[:100]}")
+                time.sleep(0.3)
 
         if results:
             messages.append({"role": "user", "content": "Results:\n" + "\n".join(results)})
 
-        time.sleep(0.5)  # Brief pause between steps
+        # Only check DONE/FAIL when there were NO commands (pure status response)
+        if not results:
+            if "DONE" in response:
+                status = "done"
+                break
+            if "FAIL" in response:
+                status = "fail"
+                break
+
+        time.sleep(0.3)
 
     # Grade
     grade_pass = False

@@ -1,0 +1,16 @@
+{
+  "model": "claude-sonnet-4-6",
+  "passed": 0,
+  "total": 1,
+  "results": [
+    {
+      "task_id": "96786064-5d99-e102-8ec1-48024916bb85",
+      "task": "Launch the macOS counterpart of Task Manager. ",
+      "status": "error",
+      "grade": false,
+      "steps": 1,
+      "input_tokens": 0,
+      "output_tokens": 0
+    }
+  ]
+}
