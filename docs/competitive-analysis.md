@@ -7,13 +7,13 @@
 | 能力 | cu (ours) | Anthropic Computer Use | Ghost OS | agent-desktop | usecomputer | axcli |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|
 | AX Tree 快照 | ✅ | ❌ | ✅ | ✅ | ❌ | ✅ |
-| 批量 AX 属性读取 | ❌ | — | ✅ | ✅ | — | ✅ |
+| 批量 AX 属性读取 | ⭕ | — | ✅ | ✅ | — | ✅ |
 | Per-element 超时 | ❌ | — | ✅ 3s | ✅ 2s | — | ✅ |
 | Numbered refs | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ |
 | Ref 持久化 | ❌ | — | ❌ | ✅ | — | — |
 | 截图 | ✅ CGWindowList | ✅ | ✅ | ❌ | ✅ | ✅ |
 | 无需激活截图 | ✅ | ✅ | ✅ | — | ✅ | ✅ |
-| OCR | ⭕ Vision (需swiftc) | ❌ | ❌ | ❌ | ❌ | ✅ |
+| OCR | ⭕ Vision (objc2) | ❌ | ❌ | ❌ | ❌ | ✅ |
 | 视觉模型 fallback | ❌ | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Chrome CDP | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ |
 | 坐标偏移量 | ✅ | — | ❌ | ❌ | ✅ | ❌ |
@@ -26,7 +26,7 @@
 | 左键点击 | ✅ AX优先 | ✅ | ✅ | ✅ 15步 | ✅ | ✅ |
 | 右键点击 | ✅ | ✅ | ❓ | ✅ | ✅ | ❌ |
 | 双击 | ⭕ | ✅ | ❓ | ✅ | ✅ | ✅ |
-| AX 点击链 | 4步 | — | 基础 | **15步** | — | 基础 |
+| AX 点击链 | ⭕ 14步 | — | 基础 | **15步** | — | 基础 |
 | 键盘快捷键 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 布局安全 | ✅ --app | ✅ | ✅ | ❓ | ✅ | ❓ |
 | 文字输入 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -52,4 +52,4 @@
 
 ---
 
-*Last updated: 2026-04-03 — Added: scroll, double-click, hover, drag, wait, modifiers, OCR (WIP)*
+*Last updated: 2026-04-03 — Added: scroll, double-click, hover, drag, wait, modifiers, OCR, batch AX, 14-step click chain*

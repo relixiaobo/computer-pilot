@@ -11,3 +11,7 @@ path = "src/main.rs"
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = ["alloc", "NSArray", "NSDictionary", "NSString", "NSError"] }
+objc2-vision = { version = "0.3", features = ["alloc", "objc2-core-graphics", "VNRecognizeTextRequest", "VNRequestHandler", "VNRequest", "VNObservation"] }
+objc2-core-graphics = { version = "0.3", features = ["CGImage"] }

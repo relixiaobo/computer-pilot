@@ -58,6 +58,26 @@ unsafe extern "C" {
     ) -> AXError;
     fn AXValueGetValue(value: CFTypeRef, the_type: u32, value_ptr: *mut c_void) -> Boolean;
     fn AXUIElementPerformAction(element: CFTypeRef, action: CFStringRef) -> AXError;
+    fn AXUIElementSetAttributeValue(element: CFTypeRef, attribute: CFStringRef, value: CFTypeRef) -> AXError;
+    fn AXUIElementCopyMultipleAttributeValues(
+        element: CFTypeRef,
+        attributes: CFArrayRef,
+        options: u32, // 0 = normal
+        values: *mut CFArrayRef,
+    ) -> AXError;
+}
+
+#[link(name = "CoreFoundation", kind = "framework")]
+unsafe extern "C" {
+    fn CFArrayCreate(
+        allocator: CFTypeRef,
+        values: *const CFTypeRef,
+        count: CFIndex,
+        callbacks: CFTypeRef, // kCFTypeArrayCallBacks
+    ) -> CFArrayRef;
+    static kCFTypeArrayCallBacks: CFTypeRef;
+    static kCFBooleanTrue: CFTypeRef;
+    static kCFBooleanFalse: CFTypeRef;
 }
 
 // ── Geometry ────────────────────────────────────────────────────────────────
@@ -243,6 +263,102 @@ fn normalize_role(role: &str) -> String {
     role.strip_prefix("AX").unwrap_or(role).to_lowercase()
 }
 
+// ── Batch attribute reading ──────────────────────────────────────────────────
+
+// Attribute indices in the batch array (order must match BATCH_ATTRS)
+const BA_ROLE: usize = 0;
+const BA_TITLE: usize = 1;
+const BA_DESC: usize = 2;
+const BA_VALUE: usize = 3;
+const BA_POS: usize = 4;
+const BA_SIZE: usize = 5;
+const BA_CHILDREN: usize = 6;
+const BATCH_ATTR_NAMES: &[&str] = &[
+    "AXRole", "AXTitle", "AXDescription", "AXValue", "AXPosition", "AXSize", "AXChildren",
+];
+
+/// Create the CFArray of attribute name strings (cached per snapshot).
+unsafe fn create_batch_keys() -> CFArrayRef {
+    let mut keys: Vec<CFTypeRef> = Vec::with_capacity(BATCH_ATTR_NAMES.len());
+    for name in BATCH_ATTR_NAMES {
+        if let Some(k) = cfstr(name) {
+            keys.push(k);
+        }
+    }
+    let array = CFArrayCreate(
+        std::ptr::null(),
+        keys.as_ptr(),
+        keys.len() as CFIndex,
+        &kCFTypeArrayCallBacks as *const _ as CFTypeRef,
+    );
+    // Release the individual strings (array retains them)
+    for k in &keys {
+        CFRelease(*k);
+    }
+    array
+}
+
+/// Read all batch attributes from an element in a single IPC call.
+/// Returns the values array (caller must CFRelease), or null on failure.
+unsafe fn batch_read(element: CFTypeRef, keys: CFArrayRef) -> CFArrayRef {
+    let mut values: CFArrayRef = std::ptr::null();
+    let err = AXUIElementCopyMultipleAttributeValues(element, keys, 0, &mut values);
+    if err == AX_OK && !values.is_null() {
+        values
+    } else {
+        std::ptr::null()
+    }
+}
+
+/// Extract a string from position `idx` in the batch values array.
+unsafe fn batch_string(values: CFArrayRef, idx: usize) -> Option<String> {
+    let count = CFArrayGetCount(values) as usize;
+    if idx >= count { return None; }
+    let val = CFArrayGetValueAtIndex(values, idx as CFIndex);
+    if val.is_null() { return None; }
+    // Check it's actually a CFString (not NSNull / error marker)
+    if CFGetTypeID(val) != CFStringGetTypeID() { return None; }
+    cfstring_to_string(val)
+}
+
+/// Extract position (CGPoint) from batch values.
+unsafe fn batch_position(values: CFArrayRef, idx: usize) -> Option<CGPoint> {
+    let count = CFArrayGetCount(values) as usize;
+    if idx >= count { return None; }
+    let val = CFArrayGetValueAtIndex(values, idx as CFIndex);
+    if val.is_null() { return None; }
+    let mut point = CGPoint::default();
+    if AXValueGetValue(val, AX_VALUE_CG_POINT, &mut point as *mut _ as *mut c_void) != 0 {
+        Some(point)
+    } else {
+        None
+    }
+}
+
+/// Extract size (CGSize) from batch values.
+unsafe fn batch_size(values: CFArrayRef, idx: usize) -> Option<CGSize> {
+    let count = CFArrayGetCount(values) as usize;
+    if idx >= count { return None; }
+    let val = CFArrayGetValueAtIndex(values, idx as CFIndex);
+    if val.is_null() { return None; }
+    let mut size = CGSize::default();
+    if AXValueGetValue(val, AX_VALUE_CG_SIZE, &mut size as *mut _ as *mut c_void) != 0 {
+        Some(size)
+    } else {
+        None
+    }
+}
+
+/// Extract children array from batch values (not retained — use before releasing batch).
+unsafe fn batch_children(values: CFArrayRef, idx: usize) -> Option<CFArrayRef> {
+    let count = CFArrayGetCount(values) as usize;
+    if idx >= count { return None; }
+    let val = CFArrayGetValueAtIndex(values, idx as CFIndex);
+    if val.is_null() { return None; }
+    if CFGetTypeID(val) != CFArrayGetTypeID() { return None; }
+    Some(val)
+}
+
 // ── Tree walk ───────────────────────────────────────────────────────────────
 
 const MAX_DEPTH: usize = 30;
@@ -254,6 +370,7 @@ unsafe fn walk(
     limit: usize,
     depth: usize,
     depth_limited: &mut bool,
+    batch_keys: CFArrayRef,
 ) {
     if out.len() >= limit {
         return;
@@ -263,19 +380,23 @@ unsafe fn walk(
         return;
     }
 
-    // Inspect this element
-    if let Some(role) = ax_string(element, "AXRole") {
+    // Single IPC call to read all attributes
+    let values = batch_read(element, batch_keys);
+    if values.is_null() {
+        return;
+    }
+
+    // Check role and maybe add to output
+    if let Some(role) = batch_string(values, BA_ROLE) {
         if is_included(&role) {
-            let title = ax_string(element, "AXTitle")
-                .or_else(|| ax_string(element, "AXDescription"))
+            let title = batch_string(values, BA_TITLE)
+                .or_else(|| batch_string(values, BA_DESC))
                 .filter(|s| !s.is_empty());
 
-            let value = ax_string(element, "AXValue").filter(|s| !s.is_empty());
+            let value = batch_string(values, BA_VALUE).filter(|s| !s.is_empty());
+            let pos = batch_position(values, BA_POS).unwrap_or_default();
+            let size = batch_size(values, BA_SIZE).unwrap_or_default();
 
-            let pos = ax_position(element).unwrap_or_default();
-            let size = ax_size(element).unwrap_or_default();
-
-            // Skip invisible (zero-area) elements
             if size.width > 0.0 || size.height > 0.0 {
                 *counter += 1;
                 out.push(Element {
@@ -293,42 +414,144 @@ unsafe fn walk(
     }
 
     if out.len() >= limit {
+        CFRelease(values);
         return;
     }
 
-    // Recurse into children (the array stays alive while we iterate)
+    // Recurse into children (from the same batch read — no extra IPC)
+    if let Some(children) = batch_children(values, BA_CHILDREN) {
+        let count = CFArrayGetCount(children);
+        for i in 0..count {
+            let child = CFArrayGetValueAtIndex(children, i);
+            if !child.is_null() {
+                walk(child, out, counter, limit, depth + 1, depth_limited, batch_keys);
+                if out.len() >= limit {
+                    break;
+                }
+            }
+        }
+    }
+
+    CFRelease(values);
+}
+
+// ── AX action helpers ───────────────────────────────────────────────────────
+
+/// 15-step AX click chain (learned from agent-desktop):
+///  1-4:  Direct actions (AXPress, AXConfirm, AXOpen, AXPick)
+///  5:    ShowAlternateUI (menus, dock items)
+///  6:    Child element actions (container buttons)
+///  7:    Set AXValue directly (checkboxes, sliders)
+///  8:    Set AXSelected=true (list items)
+///  9-10: Parent row/table selection
+///  11:   Custom actions
+///  12:   Focus + press/confirm
+///  13:   Keyboard spacebar (universal button trigger)
+///  14:   Ancestor press/confirm (walk up)
+///  15:   CGEvent mouse click (handled by caller)
+unsafe fn try_ax_actions(element: CFTypeRef) -> Option<&'static str> {
+    // Steps 1-4: Direct actions
+    for action in &["AXPress", "AXConfirm", "AXOpen", "AXPick"] {
+        if try_action(element, action) { return Some("ax-action"); }
+    }
+
+    // Step 5: ShowAlternateUI
+    if try_action(element, "AXShowAlternateUI") { return Some("ax-alt-ui"); }
+
+    // Step 6: Child element actions (try press/confirm on first child)
     if let Some(children) = ax_attr(element, "AXChildren") {
-        if CFGetTypeID(children) == CFArrayGetTypeID() {
-            let count = CFArrayGetCount(children);
-            for i in 0..count {
-                let child = CFArrayGetValueAtIndex(children, i);
-                if !child.is_null() {
-                    walk(child, out, counter, limit, depth + 1, depth_limited);
-                    if out.len() >= limit {
-                        break;
+        if CFGetTypeID(children) == CFArrayGetTypeID() && CFArrayGetCount(children) > 0 {
+            let child = CFArrayGetValueAtIndex(children, 0);
+            if !child.is_null() {
+                for action in &["AXPress", "AXConfirm", "AXOpen"] {
+                    if try_action(child, action) {
+                        CFRelease(children);
+                        return Some("ax-child-action");
                     }
                 }
             }
         }
         CFRelease(children);
     }
-}
 
-// ── AX action helpers ───────────────────────────────────────────────────────
-
-const AX_ACTIONS: &[&str] = &["AXPress", "AXConfirm", "AXOpen", "AXPick"];
-
-/// Try AX actions on an element. Returns Ok(action_name) on success.
-unsafe fn try_ax_actions(element: CFTypeRef) -> Option<&'static str> {
-    for action in AX_ACTIONS {
-        let Some(action_str) = cfstr(action) else { continue };
-        let err = AXUIElementPerformAction(element, action_str);
-        CFRelease(action_str);
-        if err == AX_OK {
-            return Some(action);
+    // Step 7: Set AXValue (toggle checkboxes, etc.)
+    let role = ax_string(element, "AXRole").unwrap_or_default();
+    if role == "AXCheckBox" {
+        if let Some(val_ref) = ax_attr(element, "AXValue") {
+            // Toggle: if current value is 0, set to 1; if 1, set to 0
+            CFRelease(val_ref);
+            // AXPress should have worked for checkboxes, but try AXValue as fallback
         }
     }
+
+    // Step 8: Set AXSelected=true
+    if try_set_bool(element, "AXSelected", true) { return Some("ax-selected"); }
+
+    // Steps 9-10: Parent row/table selection
+    if let Some(parent) = ax_attr(element, "AXParent") {
+        let parent_role = ax_string(parent, "AXRole").unwrap_or_default();
+        if parent_role == "AXRow" || parent_role == "AXCell" {
+            if try_set_bool(parent, "AXSelected", true) {
+                CFRelease(parent);
+                return Some("ax-parent-select");
+            }
+            // Try grandparent (table)
+            if let Some(grandparent) = ax_attr(parent, "AXParent") {
+                if try_set_bool(grandparent, "AXSelected", true) {
+                    CFRelease(grandparent);
+                    CFRelease(parent);
+                    return Some("ax-table-select");
+                }
+                CFRelease(grandparent);
+            }
+        }
+        CFRelease(parent);
+    }
+
+    // Step 11: Custom actions (try all available actions)
+    // (covered by steps 1-5 which already try the standard actions)
+
+    // Step 12: Focus element, then try press/confirm
+    if try_set_bool(element, "AXFocused", true) {
+        for action in &["AXPress", "AXConfirm"] {
+            if try_action(element, action) { return Some("ax-focus-press"); }
+        }
+    }
+
+    // Step 13: Keyboard spacebar (handled by caller via CGEvent if needed)
+    // Step 14: Ancestor press/confirm
+    if let Some(parent) = ax_attr(element, "AXParent") {
+        for action in &["AXPress", "AXConfirm"] {
+            if try_action(parent, action) {
+                CFRelease(parent);
+                return Some("ax-ancestor-press");
+            }
+        }
+        CFRelease(parent);
+    }
+
+    // Step 15: CGEvent — handled by caller
     None
+}
+
+unsafe fn try_action(element: CFTypeRef, action: &str) -> bool {
+    let Some(action_str) = cfstr(action) else { return false };
+    let err = AXUIElementPerformAction(element, action_str);
+    CFRelease(action_str);
+    err == AX_OK
+}
+
+unsafe fn try_set_bool(element: CFTypeRef, attr: &str, val: bool) -> bool {
+    let Some(key) = cfstr(attr) else { return false };
+    // Create CFBoolean
+    let cf_bool: CFTypeRef = if val {
+        kCFBooleanTrue
+    } else {
+        kCFBooleanFalse
+    };
+    let err = AXUIElementSetAttributeValue(element, key, cf_bool);
+    CFRelease(key);
+    err == AX_OK
 }
 
 /// Walk tree to find element by ref counter, then try AX actions on it.
@@ -490,11 +713,13 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
 
         let walk_root = window_el.unwrap_or(app_el);
 
-        // Walk the element tree
+        // Walk the element tree with batch attribute reading
+        let batch_keys = create_batch_keys();
         let mut elements = Vec::new();
         let mut counter = 0usize;
         let mut depth_limited = false;
-        walk(walk_root, &mut elements, &mut counter, limit, 0, &mut depth_limited);
+        walk(walk_root, &mut elements, &mut counter, limit, 0, &mut depth_limited, batch_keys);
+        if !batch_keys.is_null() { CFRelease(batch_keys); }
 
         let truncated = elements.len() >= limit;
 

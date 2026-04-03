@@ -1,10 +1,24 @@
-//! OCR via macOS Vision framework.
-//! Uses a tiny Swift helper that gets compiled once and cached.
+//! OCR via macOS Vision framework using objc2 Rust bindings.
+//! Zero external runtime dependencies — uses built-in on-device text recognition.
+#![allow(unsafe_op_in_unsafe_fn)]
 
 use crate::screenshot;
+use objc2::rc::Retained;
+use objc2::AllocAnyThread;
+use objc2_core_graphics::CGImage;
+use objc2_foundation::{NSArray, NSDictionary};
+use objc2_vision::{
+    VNImageRequestHandler, VNRecognizeTextRequest, VNRequest, VNRequestTextRecognitionLevel,
+};
 use serde::Serialize;
-use std::process::{Command, Stdio};
-use std::path::PathBuf;
+use std::ffi::c_void;
+
+type CFTypeRef = *const c_void;
+
+#[link(name = "CoreFoundation", kind = "framework")]
+unsafe extern "C" {
+    fn CFRelease(cf: CFTypeRef);
+}
 
 #[derive(Serialize)]
 pub struct OcrResult {
@@ -24,139 +38,75 @@ pub struct OcrText {
     pub height: f64,
 }
 
-const SWIFT_OCR_SRC: &str = r#"
-import Vision
-import Foundation
-import ImageIO
-
-guard CommandLine.arguments.count > 1 else { print("[]"); exit(0) }
-let path = CommandLine.arguments[1]
-let url = URL(fileURLWithPath: path)
-guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-      let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
-    print("[]"); exit(0)
-}
-
-let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-let request = VNRecognizeTextRequest()
-request.recognitionLevel = .accurate
-
-try? handler.perform([request])
-
-var output: [[String: Any]] = []
-for obs in (request.results ?? []) {
-    guard let candidate = obs.topCandidates(1).first else { continue }
-    let b = obs.boundingBox
-    output.append([
-        "t": candidate.string,
-        "c": Double(candidate.confidence),
-        "x": b.origin.x, "y": b.origin.y,
-        "w": b.width, "h": b.height
-    ])
-}
-
-let data = try! JSONSerialization.data(withJSONObject: output)
-print(String(data: data, encoding: .utf8)!)
-"#;
-
-fn ocr_binary_path() -> PathBuf {
-    let dir = std::env::temp_dir().join("cu-ocr-helper");
-    let _ = std::fs::create_dir_all(&dir);
-    dir.join("ocr")
-}
-
-fn ensure_ocr_binary() -> Result<PathBuf, String> {
-    let bin = ocr_binary_path();
-    if bin.exists() {
-        return Ok(bin);
-    }
-
-    let src = bin.with_extension("swift");
-    std::fs::write(&src, SWIFT_OCR_SRC).map_err(|e| format!("failed to write OCR helper: {e}"))?;
-
-    let output = Command::new("xcrun")
-        .args([
-            "swiftc",
-            "-O",
-            "-o", bin.to_str().unwrap(),
-            src.to_str().unwrap(),
-        ])
-        .stderr(Stdio::piped())
-        .output()
-        .map_err(|e| format!("swiftc failed: {e}"))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("swiftc compilation failed: {}", stderr.trim()));
-    }
-
-    Ok(bin)
-}
-
 pub fn recognize(pid: i32) -> OcrResult {
     let win = match screenshot::find_window(pid) {
         Some(w) => w,
         None => return err("no on-screen window found"),
     };
 
-    let tmp_img = format!("/tmp/cu-ocr-{}.png", std::process::id());
-    if let Err(e) = screenshot::capture_window(win.window_id, &tmp_img) {
-        return err(&format!("capture failed: {e}"));
+    let cg_image = screenshot::capture_window_raw(win.window_id);
+    if cg_image.is_null() {
+        return err("failed to capture window image");
     }
 
-    let bin = match ensure_ocr_binary() {
-        Ok(b) => b,
-        Err(e) => {
-            let _ = std::fs::remove_file(&tmp_img);
-            return err(&e);
-        }
-    };
+    let result = unsafe { run_ocr(cg_image, &win) };
+    unsafe { CFRelease(cg_image); }
+    result
+}
 
-    let output = Command::new(&bin)
-        .arg(&tmp_img)
-        .stdin(Stdio::null())
-        .stderr(Stdio::piped())
-        .stdout(Stdio::piped())
-        .output();
+unsafe fn run_ocr(cg_image: CFTypeRef, win: &screenshot::WindowInfo) -> OcrResult {
+    // Cast CGImageRef (raw pointer) to objc2's CGImage reference
+    let image_ref: &CGImage = &*(cg_image as *const CGImage);
 
-    let _ = std::fs::remove_file(&tmp_img);
+    // Create handler from CGImage
+    let options: Retained<NSDictionary<objc2_foundation::NSString, objc2::runtime::AnyObject>> =
+        NSDictionary::new();
+    let handler = VNImageRequestHandler::initWithCGImage_options(
+        <VNImageRequestHandler as AllocAnyThread>::alloc(),
+        image_ref,
+        &options,
+    );
 
-    let output = match output {
-        Ok(o) => o,
-        Err(e) => return err(&format!("OCR helper failed: {e}")),
-    };
+    // Create text recognition request
+    let request = VNRecognizeTextRequest::init(<VNRecognizeTextRequest as AllocAnyThread>::alloc());
+    request.setRecognitionLevel(VNRequestTextRecognitionLevel::Accurate);
 
-    if !output.status.success() {
-        return err(&format!(
-            "OCR failed: {}",
-            String::from_utf8_lossy(&output.stderr).trim()
-        ));
+    // Perform
+    let request_as_base: Retained<VNRequest> = Retained::cast_unchecked(request.clone());
+    let requests = NSArray::from_retained_slice(&[request_as_base]);
+
+    if let Err(e) = handler.performRequests_error(&requests) {
+        return err(&format!("OCR failed: {}", e));
     }
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let parsed: Vec<serde_json::Value> = match serde_json::from_str(stdout.trim()) {
-        Ok(v) => v,
-        Err(e) => return err(&format!("parse error: {e}")),
-    };
+    // Extract results
+    let mut texts = Vec::new();
+    if let Some(observations) = request.results() {
+        for obs in observations.iter() {
+            let candidates = obs.topCandidates(1);
+            let count = candidates.count();
+            if count == 0 { continue; }
 
-    let texts = parsed
-        .iter()
-        .map(|item| {
-            let nx = item["x"].as_f64().unwrap_or(0.0);
-            let ny = item["y"].as_f64().unwrap_or(0.0);
-            let nw = item["w"].as_f64().unwrap_or(0.0);
-            let nh = item["h"].as_f64().unwrap_or(0.0);
+            let candidate = candidates.objectAtIndex(0);
+            let text = candidate.string().to_string();
+            let confidence = candidate.confidence() as f64;
 
-            OcrText {
-                text: item["t"].as_str().unwrap_or("").to_string(),
-                confidence: item["c"].as_f64().unwrap_or(0.0),
+            let bbox = obs.boundingBox();
+            let nx = bbox.origin.x;
+            let ny = bbox.origin.y;
+            let nw = bbox.size.width;
+            let nh = bbox.size.height;
+
+            texts.push(OcrText {
+                text,
+                confidence,
                 x: (win.x + nx * win.width).round(),
                 y: (win.y + (1.0 - ny - nh) * win.height).round(),
                 width: (nw * win.width).round(),
                 height: (nh * win.height).round(),
-            }
-        })
-        .collect();
+            });
+        }
+    }
 
     OcrResult { ok: true, texts, error: None }
 }
