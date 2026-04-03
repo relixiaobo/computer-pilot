@@ -277,14 +277,20 @@ const BATCH_ATTR_NAMES: &[&str] = &[
     "AXRole", "AXTitle", "AXDescription", "AXValue", "AXPosition", "AXSize", "AXChildren",
 ];
 
-/// Create the CFArray of attribute name strings (cached per snapshot).
+/// Create the CFArray of attribute name strings. Returns null on failure.
 unsafe fn create_batch_keys() -> CFArrayRef {
     let mut keys: Vec<CFTypeRef> = Vec::with_capacity(BATCH_ATTR_NAMES.len());
     for name in BATCH_ATTR_NAMES {
-        if let Some(k) = cfstr(name) {
-            keys.push(k);
+        match cfstr(name) {
+            Some(k) => keys.push(k),
+            None => {
+                // Allocation failed — release what we have and bail
+                for k in &keys { CFRelease(*k); }
+                return std::ptr::null();
+            }
         }
     }
+    assert_eq!(keys.len(), BATCH_ATTR_NAMES.len(), "batch key count mismatch");
     let array = CFArrayCreate(
         std::ptr::null(),
         keys.as_ptr(),
@@ -554,19 +560,19 @@ unsafe fn try_set_bool(element: CFTypeRef, attr: &str, val: bool) -> bool {
     err == AX_OK
 }
 
-/// Walk tree to find element by ref counter, then try AX actions on it.
-/// Returns (found, action_performed, x_center, y_center).
-unsafe fn find_and_act(
+/// Walk tree to find element by ref. If `perform_actions` is true, tries AX actions.
+/// Returns (action_performed, x_center, y_center).
+unsafe fn find_element_by_ref(
     element: CFTypeRef,
     target_ref: usize,
     counter: &mut usize,
     depth: usize,
+    perform_actions: bool,
 ) -> Option<(bool, f64, f64)> {
     if depth > MAX_DEPTH {
         return None;
     }
 
-    // Check this element's role
     if let Some(role) = ax_string(element, "AXRole") {
         if is_included(&role) {
             let size = ax_size(element).unwrap_or_default();
@@ -576,23 +582,24 @@ unsafe fn find_and_act(
                     let pos = ax_position(element).unwrap_or_default();
                     let cx = pos.x + size.width / 2.0;
                     let cy = pos.y + size.height / 2.0;
-
-                    // Try AX actions first
-                    let acted = try_ax_actions(element).is_some();
+                    let acted = if perform_actions {
+                        try_ax_actions(element).is_some()
+                    } else {
+                        false
+                    };
                     return Some((acted, cx, cy));
                 }
             }
         }
     }
 
-    // Recurse into children
     if let Some(children) = ax_attr(element, "AXChildren") {
         if CFGetTypeID(children) == CFArrayGetTypeID() {
             let count = CFArrayGetCount(children);
             for i in 0..count {
                 let child = CFArrayGetValueAtIndex(children, i);
                 if !child.is_null() {
-                    if let Some(result) = find_and_act(child, target_ref, counter, depth + 1) {
+                    if let Some(result) = find_element_by_ref(child, target_ref, counter, depth + 1, perform_actions) {
                         CFRelease(children);
                         return Some(result);
                     }
@@ -606,9 +613,7 @@ unsafe fn find_and_act(
 
 // ── Public API ──────────────────────────────────────────────────────────────
 
-/// Click an element by ref: try AX actions first, return center coords for CGEvent fallback.
-/// Returns Ok((ax_action_succeeded, center_x, center_y)) or Err.
-pub fn ax_click(pid: i32, ref_id: usize, _limit: usize) -> Result<(bool, f64, f64), String> {
+fn resolve_ref(pid: i32, ref_id: usize, perform_actions: bool) -> Result<(bool, f64, f64), String> {
     unsafe {
         let app_el = AXUIElementCreateApplication(pid);
         if app_el.is_null() {
@@ -621,7 +626,7 @@ pub fn ax_click(pid: i32, ref_id: usize, _limit: usize) -> Result<(bool, f64, f6
         let walk_root = window_el.unwrap_or(app_el);
 
         let mut counter = 0usize;
-        let result = find_and_act(walk_root, ref_id, &mut counter, 0);
+        let result = find_element_by_ref(walk_root, ref_id, &mut counter, 0, perform_actions);
 
         if let Some(w) = window_el {
             CFRelease(w);
@@ -633,6 +638,16 @@ pub fn ax_click(pid: i32, ref_id: usize, _limit: usize) -> Result<(bool, f64, f6
             None => Err(format!("element [{}] not found in AX tree (scanned {} elements)", ref_id, counter)),
         }
     }
+}
+
+/// Find element by ref and try AX actions. Returns (ax_acted, center_x, center_y).
+pub fn ax_click(pid: i32, ref_id: usize, _limit: usize) -> Result<(bool, f64, f64), String> {
+    resolve_ref(pid, ref_id, true)
+}
+
+/// Find element by ref — coordinate lookup only, no AX actions triggered.
+pub fn ax_find_element(pid: i32, ref_id: usize, _limit: usize) -> Result<(bool, f64, f64), String> {
+    resolve_ref(pid, ref_id, false)
 }
 
 /// Get the frontmost window bounds (x, y, width, height) for an app.

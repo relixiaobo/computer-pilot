@@ -196,7 +196,10 @@ pub fn find_window(pid: i32) -> Option<WindowInfo> {
         let count = CFArrayGetCount(list);
         let mut result = None;
 
-        let bounds_key = cfstr("kCGWindowBounds")?;
+        let bounds_key = match cfstr("kCGWindowBounds") {
+            Some(k) => k,
+            None => { CFRelease(list); return None; }
+        };
 
         for i in 0..count {
             let w = CFArrayGetValueAtIndex(list, i);

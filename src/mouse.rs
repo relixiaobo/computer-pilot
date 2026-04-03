@@ -147,6 +147,7 @@ pub fn hover(x: f64, y: f64) -> Result<(), String> {
 }
 
 /// Drag from (x1,y1) to (x2,y2) with smooth interpolation.
+/// Guarantees mouseUp even if intermediate steps fail.
 pub fn drag(x1: f64, y1: f64, x2: f64, y2: f64, mods: Modifiers) -> Result<(), String> {
     let from = pt(x1, y1)?;
     let to = pt(x2, y2)?;
@@ -155,6 +156,8 @@ pub fn drag(x1: f64, y1: f64, x2: f64, y2: f64, mods: Modifiers) -> Result<(), S
         post(CGEventCreateMouseEvent(std::ptr::null(), CG_EVENT_LEFT_MOUSE_DOWN, from, CG_MOUSE_BUTTON_LEFT), mods)?;
         std::thread::sleep(std::time::Duration::from_millis(30));
 
+        // Drag steps — if any fail, still release the mouse
+        let mut drag_err = None;
         let steps = 10;
         for i in 1..=steps {
             let t = i as f64 / steps as f64;
@@ -162,11 +165,19 @@ pub fn drag(x1: f64, y1: f64, x2: f64, y2: f64, mods: Modifiers) -> Result<(), S
                 x: from.x + (to.x - from.x) * t,
                 y: from.y + (to.y - from.y) * t,
             };
-            post(CGEventCreateMouseEvent(std::ptr::null(), CG_EVENT_LEFT_MOUSE_DRAGGED, mid, CG_MOUSE_BUTTON_LEFT), mods)?;
+            if let Err(e) = post(CGEventCreateMouseEvent(std::ptr::null(), CG_EVENT_LEFT_MOUSE_DRAGGED, mid, CG_MOUSE_BUTTON_LEFT), mods) {
+                drag_err = Some(e);
+                break;
+            }
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
 
-        post(CGEventCreateMouseEvent(std::ptr::null(), CG_EVENT_LEFT_MOUSE_UP, to, CG_MOUSE_BUTTON_LEFT), mods)?;
+        // Always release mouse
+        let _ = post(CGEventCreateMouseEvent(std::ptr::null(), CG_EVENT_LEFT_MOUSE_UP, to, CG_MOUSE_BUTTON_LEFT), mods);
+
+        if let Some(e) = drag_err {
+            return Err(e);
+        }
     }
     Ok(())
 }

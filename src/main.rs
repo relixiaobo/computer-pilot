@@ -106,17 +106,17 @@ enum Cmd {
         #[arg(long)]
         no_snapshot: bool,
     },
-    /// Scroll at coordinates or current mouse position
+    /// Scroll at coordinates (required — specify --x and --y)
     Scroll {
         /// Direction: up, down, left, right
         direction: String,
         /// Number of lines to scroll (default: 3)
         #[arg(default_value = "3")]
         amount: i32,
-        /// X coordinate (optional, defaults to current position)
+        /// X coordinate to scroll at
         #[arg(long)]
         x: Option<f64>,
-        /// Y coordinate (optional, defaults to current position)
+        /// Y coordinate to scroll at
         #[arg(long)]
         y: Option<f64>,
     },
@@ -271,7 +271,7 @@ fn cmd_wait(json: bool, text: Option<String>, ref_id: Option<usize>, gone: Optio
         } else {
             eprintln!("Timeout after {}ms", result.elapsed_ms);
         }
-        return Err("wait timed out".into());
+        std::process::exit(1);
     }
 
     if json {
@@ -344,16 +344,26 @@ fn cmd_click(json: bool, target: String, y: Option<String>, app: Option<String>,
     if ref_id == 0 { return Err("ref must be >= 1".into()); }
 
     let (pid, name) = system::resolve_target_app(&app)?;
-    let (ax_acted, cx, cy) = ax::ax_click(pid, ref_id, limit)?;
 
-    let method = if double {
-        mouse::double_click(cx, cy, mods)?;
-        "double-click"
-    } else if right || !ax_acted {
-        mouse::click(cx, cy, right, mods)?;
-        if right { "cgevent-right" } else { "cgevent" }
+    // Right-click and double-click: only resolve coords, don't trigger AX actions.
+    let (method, cx, cy) = if right || double {
+        let (_, cx, cy) = ax::ax_find_element(pid, ref_id, limit)?;
+        if double {
+            mouse::double_click(cx, cy, mods)?;
+            ("double-click", cx, cy)
+        } else {
+            mouse::click(cx, cy, true, mods)?;
+            ("cgevent-right", cx, cy)
+        }
     } else {
-        "ax-action"
+        // Normal left-click: try AX actions first, CGEvent fallback
+        let (ax_acted, cx, cy) = ax::ax_click(pid, ref_id, limit)?;
+        if !ax_acted {
+            mouse::click(cx, cy, false, mods)?;
+            ("cgevent", cx, cy)
+        } else {
+            ("ax-action", cx, cy)
+        }
     };
 
     let mut result = serde_json::json!({"ok": true, "ref": ref_id, "app": name, "method": method, "x": cx, "y": cy});
@@ -369,8 +379,8 @@ fn cmd_scroll(json: bool, direction: String, amount: i32, x: Option<f64>, y: Opt
         "right" => (amount, 0),
         other => return Err(format!("unknown direction: {other} (use: up, down, left, right)")),
     };
-    let sx = x.unwrap_or(500.0);
-    let sy = y.unwrap_or(400.0);
+    let sx = x.ok_or("--x is required for scroll")?;
+    let sy = y.ok_or("--y is required for scroll")?;
     mouse::scroll(sx, sy, dy, dx)?;
     if json { ok(serde_json::json!({"ok": true, "direction": direction, "amount": amount, "x": sx, "y": sy})) }
     else { println!("Scrolled {direction} {amount} at ({sx}, {sy})"); Ok(()) }

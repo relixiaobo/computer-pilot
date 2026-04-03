@@ -27,41 +27,44 @@ pub fn wait_for(
     timeout_ms: u64,
     limit: usize,
 ) -> Result<WaitResult, String> {
-    let deadline = Instant::now() + Duration::from_millis(timeout_ms);
+    let start = Instant::now();
+    let deadline = start + Duration::from_millis(timeout_ms);
+
+    // Resolve target app once at start to prevent drift on focus changes
+    let (pid, name) = system::resolve_target_app(app)?;
 
     loop {
-        let (pid, name) = system::resolve_target_app(app)?;
         let snap = ax::snapshot(pid, &name, limit);
 
         if !snap.ok {
             return Err(snap.error.unwrap_or_else(|| "snapshot failed".into()));
         }
 
+        // For ref-based waits on truncated snapshots, warn that results may be unreliable
         let met = match condition {
             Condition::Text(text) => snap.elements.iter().any(|el| {
                 el.title.as_deref().is_some_and(|t| t.contains(text.as_str()))
                     || el.value.as_deref().is_some_and(|v| v.contains(text.as_str()))
             }),
             Condition::Ref(ref_id) => snap.elements.iter().any(|el| el.ref_id == *ref_id),
-            Condition::Gone(ref_id) => !snap.elements.iter().any(|el| el.ref_id == *ref_id),
+            Condition::Gone(ref_id) => {
+                // If snapshot is truncated, we can't be sure the element is truly gone
+                if snap.truncated {
+                    false // Keep waiting — don't falsely report "gone"
+                } else {
+                    !snap.elements.iter().any(|el| el.ref_id == *ref_id)
+                }
+            }
         };
 
-        let elapsed = Instant::now().duration_since(deadline - Duration::from_millis(timeout_ms));
+        let elapsed = start.elapsed().as_millis() as u64;
 
         if met {
-            return Ok(WaitResult {
-                met: true,
-                elapsed_ms: elapsed.as_millis() as u64,
-                snapshot: snap,
-            });
+            return Ok(WaitResult { met: true, elapsed_ms: elapsed, snapshot: snap });
         }
 
         if Instant::now() >= deadline {
-            return Ok(WaitResult {
-                met: false,
-                elapsed_ms: timeout_ms,
-                snapshot: snap,
-            });
+            return Ok(WaitResult { met: false, elapsed_ms: timeout_ms, snapshot: snap });
         }
 
         std::thread::sleep(Duration::from_millis(POLL_INTERVAL_MS));

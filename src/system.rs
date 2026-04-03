@@ -100,12 +100,32 @@ JSON.stringify({ apps: apps });
     run_jxa(script)
 }
 
+// ── AppleScript string escaping ──────────────────────────────────────────────
+
+/// Escape a string for safe embedding in an AppleScript double-quoted literal.
+/// Handles backslash, double-quote, and control characters.
+fn applescript_escape(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '\\' => out.push_str("\\\\"),
+            '"' => out.push_str("\\\""),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if c.is_control() => {} // strip other control chars
+            c => out.push(c),
+        }
+    }
+    out
+}
+
 // ── System Events (type text / send key to specific app) ────────────────────
 
 pub fn type_text(text: &str, app: Option<&str>) -> Result<(), String> {
-    let escaped = text.replace('\\', "\\\\").replace('"', "\\\"");
+    let escaped = applescript_escape(text);
     let script = if let Some(app_name) = app {
-        let escaped_app = app_name.replace('\\', "\\\\").replace('"', "\\\"");
+        let escaped_app = applescript_escape(app_name);
         format!(
             "tell application \"{escaped_app}\" to activate\ndelay 0.3\n\
              tell application \"System Events\" to keystroke \"{escaped}\""
@@ -162,7 +182,7 @@ pub fn send_key(combo: &str, app: &str) -> Result<(), String> {
         format!(" using {{{}}}", modifiers.join(", "))
     };
 
-    let escaped_app = app.replace('\\', "\\\\").replace('"', "\\\"");
+    let escaped_app = applescript_escape(app);
     let script = format!(
         "tell application \"{escaped_app}\" to activate\ndelay 0.3\n\
          tell application \"System Events\" to {key_clause}{using_clause}"
