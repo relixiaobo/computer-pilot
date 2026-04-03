@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-macOS desktop automation CLI (`cu`). Architecture: **TypeScript CLI** → **Rust native helper** (one-shot child process, JSON over stdout).
+macOS desktop automation CLI (`cu`). Single Rust binary, zero runtime dependencies.
 
 ## Quick Reference
 
@@ -19,10 +19,12 @@ Single Rust binary (`cu`). No TypeScript, no Node.js, no IPC.
 ```
 src/main.rs        → CLI entry (clap), command routing, output formatting
 src/ax.rs          → AX tree walker + AX actions (macOS Accessibility FFI)
-src/click.rs       → Mouse click (CGEvent FFI)
+src/mouse.rs       → Mouse operations (CGEvent FFI): click, scroll, hover, drag
 src/key.rs         → Keyboard events (CGEvent FFI)
 src/screenshot.rs  → Window capture (CGWindowListCreateImage + ImageIO)
+src/ocr.rs         → OCR (macOS Vision framework via objc2)
 src/system.rs      → App resolution, permissions, System Events (osascript bridge)
+src/wait.rs        → UI condition polling
 ```
 
 ## Design Rules
@@ -83,7 +85,7 @@ Current state: click only uses CGEvent. **TODO**: Implement the AX action chain 
 ### 9. Rust FFI conventions
 
 - Rust 2024 edition: use `unsafe extern "C"` blocks.
-- Use `#![allow(unsafe_op_in_unsafe_fn)]` at the top of FFI-heavy modules (ax.rs, click.rs, key.rs).
+- Use `#![allow(unsafe_op_in_unsafe_fn)]` at the top of FFI-heavy modules (ax.rs, mouse.rs, key.rs, screenshot.rs, ocr.rs).
 - `cfstr()` returns `Option<CFStringRef>` — always handle null.
 - All `AXUIElementCopyAttributeValue` results are +1 retained — caller must `CFRelease`.
 - `CFArrayGetValueAtIndex` returns non-retained refs — keep the array alive while using them.

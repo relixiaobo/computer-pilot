@@ -20,11 +20,11 @@ cu ocr Finder
 | Dependencies | **zero** | Python | zero |
 | Perception | AX tree + OCR + screenshot | screenshot only | AX tree only |
 | Token cost | **text-first** (~50 tokens/element) | ~1400 tokens/screenshot | text-first |
+| Commands | **12** | 7 | ~50 |
 
 ## Install
 
 ```bash
-# From source
 git clone https://github.com/anthropics/computer-pilot.git
 cd computer-pilot
 cargo build --release
@@ -62,9 +62,9 @@ cu ocr "Google Chrome"
 cu wait --text "Submit" --app Safari --timeout 10
 ```
 
-## Commands
+## Commands (12)
 
-### Perception
+### Observe
 
 | Command | Description |
 |---------|-------------|
@@ -74,70 +74,30 @@ cu wait --text "Submit" --app Safari --timeout 10
 | `cu wait --text/--ref/--gone` | Poll until UI condition is met |
 | `cu apps` | List running applications |
 
-### Actions
+### Act
 
 | Command | Description |
 |---------|-------------|
 | `cu click <ref\|x y>` | Click (14-step AX chain, CGEvent fallback) |
-| `cu click <ref> --right` | Right-click |
-| `cu click <ref> --double-click` | Double-click |
-| `cu click <ref> --shift` | Shift+click (also `--cmd`, `--alt`) |
+| `cu click <ref> --right/--double-click/--shift` | Right-click, double-click, modifier keys |
+| `cu key <combo> [--app]` | Keyboard shortcut (e.g., cmd+c, enter) |
+| `cu type <text> [--app]` | Type text (Unicode supported) |
 | `cu scroll <dir> <n> --x X --y Y` | Scroll up/down/left/right |
 | `cu hover <x> <y>` | Move mouse (trigger tooltips) |
 | `cu drag <x1> <y1> <x2> <y2>` | Drag with smooth interpolation |
-
-### Input
-
-| Command | Description |
-|---------|-------------|
-| `cu key <combo>` | Keyboard shortcut (e.g., `cmd+c`, `enter`, `cmd+shift+s`) |
-| `cu type <text>` | Type text (Unicode supported) |
-| `cu key <combo> --app <name>` | Send to specific app via System Events |
 
 ### System
 
 | Command | Description |
 |---------|-------------|
-| `cu setup` | Check Accessibility + Screen Recording permissions |
-| `cu status` | Check helper status |
-| `cu copy <text>` | Copy to clipboard |
-| `cu paste` | Read clipboard |
+| `cu setup` | Check permissions, version, and guide authorization |
 
 ## Output Modes
 
-- **Human-readable** (TTY or `--human`): concise text output
+- **Human-readable** (TTY or `--human`): concise text
 - **JSON** (piped/non-TTY): structured JSON for AI agents
 
-```bash
-# Human
-cu --human snapshot Finder --limit 3
-# [app] Finder — "Downloads"
-# [1] row "" (325,239 139x19)
-# [2] cell "" (335,239 119x19)
-# [3] statictext "Favorites" (340,238 121x21)
-
-# JSON (auto when piped)
-cu snapshot Finder --limit 3 | jq .
-# {"ok":true,"app":"Finder","window":"Downloads","elements":[...],...}
-```
-
-## Auto-Snapshot
-
-Action commands (`click`, `key`, `type`) automatically return a fresh snapshot in JSON mode, so the agent always knows the updated UI state:
-
-```json
-{
-  "ok": true,
-  "combo": "cmd+t",
-  "snapshot": {
-    "ok": true,
-    "app": "Google Chrome",
-    "elements": [...]
-  }
-}
-```
-
-Opt out with `--no-snapshot`.
+Action commands (`click`, `key`, `type`) auto-return a fresh snapshot in JSON mode. Opt out with `--no-snapshot`.
 
 ## Perception Tiers
 
@@ -145,36 +105,28 @@ Opt out with `--no-snapshot`.
 |------|---------|-------------|------------|
 | 1 | `cu snapshot` | Default — native macOS apps, Chrome | Lowest |
 | 2 | `cu ocr` | Apps with poor AX (games, Qt, Java) | Low |
-| 3 | `cu screenshot` | Agent uses its own vision to look at the image | Highest |
+| 3 | `cu screenshot` | Agent uses its own vision to analyze | Highest |
 
 ## Architecture
 
 ```
 src/
   main.rs        CLI routing (clap), output formatting
-  ax.rs          AX tree walker, batch reads, 14-step click chain
-  mouse.rs       CGEvent mouse: click, scroll, hover, drag, modifiers
-  key.rs         CGEvent keyboard events + keycode mapping
+  ax.rs          AX tree: batch reads, 14-step click chain, 3s timeout
+  mouse.rs       CGEvent: click, scroll, hover, drag, modifiers
+  key.rs         CGEvent keyboard + keycode mapping
   screenshot.rs  CGWindowListCreateImage + ImageIO PNG
   ocr.rs         Vision framework OCR via objc2
   system.rs      App resolution, permissions, System Events bridge
   wait.rs        Condition polling
 ```
 
-- **Pure Rust** — single binary, no Node.js/Python/Swift
-- **macOS FFI** — direct calls to AX, CGEvent, CoreGraphics, Vision, ImageIO
-- **3 crate deps** — clap, serde, serde_json (+ objc2 for OCR)
-- **3s per-element AX timeout** — prevents Chrome/Electron hangs
-- **Batch AX reads** — `AXUIElementCopyMultipleAttributeValues` for 3-5x faster snapshots
-
 ## Permissions
 
-`cu` requires two macOS permissions:
+`cu` requires two macOS permissions (run `cu setup` to check):
 
-1. **Accessibility** — for AX tree reading and input synthesis
-2. **Screen Recording** — for screenshot and OCR
-
-Run `cu setup` to check and guide authorization.
+1. **Accessibility** — AX tree reading and input synthesis
+2. **Screen Recording** — screenshot and OCR
 
 ## License
 

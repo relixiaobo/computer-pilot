@@ -35,7 +35,7 @@
 | Hover | ⭕ | ✅ | ❓ | ✅ | ✅ | ✅ |
 | Hold key / 修饰键 | ⭕ --shift/--cmd/--alt | ✅ | ❌ | ❌ | ✅ | ❌ |
 | Wait 条件 | ⭕ --text/--ref/--gone | ✅ | ❌ | ✅ | ❌ | ✅ |
-| 剪贴板 | ⭕ copy/paste | ❌ | ❌ | ✅ | ❌ | ❌ |
+| 剪贴板 | ✅ pbcopy/pbpaste | ❌ | ❌ | ✅ | ❌ | ❌ |
 
 ## 工程
 
