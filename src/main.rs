@@ -15,9 +15,30 @@ const POST_ACTION_DELAY_MS: u64 = 500;
 // ── CLI definition ──────────────────────────────────────────────────────────
 
 #[derive(Parser)]
-#[command(name = "cu", version = VERSION, about = "Control your desktop from the command line")]
+#[command(
+    name = "cu",
+    version = VERSION,
+    about = "macOS desktop automation CLI for AI agents",
+    long_about = "macOS desktop automation CLI for AI agents.\n\n\
+        WORKFLOW: observe → act → verify\n\
+        1. cu apps                        — see what's running\n\
+        2. cu snapshot [app] --limit 30   — get UI elements with [ref] numbers\n\
+        3. cu click <ref> --app <name>    — click element by ref\n\
+        4. cu snapshot [app]              — verify result\n\n\
+        PERCEPTION TIERS (cheapest first):\n\
+        • cu snapshot  — AX tree: element refs, roles, positions (lowest tokens)\n\
+        • cu ocr       — Vision OCR: text + screen coordinates (for non-AX apps)\n\
+        • cu screenshot — image file (use your own vision to analyze)\n\n\
+        TIPS FOR AI AGENTS:\n\
+        • Always use --app to target a specific app (avoids focus issues)\n\
+        • Refs are ephemeral — they change after every action, always re-snapshot\n\
+        • Open apps via Spotlight: cu key cmd+space, cu type 'AppName', cu key enter\n\
+        • Access menus: cu key cmd+shift+/ to open Help menu search\n\
+        • About window: click app name in menu bar → About <AppName>\n\
+        • JSON output (when piped) includes auto-snapshot after actions"
+)]
 struct Cli {
-    /// Force human-readable output
+    /// Force human-readable output (default: JSON when piped, human when TTY)
     #[arg(long)]
     human: bool,
 
@@ -27,71 +48,137 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Cmd {
-    /// Check permissions and guide setup
+    /// Check Accessibility + Screen Recording permissions and guide setup
+    #[command(after_help = "Run this first on a new machine. Both permissions are required.")]
     Setup,
-    /// Check status
+
+    /// Check cu status and version
     Status,
-    /// List running applications
+
+    /// List running applications with name, PID, and scriptable status
+    #[command(after_help = "Example: cu apps\n  *S Finder (pid 572)     ← * = active, S = scriptable")]
     Apps,
-    /// AX tree snapshot with [ref] numbers
+
+    /// Get UI elements with [ref] numbers (AX tree snapshot)
+    #[command(after_help = "\
+        Examples:\n  \
+        cu snapshot Finder --limit 30\n  \
+        cu snapshot \"Google Chrome\" --limit 50\n  \
+        cu snapshot   # frontmost app\n\n\
+        Output: elements with ref, role, title, value, x, y, width, height.\n\
+        Use ref numbers with 'cu click <ref>' to interact with elements.")]
     Snapshot {
-        /// Application name (default: frontmost)
+        /// Application name (default: frontmost app)
         app: Option<String>,
+        /// Max elements to return
         #[arg(long, default_value = "50")]
         limit: usize,
     },
-    /// Type text into the focused element
+
+    /// Type text into the focused element (Unicode supported)
+    #[command(after_help = "\
+        Examples:\n  \
+        cu type 'hello world' --app TextEdit\n  \
+        cu type 'https://example.com' --app 'Google Chrome'")]
     Type {
+        /// Text to type
         text: String,
+        /// Target app (activates it first, types via System Events)
         #[arg(long)]
         app: Option<String>,
+        /// Skip auto-snapshot in JSON output
         #[arg(long)]
         no_snapshot: bool,
     },
-    /// Send a keyboard shortcut (e.g., enter, cmd+c, cmd+shift+s)
+
+    /// Send a keyboard shortcut
+    #[command(after_help = "\
+        Examples:\n  \
+        cu key cmd+c --app 'Google Chrome'    # copy\n  \
+        cu key cmd+shift+n --app 'Google Chrome'  # new incognito\n  \
+        cu key cmd+space                      # open Spotlight\n  \
+        cu key enter --app Safari             # confirm\n  \
+        cu key cmd+, --app Finder             # open Preferences\n  \
+        cu key escape                         # cancel/close\n\n\
+        Modifiers: cmd, shift, ctrl, alt (option)\n\
+        Keys: a-z, 0-9, enter, tab, space, escape, delete, up/down/left/right, f1-f12")]
     Key {
+        /// Key combination (e.g., cmd+c, enter, cmd+shift+s)
         combo: String,
+        /// Target app (activates it, sends via System Events for reliability)
         #[arg(long)]
         app: Option<String>,
+        /// Skip auto-snapshot in JSON output
         #[arg(long)]
         no_snapshot: bool,
     },
-    /// Wait for a UI condition (text appears, element exists/gone)
+
+    /// Wait for a UI condition by polling the AX tree
+    #[command(after_help = "\
+        Examples:\n  \
+        cu wait --text 'Submit' --app Safari --timeout 10\n  \
+        cu wait --gone 5 --app Finder --timeout 5\n  \
+        cu wait --ref 3 --app Contacts --timeout 10\n\n\
+        Polls every 500ms. Returns snapshot when condition is met.")]
     Wait {
-        /// Wait for text in any element
+        /// Wait until any element contains this text (in title or value)
         #[arg(long)]
         text: Option<String>,
-        /// Wait for element ref to exist
+        /// Wait until element with this ref exists
         #[arg(long, name = "ref")]
         ref_id: Option<usize>,
-        /// Wait for element ref to disappear
+        /// Wait until element with this ref disappears
         #[arg(long)]
         gone: Option<usize>,
+        /// Target app (resolved once, prevents drift)
         #[arg(long)]
         app: Option<String>,
-        /// Timeout in seconds (default: 10)
+        /// Timeout in seconds
         #[arg(long, default_value = "10")]
         timeout: u64,
+        /// Max elements per snapshot
         #[arg(long, default_value = "200")]
         limit: usize,
     },
+
     /// OCR — recognize text on screen via macOS Vision framework
+    #[command(after_help = "\
+        Examples:\n  \
+        cu ocr Finder\n  \
+        cu ocr 'Google Chrome'\n\n\
+        Returns text with screen coordinates and confidence scores.\n\
+        Use for apps with poor AX support (games, Qt, Java apps).")]
     Ocr {
         /// Application name (default: frontmost)
         app: Option<String>,
     },
-    /// Click an element by ref or screen coordinates
+
+    /// Click an element by ref (AX action first) or screen coordinates
+    #[command(after_help = "\
+        Examples:\n  \
+        cu click 3 --app Finder                # click ref [3]\n  \
+        cu click 3 --app Finder --right        # right-click\n  \
+        cu click 3 --app Finder --double-click # double-click\n  \
+        cu click 3 --app Finder --shift        # shift+click\n  \
+        cu click 500 300                       # click coordinates\n  \
+        cu click 500 300 --right               # right-click coordinates\n\n\
+        Ref mode tries AX actions (AXPress/AXConfirm) first, falls back to CGEvent.\n\
+        Always use --app for reliability. Refs come from 'cu snapshot'.")]
     Click {
         /// Element ref number, or x coordinate
         target: String,
-        /// Y coordinate (when target is x)
+        /// Y coordinate (only when target is x coordinate)
         y: Option<String>,
+        /// Target application
         #[arg(long)]
         app: Option<String>,
+        /// Max elements to scan in ref mode
         #[arg(long, default_value = "200")]
         limit: usize,
+        /// Right-click instead of left-click
         #[arg(long)]
         right: bool,
+        /// Double-click
         #[arg(long, name = "double")]
         double_click: bool,
         /// Hold shift during click
@@ -103,56 +190,88 @@ enum Cmd {
         /// Hold alt/option during click
         #[arg(long)]
         alt: bool,
+        /// Skip auto-snapshot in JSON output
         #[arg(long)]
         no_snapshot: bool,
     },
-    /// Scroll at coordinates (required — specify --x and --y)
+
+    /// Scroll at a position (specify --x and --y)
+    #[command(after_help = "\
+        Examples:\n  \
+        cu scroll down 5 --x 400 --y 300\n  \
+        cu scroll up 3 --x 400 --y 300\n  \
+        cu scroll left 2 --x 400 --y 300\n\n\
+        Directions: up, down, left, right. Amount = number of lines.")]
     Scroll {
         /// Direction: up, down, left, right
         direction: String,
-        /// Number of lines to scroll (default: 3)
+        /// Number of lines to scroll
         #[arg(default_value = "3")]
         amount: i32,
-        /// X coordinate to scroll at
+        /// X coordinate
         #[arg(long)]
         x: Option<f64>,
-        /// Y coordinate to scroll at
+        /// Y coordinate
         #[arg(long)]
         y: Option<f64>,
     },
-    /// Move mouse to coordinates (hover / trigger tooltips)
+
+    /// Move mouse to coordinates (trigger tooltips, hover menus)
+    #[command(after_help = "Example: cu hover 500 300")]
     Hover {
         x: f64,
         y: f64,
     },
-    /// Drag from one position to another
+
+    /// Drag from (x1,y1) to (x2,y2) with smooth interpolation
+    #[command(after_help = "\
+        Examples:\n  \
+        cu drag 100 200 400 200             # drag right\n  \
+        cu drag 100 200 400 200 --shift     # shift+drag (extend selection)\n  \
+        cu drag 100 200 400 200 --alt       # option+drag (copy on macOS)")]
     Drag {
         x1: f64,
         y1: f64,
         x2: f64,
         y2: f64,
+        /// Hold shift during drag
         #[arg(long)]
         shift: bool,
+        /// Hold cmd during drag
         #[arg(long)]
         cmd: bool,
+        /// Hold alt/option during drag
         #[arg(long)]
         alt: bool,
     },
-    /// Capture a silent screenshot (no app activation needed)
+
+    /// Capture window screenshot (silent, no app activation needed)
+    #[command(after_help = "\
+        Examples:\n  \
+        cu screenshot 'Google Chrome' --path /tmp/chrome.png\n  \
+        cu screenshot --full --path /tmp/screen.png\n\n\
+        Window mode returns offset_x/offset_y for coordinate translation:\n  \
+        screen_coord = image_pixel + offset")]
     Screenshot {
         /// Application name (default: frontmost)
         app: Option<String>,
+        /// Output file path (default: /tmp/cu-screenshot-<ts>.png)
         #[arg(long)]
         path: Option<String>,
+        /// Capture full screen instead of single window
         #[arg(long)]
         full: bool,
     },
+
     /// Copy text to system clipboard
+    #[command(after_help = "Examples:\n  cu copy 'hello'\n  echo 'hello' | cu copy")]
     Copy {
         /// Text to copy (reads from stdin if omitted)
         text: Option<String>,
     },
+
     /// Read system clipboard contents
+    #[command(after_help = "Example: cu paste")]
     Paste,
 }
 
