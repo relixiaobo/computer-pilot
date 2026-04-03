@@ -31,9 +31,7 @@ cu click 4 --app Finder
 ### Option A: Download binary (Apple Silicon)
 
 ```bash
-curl -L https://github.com/relixiaobo/computer-pilot/releases/latest/download/cu-arm64 -o /usr/local/bin/cu
-chmod +x /usr/local/bin/cu
-cu setup   # grant Accessibility + Screen Recording
+sudo curl -Lo /usr/local/bin/cu https://github.com/relixiaobo/computer-pilot/releases/latest/download/cu-arm64 && sudo chmod +x /usr/local/bin/cu && cu setup
 ```
 
 ### Option B: Build from source
