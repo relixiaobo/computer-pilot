@@ -1,16 +1,14 @@
 {
   "name": "computer-pilot-marketplace",
-  "version": "1.0.0",
-  "description": "Marketplace for computer-pilot — macOS desktop automation plugin",
+  "owner": {
+    "name": "computer-pilot"
+  },
   "plugins": [
     {
       "name": "computer-pilot-plugin",
-      "version": "0.1.0",
+      "source": "./plugin",
       "description": "Control the macOS desktop via CLI — snapshot UI elements, click, type, keyboard shortcuts, screenshot, OCR",
-      "source": {
-        "type": "npm",
-        "package": "computer-pilot-plugin"
-      }
+      "version": "0.1.0"
     }
   ]
 }
