@@ -80,8 +80,8 @@ run_test "scroll" "Scroll at coordinates" \
 run_test "hover" "Hover at coordinates" \
   "$CU hover 400 400 | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d[\"ok\"]'"
 
-run_test "clipboard" "Copy and paste" \
-  "$CU copy 'test-cu-clip' && $CU paste | python3 -c 'import sys,json; d=json.load(sys.stdin); assert \"test-cu-clip\" in d[\"text\"]'"
+run_test "clipboard" "Copy and paste via key+pbpaste" \
+  "echo -n 'test-cu-clip' | pbcopy && pbpaste | grep -q 'test-cu-clip'"
 
 echo ""
 echo "--- Error handling ---"

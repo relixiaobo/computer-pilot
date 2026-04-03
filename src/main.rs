@@ -48,12 +48,9 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Cmd {
-    /// Check Accessibility + Screen Recording permissions and guide setup
+    /// Check permissions, status, and version
     #[command(after_help = "Run this first on a new machine. Both permissions are required.")]
     Setup,
-
-    /// Check cu status and version
-    Status,
 
     /// List running applications with name, PID, and scriptable status
     #[command(after_help = "Example: cu apps\n  *S Finder (pid 572)     ← * = active, S = scriptable")]
@@ -263,16 +260,6 @@ enum Cmd {
         full: bool,
     },
 
-    /// Copy text to system clipboard
-    #[command(after_help = "Examples:\n  cu copy 'hello'\n  echo 'hello' | cu copy")]
-    Copy {
-        /// Text to copy (reads from stdin if omitted)
-        text: Option<String>,
-    },
-
-    /// Read system clipboard contents
-    #[command(after_help = "Example: cu paste")]
-    Paste,
 }
 
 // ── Main ────────────────────────────────────────────────────────────────────
@@ -294,7 +281,6 @@ fn main() {
 fn dispatch(cmd: Cmd, json: bool) -> Result<(), String> {
     match cmd {
         Cmd::Setup => cmd_setup(json),
-        Cmd::Status => cmd_status(json),
         Cmd::Apps => cmd_apps(json),
         Cmd::Snapshot { app, limit } => cmd_snapshot(json, app, limit),
         Cmd::Wait { text, ref_id, gone, app, timeout, limit } => {
@@ -314,8 +300,6 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), String> {
             cmd_drag(json, x1, y1, x2, y2, mods)
         }
         Cmd::Screenshot { app, path, full } => cmd_screenshot(json, app, path, full),
-        Cmd::Copy { text } => cmd_copy(json, text),
-        Cmd::Paste => cmd_paste(json),
     }
 }
 
@@ -324,23 +308,28 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), String> {
 fn cmd_setup(json: bool) -> Result<(), String> {
     let ax = system::check_accessibility();
     let sr = system::check_screen_recording();
+    let ready = ax && sr;
 
     if json {
-        return ok(serde_json::json!({"ok": true, "accessibility": ax, "screen_recording": sr, "ready": ax && sr}));
+        return ok(serde_json::json!({
+            "ok": true, "version": VERSION, "platform": "macos",
+            "accessibility": ax, "screen_recording": sr, "ready": ready
+        }));
     }
 
+    println!("cu v{VERSION} — macOS desktop automation");
     println!("Accessibility:    {}", if ax { "granted" } else { "NOT GRANTED" });
     println!("Screen Recording: {}", if sr { "granted" } else { "NOT GRANTED" });
     println!();
 
-    if ax && sr {
-        println!("All permissions OK. computer-pilot is ready to use.");
+    if ready {
+        println!("All permissions OK. Ready to use.");
     } else {
         if !ax {
             println!("Accessibility is required for snapshot, click, key, and type.\n→ System Settings → Privacy & Security → Accessibility\n");
         }
         if !sr {
-            println!("Screen Recording is required for screenshot.\n→ System Settings → Privacy & Security → Screen Recording\n");
+            println!("Screen Recording is required for screenshot and OCR.\n→ System Settings → Privacy & Security → Screen Recording\n");
         }
         println!("Add your terminal app, then re-run: cu setup");
         let pane = if !ax { "Privacy_Accessibility" } else { "Privacy_ScreenCapture" };
@@ -349,15 +338,6 @@ fn cmd_setup(json: bool) -> Result<(), String> {
             .spawn();
     }
     Ok(())
-}
-
-fn cmd_status(json: bool) -> Result<(), String> {
-    if json {
-        ok(serde_json::json!({"ok": true, "platform": "macos", "version": VERSION}))
-    } else {
-        println!("computer-pilot: ok\nplatform: macos\nversion: {VERSION}");
-        Ok(())
-    }
 }
 
 fn cmd_apps(json: bool) -> Result<(), String> {
@@ -565,59 +545,6 @@ fn cmd_screenshot(json: bool, app: Option<String>, path: Option<String>, full: b
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
-
-fn cmd_copy(json: bool, text: Option<String>) -> Result<(), String> {
-    let content = match text {
-        Some(t) => t,
-        None => {
-            // Read from stdin
-            use std::io::Read;
-            let mut buf = String::new();
-            std::io::stdin().read_to_string(&mut buf).map_err(|e| format!("stdin read failed: {e}"))?;
-            buf
-        }
-    };
-
-    let mut child = std::process::Command::new("pbcopy")
-        .stdin(std::process::Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("pbcopy failed: {e}"))?;
-
-    use std::io::Write;
-    if let Some(ref mut stdin) = child.stdin {
-        stdin.write_all(content.as_bytes()).map_err(|e| format!("write failed: {e}"))?;
-    }
-    let status = child.wait().map_err(|e| format!("pbcopy failed: {e}"))?;
-    if !status.success() {
-        return Err(format!("pbcopy exited with code {}", status.code().unwrap_or(-1)));
-    }
-
-    if json {
-        ok(serde_json::json!({"ok": true, "length": content.len()}))
-    } else {
-        println!("Copied {} bytes to clipboard", content.len());
-        Ok(())
-    }
-}
-
-fn cmd_paste(json: bool) -> Result<(), String> {
-    let output = std::process::Command::new("pbpaste")
-        .output()
-        .map_err(|e| format!("pbpaste failed: {e}"))?;
-
-    if !output.status.success() {
-        return Err(format!("pbpaste exited with code {}", output.status.code().unwrap_or(-1)));
-    }
-
-    let text = String::from_utf8_lossy(&output.stdout).to_string();
-
-    if json {
-        ok(serde_json::json!({"ok": true, "text": text}))
-    } else {
-        print!("{text}");
-        Ok(())
-    }
-}
 
 fn ok(value: serde_json::Value) -> Result<(), String> {
     emit(&value);
