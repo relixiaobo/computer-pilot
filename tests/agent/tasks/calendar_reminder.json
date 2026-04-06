@@ -1,0 +1,27 @@
+{
+  "id": "calendar-reminder",
+  "name": "Create calendar event from reminder",
+  "goal": "Read the reminder named 'Agent Test Task' from Reminders app, then create a calendar event in Calendar app with that exact name as the event title, scheduled for tomorrow at 10:00 AM.",
+  "setup": [
+    ["cu", "tell", "Reminders", "make new reminder with properties {name:\"Agent Test Task\", body:\"Test reminder for agent\"}"]
+  ],
+  "verify": [
+    {
+      "description": "Calendar event exists with reminder name",
+      "command": ["cu", "tell", "Calendar", "get summary of last event of first calendar"],
+      "expect_contains": "Agent Test Task"
+    },
+    {
+      "description": "Event title matches reminder name (cross-check)",
+      "cross_check": {
+        "source_command": ["cu", "tell", "Reminders", "get name of reminder \"Agent Test Task\""],
+        "target_command": ["cu", "tell", "Calendar", "get summary of last event of first calendar"],
+        "description": "Calendar event title must match the reminder name"
+      }
+    }
+  ],
+  "cleanup": [
+    ["cu", "tell", "Calendar", "try\ndelete last event of first calendar\nend try"],
+    ["cu", "tell", "Reminders", "try\ndelete reminder \"Agent Test Task\"\nend try"]
+  ]
+}

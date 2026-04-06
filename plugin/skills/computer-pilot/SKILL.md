@@ -2,30 +2,136 @@
 name: computer-pilot
 description: >
   Control the macOS desktop via the `cu` CLI tool. Use when the user needs to
-  interact with desktop applications — open apps, click buttons, fill forms,
-  navigate menus, take screenshots, or read screen content. Works with any
-  macOS app via the Accessibility API. Activate this skill whenever a task
-  involves desktop automation, app control, GUI interaction, or any operation
-  outside the terminal and web browser.
+  interact with desktop applications — open apps, read/write app data, click
+  buttons, fill forms, navigate menus, take screenshots, or read screen content.
+  Three-tier control: AppleScript (scriptable apps) → AX tree + CGEvent
+  (non-scriptable) → OCR + screenshot (fallback). Activate this skill whenever
+  a task involves desktop automation, app control, GUI interaction, or any
+  operation outside the terminal and web browser.
 ---
 
 # Computer Pilot
 
-Control macOS desktop applications via bash commands. Uses the Accessibility
-API for precise element targeting — no coordinate guessing needed.
+Control macOS desktop applications via the `cu` CLI. Three tiers of control:
+1. **AppleScript** (`cu tell`) — direct app data access for scriptable apps (fastest, most reliable)
+2. **AX tree** (`cu snapshot` + `cu click`) — UI element automation for any app
+3. **OCR/Screenshot** — visual fallback for apps with poor AX support
 
 ## Prerequisites
 
-- `cu` binary must be installed (Rust, single binary, zero dependencies)
-- Run `cu setup` to check Accessibility + Screen Recording permissions
+- `cu` binary must be installed (Rust, single binary)
+- Run `cu setup` to check Accessibility + Screen Recording + Automation permissions
 
-## Core Workflow: Observe → Act → Verify
+## Choose the Right Approach
 
 ```bash
-cu apps                              # 1. see what's running
-cu snapshot "App Name" --limit 30    # 2. get UI elements with [ref] numbers
-cu click 3 --app "App Name"          # 3. interact by ref
-cu snapshot "App Name" --limit 30    # 4. verify result
+cu apps                              # S flag = scriptable → use cu tell
+```
+
+**Scriptable app (has S flag)?** → Use `cu tell` with AppleScript. Faster, more reliable, reads/writes app data directly.
+
+**Non-scriptable app?** → Use AX tree workflow: `cu snapshot` → `cu click` → `cu snapshot`.
+
+## Scripting Workflow (preferred for scriptable apps)
+
+```bash
+cu apps                                          # 1. check S flag
+cu sdef "App Name"                               # 2. discover available properties/commands
+cu tell "App Name" 'get name of every calendar'  # 3. read/write data via AppleScript
+```
+
+### Examples
+
+```bash
+# Read data
+cu tell Safari 'get URL of current tab of front window'
+cu tell Finder 'get name of every item of front Finder window'
+cu tell Notes 'get plaintext of note 1'
+cu tell Reminders 'get name of every reminder whose completed is false'
+cu tell "System Events" 'get dark mode of appearance preferences'
+
+# Mail — read emails (use specific mailbox for speed, "inbox" is slow on large mailboxes)
+cu tell Mail 'get subject of message 1 of inbox'
+cu tell Mail 'get content of message 1 of inbox'                        # email body text
+cu tell Mail 'get {subject, sender, date received} of messages 1 thru 5 of inbox'
+cu tell Mail 'get content of message 1 of mailbox "INBOX" of account 1' # faster on large mailboxes
+
+# Calendar — multi-line scripts work (passed via stdin)
+cu tell Calendar 'set d to (current date) + (1 * days)
+set hours of d to 10
+set minutes of d to 0
+set seconds of d to 0
+make new event at end of events of first calendar with properties {summary:"Meeting", start date:d, end date:d + (1 * hours)}'
+
+# Write data
+cu tell Notes 'make new note with properties {name:"Title", body:"Content"}'
+cu tell Reminders 'make new reminder with properties {name:"Buy milk"}'
+
+# System control
+cu tell "System Events" 'set dark mode of appearance preferences to true'
+```
+
+## AX Tree Workflow (for non-scriptable apps)
+
+For apps WITHOUT the `S` flag in `cu apps`: go straight to UI automation. Do NOT try `cu tell` — it will waste steps.
+
+```bash
+cu snapshot "App Name" --limit 50    # 1. get UI elements with [ref] numbers
+cu click 3 --app "App Name"          # 2. interact by ref
+cu snapshot "App Name" --limit 50    # 3. verify result, get new refs
+cu click 7 --app "App Name"          # 4. next action with updated refs
+```
+
+### Example: Calculator (not scriptable)
+```bash
+cu snapshot Calculator --limit 30    # See: [6] button "All Clear", [18] button "1", etc.
+cu click 6 --app Calculator          # Clear
+cu click 18 --app Calculator         # Press "1"
+cu click 16 --app Calculator         # Press "6"
+cu click 22 --app Calculator         # Press "0"
+cu click 13 --app Calculator         # Press "Multiply"
+cu click 12 --app Calculator         # Press "9"
+cu click 24 --app Calculator         # Press "Equals"
+# For scientific calculator: View menu → Scientific (or cmd+2)
+cu key cmd+2 --app Calculator        # Switch to scientific mode
+cu snapshot Calculator --limit 50    # Now shows sin, cos, tan, etc.
+```
+
+### Text-based click (for UI not in AX tree)
+When elements don't appear in `cu snapshot`, use OCR text click:
+```bash
+cu click --text "Edit Widgets" --app "System Settings"    # finds text via OCR, clicks it
+cu click --text "Submit" --app Safari --index 2            # click 2nd match
+```
+
+## Common Patterns
+
+### Launch any app
+```bash
+cu key cmd+space                     # Spotlight
+cu type "App Name"                   # search
+cu key enter                         # launch
+cu wait --text "AppName" --timeout 5 # wait for it
+```
+
+### Open "About" window
+```bash
+# Most apps: click app name in menu bar → About
+cu snapshot "App Name" --limit 30    # find menu bar items
+cu click <menu-ref> --app "App Name" # click app menu
+cu snapshot "App Name" --limit 30    # find "About" item
+cu click <about-ref> --app "App Name"
+# Or try keyboard: cmd+shift+/ → type "About"
+```
+
+### Navigate System Settings
+```bash
+cu key cmd+space
+cu type "System Settings"
+cu key enter
+cu wait --text "Settings" --timeout 5
+cu snapshot "System Settings" --limit 100
+# Click the setting category, then adjust
 ```
 
 ## Understanding Snapshots
@@ -45,14 +151,20 @@ Use the `[ref]` number with `cu click <ref>` to interact.
 
 ## Commands
 
+### Scripting (for scriptable apps — check S flag in `cu apps`)
+| Command | Description |
+|---------|-------------|
+| `cu tell <app> '<AppleScript>'` | Run AppleScript against app (read/write data) |
+| `cu sdef <app>` | Show app's scripting dictionary (classes, properties, commands) |
+
 ### Observe
 | Command | Description |
 |---------|-------------|
-| `cu snapshot [app] --limit N` | AX tree with [ref] numbers (cheapest) |
+| `cu apps` | List running apps (`S` = scriptable, with class count) |
+| `cu snapshot [app] --limit N` | AX tree with [ref] numbers |
 | `cu ocr [app]` | Vision OCR text recognition (for non-AX apps) |
 | `cu screenshot [app] --path file.png` | Window capture (for visual analysis) |
 | `cu wait --text "X" --app Name --timeout 10` | Poll until text/element appears |
-| `cu apps` | List running applications |
 
 ### Act
 | Command | Description |
@@ -63,7 +175,7 @@ Use the `[ref]` number with `cu click <ref>` to interact.
 | `cu click <ref> --shift` | Shift+click (extend selection) |
 | `cu click <x> <y>` | Click screen coordinates |
 | `cu key <combo> --app Name` | Keyboard shortcut |
-| `cu type "text" --app Name` | Type text (Unicode supported) |
+| `cu type "text" --app Name` | Type text (clipboard paste, safe with any IME) |
 | `cu scroll down 5 --x 400 --y 300` | Scroll |
 | `cu hover <x> <y>` | Move mouse (tooltips) |
 | `cu drag <x1> <y1> <x2> <y2>` | Drag |

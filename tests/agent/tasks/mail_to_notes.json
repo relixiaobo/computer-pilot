@@ -1,0 +1,31 @@
+{
+  "id": "mail-to-notes",
+  "name": "Read emails and create summary note",
+  "goal": "Read the 3 most recent emails from Mail (including their actual content), summarize them, and create a note in Notes app titled 'Agent Test - Mail Summary' with the summary. The summary must reference specific details from the actual email content (sender names, amounts, dates, etc.), not just subjects.",
+  "setup": [
+    ["cu", "tell", "Notes", "try\ndelete note \"Agent Test - Mail Summary\"\nend try"]
+  ],
+  "verify": [
+    {
+      "description": "Note exists with correct title",
+      "command": ["cu", "tell", "Notes", "get name of note \"Agent Test - Mail Summary\""],
+      "expect_contains": "Agent Test - Mail Summary"
+    },
+    {
+      "description": "Note contains actual email details (subject from message 1)",
+      "cross_check": {
+        "source_command": ["cu", "tell", "Mail", "get subject of message 1 of mailbox \"INBOX\" of account 1"],
+        "target_command": ["cu", "tell", "Notes", "get plaintext of note \"Agent Test - Mail Summary\""],
+        "description": "Note must contain the actual subject of the first email"
+      }
+    },
+    {
+      "description": "Note is not empty / not just subjects",
+      "command": ["cu", "tell", "Notes", "get plaintext of note \"Agent Test - Mail Summary\""],
+      "expect_min_length": 100
+    }
+  ],
+  "cleanup": [
+    ["cu", "tell", "Notes", "try\ndelete note \"Agent Test - Mail Summary\"\nend try"]
+  ]
+}

@@ -3,6 +3,7 @@ mod key;
 mod mouse;
 mod ocr;
 mod screenshot;
+mod sdef;
 mod system;
 mod wait;
 
@@ -20,21 +21,22 @@ const POST_ACTION_DELAY_MS: u64 = 500;
     version = VERSION,
     about = "macOS desktop automation CLI for AI agents",
     long_about = "macOS desktop automation CLI for AI agents.\n\n\
-        WORKFLOW: observe → act → verify\n\
-        1. cu apps                        — see what's running\n\
-        2. cu snapshot [app] --limit 30   — get UI elements with [ref] numbers\n\
-        3. cu click <ref> --app <name>    — click element by ref\n\
-        4. cu snapshot [app]              — verify result\n\n\
-        PERCEPTION TIERS (cheapest first):\n\
-        • cu snapshot  — AX tree: element refs, roles, positions (lowest tokens)\n\
-        • cu ocr       — Vision OCR: text + screen coordinates (for non-AX apps)\n\
-        • cu screenshot — image file (use your own vision to analyze)\n\n\
+        THREE-TIER CONTROL:\n\
+        1. AppleScript (scriptable apps) — cu tell / cu sdef\n\
+        2. AX tree + CGEvent (any app)   — cu snapshot / cu click\n\
+        3. OCR + screenshot (fallback)   — cu ocr / cu screenshot\n\n\
+        WORKFLOW FOR SCRIPTABLE APPS (check S flag in cu apps):\n\
+        1. cu apps                         — see what's running (S = scriptable)\n\
+        2. cu sdef <app>                   — discover scripting dictionary\n\
+        3. cu tell <app> '<AppleScript>'   — read/write app data directly\n\n\
+        WORKFLOW FOR NON-SCRIPTABLE APPS:\n\
+        1. cu snapshot [app] --limit 30    — get UI elements with [ref] numbers\n\
+        2. cu click <ref> --app <name>     — click element by ref\n\
+        3. cu snapshot [app]               — verify result\n\n\
         TIPS FOR AI AGENTS:\n\
+        • Prefer cu tell for scriptable apps — faster, more reliable, direct data access\n\
         • Always use --app to target a specific app (avoids focus issues)\n\
         • Refs are ephemeral — they change after every action, always re-snapshot\n\
-        • Open apps via Spotlight: cu key cmd+space, cu type 'AppName', cu key enter\n\
-        • Access menus: cu key cmd+shift+/ to open Help menu search\n\
-        • About window: click app name in menu bar → About <AppName>\n\
         • JSON output (when piped) includes auto-snapshot after actions"
 )]
 struct Cli {
@@ -150,22 +152,28 @@ enum Cmd {
         app: Option<String>,
     },
 
-    /// Click an element by ref (AX action first) or screen coordinates
+    /// Click by ref, coordinates, or on-screen text (OCR)
     #[command(after_help = "\
-        Examples:\n  \
-        cu click 3 --app Finder                # click ref [3]\n  \
-        cu click 3 --app Finder --right        # right-click\n  \
-        cu click 3 --app Finder --double-click # double-click\n  \
-        cu click 3 --app Finder --shift        # shift+click\n  \
-        cu click 500 300                       # click coordinates\n  \
-        cu click 500 300 --right               # right-click coordinates\n\n\
-        Ref mode tries AX actions (AXPress/AXConfirm) first, falls back to CGEvent.\n\
+        Three ways to click:\n  \
+        cu click 3 --app Finder                # by ref (from cu snapshot)\n  \
+        cu click 500 300                       # by coordinates\n  \
+        cu click --text 'Submit' --app Safari  # by OCR text (finds text on screen)\n\n\
+        Text mode (--text) uses OCR to find the text, then clicks its center.\n\
+        Works for UI elements not in the AX tree (Notification Center, system panels).\n\
+        Use --index N to click the Nth match (default: first).\n\n\
+        Ref mode tries AX actions first, falls back to CGEvent.\n\
         Always use --app for reliability. Refs come from 'cu snapshot'.")]
     Click {
         /// Element ref number, or x coordinate
-        target: String,
+        target: Option<String>,
         /// Y coordinate (only when target is x coordinate)
         y: Option<String>,
+        /// Find and click on-screen text via OCR
+        #[arg(long)]
+        text: Option<String>,
+        /// Which match to click when using --text (default: 1 = first)
+        #[arg(long, default_value = "1")]
+        index: usize,
         /// Target application
         #[arg(long)]
         app: Option<String>,
@@ -260,6 +268,50 @@ enum Cmd {
         full: bool,
     },
 
+    /// Show an app's scripting dictionary (classes, commands, properties)
+    #[command(after_help = "\
+        Reads the app's sdef file and returns a structured summary of its\n\
+        scripting capabilities: classes (with properties), commands, and elements.\n\
+        Use this to discover what `cu tell` expressions are possible.\n\n\
+        Examples:\n  \
+        cu sdef Safari                  # full dictionary\n  \
+        cu sdef Calendar                # calendar scripting API\n  \
+        cu sdef Finder                  # file management API\n  \
+        cu sdef \"System Events\"         # system controls\n\n\
+        Workflow: cu apps → cu sdef <app> → cu tell <app> '<expression>'")]
+    Sdef {
+        /// Application name
+        app: String,
+    },
+
+    /// Execute AppleScript against a scriptable app
+    #[command(after_help = "\
+        Run AppleScript in the context of a target application.\n\
+        The expression is auto-wrapped in `tell application \"<app>\" ... end tell`.\n\n\
+        Examples:\n  \
+        cu tell Safari 'get URL of current tab of front window'\n  \
+        cu tell Finder 'get name of every item of front window'\n  \
+        cu tell Calendar 'get name of every calendar'\n  \
+        cu tell Music 'get name of current track'\n  \
+        cu tell \"System Events\" 'get dark mode of appearance preferences'\n  \
+        cu tell Notes 'get name of every note'\n  \
+        cu tell Reminders 'get name of every list'\n\n\
+        Write operations:\n  \
+        cu tell Calendar 'make new event at end of events of first calendar \\\n    \
+          with properties {summary:\"Meeting\", start date:date \"2026-04-06 14:00\"}'\n  \
+        cu tell Notes 'make new note with properties {name:\"Test\", body:\"Hello\"}'\n\n\
+        Tip: Use `cu apps` to see which apps are scriptable (S flag),\n\
+        then `cu sdef <app>` to discover what properties/commands are available.")]
+    Tell {
+        /// Target application name
+        app: String,
+        /// AppleScript expression (auto-wrapped in tell application ... end tell)
+        expr: String,
+        /// Timeout in seconds
+        #[arg(long, default_value = "10")]
+        timeout: u64,
+    },
+
 }
 
 // ── Main ────────────────────────────────────────────────────────────────────
@@ -289,9 +341,9 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), String> {
         Cmd::Ocr { app } => cmd_ocr(json, app),
         Cmd::Type { text, app, no_snapshot } => cmd_type(json, text, app, no_snapshot),
         Cmd::Key { combo, app, no_snapshot } => cmd_key(json, combo, app, no_snapshot),
-        Cmd::Click { target, y, app, limit, right, double_click, shift, cmd, alt, no_snapshot } => {
+        Cmd::Click { target, y, text, index, app, limit, right, double_click, shift, cmd, alt, no_snapshot } => {
             let mods = mouse::Modifiers { shift, cmd, alt, ctrl: false };
-            cmd_click(json, target, y, app, limit, right, double_click, mods, no_snapshot)
+            cmd_click(json, target, y, text, index, app, limit, right, double_click, mods, no_snapshot)
         }
         Cmd::Scroll { direction, amount, x, y } => cmd_scroll(json, direction, amount, x, y),
         Cmd::Hover { x, y } => cmd_hover(json, x, y),
@@ -300,6 +352,8 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), String> {
             cmd_drag(json, x1, y1, x2, y2, mods)
         }
         Cmd::Screenshot { app, path, full } => cmd_screenshot(json, app, path, full),
+        Cmd::Sdef { app } => cmd_sdef(json, app),
+        Cmd::Tell { app, expr, timeout } => cmd_tell(json, app, expr, timeout),
     }
 }
 
@@ -308,21 +362,25 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), String> {
 fn cmd_setup(json: bool) -> Result<(), String> {
     let ax = system::check_accessibility();
     let sr = system::check_screen_recording();
-    let ready = ax && sr;
+    let auto = system::check_automation();
+    let ready = ax && sr;              // core: snapshot, click, key, type, screenshot, ocr
+    let scripting_ready = ready && auto; // scripting: cu tell
 
     if json {
         return ok(serde_json::json!({
             "ok": true, "version": VERSION, "platform": "macos",
-            "accessibility": ax, "screen_recording": sr, "ready": ready
+            "accessibility": ax, "screen_recording": sr, "automation": auto,
+            "ready": ready, "scripting_ready": scripting_ready
         }));
     }
 
     println!("cu v{VERSION} — macOS desktop automation");
     println!("Accessibility:    {}", if ax { "granted" } else { "NOT GRANTED" });
     println!("Screen Recording: {}", if sr { "granted" } else { "NOT GRANTED" });
+    println!("Automation:       {}", if auto { "granted" } else { "NOT GRANTED" });
     println!();
 
-    if ready {
+    if scripting_ready {
         println!("All permissions OK. Ready to use.");
     } else {
         if !ax {
@@ -331,11 +389,20 @@ fn cmd_setup(json: bool) -> Result<(), String> {
         if !sr {
             println!("Screen Recording is required for screenshot and OCR.\n→ System Settings → Privacy & Security → Screen Recording\n");
         }
+        if !auto {
+            println!("Automation is needed for cu tell (scripting). Granted per-app on first use.\n→ System Settings → Privacy & Security → Automation\n");
+        }
         println!("Add your terminal app, then re-run: cu setup");
-        let pane = if !ax { "Privacy_Accessibility" } else { "Privacy_ScreenCapture" };
-        let _ = std::process::Command::new("open")
-            .arg(format!("x-apple.systempreferences:com.apple.preference.security?{pane}"))
-            .spawn();
+        if !ax {
+            let _ = std::process::Command::new("open")
+                .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+                .spawn();
+        } else if !sr {
+            let _ = std::process::Command::new("open")
+                .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+                .spawn();
+        }
+        // Automation pane can't be opened directly; it's per-app on first use.
     }
     Ok(())
 }
@@ -353,7 +420,8 @@ fn cmd_apps(json: bool) -> Result<(), String> {
         for app in apps {
             let active = if app["active"].as_bool() == Some(true) { "*" } else { " " };
             let scriptable = if app["scriptable"].as_bool() == Some(true) { "S" } else { " " };
-            println!("{active}{scriptable} {} (pid {})", app["name"].as_str().unwrap_or("?"), app["pid"].as_i64().unwrap_or(0));
+            let classes = app["sdef_classes"].as_i64().map(|n| format!(" [{n} classes]")).unwrap_or_default();
+            println!("{active}{scriptable} {} (pid {}){classes}", app["name"].as_str().unwrap_or("?"), app["pid"].as_i64().unwrap_or(0));
         }
     }
     Ok(())
@@ -437,8 +505,60 @@ fn cmd_key(json: bool, combo: String, app: Option<String>, no_snapshot: bool) ->
     if json { ok(result) } else { println!("Sent key: {combo}"); Ok(()) }
 }
 
-fn cmd_click(json: bool, target: String, y: Option<String>, app: Option<String>, limit: usize, right: bool, double: bool, mods: mouse::Modifiers, no_snapshot: bool) -> Result<(), String> {
-    // Coordinate mode
+fn cmd_click(json: bool, target: Option<String>, y: Option<String>, text: Option<String>, index: usize, app: Option<String>, limit: usize, right: bool, double: bool, mods: mouse::Modifiers, no_snapshot: bool) -> Result<(), String> {
+    // Mode 1: --text "Submit" → OCR-based click
+    if let Some(ref search_text) = text {
+        let (pid, _) = if app.is_some() {
+            system::resolve_target_app(&app)?
+        } else {
+            (0, String::new()) // full screen OCR
+        };
+
+        let result = if pid != 0 { ocr::recognize(pid) } else {
+            // Full screen: use frontmost app as fallback for OCR
+            let (fp, _) = system::resolve_target_app(&None)?;
+            ocr::recognize(fp)
+        };
+        if !result.ok {
+            return Err(result.error.unwrap_or_else(|| "OCR failed".into()));
+        }
+
+        // Find matching text regions (case-insensitive substring match)
+        let lower_search = search_text.to_lowercase();
+        let matches: Vec<&ocr::OcrText> = result.texts.iter()
+            .filter(|t| t.text.to_lowercase().contains(&lower_search))
+            .collect();
+
+        if matches.is_empty() {
+            return Err(format!("text \"{}\" not found on screen (OCR found {} regions)", search_text, result.texts.len()));
+        }
+        if index == 0 || index > matches.len() {
+            return Err(format!("--index {} out of range (found {} matches for \"{}\")", index, matches.len(), search_text));
+        }
+
+        let matched = matches[index - 1];
+        let cx = matched.x + matched.width / 2.0;
+        let cy = matched.y + matched.height / 2.0;
+
+        if double {
+            mouse::double_click(cx, cy, mods)?;
+        } else {
+            mouse::click(cx, cy, right, mods)?;
+        }
+
+        let mut result = serde_json::json!({
+            "ok": true, "method": "ocr-text", "text": matched.text,
+            "x": cx, "y": cy, "matches": matches.len()
+        });
+        maybe_attach_snapshot(&mut result, json, no_snapshot, &app, limit);
+        return if json { ok(result) } else {
+            println!("Clicked \"{}\" at ({cx}, {cy})", matched.text); Ok(())
+        };
+    }
+
+    let target = target.ok_or("specify a ref, coordinates (x y), or --text")?;
+
+    // Mode 2: cu click <x> <y> → coordinate click
     if let Some(y_str) = y {
         let x: f64 = target.parse().map_err(|_| "invalid x coordinate")?;
         let y: f64 = y_str.parse().map_err(|_| "invalid y coordinate")?;
@@ -455,14 +575,13 @@ fn cmd_click(json: bool, target: String, y: Option<String>, app: Option<String>,
         return if json { ok(result) } else { println!("Clicked ({x}, {y})"); Ok(()) };
     }
 
-    // Ref mode — AX action first, CGEvent fallback
+    // Mode 3: cu click <ref> → AX ref click
     let ref_id: usize = target.parse()
         .map_err(|_| "ref must be a positive integer (for coordinates: cu click <x> <y>)")?;
     if ref_id == 0 { return Err("ref must be >= 1".into()); }
 
     let (pid, name) = system::resolve_target_app(&app)?;
 
-    // Right-click and double-click: only resolve coords, don't trigger AX actions.
     let (method, cx, cy) = if right || double {
         let (_, cx, cy) = ax::ax_find_element(pid, ref_id, limit)?;
         if double {
@@ -473,7 +592,6 @@ fn cmd_click(json: bool, target: String, y: Option<String>, app: Option<String>,
             ("cgevent-right", cx, cy)
         }
     } else {
-        // Normal left-click: try AX actions first, CGEvent fallback
         let (ax_acted, cx, cy) = ax::ax_click(pid, ref_id, limit)?;
         if !ax_acted {
             mouse::click(cx, cy, false, mods)?;
@@ -541,6 +659,63 @@ fn cmd_screenshot(json: bool, app: Option<String>, path: Option<String>, full: b
         ok(serde_json::json!({"ok": true, "app": name, "path": output_path, "mode": "window", "offset_x": win.x, "offset_y": win.y}))
     } else {
         println!("Screenshot saved: {output_path} (window offset: {},{})", win.x, win.y); Ok(())
+    }
+}
+
+fn cmd_sdef(json: bool, app: String) -> Result<(), String> {
+    let bundle_path = system::resolve_app_bundle_path(&app)?;
+    let result = sdef::parse(&app, &bundle_path);
+
+    if !result.ok {
+        return Err(result.error.unwrap_or_else(|| "sdef parse failed".into()));
+    }
+
+    if json {
+        emit(&result);
+        return Ok(());
+    }
+
+    // Human-readable output
+    println!("{} scripting dictionary:\n", result.app);
+    if let Some(ref suites) = result.suites {
+        for suite in suites {
+            println!("  suite: {}", suite.name);
+            for cls in &suite.classes {
+                print!("    {}", cls.name);
+                if !cls.properties.is_empty() {
+                    let names: Vec<&str> = cls.properties.iter().map(|p| p.name.as_str()).collect();
+                    print!(" — props: {}", names.join(", "));
+                }
+                if !cls.elements.is_empty() {
+                    print!(" — elements: {}", cls.elements.join(", "));
+                }
+                if !cls.responds_to.is_empty() {
+                    print!(" — responds-to: {}", cls.responds_to.join(", "));
+                }
+                println!();
+            }
+            if !suite.commands.is_empty() {
+                let names: Vec<&str> = suite.commands.iter().map(|c| c.name.as_str()).collect();
+                println!("    commands: {}", names.join(", "));
+            }
+            println!();
+        }
+    }
+    Ok(())
+}
+
+fn cmd_tell(json: bool, app: String, expr: String, timeout: u64) -> Result<(), String> {
+    let raw = system::tell_app(&app, &expr, timeout)?;
+
+    if json {
+        ok(serde_json::json!({"ok": true, "app": app, "result": raw}))
+    } else {
+        if raw.is_empty() {
+            println!("OK");
+        } else {
+            println!("{raw}");
+        }
+        Ok(())
     }
 }
 

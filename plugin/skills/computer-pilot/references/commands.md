@@ -4,14 +4,32 @@
 
 ### `cu setup`
 Check permissions, version, and guide authorization.
-- Reports: Accessibility (required for snapshot/click/key/type) and Screen Recording (required for screenshot/OCR)
+- Reports: Accessibility (required for snapshot/click/key/type), Screen Recording (required for screenshot/OCR), and automation/scripting_ready status
 - Opens System Settings if permissions are missing
+
+## Scripting
+
+### `cu tell <app> '<AppleScript>'`
+Execute AppleScript against an app. Auto-wraps in `tell application "..." ... end tell`.
+- `cu tell "System Events" 'get name of every process whose visible is true'`
+- `cu tell Finder 'get name of every item of desktop'`
+- Uses `-ss` flag for structured output (unambiguous text)
+- Auto-launches the app if not already running
+- Timeout enforced (default 10s)
+
+### `cu sdef <app>`
+Show the scripting dictionary for an app.
+- Returns classes, properties, and commands the app exposes via AppleScript
+- `cu sdef Finder` — discover Finder scripting capabilities
+- Pure Rust XML parsing (no external tools)
+- Use this to discover what operations are available before writing `cu tell` commands
 
 ## Observation
 
 ### `cu apps`
-List running applications with name, PID, active status, and scriptable flag.
+List running applications with name, PID, active status, scriptable flag, and sdef_classes count.
 - `*` = frontmost app, `S` = AppleScript scriptable
+- Scriptable apps show `sdef_classes` count indicating scripting dictionary richness
 
 ### `cu snapshot [app] [--limit N]`
 Get the AX tree — interactive UI elements with `[ref]` numbers.
@@ -67,10 +85,11 @@ Send a keyboard shortcut.
 - Without `--app`: uses CGEvent (sends to frontmost app)
 
 ### `cu type <text> [--app name] [--no-snapshot]`
-Type text into the focused element. Unicode supported.
+Type text into the focused element via clipboard paste. Safe with any IME. Unicode supported.
 - `cu type "hello world" --app TextEdit`
 - `cu type "https://example.com" --app "Google Chrome"`
-- With `--app`: activates app first, types via System Events
+- Uses clipboard paste (Cmd+V) for reliable input regardless of keyboard layout or IME
+- With `--app`: activates app first, then pastes
 
 ### `cu scroll <direction> <amount> --x X --y Y`
 Scroll at specified coordinates.

@@ -1,0 +1,26 @@
+{
+  "id": "finder-organize",
+  "name": "List desktop files and create inventory note",
+  "goal": "List all files on the Desktop using Finder, then create a note in Notes app titled 'Agent Test - Desktop Inventory' that contains the actual file names and their kinds (e.g., 'screenshot.png - PNG image'). The note must list real files, not made-up names.",
+  "setup": [
+    ["cu", "tell", "Notes", "try\ndelete note \"Agent Test - Desktop Inventory\"\nend try"]
+  ],
+  "verify": [
+    {
+      "description": "Note exists",
+      "command": ["cu", "tell", "Notes", "get name of note \"Agent Test - Desktop Inventory\""],
+      "expect_contains": "Desktop Inventory"
+    },
+    {
+      "description": "Note contains actual desktop file names",
+      "cross_check": {
+        "source_command": ["cu", "tell", "Finder", "get name of first file of desktop"],
+        "target_command": ["cu", "tell", "Notes", "get plaintext of note \"Agent Test - Desktop Inventory\""],
+        "description": "Note must contain at least one real file name from the Desktop"
+      }
+    }
+  ],
+  "cleanup": [
+    ["cu", "tell", "Notes", "try\ndelete note \"Agent Test - Desktop Inventory\"\nend try"]
+  ]
+}

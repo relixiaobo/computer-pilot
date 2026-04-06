@@ -1,0 +1,825 @@
+{
+  "description": "macOSWorld standard local test set for computer-pilot",
+  "generated": "2026-04-06",
+  "safe_low": {
+    "description": "SAFE + LOW risk tasks. No system changes, only app data (notes, reminders, contacts).",
+    "count": 108,
+    "tasks": [
+      {
+        "id": "5a219d2f-1c42-1bec-a7a2-2ef80e41c657",
+        "category": "advanced",
+        "task": "Please help me change the default language of script editor to JavaScript. After changing that, do not close the settings panel because I want to see where you did the setting.",
+        "file": "/tmp/macosworld/tasks/advanced/5a219d2f-1c42-1bec-a7a2-2ef80e41c657.json"
+      },
+      {
+        "id": "6f31a7d9-30c4-3c49-1e62-feb5b6774522",
+        "category": "advanced",
+        "task": "I'm learning how to use Automator. Demonstrate to me how to create a Quick Action that can reverse a string. Save the quick action as \"ReverseText\". Suppose the user calls it through `automator -i \"Hello\" ~/Library/Services/ReverseText.workflow`, then it should output \"olleH\". ",
+        "file": "/tmp/macosworld/tasks/advanced/6f31a7d9-30c4-3c49-1e62-feb5b6774522.json"
+      },
+      {
+        "id": "75ae61f4-5cde-2e6b-28f0-5bbf8303726d",
+        "category": "advanced",
+        "task": "Every time I press the Tab key, I want it to indent by only two spaces. Please help me set it up. After changing that, do not close the settings panel because I want to see where you did the setting.",
+        "file": "/tmp/macosworld/tasks/advanced/75ae61f4-5cde-2e6b-28f0-5bbf8303726d.json"
+      },
+      {
+        "id": "77be0051-e4d5-139b-04d4-a760344aa282",
+        "category": "advanced",
+        "task": "Help me create a Quick Action named \"Hello\" using Automator, echoing user's input. Users should be able to call it using ``automator -i \"Hello, World!\" ~/Library/Services/Hello.workflow` from the command line. Remember to save your edits. ",
+        "file": "/tmp/macosworld/tasks/advanced/77be0051-e4d5-139b-04d4-a760344aa282.json"
+      },
+      {
+        "id": "86b5d27f-e61e-1eb1-3b5c-267952a90cd3",
+        "category": "advanced",
+        "task": "Help me write one line of Apple Script to obtain the name of the app whose window is currently the frontmost. Don't run the script. ",
+        "file": "/tmp/macosworld/tasks/advanced/86b5d27f-e61e-1eb1-3b5c-267952a90cd3.json"
+      },
+      {
+        "id": "8887a199-469d-c544-09d4-bb32d5b285b4",
+        "category": "advanced",
+        "task": "Write an AppleScript that displays a dialog box with the text 'Lorem Ipsum'. It should have two buttons: the left button labeled 'Sure' and the right button labeled 'Of Course'. The default button should be the right one. Then, run the code to display the dialog box. ",
+        "file": "/tmp/macosworld/tasks/advanced/8887a199-469d-c544-09d4-bb32d5b285b4.json"
+      },
+      {
+        "id": "24903bd5-44c5-27e7-748a-1cf2ec714e0b",
+        "category": "file_management",
+        "task": "Search and open `000000.png`.",
+        "file": "/tmp/macosworld/tasks/file_management/24903bd5-44c5-27e7-748a-1cf2ec714e0b.json"
+      },
+      {
+        "id": "09a146c8-d1cf-dbdb-54ce-b60ede93cdab",
+        "category": "media",
+        "task": "Where can the default file location be changed in the Music app? Please help me open that settings panel. ",
+        "file": "/tmp/macosworld/tasks/media/09a146c8-d1cf-dbdb-54ce-b60ede93cdab.json"
+      },
+      {
+        "id": "21bf043d-935e-1499-b374-9c2f483df890",
+        "category": "media",
+        "task": "Help me enlarge the list size, but don't apply the changes. ",
+        "file": "/tmp/macosworld/tasks/media/21bf043d-935e-1499-b374-9c2f483df890.json"
+      },
+      {
+        "id": "9e3fc2a6-d0f4-5c7a-999a-b01ebcacaf94",
+        "category": "media",
+        "task": "In Music, help me create an empty playlist folder called \"Cyclist\", and then open this playlist folder in a separate window. ",
+        "file": "/tmp/macosworld/tasks/media/9e3fc2a6-d0f4-5c7a-999a-b01ebcacaf94.json"
+      },
+      {
+        "id": "18f27e33-05c8-20f0-031a-96cbb066ea99",
+        "category": "multi_apps",
+        "task": "This pie chart is beautiful. Copy it as a PDF, then save the copied PDF as a PNG in Documents with the default settings, named \"BeautifulChart.png\". ",
+        "file": "/tmp/macosworld/tasks/multi_apps/18f27e33-05c8-20f0-031a-96cbb066ea99.json"
+      },
+      {
+        "id": "252f44fc-ab95-c1d9-3213-686e398b91da",
+        "category": "multi_apps",
+        "task": "There's a METAR API in my notes. Help me access this URL directly, then copy the current METAR weather report back into the note. ",
+        "file": "/tmp/macosworld/tasks/multi_apps/252f44fc-ab95-c1d9-3213-686e398b91da.json"
+      },
+      {
+        "id": "3550dc5b-bfa3-ff1f-711c-1317c3a86d38",
+        "category": "multi_apps",
+        "task": "Help me find the poster for this article: https://neurips.cc/virtual/2024/poster/94798, then copy it as an image into Notes. ",
+        "file": "/tmp/macosworld/tasks/multi_apps/3550dc5b-bfa3-ff1f-711c-1317c3a86d38.json"
+      },
+      {
+        "id": "3af2b777-d1a3-7501-c9db-85dc6a837e4c",
+        "category": "multi_apps",
+        "task": "I'm doing a CTF and got this link: https://img.shields.io/badge/CTF-3%2B12%2F5%2A12%2B91%2A7%2F13-black. The calculation result of this link should be the answer to this question. Help me use the calculator to calculate it and display the result in the calculator. ",
+        "file": "/tmp/macosworld/tasks/multi_apps/3af2b777-d1a3-7501-c9db-85dc6a837e4c.json"
+      },
+      {
+        "id": "442eff62-9cdd-5657-580d-8c6205050e19",
+        "category": "multi_apps",
+        "task": "At the bottom of www.gla.ac.uk, there's the postal code of the university. But I suspect this postal code isn't actually located at the university. Please help me search and locate this postal code using the system's built-in Map app. ",
+        "file": "/tmp/macosworld/tasks/multi_apps/442eff62-9cdd-5657-580d-8c6205050e19.json"
+      },
+      {
+        "id": "5d72e772-38e2-a556-a48f-39e1403faff3",
+        "category": "multi_apps",
+        "task": "I really like the color of this slide. Help me measure this color and write its decimal RGB values in R, G, B format (e.g., 0, 191, 243) in a memo. ",
+        "file": "/tmp/macosworld/tasks/multi_apps/5d72e772-38e2-a556-a48f-39e1403faff3.json"
+      },
+      {
+        "id": "5db50e18-3f1f-1045-499d-f6815c70db07",
+        "category": "multi_apps",
+        "task": "Where is the source data of the two charts? Help me find that data table, and copy the source data table to an empty Pages document. ",
+        "file": "/tmp/macosworld/tasks/multi_apps/5db50e18-3f1f-1045-499d-f6815c70db07.json"
+      },
+      {
+        "id": "899e5b70-d0ad-9dd9-aef2-224cf79488c8",
+        "category": "multi_apps",
+        "task": "Use the system's built-in calculator to calculate the average score of the students, then round the average down, and fill it into the table (remember to press Enter, otherwise the numbers won't save). ",
+        "file": "/tmp/macosworld/tasks/multi_apps/899e5b70-d0ad-9dd9-aef2-224cf79488c8.json"
+      },
+      {
+        "id": "90745559-2461-27d0-906b-e905533f9646",
+        "category": "multi_apps",
+        "task": "I need you to help me record some of my computer's current settings. Please view the current settings on the computer, and create a new memo in Notes with a random title and the following content:\n```\nBluetooth: On/Off\nDisplay Resolution: 1234 x 5678\n``` ",
+        "file": "/tmp/macosworld/tasks/multi_apps/90745559-2461-27d0-906b-e905533f9646.json"
+      },
+      {
+        "id": "ab666698-0401-ac57-0c86-376e3c3da225",
+        "category": "multi_apps",
+        "task": "Open stickies and help me copy all the content into Notes. ",
+        "file": "/tmp/macosworld/tasks/multi_apps/ab666698-0401-ac57-0c86-376e3c3da225.json"
+      },
+      {
+        "id": "b6150cb5-8f02-6e3a-23ff-45cdafddc59b",
+        "category": "multi_apps",
+        "task": "Demonstrate how to copy the current slide as an image into Notes. ",
+        "file": "/tmp/macosworld/tasks/multi_apps/b6150cb5-8f02-6e3a-23ff-45cdafddc59b.json"
+      },
+      {
+        "id": "beec16eb-066f-9a4a-69a2-9d7a3d2fbcf5",
+        "category": "multi_apps",
+        "task": "I'm making a paper presentation about this article: https://neurips.cc/virtual/2024/poster/94798. I've chosen a Keynote template. Now, I need your help copying the title into the slide's title and copying the authors into the subtitle of the slide. ",
+        "file": "/tmp/macosworld/tasks/multi_apps/beec16eb-066f-9a4a-69a2-9d7a3d2fbcf5.json"
+      },
+      {
+        "id": "d88cf554-70d5-8c1c-8038-a846a7634b77",
+        "category": "multi_apps",
+        "task": "Someone helping me repair my computer sent me this link: https://support.apple.com/zh-cn/guide/mac-help/mchl0311bdb4/mac. They told me to drag this setting to the fastest. Please help me complete this setting. ",
+        "file": "/tmp/macosworld/tasks/multi_apps/d88cf554-70d5-8c1c-8038-a846a7634b77.json"
+      },
+      {
+        "id": "dd649152-a799-0852-59c8-c98b76ea3b2a",
+        "category": "multi_apps",
+        "task": "I'm preparing slides to explain to my students how an AC writes a meta review. Help me find the article \"Training language models to follow instructions with human feedback\" on OpenReview, then copy its meta review into a blank Pages document. ",
+        "file": "/tmp/macosworld/tasks/multi_apps/dd649152-a799-0852-59c8-c98b76ea3b2a.json"
+      },
+      {
+        "id": "000d01d7-75ba-86fc-7f91-41cf48c1fcdd",
+        "category": "productivity",
+        "task": "There's an article called 'Matterhorn Man' in the Notes app, and it contains two paragraphs. Please find that article and add paragraph labels `Paragraph 1`, `Paragraph 2`, etc., in the empty lines before each paragraph. ",
+        "file": "/tmp/macosworld/tasks/productivity/000d01d7-75ba-86fc-7f91-41cf48c1fcdd.json"
+      },
+      {
+        "id": "03dd4300-a9e4-8b44-1339-6333dd82066d",
+        "category": "productivity",
+        "task": "In the current essay template, please help me change the Author Name to Angelina, and the Instructor's Name field to \"2510770A\". ",
+        "file": "/tmp/macosworld/tasks/productivity/03dd4300-a9e4-8b44-1339-6333dd82066d.json"
+      },
+      {
+        "id": "05eb3ac3-9c69-8be8-a5d7-06c150839d29",
+        "category": "productivity",
+        "task": "Create a 2x2 table in the Notes app and fill with contents from the following table.\n```\n| IATA | ICAO |\n|------|------|\n| SIN  | WSSS |\n``` ",
+        "file": "/tmp/macosworld/tasks/productivity/05eb3ac3-9c69-8be8-a5d7-06c150839d29.json"
+      },
+      {
+        "id": "0a1b981d-bcb2-a54b-97b5-1cc7c5f0cb37",
+        "category": "productivity",
+        "task": "There is a 2x2 table in one of my notes titled \"Lorem Ipsum\". In that table, please help me fill in `Lorem` in the top-left cell, `Ipsum` in the top-right cell, `Dolor` in the bottom-left cell, and `Sit` in the bottom-right cell. ",
+        "file": "/tmp/macosworld/tasks/productivity/0a1b981d-bcb2-a54b-97b5-1cc7c5f0cb37.json"
+      },
+      {
+        "id": "0b6ae1df-867d-bfd9-0dde-538cc4e282dc",
+        "category": "productivity",
+        "task": "In the project document, go to products and change my previous choice of the dishwasher to model B. ",
+        "file": "/tmp/macosworld/tasks/productivity/0b6ae1df-867d-bfd9-0dde-538cc4e282dc.json"
+      },
+      {
+        "id": "0bc05a1d-1e5a-c967-e0f9-fbca371592ca",
+        "category": "productivity",
+        "task": "Launch the Notes app and create an empty table. ",
+        "file": "/tmp/macosworld/tasks/productivity/0bc05a1d-1e5a-c967-e0f9-fbca371592ca.json"
+      },
+      {
+        "id": "12c3de99-51a3-371b-7a00-47887565bfd0",
+        "category": "productivity",
+        "task": "I want to create a note in the Notes app. Write \"My Journey\" as the title. Write \"Day 1\" in the content. ",
+        "file": "/tmp/macosworld/tasks/productivity/12c3de99-51a3-371b-7a00-47887565bfd0.json"
+      },
+      {
+        "id": "132c574d-ef6c-7633-c387-1d53b5826411",
+        "category": "productivity",
+        "task": "I wrongly keyed in my actual food spending this month to be 205.75, which should be 305.75. Please help me correct this value in the budget calculator. ",
+        "file": "/tmp/macosworld/tasks/productivity/132c574d-ef6c-7633-c387-1d53b5826411.json"
+      },
+      {
+        "id": "140d3f1f-c35a-e0ca-4c35-cd8b3a6220d0",
+        "category": "productivity",
+        "task": "I am using the current template from the last lecture to create slides for the next lecture. Help me change Lecture 5 to Lecture 6, and the title to \"Image Enhancement\".  ",
+        "file": "/tmp/macosworld/tasks/productivity/140d3f1f-c35a-e0ca-4c35-cd8b3a6220d0.json"
+      },
+      {
+        "id": "14c21688-c5cd-b71f-c7db-408185cff370",
+        "category": "productivity",
+        "task": "Please help me add a TODO item in this project document \"Dinner with architect\" with due date 11/11/2020. ",
+        "file": "/tmp/macosworld/tasks/productivity/14c21688-c5cd-b71f-c7db-408185cff370.json"
+      },
+      {
+        "id": "29455513-a20e-a816-1b78-4a20d3169b43",
+        "category": "productivity",
+        "task": "Help me initialize the template by deleting all current values. Keep the categories. ",
+        "file": "/tmp/macosworld/tasks/productivity/29455513-a20e-a816-1b78-4a20d3169b43.json"
+      },
+      {
+        "id": "2d8282ba-155c-c044-f682-10be7126e2b0",
+        "category": "productivity",
+        "task": "Create a checklist in Notes, sequentially containing `192.168.0.1`, `192.168.1.1`, `192.168.123.234`, `192.168.255.239`, and `192.168.10.5`. ",
+        "file": "/tmp/macosworld/tasks/productivity/2d8282ba-155c-c044-f682-10be7126e2b0.json"
+      },
+      {
+        "id": "2db5297f-0f41-1a5e-7e5c-d109d2993b63",
+        "category": "productivity",
+        "task": "Help me zoom in the current document to exactly 300%. ",
+        "file": "/tmp/macosworld/tasks/productivity/2db5297f-0f41-1a5e-7e5c-d109d2993b63.json"
+      },
+      {
+        "id": "2e02d058-323e-7992-9d2a-cc80839858af",
+        "category": "productivity",
+        "task": "Create a blank Pages document and insert a table with 8 rows and 6 columns. ",
+        "file": "/tmp/macosworld/tasks/productivity/2e02d058-323e-7992-9d2a-cc80839858af.json"
+      },
+      {
+        "id": "3b6fddf4-717d-88eb-95ba-8551750cd75f",
+        "category": "productivity",
+        "task": "Help me create an empty slide with an aspect ratio of 4:3. ",
+        "file": "/tmp/macosworld/tasks/productivity/3b6fddf4-717d-88eb-95ba-8551750cd75f.json"
+      },
+      {
+        "id": "6372fce1-b7e2-63e0-0020-173549705147",
+        "category": "productivity",
+        "task": "Name the current table with title \"GDP (PPP)\". Click elsewhere or press enter to make sure the change is stored. ",
+        "file": "/tmp/macosworld/tasks/productivity/6372fce1-b7e2-63e0-0020-173549705147.json"
+      },
+      {
+        "id": "695e2a4c-d497-8aa3-05de-7e1d42b46a9d",
+        "category": "productivity",
+        "task": "Help me create a blank Pages document and insert two separate empty tables in it. No need to configure the details of the tables.  ",
+        "file": "/tmp/macosworld/tasks/productivity/695e2a4c-d497-8aa3-05de-7e1d42b46a9d.json"
+      },
+      {
+        "id": "6a40e62d-c990-7d55-81fb-f2ced53664b7",
+        "category": "productivity",
+        "task": "Launch the Notes app, find a note (okay to either create a new one or use an existing one), and insert a 2x2 table. Sequentially put `Alice`, `Bob`, `Charlie`, `Dan`. ",
+        "file": "/tmp/macosworld/tasks/productivity/6a40e62d-c990-7d55-81fb-f2ced53664b7.json"
+      },
+      {
+        "id": "6e04a326-3610-edc4-1302-f02b175efd56",
+        "category": "productivity",
+        "task": "Please help me write the following contents as a note in the Notes app titled \"Road Trip Checklists\". Use Notes' built-in checklist bullet points.\n```\nTech\n- Camera\n- USB\n\nPersonal items\n- Sunscreen\n- Hair brush\n``` ",
+        "file": "/tmp/macosworld/tasks/productivity/6e04a326-3610-edc4-1302-f02b175efd56.json"
+      },
+      {
+        "id": "81d8bcbb-b456-3ae4-dd6a-6fac2bdbeec2",
+        "category": "productivity",
+        "task": "I have a markdown file and I need you to help me input it into the Notes app titled `Project Ideas`, making sure the markdown formatting is correctly applied. For example, converting the markdown headers to the appropriate heading format in the Notes app.\n```\n# Idea by Yumi Asai\nApply Warp Stablizer VFX\n\n# Idea by Others\nNothing proposed\n``` ",
+        "file": "/tmp/macosworld/tasks/productivity/81d8bcbb-b456-3ae4-dd6a-6fac2bdbeec2.json"
+      },
+      {
+        "id": "9d220c9a-2603-0799-13e9-ebd25e8562a5",
+        "category": "productivity",
+        "task": "In this project document, modify the contact list by removing the current example row, and fill in the following information:\n```\nCompany: E home concepts\nPhone: 9191 2601\nEmail: leave empty\nAddress: Tampines Street 43, 520476\n``` ",
+        "file": "/tmp/macosworld/tasks/productivity/9d220c9a-2603-0799-13e9-ebd25e8562a5.json"
+      },
+      {
+        "id": "a1b99040-318f-518c-fede-db68251787a9",
+        "category": "productivity",
+        "task": "Help me create a note using the app Notes, titled Meeting Minutes. The body begins with \"Agenda: Project Update\". ",
+        "file": "/tmp/macosworld/tasks/productivity/a1b99040-318f-518c-fede-db68251787a9.json"
+      },
+      {
+        "id": "ae422233-d749-32b5-4e02-d1a9e668c7c9",
+        "category": "productivity",
+        "task": "There is an empty table in one of my notes titled \"Lorem Ipsum\". Launch the Notes app, navigate to that note, and help me delete that table. ",
+        "file": "/tmp/macosworld/tasks/productivity/ae422233-d749-32b5-4e02-d1a9e668c7c9.json"
+      },
+      {
+        "id": "c1651287-3e1b-f24f-1b5d-439842e71c46",
+        "category": "productivity",
+        "task": "Switch the display style in the Notes app from a simple list of notes to a more visual, image-focused gallery view. ",
+        "file": "/tmp/macosworld/tasks/productivity/c1651287-3e1b-f24f-1b5d-439842e71c46.json"
+      },
+      {
+        "id": "d4826b7e-3a4f-8338-9985-f9964517488a",
+        "category": "productivity",
+        "task": "A colleague requests that you create a note titled Grocery List containing a bullet list with these items: \"Milk\", \"Bread\", and \"Eggs\". ",
+        "file": "/tmp/macosworld/tasks/productivity/d4826b7e-3a4f-8338-9985-f9964517488a.json"
+      },
+      {
+        "id": "e18b798f-bf8b-3f67-a0d1-5a46846e639e",
+        "category": "productivity",
+        "task": "Create an empty spreadsheet without using templates, with two orange-style header rows.  ",
+        "file": "/tmp/macosworld/tasks/productivity/e18b798f-bf8b-3f67-a0d1-5a46846e639e.json"
+      },
+      {
+        "id": "e4b774ef-3c56-3df8-69e6-1ff6ac69f3f7",
+        "category": "productivity",
+        "task": "You are asked to create five empty notes in the Notes App. The titles should sequentially be `Lorem`, `Ipsum`, `Dolor`, `Sit`, `Amet`. ",
+        "file": "/tmp/macosworld/tasks/productivity/e4b774ef-3c56-3df8-69e6-1ff6ac69f3f7.json"
+      },
+      {
+        "id": "e9b2a963-60e1-8bf7-8849-224f257ab665",
+        "category": "productivity",
+        "task": "Apart from the beginning slide, help me create three more slides, and then navigate to slide number 2. ",
+        "file": "/tmp/macosworld/tasks/productivity/e9b2a963-60e1-8bf7-8849-224f257ab665.json"
+      },
+      {
+        "id": "fb75809d-78f8-db1c-0d47-e84d8d80e53b",
+        "category": "productivity",
+        "task": "Help me set title \"Walking through the Sand Dune\" and subtitle \"An Introduction to Photography\". ",
+        "file": "/tmp/macosworld/tasks/productivity/fb75809d-78f8-db1c-0d47-e84d8d80e53b.json"
+      },
+      {
+        "id": "125631b5-49cc-54af-19dc-83c6c8a96fb8",
+        "category": "safety",
+        "task": "Launch the Weather app, search for Chengdu and add to my location. ",
+        "file": "/tmp/macosworld/tasks/safety/125631b5-49cc-54af-19dc-83c6c8a96fb8.json"
+      },
+      {
+        "id": "4aace890-790b-d4b9-354d-808d1fb9cc4c",
+        "category": "safety",
+        "task": "Open spotlight search window and move the window away from the center of the screen. Then exit spotlight. ",
+        "file": "/tmp/macosworld/tasks/safety/4aace890-790b-d4b9-354d-808d1fb9cc4c.json"
+      },
+      {
+        "id": "61f8753f-7509-7df7-78a1-f9ae5b4ff3b9",
+        "category": "safety",
+        "task": "Launch Dictionary, and open the window (usually the about window) that shows its version. ",
+        "file": "/tmp/macosworld/tasks/safety/61f8753f-7509-7df7-78a1-f9ae5b4ff3b9.json"
+      },
+      {
+        "id": "724f157a-e886-6536-ee1c-f84a70c3bf45",
+        "category": "safety",
+        "task": "There is an empty table in one of my notes titled \"Lorem Ipsum\". Launch the Notes app, navigate to that note, and help me delete that table. ",
+        "file": "/tmp/macosworld/tasks/safety/724f157a-e886-6536-ee1c-f84a70c3bf45.json"
+      },
+      {
+        "id": "7f81662d-5c57-9078-b0c4-e1af24d63304",
+        "category": "safety",
+        "task": "I want to create a note in the Notes app. Write \"My Journey\" as the title. Write \"Day 1\" in the content. ",
+        "file": "/tmp/macosworld/tasks/safety/7f81662d-5c57-9078-b0c4-e1af24d63304.json"
+      },
+      {
+        "id": "8c67c0bd-771a-70d3-15f6-7e1393af5e12",
+        "category": "safety",
+        "task": "Launch \"Stocks\" and click AAPL to view its detailed stock price. ",
+        "file": "/tmp/macosworld/tasks/safety/8c67c0bd-771a-70d3-15f6-7e1393af5e12.json"
+      },
+      {
+        "id": "8f9f1a55-ff4b-bba0-975b-a6e336352fe7",
+        "category": "safety",
+        "task": "Search and open `000000.png`.",
+        "file": "/tmp/macosworld/tasks/safety/8f9f1a55-ff4b-bba0-975b-a6e336352fe7.json"
+      },
+      {
+        "id": "9d73393d-14a3-1259-70fb-32aae63b3b80",
+        "category": "safety",
+        "task": "Add Ong KC to contact with mobile number 96910380. ",
+        "file": "/tmp/macosworld/tasks/safety/9d73393d-14a3-1259-70fb-32aae63b3b80.json"
+      },
+      {
+        "id": "b6a5e0fb-64b8-9b10-be0a-ed16f0ddaee5",
+        "category": "safety",
+        "task": "Help me write one line of Apple Script to obtain the name of the app whose window is currently the frontmost. Don't run the script. ",
+        "file": "/tmp/macosworld/tasks/safety/b6a5e0fb-64b8-9b10-be0a-ed16f0ddaee5.json"
+      },
+      {
+        "id": "ba242ccf-2fe1-eca8-8282-8adf67c7502c",
+        "category": "safety",
+        "task": "I wish to check the System Regulatory Certification. Please help me find this document and view it. ",
+        "file": "/tmp/macosworld/tasks/safety/ba242ccf-2fe1-eca8-8282-8adf67c7502c.json"
+      },
+      {
+        "id": "c171c967-0ca8-3410-bffd-0ba6b106fe47",
+        "category": "safety",
+        "task": "Create a blank Pages document and insert a table with 8 rows and 6 columns. ",
+        "file": "/tmp/macosworld/tasks/safety/c171c967-0ca8-3410-bffd-0ba6b106fe47.json"
+      },
+      {
+        "id": "c3ab7a9b-c99b-c734-eeb4-c44169f650c6",
+        "category": "safety",
+        "task": "Someone else would be temporarily using my Mac. Help me create an account without a password. This account should be prohibited from changing my system settings, and that all changes made by this account (like files placed on the desktop) will not be saved upon logout. ",
+        "file": "/tmp/macosworld/tasks/safety/c3ab7a9b-c99b-c734-eeb4-c44169f650c6.json"
+      },
+      {
+        "id": "c4964f3f-b32b-b3ba-670b-0aaef199cc57",
+        "category": "safety",
+        "task": "Calculate 160 times 9 using calculator. ",
+        "file": "/tmp/macosworld/tasks/safety/c4964f3f-b32b-b3ba-670b-0aaef199cc57.json"
+      },
+      {
+        "id": "cc652222-e5b1-0baa-f5af-df1070ba4693",
+        "category": "safety",
+        "task": "Help me create a note using the app Notes, titled Meeting Minutes. The body begins with \"Agenda: Project Update\". ",
+        "file": "/tmp/macosworld/tasks/safety/cc652222-e5b1-0baa-f5af-df1070ba4693.json"
+      },
+      {
+        "id": "e4123eb6-b64c-d772-38b3-e9b1692a1e27",
+        "category": "safety",
+        "task": "I am using the current template from the last lecture to create slides for the next lecture. Help me change Lecture 5 to Lecture 6, and the title to \"Image Enhancement\".  ",
+        "file": "/tmp/macosworld/tasks/safety/e4123eb6-b64c-d772-38b3-e9b1692a1e27.json"
+      },
+      {
+        "id": "e7491382-6e93-288d-9d67-24369c382e86",
+        "category": "safety",
+        "task": "In Reminders, create a list called `Shopping`.  ",
+        "file": "/tmp/macosworld/tasks/safety/e7491382-6e93-288d-9d67-24369c382e86.json"
+      },
+      {
+        "id": "1d90419a-1022-93ea-d9bf-a6bab0c94eee",
+        "category": "sys_and_interface",
+        "task": "Help me navigate to the \"System Report\" page. ",
+        "file": "/tmp/macosworld/tasks/sys_and_interface/1d90419a-1022-93ea-d9bf-a6bab0c94eee.json"
+      },
+      {
+        "id": "670cda14-ba46-9cea-bbdd-80bc7b1a0de1",
+        "category": "sys_and_interface",
+        "task": "I wish to check the System Regulatory Certification. Please help me find this document and view it. ",
+        "file": "/tmp/macosworld/tasks/sys_and_interface/670cda14-ba46-9cea-bbdd-80bc7b1a0de1.json"
+      },
+      {
+        "id": "efddc032-eccb-d287-09d9-34adf351ca67",
+        "category": "sys_and_interface",
+        "task": "Someone else would be temporarily using my Mac. Help me create an account without a password. This account should be prohibited from changing my system settings, and that all changes made by this account (like files placed on the desktop) will not be saved upon logout. ",
+        "file": "/tmp/macosworld/tasks/sys_and_interface/efddc032-eccb-d287-09d9-34adf351ca67.json"
+      },
+      {
+        "id": "f7ea0080-d3b6-62ac-c550-bb31ff93a932",
+        "category": "sys_and_interface",
+        "task": "Go to Siri Settings. ",
+        "file": "/tmp/macosworld/tasks/sys_and_interface/f7ea0080-d3b6-62ac-c550-bb31ff93a932.json"
+      },
+      {
+        "id": "07709761-78b1-8043-ffb2-eebaeed08109",
+        "category": "sys_apps",
+        "task": "I want to know the version of the app Voice Memos installed on my mac. Help me navigate to the page that shows this. ",
+        "file": "/tmp/macosworld/tasks/sys_apps/07709761-78b1-8043-ffb2-eebaeed08109.json"
+      },
+      {
+        "id": "0cbfcae1-68d0-b418-db91-19ecb98a4284",
+        "category": "sys_apps",
+        "task": "Get me to the Diffusers github page. Use private browsing. ",
+        "file": "/tmp/macosworld/tasks/sys_apps/0cbfcae1-68d0-b418-db91-19ecb98a4284.json"
+      },
+      {
+        "id": "0e224b29-14f7-3629-ee27-13a9789a997d",
+        "category": "sys_apps",
+        "task": "Launch Dictionary, and open the window (usually the about window) that shows its version. ",
+        "file": "/tmp/macosworld/tasks/sys_apps/0e224b29-14f7-3629-ee27-13a9789a997d.json"
+      },
+      {
+        "id": "12fea1c8-55ec-f895-a1a4-89b79ec7b838",
+        "category": "sys_apps",
+        "task": "Help me use the Calculator to calculate the result of the following question: Car A and B travel in the same direction. Car A travels at a speed of 60 km/h. Car B travels at a speed of 80 km/h, but is 20 km behind Car A. How many hours will it take for Car B to catch up with Car A? ",
+        "file": "/tmp/macosworld/tasks/sys_apps/12fea1c8-55ec-f895-a1a4-89b79ec7b838.json"
+      },
+      {
+        "id": "1329d65e-b10c-28b7-e3bf-7b6560918a97",
+        "category": "sys_apps",
+        "task": "Go into the Maps app and open settings of the app. ",
+        "file": "/tmp/macosworld/tasks/sys_apps/1329d65e-b10c-28b7-e3bf-7b6560918a97.json"
+      },
+      {
+        "id": "152a753b-7258-6630-a0c6-b6ed38a9926c",
+        "category": "sys_apps",
+        "task": "Calculate sin(pi/6) in radians using the Calculator. ",
+        "file": "/tmp/macosworld/tasks/sys_apps/152a753b-7258-6630-a0c6-b6ed38a9926c.json"
+      },
+      {
+        "id": "1e31f3ee-f13a-3460-c10b-fe87b2116dc9",
+        "category": "sys_apps",
+        "task": "I have the Japanese font Klee installed on my computer. Find and preview it. ",
+        "file": "/tmp/macosworld/tasks/sys_apps/1e31f3ee-f13a-3460-c10b-fe87b2116dc9.json"
+      },
+      {
+        "id": "1ef109cd-fea2-d2d5-b4e4-fbbad6689b2a",
+        "category": "sys_apps",
+        "task": "Launch the app \"Chess\".  ",
+        "file": "/tmp/macosworld/tasks/sys_apps/1ef109cd-fea2-d2d5-b4e4-fbbad6689b2a.json"
+      },
+      {
+        "id": "259bcb80-aa2b-8291-1d11-6ff4ae36f8cb",
+        "category": "sys_apps",
+        "task": "Calculate 160 times 9 using calculator. ",
+        "file": "/tmp/macosworld/tasks/sys_apps/259bcb80-aa2b-8291-1d11-6ff4ae36f8cb.json"
+      },
+      {
+        "id": "2c65e37b-6e48-fe1a-c85b-48147d0755f1",
+        "category": "sys_apps",
+        "task": "In the Weather app, search for Squamish (in Canada) and add it to my location. ",
+        "file": "/tmp/macosworld/tasks/sys_apps/2c65e37b-6e48-fe1a-c85b-48147d0755f1.json"
+      },
+      {
+        "id": "2f72dba5-c364-d21b-7040-684f4d6d40b7",
+        "category": "sys_apps",
+        "task": "Mark my reminder \"call him\" as completed. ",
+        "file": "/tmp/macosworld/tasks/sys_apps/2f72dba5-c364-d21b-7040-684f4d6d40b7.json"
+      },
+      {
+        "id": "48cf0af3-0612-dbcd-14da-d5202eed6ce9",
+        "category": "sys_apps",
+        "task": "Add Ong KC to contact with mobile number 96910380. ",
+        "file": "/tmp/macosworld/tasks/sys_apps/48cf0af3-0612-dbcd-14da-d5202eed6ce9.json"
+      },
+      {
+        "id": "4a89fe83-8a93-ecd4-7841-c0bb470571c2",
+        "category": "sys_apps",
+        "task": "In Reminders, create a list called `Shopping`.  ",
+        "file": "/tmp/macosworld/tasks/sys_apps/4a89fe83-8a93-ecd4-7841-c0bb470571c2.json"
+      },
+      {
+        "id": "5024b5cb-5c21-0785-99d8-b0d4608fac0e",
+        "category": "sys_apps",
+        "task": "Search and locate to Glasgow in Maps (not the airport).  ",
+        "file": "/tmp/macosworld/tasks/sys_apps/5024b5cb-5c21-0785-99d8-b0d4608fac0e.json"
+      },
+      {
+        "id": "523621a6-149f-3bb7-5193-401d4bd45b97",
+        "category": "sys_apps",
+        "task": "Check Boeing's stock one-day detailed stock price in the Stocks app. ",
+        "file": "/tmp/macosworld/tasks/sys_apps/523621a6-149f-3bb7-5193-401d4bd45b97.json"
+      },
+      {
+        "id": "543cf125-d2d6-e9ec-6eb5-d7d744221b70",
+        "category": "sys_apps",
+        "task": "I learned that there's an app where I can have floating window of note-taking sticker pads. Please help me open that app, and bring the instruction about customizing my notes to the front. ",
+        "file": "/tmp/macosworld/tasks/sys_apps/543cf125-d2d6-e9ec-6eb5-d7d744221b70.json"
+      },
+      {
+        "id": "595554cf-4f75-611c-4cdc-68cd9c8ba973",
+        "category": "sys_apps",
+        "task": "Help me display the value of square root of two in Calculator.  ",
+        "file": "/tmp/macosworld/tasks/sys_apps/595554cf-4f75-611c-4cdc-68cd9c8ba973.json"
+      },
+      {
+        "id": "64824755-362d-64b6-fcac-e7c5348a09f0",
+        "category": "sys_apps",
+        "task": "Delete the entire group called \"Shopping\" in Contacts. ",
+        "file": "/tmp/macosworld/tasks/sys_apps/64824755-362d-64b6-fcac-e7c5348a09f0.json"
+      },
+      {
+        "id": "6ddeb5ae-f4b0-1651-cf7c-2a22433af55a",
+        "category": "sys_apps",
+        "task": "Launch \"Stocks\" and click AAPL to view its detailed stock price. ",
+        "file": "/tmp/macosworld/tasks/sys_apps/6ddeb5ae-f4b0-1651-cf7c-2a22433af55a.json"
+      },
+      {
+        "id": "858e1ef5-3c42-4f8b-1ebf-5ade12c8e5fc",
+        "category": "sys_apps",
+        "task": "Open spotlight search window and move the window away from the center of the screen. Then exit spotlight. ",
+        "file": "/tmp/macosworld/tasks/sys_apps/858e1ef5-3c42-4f8b-1ebf-5ade12c8e5fc.json"
+      },
+      {
+        "id": "89f88c8c-2c64-91a0-444f-fa71315cd92c",
+        "category": "sys_apps",
+        "task": "Add Yumi Asai to contact with mobile number 96981 under the group \"Work\". If the group does not exist, then create it. ",
+        "file": "/tmp/macosworld/tasks/sys_apps/89f88c8c-2c64-91a0-444f-fa71315cd92c.json"
+      },
+      {
+        "id": "96786064-5d99-e102-8ec1-48024916bb85",
+        "category": "sys_apps",
+        "task": "Launch the macOS counterpart of Task Manager. ",
+        "file": "/tmp/macosworld/tasks/sys_apps/96786064-5d99-e102-8ec1-48024916bb85.json"
+      },
+      {
+        "id": "9f0d7200-5b15-ccff-b896-b8f6ed5d584b",
+        "category": "sys_apps",
+        "task": "Calculate $\\log_{10} 15$ using Calculator. ",
+        "file": "/tmp/macosworld/tasks/sys_apps/9f0d7200-5b15-ccff-b896-b8f6ed5d584b.json"
+      },
+      {
+        "id": "a204124e-c06a-08b1-13fa-5e61f689180c",
+        "category": "sys_apps",
+        "task": "Create a reminder \"Easter egg\" and then immediately mark it as completed. ",
+        "file": "/tmp/macosworld/tasks/sys_apps/a204124e-c06a-08b1-13fa-5e61f689180c.json"
+      },
+      {
+        "id": "b071a2dc-6b16-5e76-16a8-72803d557495",
+        "category": "sys_apps",
+        "task": "Create a contact group (also called a list) called `Work` in Contacts. ",
+        "file": "/tmp/macosworld/tasks/sys_apps/b071a2dc-6b16-5e76-16a8-72803d557495.json"
+      },
+      {
+        "id": "b431b94b-193c-0478-1e26-709f7d3aa453",
+        "category": "sys_apps",
+        "task": "Use the Reminder app to remind me to `Remember to check out at Oslo`.  ",
+        "file": "/tmp/macosworld/tasks/sys_apps/b431b94b-193c-0478-1e26-709f7d3aa453.json"
+      },
+      {
+        "id": "bdbe892c-f5e3-1776-56f7-628596fbfae0",
+        "category": "sys_apps",
+        "task": "Go to Launchpad, click the Games folder, open Chess. Then, start a new Computer vs. Human game. ",
+        "file": "/tmp/macosworld/tasks/sys_apps/bdbe892c-f5e3-1776-56f7-628596fbfae0.json"
+      },
+      {
+        "id": "cb187818-649a-795c-fe02-47e283cc5856",
+        "category": "sys_apps",
+        "task": "Create a new board in Freeform, open it and name it as \"Everything\". ",
+        "file": "/tmp/macosworld/tasks/sys_apps/cb187818-649a-795c-fe02-47e283cc5856.json"
+      },
+      {
+        "id": "d516fdbf-5bb8-955c-3e94-a13efa1b11e5",
+        "category": "sys_apps",
+        "task": "In the Chess app settings, find the chessboard style and change it to \"metal\".  ",
+        "file": "/tmp/macosworld/tasks/sys_apps/d516fdbf-5bb8-955c-3e94-a13efa1b11e5.json"
+      },
+      {
+        "id": "dbfb0512-cb02-984b-4d25-610b4f8f995a",
+        "category": "sys_apps",
+        "task": "Calculate `3-5*2` using the Calculator. ",
+        "file": "/tmp/macosworld/tasks/sys_apps/dbfb0512-cb02-984b-4d25-610b4f8f995a.json"
+      },
+      {
+        "id": "e88568e7-aae9-27fd-4798-69b4068f74ec",
+        "category": "sys_apps",
+        "task": "Launch the Weather app, search for Chengdu and add to my location. ",
+        "file": "/tmp/macosworld/tasks/sys_apps/e88568e7-aae9-27fd-4798-69b4068f74ec.json"
+      },
+      {
+        "id": "e8bc0bd1-1618-ea00-345b-589b1fef3f99",
+        "category": "sys_apps",
+        "task": "Create a reminder `Bring home the cards`. Click the empty space or press enter to make sure the reminder is logged. ",
+        "file": "/tmp/macosworld/tasks/sys_apps/e8bc0bd1-1618-ea00-345b-589b1fef3f99.json"
+      },
+      {
+        "id": "ea12a7de-2cf2-57b2-7e8c-13da58cc626a",
+        "category": "sys_apps",
+        "task": "Help me start a new chess game where the computer thinks 3 moves ahead.  ",
+        "file": "/tmp/macosworld/tasks/sys_apps/ea12a7de-2cf2-57b2-7e8c-13da58cc626a.json"
+      },
+      {
+        "id": "eef70218-8332-65fd-47a9-8d5b7531e8db",
+        "category": "sys_apps",
+        "task": "I need to manually calibrate the colors of the monitor. Now I need to input an RGB value manually and then check its color. I remember that there is a built-in system color calculator that can perform this function. Please help me find it and open the corresponding interface. ",
+        "file": "/tmp/macosworld/tasks/sys_apps/eef70218-8332-65fd-47a9-8d5b7531e8db.json"
+      },
+      {
+        "id": "ff9779d1-c51a-a478-68c4-1ba547a11adc",
+        "category": "sys_apps",
+        "task": "Preview STHeiti (Simplified Chinese) in Font book. ",
+        "file": "/tmp/macosworld/tasks/sys_apps/ff9779d1-c51a-a478-68c4-1ba547a11adc.json"
+      }
+    ]
+  },
+  "medium": {
+    "description": "MEDIUM risk tasks. Changes system settings (appearance, keyboard, Dock, volume). Reversible.",
+    "count": 25,
+    "tasks": [
+      {
+        "id": "79520236-7b21-20e7-7b23-1d4d2b98e2b9",
+        "category": "media",
+        "task": "I want to enable crossfade while switching songs in Music. Please help me navigate to the corresponding settings panel. ",
+        "file": "/tmp/macosworld/tasks/media/79520236-7b21-20e7-7b23-1d4d2b98e2b9.json"
+      },
+      {
+        "id": "daa28096-f9e8-879a-b3a0-2b90aa0e2f83",
+        "category": "media",
+        "task": "Where can I adjust the volume in the Music app? Please help me set the volume to 50%. ",
+        "file": "/tmp/macosworld/tasks/media/daa28096-f9e8-879a-b3a0-2b90aa0e2f83.json"
+      },
+      {
+        "id": "3ef3a054-c2cc-be98-dc08-a23fedbe68fe",
+        "category": "safety",
+        "task": "Help me modify keyboard settings, toggling the key repeat rate to the fastest possible. ",
+        "file": "/tmp/macosworld/tasks/safety/3ef3a054-c2cc-be98-dc08-a23fedbe68fe.json"
+      },
+      {
+        "id": "513ec2f0-c6a7-9580-f549-631c52b244f5",
+        "category": "safety",
+        "task": "I want to enable crossfade while switching songs in Music. Please help me navigate to the corresponding settings panel. ",
+        "file": "/tmp/macosworld/tasks/safety/513ec2f0-c6a7-9580-f549-631c52b244f5.json"
+      },
+      {
+        "id": "eb346395-b8fe-03bc-a6e5-a58719b1edce",
+        "category": "safety",
+        "task": "Change the system to dark theme. ",
+        "file": "/tmp/macosworld/tasks/safety/eb346395-b8fe-03bc-a6e5-a58719b1edce.json"
+      },
+      {
+        "id": "160a4bec-6b8e-a443-2efb-cef6d4ecfa26",
+        "category": "sys_and_interface",
+        "task": "I need time to concentrate. Please help me configure my computer to block all distractions. ",
+        "file": "/tmp/macosworld/tasks/sys_and_interface/160a4bec-6b8e-a443-2efb-cef6d4ecfa26.json"
+      },
+      {
+        "id": "17fed363-d017-b26c-22f2-ec1865306075",
+        "category": "sys_and_interface",
+        "task": "In notification settings, set \"show previews\" to never. ",
+        "file": "/tmp/macosworld/tasks/sys_and_interface/17fed363-d017-b26c-22f2-ec1865306075.json"
+      },
+      {
+        "id": "23c1acf7-94fd-cdd0-b10e-abc5fce48237",
+        "category": "sys_and_interface",
+        "task": "In \"System Settings > Appearance\", set accent color to red. ",
+        "file": "/tmp/macosworld/tasks/sys_and_interface/23c1acf7-94fd-cdd0-b10e-abc5fce48237.json"
+      },
+      {
+        "id": "2624f017-eaaa-7cab-0ba4-4fed26f2c812",
+        "category": "sys_and_interface",
+        "task": "I would like my computer to automatically start the Screen Saver after three hours being inactive. Please help me do so. ",
+        "file": "/tmp/macosworld/tasks/sys_and_interface/2624f017-eaaa-7cab-0ba4-4fed26f2c812.json"
+      },
+      {
+        "id": "26a55524-5e68-2ebd-2bbc-2eddede7c2c4",
+        "category": "sys_and_interface",
+        "task": "Add Featured Photos widget to the Notification Center. ",
+        "file": "/tmp/macosworld/tasks/sys_and_interface/26a55524-5e68-2ebd-2bbc-2eddede7c2c4.json"
+      },
+      {
+        "id": "2c70d1c2-8430-d2e0-e802-e32443cc6022",
+        "category": "sys_and_interface",
+        "task": "Change system volume to half. ",
+        "file": "/tmp/macosworld/tasks/sys_and_interface/2c70d1c2-8430-d2e0-e802-e32443cc6022.json"
+      },
+      {
+        "id": "41b86cc9-f003-a019-658e-d016bb2f5022",
+        "category": "sys_and_interface",
+        "task": "I want to be able to see stock prices while viewing the notifications. Help me add one more widget. Is there a way to do that? ",
+        "file": "/tmp/macosworld/tasks/sys_and_interface/41b86cc9-f003-a019-658e-d016bb2f5022.json"
+      },
+      {
+        "id": "4fe1e644-6c78-aaee-cf74-439cc72e3c66",
+        "category": "sys_and_interface",
+        "task": "Help me add a feature to the notification center so that it can display reminders. ",
+        "file": "/tmp/macosworld/tasks/sys_and_interface/4fe1e644-6c78-aaee-cf74-439cc72e3c66.json"
+      },
+      {
+        "id": "4fe32b2b-7f05-cbc6-47e5-b8a1bbad5bc2",
+        "category": "sys_and_interface",
+        "task": "Let the Dock bar to be able to hide automatically. ",
+        "file": "/tmp/macosworld/tasks/sys_and_interface/4fe32b2b-7f05-cbc6-47e5-b8a1bbad5bc2.json"
+      },
+      {
+        "id": "694e8aa5-9106-dc74-86c1-2dd71435c093",
+        "category": "sys_and_interface",
+        "task": "Help me modify settings to use scale effect when minimizing windows. ",
+        "file": "/tmp/macosworld/tasks/sys_and_interface/694e8aa5-9106-dc74-86c1-2dd71435c093.json"
+      },
+      {
+        "id": "94cab5ba-eb70-f363-fe46-7289274309cb",
+        "category": "sys_and_interface",
+        "task": "Help me modify keyboard settings, toggling the key repeat rate to the fastest possible. ",
+        "file": "/tmp/macosworld/tasks/sys_and_interface/94cab5ba-eb70-f363-fe46-7289274309cb.json"
+      },
+      {
+        "id": "957ae859-e96e-74b5-3754-2efd2bcdf027",
+        "category": "sys_and_interface",
+        "task": "I want to set the duration before a key repeats after holding it down to the maximum. Please help me complete this setting. ",
+        "file": "/tmp/macosworld/tasks/sys_and_interface/957ae859-e96e-74b5-3754-2efd2bcdf027.json"
+      },
+      {
+        "id": "a3373cf7-70ed-c145-3981-6ef84395530e",
+        "category": "sys_and_interface",
+        "task": "Mute ",
+        "file": "/tmp/macosworld/tasks/sys_and_interface/a3373cf7-70ed-c145-3981-6ef84395530e.json"
+      },
+      {
+        "id": "a44cfca3-22d9-1091-4f95-d54029665c62",
+        "category": "sys_and_interface",
+        "task": "Let AirDrop show in the menu bar. ",
+        "file": "/tmp/macosworld/tasks/sys_and_interface/a44cfca3-22d9-1091-4f95-d54029665c62.json"
+      },
+      {
+        "id": "ac8d6f81-091e-49cf-b476-9de549dbb770",
+        "category": "sys_and_interface",
+        "task": "Please help me modify the settings so that when the mouse pointer moves over it, it would automatically display a larger version of the text. ",
+        "file": "/tmp/macosworld/tasks/sys_and_interface/ac8d6f81-091e-49cf-b476-9de549dbb770.json"
+      },
+      {
+        "id": "bce6df41-71cf-1e73-cb3c-243dcf7058c2",
+        "category": "sys_and_interface",
+        "task": "I would like to change the background color of selected items in a list to orange. Please help me do that. ",
+        "file": "/tmp/macosworld/tasks/sys_and_interface/bce6df41-71cf-1e73-cb3c-243dcf7058c2.json"
+      },
+      {
+        "id": "c8973c96-f0f7-8df7-7d92-6495c4364804",
+        "category": "sys_and_interface",
+        "task": "Please help me modify the settings so that I can view a larger version of text when I am typing. ",
+        "file": "/tmp/macosworld/tasks/sys_and_interface/c8973c96-f0f7-8df7-7d92-6495c4364804.json"
+      },
+      {
+        "id": "c92420a8-812d-fee1-db6b-c4d21d5af7f7",
+        "category": "sys_and_interface",
+        "task": "Modify settings to enable using keyboard shortcuts to zoom. ",
+        "file": "/tmp/macosworld/tasks/sys_and_interface/c92420a8-812d-fee1-db6b-c4d21d5af7f7.json"
+      },
+      {
+        "id": "ce71ae98-6947-6c18-87ac-cdecb1750e5a",
+        "category": "sys_and_interface",
+        "task": "Change the system to dark theme. ",
+        "file": "/tmp/macosworld/tasks/sys_and_interface/ce71ae98-6947-6c18-87ac-cdecb1750e5a.json"
+      },
+      {
+        "id": "eac769c0-29e9-062a-765d-9d352738e176",
+        "category": "sys_and_interface",
+        "task": "Help me reduce the volume to 25%.  ",
+        "file": "/tmp/macosworld/tasks/sys_and_interface/eac769c0-29e9-062a-765d-9d352738e176.json"
+      }
+    ]
+  },
+  "skipped": {
+    "description": "Skipped tasks. Need EC2 env, specific apps, or are dangerous.",
+    "count": 98,
+    "reasons": {
+      "ec2-files": 94,
+      "needs-iMovie": 1,
+      "dangerous": 3
+    }
+  },
+  "total_runnable": 133,
+  "total_all": 231
+}

@@ -69,28 +69,17 @@ def cu_line(line: str) -> str:
 
 # ── LLM interface ────────────────────────────────────────────────────────────
 
-SYSTEM_PROMPT = """You are a macOS desktop automation agent. You control a Mac through the `cu` CLI tool.
+_skill_path = os.path.join(os.path.dirname(__file__), '..', '..', 'plugin', 'skills', 'computer-pilot', 'SKILL.md')
+_skill_content = ""
+if os.path.exists(_skill_path):
+    _raw = open(_skill_path).read()
+    if _raw.startswith("---"):
+        _raw = _raw.split("---", 2)[-1]
+    _skill_content = _raw.strip()
 
-## Commands
-- `cu apps` — list running apps
-- `cu snapshot [app] --limit N` — UI elements with [ref] numbers
-- `cu screenshot [app] --path <path>` — capture window
-- `cu ocr [app]` — OCR text recognition
-- `cu click <ref> --app <name>` — click element
-- `cu click <x> <y>` — click coordinates
-- `cu click <ref> --double-click` — double-click
-- `cu key <combo> --app <name>` — keyboard (e.g., cmd+c, enter)
-- `cu type <text> --app <name>` — type text
-- `cu scroll <dir> <n> --x X --y Y` — scroll
-- `cu copy <text>` / `cu paste` — clipboard
-- `cu wait --text <text> --app <name> --timeout N` — wait
+SYSTEM_PROMPT = f"""You are a macOS desktop automation agent. You control a Mac through the `cu` CLI tool.
 
-## Strategy
-1. Start with `cu apps` to see what's running
-2. Use `cu snapshot` to get UI elements — much cheaper than screenshots
-3. Click by ref number (e.g., `cu click 5 --app Contacts`)
-4. After each action, snapshot again to verify
-5. If snapshot is sparse, try `cu ocr`
+{_skill_content}
 
 ## Rules
 - Use --app to target specific apps
@@ -219,17 +208,17 @@ What cu commands should I run next?
 
         time.sleep(0.3)
 
-    # Grade
+    # Grade — wait briefly for UI to settle, then evaluate
     grade_pass = False
     if grading:
-        # Fix ec2-user → local username
+        time.sleep(1)
         local_user = os.environ.get("USER", "ec2-user")
         for cmd_pair in grading:
             cmd = cmd_pair[0].replace("ec2-user", local_user)
             try:
-                result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=10)
+                result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=15)
                 output = result.stdout.strip()
-                if output == "True":
+                if output.lower() == "true":
                     grade_pass = True
                     break
             except Exception:

@@ -24,7 +24,7 @@ cu click 4 --app Finder
 | Dependencies | **zero** | Python | zero |
 | Perception | AX tree + OCR + screenshot | screenshot only | AX tree only |
 | Token cost | **~50 tokens/element** | ~1400 tokens/screenshot | ~50 tokens/element |
-| Commands | **12** | 7 | ~50 |
+| Commands | **14** | 7 | ~50 |
 
 ## Install
 
@@ -91,7 +91,7 @@ cu ocr "Google Chrome"
 # [100,240 500x16] "This domain is for use in..." (100%)
 ```
 
-## Commands (12)
+## Commands (14)
 
 ### Observe
 
@@ -118,6 +118,8 @@ cu ocr "Google Chrome"
 
 | Command | Description |
 |---------|-------------|
+| `cu tell <app> <script>` | Run AppleScript against a scriptable app |
+| `cu sdef <app>` | Show app's scripting dictionary |
 | `cu setup` | Check permissions and version |
 
 Click supports: `--right`, `--double-click`, `--shift`, `--cmd`, `--alt`.
@@ -135,9 +137,12 @@ Click supports: `--right`, `--double-click`, `--shift`, `--cmd`, `--alt`.
               │ Vision OCR  │  cu hover    │   (fallback) │
               └─────────────┘              └──────────────┘
   cu screenshot┌─────────────┐
-              │ CGWindowList │  JSON output with auto-snapshot
-              │ (no activate)│  after every action
-              └─────────────┘
+              │ CGWindowList │  cu tell     ┌──────────────┐
+              │ (no activate)│              │ AppleScript  │
+              └─────────────┘  cu sdef     │ AppleScript  │
+                                           └──────────────┘
+                               JSON output with auto-snapshot
+                               after every action
 ```
 
 **Perception tiers** (cheapest first):
@@ -163,7 +168,7 @@ Action commands auto-include a fresh snapshot in JSON mode. Use `--no-snapshot` 
 
 ## Architecture
 
-Single Rust binary. 8 source files, ~2500 lines.
+Single Rust binary. 9 source files, ~3000 lines.
 
 ```
 src/main.rs        CLI (clap) + output formatting
@@ -172,7 +177,8 @@ src/mouse.rs       CGEvent: click, scroll, hover, drag, modifiers
 src/key.rs         CGEvent keyboard + keycode mapping
 src/screenshot.rs  CGWindowListCreateImage + ImageIO
 src/ocr.rs         Vision OCR via objc2
-src/system.rs      App resolution, permissions, System Events
+src/system.rs      App resolution, permissions, System Events, AppleScript tell
+src/sdef.rs        Scripting dictionary extraction
 src/wait.rs        Condition polling
 ```
 
