@@ -30,7 +30,9 @@ cu apps                              # S flag = scriptable → use cu tell
 
 **Scriptable app (has S flag)?** → Use `cu tell` with AppleScript. Faster, more reliable, reads/writes app data directly.
 
-**Non-scriptable app?** → Use AX tree workflow: `cu snapshot` → `cu click` → `cu snapshot`.
+**Non-scriptable app?** → Use `cu menu` to discover capabilities, then `cu snapshot` → `cu click` for interaction.
+
+**System settings?** → Use `cu defaults read/write` to change preferences directly (no System Settings UI needed).
 
 ## Scripting Workflow (preferred for scriptable apps)
 
@@ -114,24 +116,30 @@ cu key enter                         # launch
 cu wait --text "AppName" --timeout 5 # wait for it
 ```
 
-### Open "About" window
+### Discover any app's capabilities
 ```bash
-# Most apps: click app name in menu bar → About
-cu snapshot "App Name" --limit 30    # find menu bar items
-cu click <menu-ref> --app "App Name" # click app menu
-cu snapshot "App Name" --limit 30    # find "About" item
-cu click <about-ref> --app "App Name"
-# Or try keyboard: cmd+shift+/ → type "About"
+cu menu "App Name"                   # list ALL menu items (works for every app)
+# Output: View > Scientific, Edit > Copy, File > Export, etc.
+# Then click any menu item:
+cu tell "System Events" 'tell process "App Name" to click menu item "Scientific" of menu "View" of menu bar 1'
 ```
 
-### Navigate System Settings
+### Change system settings (no UI needed)
 ```bash
-cu key cmd+space
-cu type "System Settings"
-cu key enter
-cu wait --text "Settings" --timeout 5
-cu snapshot "System Settings" --limit 100
-# Click the setting category, then adjust
+cu defaults read com.apple.dock autohide                 # read a preference
+cu defaults write com.apple.dock autohide -bool true     # change it
+# Common domains: com.apple.dock, com.apple.finder, NSGlobalDomain
+# For settings not in defaults, use cu tell "System Events":
+cu tell "System Events" 'tell appearance preferences to set dark mode to true'
+osascript -e 'set volume output volume 50'               # volume (0-100)
+```
+
+### Click any menu item (universal)
+```bash
+# System Events can click menu items in ANY app
+cu tell "System Events" 'tell process "AppName"
+  click menu item "About AppName" of menu "AppName" of menu bar 1
+end tell'
 ```
 
 ## Understanding Snapshots
@@ -151,11 +159,23 @@ Use the `[ref]` number with `cu click <ref>` to interact.
 
 ## Commands
 
+### Discovery (use first to understand what's available)
+| Command | Description |
+|---------|-------------|
+| `cu apps` | List running apps (`S` = scriptable, with class count) |
+| `cu menu <app>` | List ALL menu bar items of any app (via System Events) |
+| `cu sdef <app>` | Show scripting dictionary for scriptable apps |
+
 ### Scripting (for scriptable apps — check S flag in `cu apps`)
 | Command | Description |
 |---------|-------------|
 | `cu tell <app> '<AppleScript>'` | Run AppleScript against app (read/write data) |
-| `cu sdef <app>` | Show app's scripting dictionary (classes, properties, commands) |
+
+### System Preferences (bypass System Settings UI)
+| Command | Description |
+|---------|-------------|
+| `cu defaults read <domain> [key]` | Read a macOS preference |
+| `cu defaults write <domain> <key> <value>` | Write a macOS preference |
 
 ### Observe
 | Command | Description |

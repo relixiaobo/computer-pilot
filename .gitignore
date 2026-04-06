@@ -4,3 +4,4 @@ bin/
 .DS_Store
 .env
 test-results/
+__pycache__/

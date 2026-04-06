@@ -30,14 +30,17 @@ const POST_ACTION_DELAY_MS: u64 = 500;
         2. cu sdef <app>                   — discover scripting dictionary\n\
         3. cu tell <app> '<AppleScript>'   — read/write app data directly\n\n\
         WORKFLOW FOR NON-SCRIPTABLE APPS:\n\
-        1. cu snapshot [app] --limit 30    — get UI elements with [ref] numbers\n\
-        2. cu click <ref> --app <name>     — click element by ref\n\
-        3. cu snapshot [app]               — verify result\n\n\
+        1. cu menu <app>                   — discover what menus/features exist\n\
+        2. cu snapshot [app] --limit 30    — get UI elements with [ref] numbers\n\
+        3. cu click <ref> --app <name>     — click element by ref\n\n\
+        SYSTEM PREFERENCES (no UI needed):\n\
+        • cu defaults read/write           — change settings directly\n\
+        • cu tell \"System Events\" '...'   — system-level control\n\n\
         TIPS FOR AI AGENTS:\n\
-        • Prefer cu tell for scriptable apps — faster, more reliable, direct data access\n\
+        • Use cu menu first to discover any app's capabilities via its menu bar\n\
+        • Use cu defaults to change settings without navigating System Settings\n\
         • Always use --app to target a specific app (avoids focus issues)\n\
-        • Refs are ephemeral — they change after every action, always re-snapshot\n\
-        • JSON output (when piped) includes auto-snapshot after actions"
+        • Refs are ephemeral — they change after every action, always re-snapshot"
 )]
 struct Cli {
     /// Force human-readable output (default: JSON when piped, human when TTY)
@@ -268,6 +271,46 @@ enum Cmd {
         full: bool,
     },
 
+    /// List an app's menu bar items (works for ALL apps via System Events)
+    #[command(after_help = "\
+        Enumerates every menu and menu item in the app's menu bar.\n\
+        Works for ANY app — scriptable or not. Uses System Events.\n\n\
+        Examples:\n  \
+        cu menu Calculator     # see View > Scientific, View > Programmer\n  \
+        cu menu Safari         # see File > New Window, View > Show Reader\n  \
+        cu menu Finder         # see File > New Finder Window, Go > Home\n\n\
+        To click a menu item, use cu tell with System Events:\n  \
+        cu tell \"System Events\" 'tell process \"Calculator\" to click menu item \\\n    \
+          \"Scientific\" of menu \"View\" of menu bar 1'")]
+    Menu {
+        /// Target application name
+        app: String,
+    },
+
+    /// Read or write macOS system preferences (no UI needed)
+    #[command(after_help = "\
+        Read/write macOS preferences via the defaults system.\n\
+        Bypasses System Settings UI entirely.\n\n\
+        Examples:\n  \
+        cu defaults read com.apple.dock autohide\n  \
+        cu defaults write com.apple.dock autohide -bool true\n  \
+        cu defaults read NSGlobalDomain KeyRepeat\n  \
+        cu defaults write NSGlobalDomain KeyRepeat -int 2\n  \
+        cu defaults read com.apple.calculator ViewDefaultsKey\n\n\
+        After writing dock/finder settings, restart with:\n  \
+        killall Dock   or   killall Finder")]
+    Defaults {
+        /// Subcommand: read or write
+        action: String,
+        /// Preference domain (e.g., com.apple.dock, NSGlobalDomain)
+        domain: String,
+        /// Preference key
+        key: Option<String>,
+        /// Value to write (with type flag: -bool, -int, -float, -string)
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        value: Vec<String>,
+    },
+
     /// Show an app's scripting dictionary (classes, commands, properties)
     #[command(after_help = "\
         Reads the app's sdef file and returns a structured summary of its\n\
@@ -352,6 +395,8 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), String> {
             cmd_drag(json, x1, y1, x2, y2, mods)
         }
         Cmd::Screenshot { app, path, full } => cmd_screenshot(json, app, path, full),
+        Cmd::Menu { app } => cmd_menu(json, app),
+        Cmd::Defaults { action, domain, key, value } => cmd_defaults(json, action, domain, key, value),
         Cmd::Sdef { app } => cmd_sdef(json, app),
         Cmd::Tell { app, expr, timeout } => cmd_tell(json, app, expr, timeout),
     }
@@ -659,6 +704,74 @@ fn cmd_screenshot(json: bool, app: Option<String>, path: Option<String>, full: b
         ok(serde_json::json!({"ok": true, "app": name, "path": output_path, "mode": "window", "offset_x": win.x, "offset_y": win.y}))
     } else {
         println!("Screenshot saved: {output_path} (window offset: {},{})", win.x, win.y); Ok(())
+    }
+}
+
+fn cmd_menu(json: bool, app: String) -> Result<(), String> {
+    let raw = system::list_menu(&app)?;
+
+    if raw.is_empty() {
+        return Err(format!("no menu items found for {app} (is it running?)"));
+    }
+
+    if json {
+        // Parse into structured JSON
+        let mut items: Vec<serde_json::Value> = Vec::new();
+        for line in raw.lines() {
+            let line = line.trim();
+            if line.is_empty() { continue; }
+            let disabled = line.ends_with("(disabled)");
+            let clean = if disabled { line.trim_end_matches(" (disabled)") } else { line };
+            if let Some((menu, item)) = clean.split_once(" > ") {
+                items.push(serde_json::json!({
+                    "menu": menu.trim(), "item": item.trim(), "enabled": !disabled
+                }));
+            }
+        }
+        ok(serde_json::json!({"ok": true, "app": app, "items": items}))
+    } else {
+        println!("{app} menu bar:\n");
+        let mut current_menu = String::new();
+        for line in raw.lines() {
+            let line = line.trim();
+            if line.is_empty() { continue; }
+            if let Some((menu, item)) = line.split_once(" > ") {
+                if menu != current_menu {
+                    if !current_menu.is_empty() { println!(); }
+                    current_menu = menu.to_string();
+                    println!("  {menu}");
+                }
+                let disabled = if line.ends_with("(disabled)") { " (disabled)" } else { "" };
+                let item = item.trim_end_matches(" (disabled)");
+                println!("    {item}{disabled}");
+            }
+        }
+        Ok(())
+    }
+}
+
+fn cmd_defaults(json: bool, action: String, domain: String, key: Option<String>, value: Vec<String>) -> Result<(), String> {
+    match action.as_str() {
+        "read" => {
+            let result = system::defaults_read(&domain, key.as_deref())?;
+            if json {
+                ok(serde_json::json!({"ok": true, "domain": domain, "key": key, "value": result}))
+            } else {
+                println!("{result}");
+                Ok(())
+            }
+        }
+        "write" => {
+            let k = key.ok_or("key is required for defaults write")?;
+            system::defaults_write(&domain, &k, &value)?;
+            if json {
+                ok(serde_json::json!({"ok": true, "domain": domain, "key": k}))
+            } else {
+                println!("Set {domain} {k}");
+                Ok(())
+            }
+        }
+        other => Err(format!("unknown defaults action: {other} (use: read, write)")),
     }
 }
 

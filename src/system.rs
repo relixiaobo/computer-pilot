@@ -286,6 +286,77 @@ pub fn send_key(combo: &str, app: &str) -> Result<(), String> {
     run_applescript(&script)
 }
 
+// ── Menu (enumerate app menu bar via System Events) ─────────────────────────
+
+pub fn list_menu(app: &str) -> Result<String, String> {
+    let escaped = applescript_escape(app);
+    let script = format!(
+        "tell application \"System Events\"
+    tell process \"{escaped}\"
+        set output to \"\"
+        repeat with menuBarItem in menu bar items of menu bar 1
+            set menuName to name of menuBarItem
+            try
+                repeat with mi in menu items of menu 1 of menuBarItem
+                    set itemName to name of mi
+                    if itemName is not missing value then
+                        set isEnabled to enabled of mi
+                        if isEnabled then
+                            set output to output & menuName & \" > \" & itemName & linefeed
+                        else
+                            set output to output & menuName & \" > \" & itemName & \" (disabled)\" & linefeed
+                        end if
+                    end if
+                end repeat
+            end try
+        end repeat
+        return output
+    end tell
+end tell"
+    );
+    run_applescript_capture(&script, 10, false)
+}
+
+// ── Defaults (read/write macOS preferences) ─────────────────────────────────
+
+pub fn defaults_read(domain: &str, key: Option<&str>) -> Result<String, String> {
+    let mut args = vec!["defaults", "read", domain];
+    if let Some(k) = key {
+        args.push(k);
+    }
+    let output = Command::new(args[0])
+        .args(&args[1..])
+        .stdin(Stdio::null())
+        .stderr(Stdio::piped())
+        .stdout(Stdio::piped())
+        .output()
+        .map_err(|e| format!("defaults failed: {e}"))?;
+
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+pub fn defaults_write(domain: &str, key: &str, value_args: &[String]) -> Result<(), String> {
+    let mut cmd = Command::new("defaults");
+    cmd.arg("write").arg(domain).arg(key);
+    for v in value_args {
+        cmd.arg(v);
+    }
+    let output = cmd
+        .stdin(Stdio::null())
+        .stderr(Stdio::piped())
+        .stdout(Stdio::piped())
+        .output()
+        .map_err(|e| format!("defaults write failed: {e}"))?;
+
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    }
+    Ok(())
+}
+
 // ── Tell (AppleScript execution against an app) ─────────────────────────────
 
 pub fn tell_app(app: &str, expr: &str, timeout_secs: u64) -> Result<String, String> {
