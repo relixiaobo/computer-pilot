@@ -33,12 +33,14 @@ const POST_ACTION_DELAY_MS: u64 = 500;
         1. cu menu <app>                   — discover what menus/features exist\n\
         2. cu snapshot [app] --limit 30    — get UI elements with [ref] numbers\n\
         3. cu click <ref> --app <name>     — click element by ref\n\n\
-        SYSTEM PREFERENCES (no UI needed):\n\
-        • cu defaults read/write           — change settings directly\n\
+        SYSTEM CONTROL (no UI needed):\n\
+        • cu defaults read/write           — change macOS preferences directly\n\
+        • cu window list/move/resize       — manage windows of any app\n\
         • cu tell \"System Events\" '...'   — system-level control\n\n\
         TIPS FOR AI AGENTS:\n\
         • Use cu menu first to discover any app's capabilities via its menu bar\n\
         • Use cu defaults to change settings without navigating System Settings\n\
+        • cu click --text \"label\" finds and clicks text via OCR\n\
         • Always use --app to target a specific app (avoids focus issues)\n\
         • Refs are ephemeral — they change after every action, always re-snapshot"
 )]

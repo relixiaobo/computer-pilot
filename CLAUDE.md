@@ -24,9 +24,13 @@ src/mouse.rs       → Mouse operations (CGEvent FFI): click, scroll, hover, dra
 src/key.rs         → Keyboard events (CGEvent FFI)
 src/screenshot.rs  → Window capture (CGWindowListCreateImage + ImageIO)
 src/ocr.rs         → OCR (macOS Vision framework via objc2)
-src/system.rs      → App resolution, permissions, System Events, AppleScript tell, sdef
+src/system.rs      → App resolution, permissions, System Events bridges:
+                     tell, menu, defaults, window mgmt, type/key
+src/sdef.rs        → Scripting dictionary parser (Rust native, quick-xml)
 src/wait.rs        → UI condition polling
 ```
+
+**17 commands** across discovery, observation, action, scripting, system control.
 
 ## Design Rules
 

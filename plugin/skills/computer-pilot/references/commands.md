@@ -24,6 +24,48 @@ Show the scripting dictionary for an app.
 - Pure Rust XML parsing (no external tools)
 - Use this to discover what operations are available before writing `cu tell` commands
 
+### `cu menu <app>`
+Enumerate every menu and menu item in the app's menu bar via System Events.
+- Works for ALL apps — scriptable or not
+- `cu menu Calculator` → see `View > Scientific`, `View > Programmer`, etc.
+- `cu menu Finder` → see `Go > Home`, `View > as List`, etc.
+- Returns: menu name, item name, enabled status
+- After discovering, click any item:
+  ```
+  cu tell "System Events" 'tell process "AppName" to click menu item "Foo" of menu "View" of menu bar 1'
+  ```
+
+## System Preferences
+
+### `cu defaults read <domain> [key]`
+Read macOS preferences via the `defaults` system.
+- `cu defaults read com.apple.dock autohide` — read specific key
+- `cu defaults read com.apple.dock` — read entire domain
+- Common domains: `com.apple.dock`, `com.apple.finder`, `NSGlobalDomain`
+
+### `cu defaults write <domain> <key> <value>`
+Write macOS preferences. Bypasses System Settings UI.
+- `cu defaults write com.apple.dock autohide -bool true`
+- `cu defaults write NSGlobalDomain KeyRepeat -int 2`
+- After writing dock/finder settings, restart with `killall Dock` or `killall Finder`
+
+## Window Management
+
+### `cu window list [--app Name]`
+List windows of all apps or a specific app.
+- Returns: app, index, title, x, y, width, height, minimized, focused
+- `cu window list` — every visible window across all apps
+- `cu window list --app Safari` — Safari windows only
+
+### `cu window <action> --app Name [args]`
+Window actions: `move`, `resize`, `focus`, `minimize`, `unminimize`, `close`.
+- `cu window move 100 100 --app Safari` — move front window
+- `cu window resize 1200 800 --app Safari` — resize front window
+- `cu window focus --app Safari` — bring to front
+- `cu window minimize --app Safari`
+- `cu window close --app Safari`
+- `--window N` to target a specific window (default: 1 = frontmost)
+
 ## Observation
 
 ### `cu apps`
@@ -60,16 +102,19 @@ Poll the AX tree until a condition is met.
 
 ## Interaction
 
-### `cu click <target> [y] [--app name] [--right] [--double-click] [--shift] [--cmd] [--alt] [--no-snapshot]`
-Click an element by ref or screen coordinates.
+### `cu click <ref|x y> [--text "..."] [--app name] [--right] [--double-click] [--shift] [--cmd] [--alt] [--no-snapshot]`
+Click by ref, screen coordinates, or on-screen text.
 - `cu click 3 --app Finder` — click ref [3] from snapshot
 - `cu click 500 300` — click screen coordinates
+- `cu click --text "Submit" --app Safari` — find text via OCR, click it
+- `cu click --text "OK" --index 2` — click 2nd occurrence
 - `--right` — right-click
 - `--double-click` — double-click (open files, select words)
 - `--shift` — shift+click (extend selection)
 - `--cmd` — cmd+click (toggle selection, open in new tab)
 - `--alt` — alt/option+click
 - Ref mode: tries AX actions (AXPress/AXConfirm) first, falls back to CGEvent
+- Text mode: uses OCR to locate text, useful when AX tree is sparse
 - Right-click and double-click always use CGEvent (skip AX actions)
 
 ### `cu key <combo> [--app name] [--no-snapshot]`

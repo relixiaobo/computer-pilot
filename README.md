@@ -24,7 +24,7 @@ cu click 4 --app Finder
 | Dependencies | **zero** | Python | zero |
 | Perception | AX tree + OCR + screenshot | screenshot only | AX tree only |
 | Token cost | **~50 tokens/element** | ~1400 tokens/screenshot | ~50 tokens/element |
-| Commands | **14** | 7 | ~50 |
+| Commands | **17** | 7 | ~50 |
 
 ## Install
 
@@ -91,64 +91,82 @@ cu ocr "Google Chrome"
 # [100,240 500x16] "This domain is for use in..." (100%)
 ```
 
-## Commands (14)
+## Commands (17)
+
+### Discover
+
+| Command | Description |
+|---------|-------------|
+| `cu apps` | List running apps (`S` flag = scriptable) |
+| `cu menu <app>` | Enumerate any app's menu bar (works for ALL apps) |
+| `cu sdef <app>` | Show scripting dictionary for scriptable apps |
 
 ### Observe
 
 | Command | Description |
 |---------|-------------|
-| `cu snapshot [app]` | AX tree with [ref] numbers, position, size |
+| `cu snapshot [app]` | AX tree with [ref] numbers, position, size, window frame |
 | `cu screenshot [app]` | Silent window capture (no activation needed) |
 | `cu ocr [app]` | On-device OCR via macOS Vision framework |
 | `cu wait --text/--ref/--gone` | Poll until UI condition is met |
-| `cu apps` | List running applications |
 
 ### Act
 
 | Command | Description |
 |---------|-------------|
-| `cu click <ref\|x y>` | Click (14-step AX chain → CGEvent fallback) |
+| `cu click <ref\|x y\|--text>` | Click by ref, coordinates, or OCR text |
 | `cu key <combo> [--app]` | Keyboard shortcut (e.g., `cmd+c`, `enter`) |
-| `cu type <text> [--app]` | Type text (Unicode supported) |
+| `cu type <text> [--app]` | Type text via clipboard paste (IME-safe) |
 | `cu scroll <dir> <n> --x --y` | Scroll up/down/left/right |
 | `cu hover <x> <y>` | Move mouse (trigger tooltips) |
 | `cu drag <x1> <y1> <x2> <y2>` | Drag with smooth interpolation |
 
-### System
+### Script & Control
 
 | Command | Description |
 |---------|-------------|
 | `cu tell <app> <script>` | Run AppleScript against a scriptable app |
-| `cu sdef <app>` | Show app's scripting dictionary |
+| `cu defaults read/write` | Read/write macOS preferences (no UI needed) |
+| `cu window list/move/resize/focus/...` | Window management |
 | `cu setup` | Check permissions and version |
 
-Click supports: `--right`, `--double-click`, `--shift`, `--cmd`, `--alt`.
+Click supports: `--right`, `--double-click`, `--shift`, `--cmd`, `--alt`, `--text`, `--index`.
 
 ## How It Works
 
+Three-tier control model — agent picks the cheapest layer for each task:
+
 ```
-                  Observe                          Act
-              ┌─────────────┐              ┌──────────────┐
-  cu snapshot │ AX Tree API │  cu click    │ AXPress      │
-              │ batch reads │  cu key      │ → AXConfirm  │
-              │ 3s timeout  │  cu type     │ → AXOpen     │
-              └─────────────┘  cu scroll   │ → ...12 more │
-  cu ocr      ┌─────────────┐  cu drag     │ → CGEvent    │
-              │ Vision OCR  │  cu hover    │   (fallback) │
-              └─────────────┘              └──────────────┘
-  cu screenshot┌─────────────┐
-              │ CGWindowList │  cu tell     ┌──────────────┐
-              │ (no activate)│              │ AppleScript  │
-              └─────────────┘  cu sdef     │ AppleScript  │
-                                           └──────────────┘
-                               JSON output with auto-snapshot
-                               after every action
+  Tier 1: AppleScript (scriptable apps)
+  ┌──────────────────────────────────────────────┐
+  │ cu tell <app> <script>   direct data access │
+  │ cu sdef <app>            scripting dictionary│
+  │ cu defaults read/write   system preferences  │
+  └──────────────────────────────────────────────┘
+                        ↓ fallback
+  Tier 2: AX tree + CGEvent (any app)
+  ┌──────────────────────────────────────────────┐
+  │ cu snapshot   AX elements + window frame     │
+  │ cu menu       menu bar via System Events     │
+  │ cu window     list/move/resize/focus         │
+  │ cu click      AX action → CGEvent fallback   │
+  │ cu key/type   System Events / clipboard      │
+  └──────────────────────────────────────────────┘
+                        ↓ fallback
+  Tier 3: OCR + screenshot (universal)
+  ┌──────────────────────────────────────────────┐
+  │ cu ocr           Vision OCR text + coords   │
+  │ cu screenshot    PNG capture                 │
+  │ cu click --text  click by OCR-found text     │
+  └──────────────────────────────────────────────┘
 ```
 
 **Perception tiers** (cheapest first):
-1. `cu snapshot` — structured AX tree text (~50 tokens/element)
-2. `cu ocr` — Vision OCR text + coordinates (for non-AX apps)
-3. `cu screenshot` — image file (agent uses own vision)
+1. `cu tell` — direct data, no UI traversal (scriptable apps only)
+2. `cu snapshot` — structured AX tree text (~50 tokens/element)
+3. `cu menu` — menu bar enumeration (when AX is sparse)
+4. `cu ocr` — Vision OCR text + coordinates (for non-AX apps)
+5. `cu screenshot` — image file (agent uses own vision)
 
 ## Output
 
