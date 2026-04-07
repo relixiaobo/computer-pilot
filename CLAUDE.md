@@ -149,11 +149,13 @@ Fall back to AX snapshot+click when:
 
 ## Testing
 
-- `tests/run.sh` — basic smoke tests.
-- `tests/commands/run_all.sh` — comprehensive command tests (186+ assertions).
-- Run: `bash tests/commands/run_all.sh`
-- Run specific: `bash tests/commands/run_all.sh snapshot key tell`
-- Tests use the release binary: `target/release/cu`
+Three layers (defined in `tests/`):
+
+- **L1 Command tests** (`tests/commands/run_all.sh`) — 258 assertions covering every CLI command in isolation. Run: `bash tests/commands/run_all.sh` or `bash tests/commands/run_all.sh snapshot key tell` for specific suites.
+- **L2 Agent E2E** (`tests/agent/run.py`) — real LLM agent + cross-check verification. Loads `plugin/skills/computer-pilot/SKILL.md` as the system prompt so the test mirrors production. Needs `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in `.env`.
+- **L3 macOSWorld** (`tests/macosworld/`) — 133 locally-runnable tasks classified in `local_test_set.json`. Run via `tests/macosworld/run_selected.py`.
+
+All tests use the release binary: `target/release/cu`. Build first with `cargo build --release`.
 
 ## What NOT to do
 
