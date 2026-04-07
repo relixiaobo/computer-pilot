@@ -177,6 +177,16 @@ Use the `[ref]` number with `cu click <ref>` to interact.
 | `cu defaults read <domain> [key]` | Read a macOS preference |
 | `cu defaults write <domain> <key> <value>` | Write a macOS preference |
 
+### Window management
+| Command | Description |
+|---------|-------------|
+| `cu window list [--app Name]` | List all windows (title, position, size, state) |
+| `cu window move <x> <y> --app Name` | Move window |
+| `cu window resize <w> <h> --app Name` | Resize window |
+| `cu window focus --app Name` | Bring app/window to front |
+| `cu window minimize --app Name` | Minimize window |
+| `cu window close --app Name` | Close window |
+
 ### Observe
 | Command | Description |
 |---------|-------------|

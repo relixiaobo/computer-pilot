@@ -104,12 +104,22 @@ pub struct SnapshotResult {
     pub ok: bool,
     pub app: String,
     pub window: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub window_frame: Option<WindowFrame>,
     pub elements: Vec<Element>,
     pub limit: usize,
     pub truncated: bool,
     pub depth_limited: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct WindowFrame {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
 }
 
 #[derive(Serialize)]
@@ -730,6 +740,7 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
                 ok: false,
                 app: app_name.to_string(),
                 window: String::new(),
+                window_frame: None,
                 elements: vec![],
                 limit,
                 truncated: false,
@@ -755,6 +766,7 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
                 ok: false,
                 app: app_name.to_string(),
                 window: String::new(),
+                window_frame: None,
                 elements: vec![],
                 limit,
                 truncated: false,
@@ -772,6 +784,18 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
             .and_then(|w| ax_string(w, "AXTitle"))
             .unwrap_or_default();
 
+        // Extract window frame (position + size) for navigation context
+        let window_frame = window_el.and_then(|w| {
+            let pos = ax_position(w)?;
+            let size = ax_size(w)?;
+            Some(WindowFrame {
+                x: pos.x as f64,
+                y: pos.y as f64,
+                width: size.width as f64,
+                height: size.height as f64,
+            })
+        });
+
         let walk_root = window_el.unwrap_or(app_el);
 
         // Walk the element tree with batch attribute reading
@@ -781,6 +805,7 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
             CFRelease(app_el);
             return SnapshotResult {
                 ok: false, app: app_name.to_string(), window: window_title,
+                window_frame: None,
                 elements: vec![], limit, truncated: false, depth_limited: false,
                 error: Some("failed to create AX batch attribute keys".into()),
             };
@@ -803,6 +828,7 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
             ok: true,
             app: app_name.to_string(),
             window: window_title,
+            window_frame,
             elements,
             limit,
             truncated,

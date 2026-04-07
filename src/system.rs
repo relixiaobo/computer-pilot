@@ -286,6 +286,123 @@ pub fn send_key(combo: &str, app: &str) -> Result<(), String> {
     run_applescript(&script)
 }
 
+// ── Window management (via System Events) ──────────────────────────────────
+
+#[derive(serde::Serialize)]
+pub struct WindowInfo {
+    pub app: String,
+    pub index: usize,
+    pub title: String,
+    pub x: i64,
+    pub y: i64,
+    pub width: i64,
+    pub height: i64,
+    pub minimized: bool,
+    pub focused: bool,
+}
+
+pub fn list_windows(app: Option<&str>) -> Result<Vec<WindowInfo>, String> {
+    // Build process filter
+    let process_filter = match app {
+        Some(name) => {
+            let escaped = applescript_escape(name);
+            format!("process \"{escaped}\"")
+        }
+        None => "(every process whose background only is false)".to_string(),
+    };
+
+    let script = format!(
+        r#"tell application "System Events"
+    set output to ""
+    repeat with p in {process_filter}
+        try
+            set procName to name of p
+            set winIdx to 0
+            repeat with w in windows of p
+                set winIdx to winIdx + 1
+                try
+                    set winTitle to name of w
+                    if winTitle is missing value then set winTitle to ""
+                    set winPos to position of w
+                    set winSize to size of w
+                    set isMin to false
+                    try
+                        set isMin to value of attribute "AXMinimized" of w
+                    end try
+                    set isFoc to false
+                    try
+                        set isFoc to value of attribute "AXMain" of w
+                    end try
+                    set output to output & procName & tab & winIdx & tab & winTitle & tab & (item 1 of winPos) & tab & (item 2 of winPos) & tab & (item 1 of winSize) & tab & (item 2 of winSize) & tab & isMin & tab & isFoc & linefeed
+                end try
+            end repeat
+        end try
+    end repeat
+    return output
+end tell"#
+    );
+
+    let raw = run_applescript_capture(&script, 15, false)?;
+    let mut windows = Vec::new();
+    for line in raw.lines() {
+        let parts: Vec<&str> = line.split('\t').collect();
+        if parts.len() < 9 { continue; }
+        windows.push(WindowInfo {
+            app: parts[0].trim().to_string(),
+            index: parts[1].trim().parse().unwrap_or(0),
+            title: parts[2].trim().to_string(),
+            x: parts[3].trim().parse().unwrap_or(0),
+            y: parts[4].trim().parse().unwrap_or(0),
+            width: parts[5].trim().parse().unwrap_or(0),
+            height: parts[6].trim().parse().unwrap_or(0),
+            minimized: parts[7].trim() == "true",
+            focused: parts[8].trim() == "true",
+        });
+    }
+    Ok(windows)
+}
+
+pub fn window_action(action: &str, app: &str, window_idx: usize, arg1: Option<i64>, arg2: Option<i64>) -> Result<(), String> {
+    let escaped = applescript_escape(app);
+    let target = format!("window {window_idx}");
+
+    let inner = match action {
+        "move" => {
+            let x = arg1.ok_or("move requires x y")?;
+            let y = arg2.ok_or("move requires x y")?;
+            format!("set position of {target} to {{{x}, {y}}}")
+        }
+        "resize" => {
+            let w = arg1.ok_or("resize requires width height")?;
+            let h = arg2.ok_or("resize requires width height")?;
+            format!("set size of {target} to {{{w}, {h}}}")
+        }
+        "focus" => {
+            format!("set frontmost to true\nperform action \"AXRaise\" of {target}")
+        }
+        "minimize" => {
+            format!("set value of attribute \"AXMinimized\" of {target} to true")
+        }
+        "unminimize" => {
+            format!("set value of attribute \"AXMinimized\" of {target} to false")
+        }
+        "close" => {
+            format!("click (first button of {target} whose subrole is \"AXCloseButton\")")
+        }
+        other => return Err(format!("unknown window action: {other} (use: list, move, resize, focus, minimize, unminimize, close)")),
+    };
+
+    let script = format!(
+        "tell application \"System Events\"
+    tell process \"{escaped}\"
+        {inner}
+    end tell
+end tell"
+    );
+    run_applescript_capture(&script, 10, false)?;
+    Ok(())
+}
+
 // ── Menu (enumerate app menu bar via System Events) ─────────────────────────
 
 pub fn list_menu(app: &str) -> Result<String, String> {

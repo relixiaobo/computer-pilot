@@ -271,6 +271,34 @@ enum Cmd {
         full: bool,
     },
 
+    /// Manage windows (list, move, resize, focus, minimize, close)
+    #[command(after_help = "\
+        Window management via System Events. Works for ALL apps.\n\n\
+        Examples:\n  \
+        cu window list                        # list all windows\n  \
+        cu window list --app Safari           # list Safari windows only\n  \
+        cu window move 100 100 --app Safari   # move front window\n  \
+        cu window resize 1200 800 --app Safari\n  \
+        cu window focus --app Safari          # bring to front\n  \
+        cu window minimize --app Safari\n  \
+        cu window close --app Safari          # close front window\n\n\
+        Actions: list, move, resize, focus, minimize, unminimize, close\n\
+        Default target: front window of specified app")]
+    Window {
+        /// Action: list, move, resize, focus, minimize, unminimize, close
+        action: String,
+        /// First numeric arg (x for move, width for resize)
+        arg1: Option<i64>,
+        /// Second numeric arg (y for move, height for resize)
+        arg2: Option<i64>,
+        /// Target app
+        #[arg(long)]
+        app: Option<String>,
+        /// Window index (1 = frontmost, default)
+        #[arg(long, default_value = "1")]
+        window: usize,
+    },
+
     /// List an app's menu bar items (works for ALL apps via System Events)
     #[command(after_help = "\
         Enumerates every menu and menu item in the app's menu bar.\n\
@@ -395,6 +423,7 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), String> {
             cmd_drag(json, x1, y1, x2, y2, mods)
         }
         Cmd::Screenshot { app, path, full } => cmd_screenshot(json, app, path, full),
+        Cmd::Window { action, arg1, arg2, app, window } => cmd_window(json, action, arg1, arg2, app, window),
         Cmd::Menu { app } => cmd_menu(json, app),
         Cmd::Defaults { action, domain, key, value } => cmd_defaults(json, action, domain, key, value),
         Cmd::Sdef { app } => cmd_sdef(json, app),
@@ -707,6 +736,38 @@ fn cmd_screenshot(json: bool, app: Option<String>, path: Option<String>, full: b
     }
 }
 
+fn cmd_window(json: bool, action: String, arg1: Option<i64>, arg2: Option<i64>, app: Option<String>, window_idx: usize) -> Result<(), String> {
+    if action == "list" {
+        let windows = system::list_windows(app.as_deref())?;
+        if json {
+            ok(serde_json::json!({"ok": true, "windows": windows}))
+        } else {
+            if windows.is_empty() {
+                println!("No windows found.");
+            } else {
+                for w in &windows {
+                    let flags = if w.minimized { " [minimized]" }
+                        else if w.focused { " [focused]" }
+                        else { "" };
+                    println!("{} #{} \"{}\"  {}×{} at ({},{}){}",
+                        w.app, w.index, w.title, w.width, w.height, w.x, w.y, flags);
+                }
+            }
+            Ok(())
+        }
+    } else {
+        // All other actions require --app
+        let app_name = app.ok_or("--app is required for this action")?;
+        system::window_action(&action, &app_name, window_idx, arg1, arg2)?;
+        if json {
+            ok(serde_json::json!({"ok": true, "action": action, "app": app_name, "window": window_idx}))
+        } else {
+            println!("{action} window {window_idx} of {app_name}");
+            Ok(())
+        }
+    }
+}
+
 fn cmd_menu(json: bool, app: String) -> Result<(), String> {
     let raw = system::list_menu(&app)?;
 
@@ -846,7 +907,11 @@ fn emit(value: &impl serde::Serialize) {
 fn print_snapshot_human(snap: &ax::SnapshotResult) {
     let app = if snap.app.is_empty() { "Unknown" } else { &snap.app };
     let win = if snap.window.is_empty() { "Unknown" } else { &snap.window };
-    println!("[app] {app} — \"{win}\"");
+    if let Some(ref wf) = snap.window_frame {
+        println!("[app] {app} — \"{win}\" ({}×{} at {},{})", wf.width, wf.height, wf.x, wf.y);
+    } else {
+        println!("[app] {app} — \"{win}\"");
+    }
     for el in &snap.elements {
         let label = el.title.as_deref().or(el.value.as_deref()).unwrap_or("");
         let mut extra = Vec::new();

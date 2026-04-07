@@ -16,6 +16,24 @@ else
   _fail "has elements" "got 0 elements"
 fi
 
+section "snapshot — window_frame"
+
+cu_json "snapshot Finder --limit 5"
+HAS_FRAME=$(echo "$OUT" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+wf = d.get('window_frame')
+if wf and all(k in wf for k in ['x','y','width','height']):
+    print('ok')
+else:
+    print('missing')
+" 2>/dev/null || echo "error")
+if [[ "$HAS_FRAME" == "ok" ]]; then
+  _pass "window_frame has x,y,width,height"
+else
+  _fail "window_frame" "$HAS_FRAME"
+fi
+
 section "snapshot — element structure"
 
 cu_json "snapshot Finder --limit 10"
