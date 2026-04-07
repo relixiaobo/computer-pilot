@@ -7,8 +7,8 @@
     {
       "name": "computer-pilot-plugin",
       "source": "./plugin",
-      "description": "Control the macOS desktop via CLI — snapshot UI elements, click, type, keyboard shortcuts, screenshot, OCR",
-      "version": "0.1.0"
+      "description": "Control the macOS desktop via CLI. AppleScript (cu tell/sdef), AX tree (cu snapshot/menu/click/window), OCR fallback. 17 commands.",
+      "version": "0.2.0"
     }
   ]
 }

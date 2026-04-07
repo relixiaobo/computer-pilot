@@ -50,10 +50,25 @@ In Claude Code, run:
 
 ```
 /plugin marketplace add relixiaobo/computer-pilot
-/plugin install computer-pilot-plugin@relixiaobo-computer-pilot
+/plugin install computer-pilot-plugin@computer-pilot-marketplace
 ```
 
 This teaches Claude Code how to use `cu` automatically — just ask it to interact with desktop apps.
+
+#### Updating the plugin
+
+When a new version is released, update with:
+
+```
+/plugin marketplace update computer-pilot-marketplace
+/plugin update computer-pilot-plugin@computer-pilot-marketplace
+```
+
+The `cu` binary is separate — re-run the install curl command to upgrade it:
+
+```bash
+sudo curl -Lo /usr/local/bin/cu https://github.com/relixiaobo/computer-pilot/releases/latest/download/cu-arm64 && sudo chmod +x /usr/local/bin/cu
+```
 
 ## Quick Start
 

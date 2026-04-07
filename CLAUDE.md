@@ -30,6 +30,19 @@ Manual rules:
 - **Never push directly to main without a release if there are user-visible changes.** Bump the version and run `release.sh` so the published binary stays in sync with `README.md` install instructions.
 - **README points to `/releases/latest/` URL** — auto-resolves to the newest release tag, so updating the release is enough.
 
+The release script bumps **three** version numbers in one commit:
+1. `Cargo.toml` — drives `cu --version`
+2. `plugin/.claude-plugin/plugin.json` — Claude Code plugin manifest
+3. `.claude-plugin/marketplace.json` — marketplace entry (what users see in `/plugin marketplace`)
+
+All three must move together. Claude Code only detects a plugin update if `marketplace.json` version changes.
+
+Users update the plugin with:
+```
+/plugin marketplace update computer-pilot-marketplace
+/plugin update computer-pilot-plugin@computer-pilot-marketplace
+```
+
 ## Architecture
 
 Single Rust binary (`cu`). No TypeScript, no Node.js, no IPC.

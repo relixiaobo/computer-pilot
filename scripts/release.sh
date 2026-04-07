@@ -109,10 +109,14 @@ echo "  ✓ gh CLI ready"
 # ── Version bump ───────────────────────────────────────────────────────────
 
 echo ""
-echo "→ Updating Cargo.toml to version $VERSION"
+echo "→ Updating version to $VERSION in:"
 CURRENT="$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')"
-echo "  $CURRENT → $VERSION"
+echo "  Cargo.toml ($CURRENT → $VERSION)"
+echo "  plugin/.claude-plugin/plugin.json"
+echo "  .claude-plugin/marketplace.json"
 run "sed -i.bak 's/^version = \"$CURRENT\"/version = \"$VERSION\"/' Cargo.toml && rm Cargo.toml.bak"
+run "sed -i.bak 's/\"version\": \"$CURRENT\"/\"version\": \"$VERSION\"/' plugin/.claude-plugin/plugin.json && rm plugin/.claude-plugin/plugin.json.bak"
+run "sed -i.bak 's/\"version\": \"$CURRENT\"/\"version\": \"$VERSION\"/' .claude-plugin/marketplace.json && rm .claude-plugin/marketplace.json.bak"
 
 # ── Build & test ───────────────────────────────────────────────────────────
 
@@ -138,7 +142,7 @@ fi
 
 echo ""
 echo "→ Committing version bump"
-run "git add Cargo.toml Cargo.lock"
+run "git add Cargo.toml Cargo.lock plugin/.claude-plugin/plugin.json .claude-plugin/marketplace.json"
 run "git commit -m 'Bump version to $VERSION'"
 
 echo ""
