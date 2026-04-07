@@ -302,19 +302,25 @@ pub struct WindowInfo {
 }
 
 pub fn list_windows(app: Option<&str>) -> Result<Vec<WindowInfo>, String> {
-    // Build process filter
-    let process_filter = match app {
+    // Build process scope. Use a list (single-element when app is given)
+    // so the same `repeat with p in procList` body works for both cases.
+    let process_setup = match app {
         Some(name) => {
             let escaped = applescript_escape(name);
-            format!("process \"{escaped}\"")
+            format!("set procList to {{process \"{escaped}\"}}")
         }
-        None => "(every process whose background only is false)".to_string(),
+        None => "set procList to (every process whose background only is false)".to_string(),
     };
 
+    // Use ASCII control chars as delimiters: US (unit, 0x1f) for fields, RS (record, 0x1e) for rows.
+    // These cannot appear in macOS UI text — they're designed exactly for this purpose.
     let script = format!(
-        r#"tell application "System Events"
+        r#"set US to character id 31
+set RS to character id 30
+tell application "System Events"
+    {process_setup}
     set output to ""
-    repeat with p in {process_filter}
+    repeat with p in procList
         try
             set procName to name of p
             set winIdx to 0
@@ -333,7 +339,7 @@ pub fn list_windows(app: Option<&str>) -> Result<Vec<WindowInfo>, String> {
                     try
                         set isFoc to value of attribute "AXMain" of w
                     end try
-                    set output to output & procName & tab & winIdx & tab & winTitle & tab & (item 1 of winPos) & tab & (item 2 of winPos) & tab & (item 1 of winSize) & tab & (item 2 of winSize) & tab & isMin & tab & isFoc & linefeed
+                    set output to output & procName & US & winIdx & US & winTitle & US & (item 1 of winPos) & US & (item 2 of winPos) & US & (item 1 of winSize) & US & (item 2 of winSize) & US & isMin & US & isFoc & RS
                 end try
             end repeat
         end try
@@ -344,13 +350,13 @@ end tell"#
 
     let raw = run_applescript_capture(&script, 15, false)?;
     let mut windows = Vec::new();
-    for line in raw.lines() {
-        let parts: Vec<&str> = line.split('\t').collect();
+    for record in raw.split('\u{1e}') {
+        let parts: Vec<&str> = record.split('\u{1f}').collect();
         if parts.len() < 9 { continue; }
         windows.push(WindowInfo {
             app: parts[0].trim().to_string(),
             index: parts[1].trim().parse().unwrap_or(0),
-            title: parts[2].trim().to_string(),
+            title: parts[2].to_string(), // don't trim — title may have leading/trailing spaces
             x: parts[3].trim().parse().unwrap_or(0),
             y: parts[4].trim().parse().unwrap_or(0),
             width: parts[5].trim().parse().unwrap_or(0),
@@ -405,10 +411,20 @@ end tell"
 
 // ── Menu (enumerate app menu bar via System Events) ─────────────────────────
 
-pub fn list_menu(app: &str) -> Result<String, String> {
+#[derive(serde::Serialize)]
+pub struct MenuItem {
+    pub menu: String,
+    pub item: String,
+    pub enabled: bool,
+}
+
+pub fn list_menu(app: &str) -> Result<Vec<MenuItem>, String> {
     let escaped = applescript_escape(app);
+    // Use ASCII control chars (US/RS) as delimiters — cannot appear in UI text.
     let script = format!(
-        "tell application \"System Events\"
+        "set US to character id 31
+set RS to character id 30
+tell application \"System Events\"
     tell process \"{escaped}\"
         set output to \"\"
         repeat with menuBarItem in menu bar items of menu bar 1
@@ -418,11 +434,7 @@ pub fn list_menu(app: &str) -> Result<String, String> {
                     set itemName to name of mi
                     if itemName is not missing value then
                         set isEnabled to enabled of mi
-                        if isEnabled then
-                            set output to output & menuName & \" > \" & itemName & linefeed
-                        else
-                            set output to output & menuName & \" > \" & itemName & \" (disabled)\" & linefeed
-                        end if
+                        set output to output & menuName & US & itemName & US & isEnabled & RS
                     end if
                 end repeat
             end try
@@ -431,7 +443,18 @@ pub fn list_menu(app: &str) -> Result<String, String> {
     end tell
 end tell"
     );
-    run_applescript_capture(&script, 10, false)
+    let raw = run_applescript_capture(&script, 10, false)?;
+    let mut items = Vec::new();
+    for record in raw.split('\u{1e}') {
+        let parts: Vec<&str> = record.split('\u{1f}').collect();
+        if parts.len() < 3 { continue; }
+        items.push(MenuItem {
+            menu: parts[0].to_string(),
+            item: parts[1].to_string(),
+            enabled: parts[2].trim() == "true",
+        });
+    }
+    Ok(items)
 }
 
 // ── Defaults (read/write macOS preferences) ─────────────────────────────────

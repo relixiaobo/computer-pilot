@@ -769,43 +769,25 @@ fn cmd_window(json: bool, action: String, arg1: Option<i64>, arg2: Option<i64>, 
 }
 
 fn cmd_menu(json: bool, app: String) -> Result<(), String> {
-    let raw = system::list_menu(&app)?;
+    let items = system::list_menu(&app)?;
 
-    if raw.is_empty() {
+    if items.is_empty() {
         return Err(format!("no menu items found for {app} (is it running?)"));
     }
 
     if json {
-        // Parse into structured JSON
-        let mut items: Vec<serde_json::Value> = Vec::new();
-        for line in raw.lines() {
-            let line = line.trim();
-            if line.is_empty() { continue; }
-            let disabled = line.ends_with("(disabled)");
-            let clean = if disabled { line.trim_end_matches(" (disabled)") } else { line };
-            if let Some((menu, item)) = clean.split_once(" > ") {
-                items.push(serde_json::json!({
-                    "menu": menu.trim(), "item": item.trim(), "enabled": !disabled
-                }));
-            }
-        }
         ok(serde_json::json!({"ok": true, "app": app, "items": items}))
     } else {
         println!("{app} menu bar:\n");
         let mut current_menu = String::new();
-        for line in raw.lines() {
-            let line = line.trim();
-            if line.is_empty() { continue; }
-            if let Some((menu, item)) = line.split_once(" > ") {
-                if menu != current_menu {
-                    if !current_menu.is_empty() { println!(); }
-                    current_menu = menu.to_string();
-                    println!("  {menu}");
-                }
-                let disabled = if line.ends_with("(disabled)") { " (disabled)" } else { "" };
-                let item = item.trim_end_matches(" (disabled)");
-                println!("    {item}{disabled}");
+        for it in &items {
+            if it.menu != current_menu {
+                if !current_menu.is_empty() { println!(); }
+                current_menu = it.menu.clone();
+                println!("  {}", it.menu);
             }
+            let suffix = if it.enabled { "" } else { " (disabled)" };
+            println!("    {}{suffix}", it.item);
         }
         Ok(())
     }
