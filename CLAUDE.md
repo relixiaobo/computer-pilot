@@ -8,10 +8,27 @@ Three-tier control: **AppleScript** (scriptable apps) → **AX tree + CGEvent** 
 ## Quick Reference
 
 ```
-cargo build --release        # Build
-bash tests/run.sh            # Run tests
-./target/release/cu --human <command>   # Run in dev
+cargo build --release                         # Build
+bash tests/commands/run_all.sh                # Run 258 command tests
+./target/release/cu --human <command>         # Run in dev
+bash scripts/release.sh <version>             # Release: bump → tag → push → GitHub
+bash scripts/release.sh <version> --dry-run   # Dry run first
 ```
+
+## Release Flow
+
+`scripts/release.sh` automates the full release pipeline:
+
+1. **Pre-flight**: clean tree, on `main`, in sync with `origin`, tag/release don't exist, `gh` authenticated
+2. **Version bump**: updates `Cargo.toml`
+3. **Build & test**: `cargo build --release` + `bash tests/commands/run_all.sh` (must pass)
+4. **Commit**: `Bump version to X.Y.Z`
+5. **Push**: commit + `vX.Y.Z` tag to `origin/main`
+6. **GitHub release**: upload `cu-arm64` binary, generate notes from commits since last tag
+
+Manual rules:
+- **Never push directly to main without a release if there are user-visible changes.** Bump the version and run `release.sh` so the published binary stays in sync with `README.md` install instructions.
+- **README points to `/releases/latest/` URL** — auto-resolves to the newest release tag, so updating the release is enough.
 
 ## Architecture
 
