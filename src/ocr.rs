@@ -3,8 +3,8 @@
 #![allow(unsafe_op_in_unsafe_fn)]
 
 use crate::screenshot;
-use objc2::rc::Retained;
 use objc2::AllocAnyThread;
+use objc2::rc::Retained;
 use objc2_core_graphics::CGImage;
 use objc2_foundation::{NSArray, NSDictionary};
 use objc2_vision::{
@@ -50,7 +50,9 @@ pub fn recognize(pid: i32) -> OcrResult {
     }
 
     let result = unsafe { run_ocr(cg_image, &win) };
-    unsafe { CFRelease(cg_image); }
+    unsafe {
+        CFRelease(cg_image);
+    }
     result
 }
 
@@ -85,7 +87,9 @@ unsafe fn run_ocr(cg_image: CFTypeRef, win: &screenshot::WindowInfo) -> OcrResul
         for obs in observations.iter() {
             let candidates = obs.topCandidates(1);
             let count = candidates.count();
-            if count == 0 { continue; }
+            if count == 0 {
+                continue;
+            }
 
             let candidate = candidates.objectAtIndex(0);
             let text = candidate.string().to_string();
@@ -108,9 +112,17 @@ unsafe fn run_ocr(cg_image: CFTypeRef, win: &screenshot::WindowInfo) -> OcrResul
         }
     }
 
-    OcrResult { ok: true, texts, error: None }
+    OcrResult {
+        ok: true,
+        texts,
+        error: None,
+    }
 }
 
 fn err(msg: &str) -> OcrResult {
-    OcrResult { ok: false, texts: vec![], error: Some(msg.to_string()) }
+    OcrResult {
+        ok: false,
+        texts: vec![],
+        error: Some(msg.to_string()),
+    }
 }

@@ -26,9 +26,7 @@ pub fn check_screen_recording() -> bool {
 
 pub fn check_automation() -> bool {
     // Probe: try a benign System Events query (short timeout)
-    run_applescript_capture(
-        r#"tell application "System Events" to get name"#, 5, false
-    ).is_ok()
+    run_applescript_capture(r#"tell application "System Events" to get name"#, 5, false).is_ok()
 }
 
 // ── App resolution ──────────────────────────────────────────────────────────
@@ -45,12 +43,11 @@ pub fn resolve_target_app(name: &Option<String>) -> Result<(i32, String), String
                 end tell"
             )
         }
-        None => {
-            "tell application \"System Events\"\n\
+        None => "tell application \"System Events\"\n\
                 set p to first process whose frontmost is true\n\
                 return ((unix id of p) as text) & tab & (name of p)\n\
-            end tell".to_string()
-        }
+            end tell"
+            .to_string(),
     };
 
     let stdout = run_applescript_capture(&script, 10, false)?;
@@ -59,7 +56,9 @@ pub fn resolve_target_app(name: &Option<String>) -> Result<(i32, String), String
     if parts.len() != 2 {
         return Err(format!("unexpected output from app resolution: {stdout}"));
     }
-    let pid: i32 = parts[0].trim().parse()
+    let pid: i32 = parts[0]
+        .trim()
+        .parse()
         .map_err(|_| format!("invalid pid: {}", parts[0]))?;
     let app_name = parts[1].trim().to_string();
     Ok((pid, app_name))
@@ -91,13 +90,17 @@ end tell
     let mut apps: Vec<serde_json::Value> = Vec::new();
     for line in raw.lines() {
         let parts: Vec<&str> = line.split('\t').collect();
-        if parts.len() < 4 { continue; }
+        if parts.len() < 4 {
+            continue;
+        }
         let name = parts[0].trim();
         let pid: i64 = parts[1].trim().parse().unwrap_or(0);
         let active = parts[2].trim() == "true";
         let bundle_path = parts[3].trim();
 
-        if name.is_empty() { continue; }
+        if name.is_empty() {
+            continue;
+        }
 
         // Sdef detection in Rust (no shell, no python)
         let bundle = if bundle_path.ends_with('/') {
@@ -122,7 +125,10 @@ end tell
     }
 
     apps.sort_by(|a, b| {
-        a["name"].as_str().unwrap_or("").cmp(b["name"].as_str().unwrap_or(""))
+        a["name"]
+            .as_str()
+            .unwrap_or("")
+            .cmp(b["name"].as_str().unwrap_or(""))
     });
 
     Ok(serde_json::to_string(&serde_json::json!({"apps": apps}))
@@ -139,10 +145,14 @@ pub fn resolve_app_bundle_path(app: &str) -> Result<String, String> {
             return POSIX path of (file of p as alias)\n\
         end tell"
     );
-    if let Ok(path) = run_applescript_capture(&script, 10, false) {
-        if !path.is_empty() {
-            return Ok(if path.ends_with('/') { path } else { format!("{path}/") });
-        }
+    if let Ok(path) = run_applescript_capture(&script, 10, false)
+        && !path.is_empty()
+    {
+        return Ok(if path.ends_with('/') {
+            path
+        } else {
+            format!("{path}/")
+        });
     }
 
     // Fallback: search common locations in Rust (no shell injection risk)
@@ -192,17 +202,28 @@ fn applescript_escape(s: &str) -> String {
 pub fn type_text(text: &str, app: Option<&str>) -> Result<(), String> {
     // Save current clipboard
     let prev_clip = Command::new("pbpaste")
-        .stdin(Stdio::null()).stderr(Stdio::null())
-        .output().ok()
-        .and_then(|o| if o.status.success() { Some(o.stdout) } else { None });
+        .stdin(Stdio::null())
+        .stderr(Stdio::null())
+        .output()
+        .ok()
+        .and_then(|o| {
+            if o.status.success() {
+                Some(o.stdout)
+            } else {
+                None
+            }
+        });
 
     // Write text to clipboard via pbcopy (handles any Unicode, newlines, etc.)
     let mut child = Command::new("pbcopy")
-        .stdin(Stdio::piped()).stderr(Stdio::null())
-        .spawn().map_err(|e| format!("pbcopy failed: {e}"))?;
+        .stdin(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|e| format!("pbcopy failed: {e}"))?;
     if let Some(mut stdin) = child.stdin.take() {
         use std::io::Write;
-        stdin.write_all(text.as_bytes())
+        stdin
+            .write_all(text.as_bytes())
             .map_err(|e| format!("failed to write to pbcopy: {e}"))?;
     }
     child.wait().map_err(|e| format!("pbcopy failed: {e}"))?;
@@ -214,16 +235,16 @@ pub fn type_text(text: &str, app: Option<&str>) -> Result<(), String> {
             "tell application \"{escaped_app}\" to activate\ndelay 0.3"
         ))?;
     }
-    run_applescript(
-        "tell application \"System Events\" to keystroke \"v\" using command down"
-    )?;
+    run_applescript("tell application \"System Events\" to keystroke \"v\" using command down")?;
 
     // Small delay then restore clipboard
     std::thread::sleep(std::time::Duration::from_millis(100));
     if let Some(prev) = prev_clip {
         let mut child = Command::new("pbcopy")
-            .stdin(Stdio::piped()).stderr(Stdio::null())
-            .spawn().map_err(|e| format!("pbcopy restore failed: {e}"))?;
+            .stdin(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(|e| format!("pbcopy restore failed: {e}"))?;
         if let Some(mut stdin) = child.stdin.take() {
             use std::io::Write;
             let _ = stdin.write_all(&prev);
@@ -352,7 +373,9 @@ end tell"#
     let mut windows = Vec::new();
     for record in raw.split('\u{1e}') {
         let parts: Vec<&str> = record.split('\u{1f}').collect();
-        if parts.len() < 9 { continue; }
+        if parts.len() < 9 {
+            continue;
+        }
         windows.push(WindowInfo {
             app: parts[0].trim().to_string(),
             index: parts[1].trim().parse().unwrap_or(0),
@@ -368,7 +391,13 @@ end tell"#
     Ok(windows)
 }
 
-pub fn window_action(action: &str, app: &str, window_idx: usize, arg1: Option<i64>, arg2: Option<i64>) -> Result<(), String> {
+pub fn window_action(
+    action: &str,
+    app: &str,
+    window_idx: usize,
+    arg1: Option<i64>,
+    arg2: Option<i64>,
+) -> Result<(), String> {
     let escaped = applescript_escape(app);
     let target = format!("window {window_idx}");
 
@@ -395,7 +424,11 @@ pub fn window_action(action: &str, app: &str, window_idx: usize, arg1: Option<i6
         "close" => {
             format!("click (first button of {target} whose subrole is \"AXCloseButton\")")
         }
-        other => return Err(format!("unknown window action: {other} (use: list, move, resize, focus, minimize, unminimize, close)")),
+        other => {
+            return Err(format!(
+                "unknown window action: {other} (use: list, move, resize, focus, minimize, unminimize, close)"
+            ));
+        }
     };
 
     let script = format!(
@@ -447,7 +480,9 @@ end tell"
     let mut items = Vec::new();
     for record in raw.split('\u{1e}') {
         let parts: Vec<&str> = record.split('\u{1f}').collect();
-        if parts.len() < 3 { continue; }
+        if parts.len() < 3 {
+            continue;
+        }
         items.push(MenuItem {
             menu: parts[0].to_string(),
             item: parts[1].to_string(),
@@ -516,7 +551,9 @@ pub fn tell_app(app: &str, expr: &str, timeout_secs: u64) -> Result<String, Stri
             // Launch the app via Launch Services (not AppleScript) and wait for it
             let _ = std::process::Command::new("open")
                 .args(["-a", app])
-                .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null())
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
                 .status();
             std::thread::sleep(std::time::Duration::from_secs(2));
             run_applescript_capture(&script, timeout_secs, true)
@@ -530,11 +567,17 @@ pub fn tell_app(app: &str, expr: &str, timeout_secs: u64) -> Result<String, Stri
 /// Run AppleScript, capture stdout, enforce timeout.
 /// `structured` = true adds -ss flag (structured output for `cu tell`).
 /// Multi-line scripts are passed via stdin to avoid shell quoting issues.
-fn run_applescript_capture(script: &str, timeout_secs: u64, structured: bool) -> Result<String, String> {
+fn run_applescript_capture(
+    script: &str,
+    timeout_secs: u64,
+    structured: bool,
+) -> Result<String, String> {
     use std::sync::mpsc;
 
     let mut cmd = Command::new("osascript");
-    if structured { cmd.arg("-ss"); }
+    if structured {
+        cmd.arg("-ss");
+    }
 
     // Use stdin for multi-line scripts (avoids -e quoting issues)
     let use_stdin = script.contains('\n');
@@ -545,7 +588,11 @@ fn run_applescript_capture(script: &str, timeout_secs: u64, structured: bool) ->
     }
 
     let child = cmd
-        .stdin(if use_stdin { Stdio::piped() } else { Stdio::null() })
+        .stdin(if use_stdin {
+            Stdio::piped()
+        } else {
+            Stdio::null()
+        })
         .stderr(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
@@ -553,12 +600,10 @@ fn run_applescript_capture(script: &str, timeout_secs: u64, structured: bool) ->
 
     // Write script to stdin if multi-line
     let mut child = child;
-    if use_stdin {
-        if let Some(mut stdin) = child.stdin.take() {
-            use std::io::Write;
-            let _ = stdin.write_all(script.as_bytes());
-            // stdin is dropped here, closing the pipe
-        }
+    if use_stdin && let Some(mut stdin) = child.stdin.take() {
+        use std::io::Write;
+        let _ = stdin.write_all(script.as_bytes());
+        // stdin is dropped here, closing the pipe
     }
 
     let child_id = child.id();
@@ -572,16 +617,18 @@ fn run_applescript_capture(script: &str, timeout_secs: u64, structured: bool) ->
     match rx.recv_timeout(timeout) {
         Ok(Ok(output)) => {
             if !output.status.success() {
-                return Err(
-                    String::from_utf8_lossy(&output.stderr).trim().to_string()
-                );
+                return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
             }
             Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
         }
         Ok(Err(e)) => Err(format!("failed to read osascript output: {e}")),
         Err(_) => {
-            let _ = Command::new("kill").arg("-9").arg(child_id.to_string())
-                .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null())
+            let _ = Command::new("kill")
+                .arg("-9")
+                .arg(child_id.to_string())
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
                 .status();
             Err(format!("osascript timed out after {timeout_secs}s"))
         }

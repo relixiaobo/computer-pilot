@@ -15,11 +15,8 @@ const FLAG_COMMAND: u64 = 0x0010_0000;
 
 #[link(name = "CoreGraphics", kind = "framework")]
 unsafe extern "C" {
-    fn CGEventCreateKeyboardEvent(
-        source: CFTypeRef,
-        virtual_key: u16,
-        key_down: bool,
-    ) -> CFTypeRef;
+    fn CGEventCreateKeyboardEvent(source: CFTypeRef, virtual_key: u16, key_down: bool)
+    -> CFTypeRef;
     fn CGEventSetFlags(event: CFTypeRef, flags: u64);
     fn CGEventPost(tap: u32, event: CFTypeRef);
 }

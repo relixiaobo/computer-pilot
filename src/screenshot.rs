@@ -102,11 +102,7 @@ unsafe fn cfstr(s: &str) -> Option<CFTypeRef> {
         CF_STRING_ENCODING_UTF8,
         0,
     );
-    if ptr.is_null() {
-        None
-    } else {
-        Some(ptr)
-    }
+    if ptr.is_null() { None } else { Some(ptr) }
 }
 
 unsafe fn dict_f64(dict: CFTypeRef, key: &str) -> Option<f64> {
@@ -151,7 +147,10 @@ unsafe fn save_cgimage_as_png(image: CFTypeRef, path: &str) -> Result<(), String
 
     let png_type = match cfstr("public.png") {
         Some(t) => t,
-        None => { CFRelease(url); return Err("failed to create type string".into()); }
+        None => {
+            CFRelease(url);
+            return Err("failed to create type string".into());
+        }
     };
     let dest = CGImageDestinationCreateWithURL(url, png_type, 1, std::ptr::null());
     CFRelease(png_type);
@@ -201,7 +200,10 @@ pub fn find_window(pid: i32) -> Option<WindowInfo> {
 
         let bounds_key = match cfstr("kCGWindowBounds") {
             Some(k) => k,
-            None => { CFRelease(list); return None; }
+            None => {
+                CFRelease(list);
+                return None;
+            }
         };
 
         for i in 0..count {
@@ -210,30 +212,31 @@ pub fn find_window(pid: i32) -> Option<WindowInfo> {
             let layer = dict_i64(w, "kCGWindowLayer");
             let wid = dict_i64(w, "kCGWindowNumber");
 
-            if w_pid == Some(pid as i64) && layer == Some(0) {
-                if let Some(id) = wid {
-                    // Read bounds from the same window dict
-                    let bounds_dict = CFDictionaryGetValue(w, bounds_key);
-                    let (x, y, width, height) = if !bounds_dict.is_null() {
-                        (
-                            dict_f64(bounds_dict, "X").unwrap_or(0.0),
-                            dict_f64(bounds_dict, "Y").unwrap_or(0.0),
-                            dict_f64(bounds_dict, "Width").unwrap_or(0.0),
-                            dict_f64(bounds_dict, "Height").unwrap_or(0.0),
-                        )
-                    } else {
-                        (0.0, 0.0, 0.0, 0.0)
-                    };
+            if w_pid == Some(pid as i64)
+                && layer == Some(0)
+                && let Some(id) = wid
+            {
+                // Read bounds from the same window dict
+                let bounds_dict = CFDictionaryGetValue(w, bounds_key);
+                let (x, y, width, height) = if !bounds_dict.is_null() {
+                    (
+                        dict_f64(bounds_dict, "X").unwrap_or(0.0),
+                        dict_f64(bounds_dict, "Y").unwrap_or(0.0),
+                        dict_f64(bounds_dict, "Width").unwrap_or(0.0),
+                        dict_f64(bounds_dict, "Height").unwrap_or(0.0),
+                    )
+                } else {
+                    (0.0, 0.0, 0.0, 0.0)
+                };
 
-                    result = Some(WindowInfo {
-                        window_id: id as u32,
-                        x,
-                        y,
-                        width,
-                        height,
-                    });
-                    break;
-                }
+                result = Some(WindowInfo {
+                    window_id: id as u32,
+                    x,
+                    y,
+                    width,
+                    height,
+                });
+                break;
             }
         }
 
@@ -242,7 +245,6 @@ pub fn find_window(pid: i32) -> Option<WindowInfo> {
         result
     }
 }
-
 
 /// Capture a window as a raw CGImageRef (caller must CFRelease).
 #[allow(dead_code)]

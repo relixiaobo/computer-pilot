@@ -83,32 +83,47 @@ pub fn count_classes(bundle_path: &str) -> Option<usize> {
 pub fn parse(app: &str, bundle_path: &str) -> SdefResult {
     let sdef_path = match find_sdef(bundle_path) {
         Some(p) => p,
-        None => return SdefResult {
-            ok: false, app: app.to_string(), suites: None,
-            error: Some(format!("{app} is not scriptable (no sdef file)")),
-        },
+        None => {
+            return SdefResult {
+                ok: false,
+                app: app.to_string(),
+                suites: None,
+                error: Some(format!("{app} is not scriptable (no sdef file)")),
+            };
+        }
     };
 
     let xml = match std::fs::read_to_string(&sdef_path) {
         Ok(x) => x,
-        Err(e) => return SdefResult {
-            ok: false, app: app.to_string(), suites: None,
-            error: Some(format!("failed to read sdef: {e}")),
-        },
+        Err(e) => {
+            return SdefResult {
+                ok: false,
+                app: app.to_string(),
+                suites: None,
+                error: Some(format!("failed to read sdef: {e}")),
+            };
+        }
     };
 
     let mut reader = Reader::from_str(&xml);
     let mut suites = Vec::new();
 
     // State machine
-    enum State { Root, Suite, Class, ClassExt, Command }
+    enum State {
+        Root,
+        Suite,
+        Class,
+        ClassExt,
+        Command,
+    }
     let mut state = State::Root;
     let mut current_suite = Option::<Suite>::None;
     let mut current_class = Option::<Class>::None;
     let mut current_cmd = Option::<SdefCommand>::None;
 
     fn attr_val(e: &quick_xml::events::BytesStart, key: &[u8]) -> String {
-        e.attributes().flatten()
+        e.attributes()
+            .flatten()
             .find(|a| a.key.as_ref() == key)
             .map(|a| String::from_utf8_lossy(&a.value).to_string())
             .unwrap_or_default()
@@ -120,10 +135,10 @@ pub fn parse(app: &str, bundle_path: &str) -> SdefResult {
                 let tag = e.name();
                 match tag.as_ref() {
                     b"suite" => {
-                        if let Some(s) = current_suite.take() {
-                            if !s.classes.is_empty() || !s.commands.is_empty() {
-                                suites.push(s);
-                            }
+                        if let Some(s) = current_suite.take()
+                            && (!s.classes.is_empty() || !s.commands.is_empty())
+                        {
+                            suites.push(s);
                         }
                         current_suite = Some(Suite {
                             name: attr_val(e, b"name"),
@@ -163,7 +178,11 @@ pub fn parse(app: &str, bundle_path: &str) -> SdefResult {
                             let access = attr_val(e, b"access");
                             cls.properties.push(Property {
                                 name: attr_val(e, b"name"),
-                                access: if access.is_empty() { "rw".to_string() } else { access },
+                                access: if access.is_empty() {
+                                    "rw".to_string()
+                                } else {
+                                    access
+                                },
                             });
                         }
                     }
@@ -193,7 +212,11 @@ pub fn parse(app: &str, bundle_path: &str) -> SdefResult {
                             let access = attr_val(e, b"access");
                             cls.properties.push(Property {
                                 name: attr_val(e, b"name"),
-                                access: if access.is_empty() { "rw".to_string() } else { access },
+                                access: if access.is_empty() {
+                                    "rw".to_string()
+                                } else {
+                                    access
+                                },
                             });
                         }
                     }
@@ -236,52 +259,59 @@ pub fn parse(app: &str, bundle_path: &str) -> SdefResult {
                     _ => {}
                 }
             }
-            Ok(Event::End(ref e)) => {
-                match e.name().as_ref() {
-                    b"class" if matches!(state, State::Class) => {
-                        if let (Some(cls), Some(suite)) = (current_class.take(), &mut current_suite) {
-                            suite.classes.push(cls);
-                        }
-                        state = State::Suite;
+            Ok(Event::End(ref e)) => match e.name().as_ref() {
+                b"class" if matches!(state, State::Class) => {
+                    if let (Some(cls), Some(suite)) = (current_class.take(), &mut current_suite) {
+                        suite.classes.push(cls);
                     }
-                    b"class-extension" if matches!(state, State::ClassExt) => {
-                        if let (Some(cls), Some(suite)) = (current_class.take(), &mut current_suite) {
-                            suite.classes.push(cls);
-                        }
-                        state = State::Suite;
-                    }
-                    b"command" if matches!(state, State::Command) => {
-                        if let (Some(cmd), Some(suite)) = (current_cmd.take(), &mut current_suite) {
-                            suite.commands.push(cmd);
-                        }
-                        state = State::Suite;
-                    }
-                    b"suite" => {
-                        if let Some(s) = current_suite.take() {
-                            if !s.classes.is_empty() || !s.commands.is_empty() {
-                                suites.push(s);
-                            }
-                        }
-                        state = State::Root;
-                    }
-                    _ => {}
+                    state = State::Suite;
                 }
-            }
-            Ok(Event::Eof) => break,
-            Err(e) => return SdefResult {
-                ok: false, app: app.to_string(), suites: None,
-                error: Some(format!("failed to parse sdef XML: {e}")),
+                b"class-extension" if matches!(state, State::ClassExt) => {
+                    if let (Some(cls), Some(suite)) = (current_class.take(), &mut current_suite) {
+                        suite.classes.push(cls);
+                    }
+                    state = State::Suite;
+                }
+                b"command" if matches!(state, State::Command) => {
+                    if let (Some(cmd), Some(suite)) = (current_cmd.take(), &mut current_suite) {
+                        suite.commands.push(cmd);
+                    }
+                    state = State::Suite;
+                }
+                b"suite" => {
+                    if let Some(s) = current_suite.take()
+                        && (!s.classes.is_empty() || !s.commands.is_empty())
+                    {
+                        suites.push(s);
+                    }
+                    state = State::Root;
+                }
+                _ => {}
             },
+            Ok(Event::Eof) => break,
+            Err(e) => {
+                return SdefResult {
+                    ok: false,
+                    app: app.to_string(),
+                    suites: None,
+                    error: Some(format!("failed to parse sdef XML: {e}")),
+                };
+            }
             _ => {}
         }
     }
 
     // Flush last suite
-    if let Some(s) = current_suite.take() {
-        if !s.classes.is_empty() || !s.commands.is_empty() {
-            suites.push(s);
-        }
+    if let Some(s) = current_suite.take()
+        && (!s.classes.is_empty() || !s.commands.is_empty())
+    {
+        suites.push(s);
     }
 
-    SdefResult { ok: true, app: app.to_string(), suites: Some(suites), error: None }
+    SdefResult {
+        ok: true,
+        app: app.to_string(),
+        suites: Some(suites),
+        error: None,
+    }
 }

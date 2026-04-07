@@ -27,7 +27,12 @@ const K_CG_MOUSE_EVENT_CLICK_STATE: u32 = 1;
 #[link(name = "CoreGraphics", kind = "framework")]
 unsafe extern "C" {
     fn CGEventCreateMouseEvent(source: CFTypeRef, ty: u32, pos: CGPoint, btn: u32) -> CFTypeRef;
-    fn CGEventCreateScrollWheelEvent(source: CFTypeRef, units: u32, count: u32, w1: i32) -> CFTypeRef;
+    fn CGEventCreateScrollWheelEvent(
+        source: CFTypeRef,
+        units: u32,
+        count: u32,
+        w1: i32,
+    ) -> CFTypeRef;
     fn CGEventPost(tap: u32, event: CFTypeRef);
     fn CGEventSetIntegerValueField(event: CFTypeRef, field: u32, value: i64);
     fn CGEventSetFlags(event: CFTypeRef, flags: u64);
@@ -52,10 +57,18 @@ pub struct Modifiers {
 impl Modifiers {
     fn to_flags(self) -> u64 {
         let mut f = 0u64;
-        if self.shift { f |= 0x0002_0000; }
-        if self.ctrl  { f |= 0x0004_0000; }
-        if self.alt   { f |= 0x0008_0000; }
-        if self.cmd   { f |= 0x0010_0000; }
+        if self.shift {
+            f |= 0x0002_0000;
+        }
+        if self.ctrl {
+            f |= 0x0004_0000;
+        }
+        if self.alt {
+            f |= 0x0008_0000;
+        }
+        if self.cmd {
+            f |= 0x0010_0000;
+        }
         f
     }
 }
@@ -94,9 +107,17 @@ fn post_plain(event: CFTypeRef) -> Result<(), String> {
 pub fn click(x: f64, y: f64, right: bool, mods: Modifiers) -> Result<(), String> {
     let p = pt(x, y)?;
     let (dt, ut, btn) = if right {
-        (CG_EVENT_RIGHT_MOUSE_DOWN, CG_EVENT_RIGHT_MOUSE_UP, CG_MOUSE_BUTTON_RIGHT)
+        (
+            CG_EVENT_RIGHT_MOUSE_DOWN,
+            CG_EVENT_RIGHT_MOUSE_UP,
+            CG_MOUSE_BUTTON_RIGHT,
+        )
     } else {
-        (CG_EVENT_LEFT_MOUSE_DOWN, CG_EVENT_LEFT_MOUSE_UP, CG_MOUSE_BUTTON_LEFT)
+        (
+            CG_EVENT_LEFT_MOUSE_DOWN,
+            CG_EVENT_LEFT_MOUSE_UP,
+            CG_MOUSE_BUTTON_LEFT,
+        )
     };
     unsafe {
         post(CGEventCreateMouseEvent(std::ptr::null(), dt, p, btn), mods)?;
@@ -110,12 +131,26 @@ pub fn double_click(x: f64, y: f64, mods: Modifiers) -> Result<(), String> {
     let p = pt(x, y)?;
     unsafe {
         for count in [1i64, 2] {
-            let down = CGEventCreateMouseEvent(std::ptr::null(), CG_EVENT_LEFT_MOUSE_DOWN, p, CG_MOUSE_BUTTON_LEFT);
-            let up = CGEventCreateMouseEvent(std::ptr::null(), CG_EVENT_LEFT_MOUSE_UP, p, CG_MOUSE_BUTTON_LEFT);
+            let down = CGEventCreateMouseEvent(
+                std::ptr::null(),
+                CG_EVENT_LEFT_MOUSE_DOWN,
+                p,
+                CG_MOUSE_BUTTON_LEFT,
+            );
+            let up = CGEventCreateMouseEvent(
+                std::ptr::null(),
+                CG_EVENT_LEFT_MOUSE_UP,
+                p,
+                CG_MOUSE_BUTTON_LEFT,
+            );
             // Validate both before posting either — prevents leaking one if the other is null
             if down.is_null() || up.is_null() {
-                if !down.is_null() { CFRelease(down as CFTypeRef); }
-                if !up.is_null() { CFRelease(up as CFTypeRef); }
+                if !down.is_null() {
+                    CFRelease(down as CFTypeRef);
+                }
+                if !up.is_null() {
+                    CFRelease(up as CFTypeRef);
+                }
                 return Err("failed to create double-click events".into());
             }
             CGEventSetIntegerValueField(down, K_CG_MOUSE_EVENT_CLICK_STATE, count);
@@ -131,7 +166,12 @@ pub fn double_click(x: f64, y: f64, mods: Modifiers) -> Result<(), String> {
 pub fn scroll(x: f64, y: f64, dy: i32, dx: i32) -> Result<(), String> {
     let p = pt(x, y)?;
     unsafe {
-        post_plain(CGEventCreateMouseEvent(std::ptr::null(), CG_EVENT_MOUSE_MOVED, p, CG_MOUSE_BUTTON_LEFT))?;
+        post_plain(CGEventCreateMouseEvent(
+            std::ptr::null(),
+            CG_EVENT_MOUSE_MOVED,
+            p,
+            CG_MOUSE_BUTTON_LEFT,
+        ))?;
         if dy != 0 {
             post_plain(CGEventCreateScrollWheelEvent(std::ptr::null(), 0, 1, dy))?;
         }
@@ -149,7 +189,14 @@ pub fn scroll(x: f64, y: f64, dy: i32, dx: i32) -> Result<(), String> {
 /// Move mouse to coordinates (hover / trigger tooltips).
 pub fn hover(x: f64, y: f64) -> Result<(), String> {
     let p = pt(x, y)?;
-    unsafe { post_plain(CGEventCreateMouseEvent(std::ptr::null(), CG_EVENT_MOUSE_MOVED, p, CG_MOUSE_BUTTON_LEFT)) }
+    unsafe {
+        post_plain(CGEventCreateMouseEvent(
+            std::ptr::null(),
+            CG_EVENT_MOUSE_MOVED,
+            p,
+            CG_MOUSE_BUTTON_LEFT,
+        ))
+    }
 }
 
 /// Drag from (x1,y1) to (x2,y2) with smooth interpolation.
@@ -159,7 +206,15 @@ pub fn drag(x1: f64, y1: f64, x2: f64, y2: f64, mods: Modifiers) -> Result<(), S
     let to = pt(x2, y2)?;
 
     unsafe {
-        post(CGEventCreateMouseEvent(std::ptr::null(), CG_EVENT_LEFT_MOUSE_DOWN, from, CG_MOUSE_BUTTON_LEFT), mods)?;
+        post(
+            CGEventCreateMouseEvent(
+                std::ptr::null(),
+                CG_EVENT_LEFT_MOUSE_DOWN,
+                from,
+                CG_MOUSE_BUTTON_LEFT,
+            ),
+            mods,
+        )?;
         std::thread::sleep(std::time::Duration::from_millis(30));
 
         // Drag steps — if any fail, still release the mouse
@@ -171,7 +226,15 @@ pub fn drag(x1: f64, y1: f64, x2: f64, y2: f64, mods: Modifiers) -> Result<(), S
                 x: from.x + (to.x - from.x) * t,
                 y: from.y + (to.y - from.y) * t,
             };
-            if let Err(e) = post(CGEventCreateMouseEvent(std::ptr::null(), CG_EVENT_LEFT_MOUSE_DRAGGED, mid, CG_MOUSE_BUTTON_LEFT), mods) {
+            if let Err(e) = post(
+                CGEventCreateMouseEvent(
+                    std::ptr::null(),
+                    CG_EVENT_LEFT_MOUSE_DRAGGED,
+                    mid,
+                    CG_MOUSE_BUTTON_LEFT,
+                ),
+                mods,
+            ) {
                 drag_err = Some(e);
                 break;
             }
@@ -179,7 +242,15 @@ pub fn drag(x1: f64, y1: f64, x2: f64, y2: f64, mods: Modifiers) -> Result<(), S
         }
 
         // Always release mouse — surface release failure if drag succeeded
-        let release_result = post(CGEventCreateMouseEvent(std::ptr::null(), CG_EVENT_LEFT_MOUSE_UP, to, CG_MOUSE_BUTTON_LEFT), mods);
+        let release_result = post(
+            CGEventCreateMouseEvent(
+                std::ptr::null(),
+                CG_EVENT_LEFT_MOUSE_UP,
+                to,
+                CG_MOUSE_BUTTON_LEFT,
+            ),
+            mods,
+        );
 
         if let Some(e) = drag_err {
             return Err(e);

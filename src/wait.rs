@@ -49,8 +49,13 @@ pub fn wait_for(
 
         let met = match condition {
             Condition::Text(text) => snap.elements.iter().any(|el| {
-                el.title.as_deref().is_some_and(|t| t.contains(text.as_str()))
-                    || el.value.as_deref().is_some_and(|v| v.contains(text.as_str()))
+                el.title
+                    .as_deref()
+                    .is_some_and(|t| t.contains(text.as_str()))
+                    || el
+                        .value
+                        .as_deref()
+                        .is_some_and(|v| v.contains(text.as_str()))
             }),
             Condition::Ref(ref_id) => snap.elements.iter().any(|el| el.ref_id == *ref_id),
             Condition::Gone(ref_id) => {
@@ -66,11 +71,19 @@ pub fn wait_for(
         let elapsed = start.elapsed().as_millis() as u64;
 
         if met {
-            return Ok(WaitResult { met: true, elapsed_ms: elapsed, snapshot: snap });
+            return Ok(WaitResult {
+                met: true,
+                elapsed_ms: elapsed,
+                snapshot: snap,
+            });
         }
 
         if Instant::now() >= deadline {
-            return Ok(WaitResult { met: false, elapsed_ms: elapsed, snapshot: snap });
+            return Ok(WaitResult {
+                met: false,
+                elapsed_ms: elapsed,
+                snapshot: snap,
+            });
         }
 
         std::thread::sleep(Duration::from_millis(POLL_INTERVAL_MS));

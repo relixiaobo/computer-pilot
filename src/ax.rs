@@ -2,7 +2,7 @@
 #![allow(unsafe_op_in_unsafe_fn)]
 
 use serde::Serialize;
-use std::ffi::{c_char, c_long, c_void, CStr};
+use std::ffi::{CStr, c_char, c_long, c_void};
 
 // ── Core Foundation FFI ─────────────────────────────────────────────────────
 
@@ -58,7 +58,11 @@ unsafe extern "C" {
     ) -> AXError;
     fn AXValueGetValue(value: CFTypeRef, the_type: u32, value_ptr: *mut c_void) -> Boolean;
     fn AXUIElementPerformAction(element: CFTypeRef, action: CFStringRef) -> AXError;
-    fn AXUIElementSetAttributeValue(element: CFTypeRef, attribute: CFStringRef, value: CFTypeRef) -> AXError;
+    fn AXUIElementSetAttributeValue(
+        element: CFTypeRef,
+        attribute: CFStringRef,
+        value: CFTypeRef,
+    ) -> AXError;
     fn AXUIElementSetMessagingTimeout(element: CFTypeRef, timeout_secs: f32) -> AXError;
     fn AXUIElementCopyMultipleAttributeValues(
         element: CFTypeRef,
@@ -241,13 +245,13 @@ unsafe fn ax_string(element: CFTypeRef, name: &str) -> Option<String> {
 unsafe fn ax_position(element: CFTypeRef) -> Option<CGPoint> {
     let value = ax_attr(element, "AXPosition")?;
     let mut point = CGPoint::default();
-    let ok = AXValueGetValue(value, AX_VALUE_CG_POINT, &mut point as *mut _ as *mut c_void);
+    let ok = AXValueGetValue(
+        value,
+        AX_VALUE_CG_POINT,
+        &mut point as *mut _ as *mut c_void,
+    );
     CFRelease(value);
-    if ok != 0 {
-        Some(point)
-    } else {
-        None
-    }
+    if ok != 0 { Some(point) } else { None }
 }
 
 /// Get the size (AXSize → CGSize).
@@ -256,11 +260,7 @@ unsafe fn ax_size(element: CFTypeRef) -> Option<CGSize> {
     let mut size = CGSize::default();
     let ok = AXValueGetValue(value, AX_VALUE_CG_SIZE, &mut size as *mut _ as *mut c_void);
     CFRelease(value);
-    if ok != 0 {
-        Some(size)
-    } else {
-        None
-    }
+    if ok != 0 { Some(size) } else { None }
 }
 
 // ── Role filtering ──────────────────────────────────────────────────────────
@@ -304,7 +304,13 @@ const BA_POS: usize = 4;
 const BA_SIZE: usize = 5;
 const BA_CHILDREN: usize = 6;
 const BATCH_ATTR_NAMES: &[&str] = &[
-    "AXRole", "AXTitle", "AXDescription", "AXValue", "AXPosition", "AXSize", "AXChildren",
+    "AXRole",
+    "AXTitle",
+    "AXDescription",
+    "AXValue",
+    "AXPosition",
+    "AXSize",
+    "AXChildren",
 ];
 
 /// Create the CFArray of attribute name strings. Returns null on failure.
@@ -315,12 +321,18 @@ unsafe fn create_batch_keys() -> CFArrayRef {
             Some(k) => keys.push(k),
             None => {
                 // Allocation failed — release what we have and bail
-                for k in &keys { CFRelease(*k); }
+                for k in &keys {
+                    CFRelease(*k);
+                }
                 return std::ptr::null();
             }
         }
     }
-    assert_eq!(keys.len(), BATCH_ATTR_NAMES.len(), "batch key count mismatch");
+    assert_eq!(
+        keys.len(),
+        BATCH_ATTR_NAMES.len(),
+        "batch key count mismatch"
+    );
     let array = CFArrayCreate(
         std::ptr::null(),
         keys.as_ptr(),
@@ -349,20 +361,30 @@ unsafe fn batch_read(element: CFTypeRef, keys: CFArrayRef) -> CFArrayRef {
 /// Extract a string from position `idx` in the batch values array.
 unsafe fn batch_string(values: CFArrayRef, idx: usize) -> Option<String> {
     let count = CFArrayGetCount(values) as usize;
-    if idx >= count { return None; }
+    if idx >= count {
+        return None;
+    }
     let val = CFArrayGetValueAtIndex(values, idx as CFIndex);
-    if val.is_null() { return None; }
+    if val.is_null() {
+        return None;
+    }
     // Check it's actually a CFString (not NSNull / error marker)
-    if CFGetTypeID(val) != CFStringGetTypeID() { return None; }
+    if CFGetTypeID(val) != CFStringGetTypeID() {
+        return None;
+    }
     cfstring_to_string(val)
 }
 
 /// Extract position (CGPoint) from batch values.
 unsafe fn batch_position(values: CFArrayRef, idx: usize) -> Option<CGPoint> {
     let count = CFArrayGetCount(values) as usize;
-    if idx >= count { return None; }
+    if idx >= count {
+        return None;
+    }
     let val = CFArrayGetValueAtIndex(values, idx as CFIndex);
-    if val.is_null() { return None; }
+    if val.is_null() {
+        return None;
+    }
     let mut point = CGPoint::default();
     if AXValueGetValue(val, AX_VALUE_CG_POINT, &mut point as *mut _ as *mut c_void) != 0 {
         Some(point)
@@ -374,9 +396,13 @@ unsafe fn batch_position(values: CFArrayRef, idx: usize) -> Option<CGPoint> {
 /// Extract size (CGSize) from batch values.
 unsafe fn batch_size(values: CFArrayRef, idx: usize) -> Option<CGSize> {
     let count = CFArrayGetCount(values) as usize;
-    if idx >= count { return None; }
+    if idx >= count {
+        return None;
+    }
     let val = CFArrayGetValueAtIndex(values, idx as CFIndex);
-    if val.is_null() { return None; }
+    if val.is_null() {
+        return None;
+    }
     let mut size = CGSize::default();
     if AXValueGetValue(val, AX_VALUE_CG_SIZE, &mut size as *mut _ as *mut c_void) != 0 {
         Some(size)
@@ -388,10 +414,16 @@ unsafe fn batch_size(values: CFArrayRef, idx: usize) -> Option<CGSize> {
 /// Extract children array from batch values (not retained — use before releasing batch).
 unsafe fn batch_children(values: CFArrayRef, idx: usize) -> Option<CFArrayRef> {
     let count = CFArrayGetCount(values) as usize;
-    if idx >= count { return None; }
+    if idx >= count {
+        return None;
+    }
     let val = CFArrayGetValueAtIndex(values, idx as CFIndex);
-    if val.is_null() { return None; }
-    if CFGetTypeID(val) != CFArrayGetTypeID() { return None; }
+    if val.is_null() {
+        return None;
+    }
+    if CFGetTypeID(val) != CFArrayGetTypeID() {
+        return None;
+    }
     Some(val)
 }
 
@@ -427,8 +459,18 @@ unsafe fn walk(
                 for i in 0..count {
                     let child = CFArrayGetValueAtIndex(children, i);
                     if !child.is_null() {
-                        walk(child, out, counter, limit, depth + 1, depth_limited, batch_keys);
-                        if out.len() >= limit { break; }
+                        walk(
+                            child,
+                            out,
+                            counter,
+                            limit,
+                            depth + 1,
+                            depth_limited,
+                            batch_keys,
+                        );
+                        if out.len() >= limit {
+                            break;
+                        }
                     }
                 }
             }
@@ -438,29 +480,29 @@ unsafe fn walk(
     }
 
     // Check role and maybe add to output
-    if let Some(role) = batch_string(values, BA_ROLE) {
-        if is_included(&role) {
-            let title = batch_string(values, BA_TITLE)
-                .or_else(|| batch_string(values, BA_DESC))
-                .filter(|s| !s.is_empty());
+    if let Some(role) = batch_string(values, BA_ROLE)
+        && is_included(&role)
+    {
+        let title = batch_string(values, BA_TITLE)
+            .or_else(|| batch_string(values, BA_DESC))
+            .filter(|s| !s.is_empty());
 
-            let value = batch_string(values, BA_VALUE).filter(|s| !s.is_empty());
-            let pos = batch_position(values, BA_POS).unwrap_or_default();
-            let size = batch_size(values, BA_SIZE).unwrap_or_default();
+        let value = batch_string(values, BA_VALUE).filter(|s| !s.is_empty());
+        let pos = batch_position(values, BA_POS).unwrap_or_default();
+        let size = batch_size(values, BA_SIZE).unwrap_or_default();
 
-            if size.width > 0.0 || size.height > 0.0 {
-                *counter += 1;
-                out.push(Element {
-                    ref_id: *counter,
-                    role: normalize_role(&role),
-                    title,
-                    value,
-                    x: pos.x.round(),
-                    y: pos.y.round(),
-                    width: size.width.round(),
-                    height: size.height.round(),
-                });
-            }
+        if size.width > 0.0 || size.height > 0.0 {
+            *counter += 1;
+            out.push(Element {
+                ref_id: *counter,
+                role: normalize_role(&role),
+                title,
+                value,
+                x: pos.x.round(),
+                y: pos.y.round(),
+                width: size.width.round(),
+                height: size.height.round(),
+            });
         }
     }
 
@@ -475,7 +517,15 @@ unsafe fn walk(
         for i in 0..count {
             let child = CFArrayGetValueAtIndex(children, i);
             if !child.is_null() {
-                walk(child, out, counter, limit, depth + 1, depth_limited, batch_keys);
+                walk(
+                    child,
+                    out,
+                    counter,
+                    limit,
+                    depth + 1,
+                    depth_limited,
+                    batch_keys,
+                );
                 if out.len() >= limit {
                     break;
                 }
@@ -503,11 +553,15 @@ unsafe fn walk(
 unsafe fn try_ax_actions(element: CFTypeRef) -> Option<&'static str> {
     // Steps 1-4: Direct actions
     for action in &["AXPress", "AXConfirm", "AXOpen", "AXPick"] {
-        if try_action(element, action) { return Some("ax-action"); }
+        if try_action(element, action) {
+            return Some("ax-action");
+        }
     }
 
     // Step 5: ShowAlternateUI
-    if try_action(element, "AXShowAlternateUI") { return Some("ax-alt-ui"); }
+    if try_action(element, "AXShowAlternateUI") {
+        return Some("ax-alt-ui");
+    }
 
     // Step 6: Child element actions (try press/confirm on first child)
     if let Some(children) = ax_attr(element, "AXChildren") {
@@ -537,7 +591,9 @@ unsafe fn try_ax_actions(element: CFTypeRef) -> Option<&'static str> {
     }
 
     // Step 8: Set AXSelected=true
-    if try_set_bool(element, "AXSelected", true) { return Some("ax-selected"); }
+    if try_set_bool(element, "AXSelected", true) {
+        return Some("ax-selected");
+    }
 
     // Steps 9-10: Parent row/table selection
     if let Some(parent) = ax_attr(element, "AXParent") {
@@ -566,7 +622,9 @@ unsafe fn try_ax_actions(element: CFTypeRef) -> Option<&'static str> {
     // Step 12: Focus element, then try press/confirm
     if try_set_bool(element, "AXFocused", true) {
         for action in &["AXPress", "AXConfirm"] {
-            if try_action(element, action) { return Some("ax-focus-press"); }
+            if try_action(element, action) {
+                return Some("ax-focus-press");
+            }
         }
     }
 
@@ -587,7 +645,9 @@ unsafe fn try_ax_actions(element: CFTypeRef) -> Option<&'static str> {
 }
 
 unsafe fn try_action(element: CFTypeRef, action: &str) -> bool {
-    let Some(action_str) = cfstr(action) else { return false };
+    let Some(action_str) = cfstr(action) else {
+        return false;
+    };
     let err = AXUIElementPerformAction(element, action_str);
     CFRelease(action_str);
     err == AX_OK
@@ -603,11 +663,7 @@ unsafe fn try_set_value(element: CFTypeRef, attr: &str, val: CFTypeRef) -> bool 
 unsafe fn try_set_bool(element: CFTypeRef, attr: &str, val: bool) -> bool {
     let Some(key) = cfstr(attr) else { return false };
     // Create CFBoolean
-    let cf_bool: CFTypeRef = if val {
-        kCFBooleanTrue
-    } else {
-        kCFBooleanFalse
-    };
+    let cf_bool: CFTypeRef = if val { kCFBooleanTrue } else { kCFBooleanFalse };
     let err = AXUIElementSetAttributeValue(element, key, cf_bool);
     CFRelease(key);
     err == AX_OK
@@ -626,22 +682,22 @@ unsafe fn find_element_by_ref(
         return None;
     }
 
-    if let Some(role) = ax_string(element, "AXRole") {
-        if is_included(&role) {
-            let size = ax_size(element).unwrap_or_default();
-            if size.width > 0.0 || size.height > 0.0 {
-                *counter += 1;
-                if *counter == target_ref {
-                    let pos = ax_position(element).unwrap_or_default();
-                    let cx = pos.x + size.width / 2.0;
-                    let cy = pos.y + size.height / 2.0;
-                    let acted = if perform_actions {
-                        try_ax_actions(element).is_some()
-                    } else {
-                        false
-                    };
-                    return Some((acted, cx, cy));
-                }
+    if let Some(role) = ax_string(element, "AXRole")
+        && is_included(&role)
+    {
+        let size = ax_size(element).unwrap_or_default();
+        if size.width > 0.0 || size.height > 0.0 {
+            *counter += 1;
+            if *counter == target_ref {
+                let pos = ax_position(element).unwrap_or_default();
+                let cx = pos.x + size.width / 2.0;
+                let cy = pos.y + size.height / 2.0;
+                let acted = if perform_actions {
+                    try_ax_actions(element).is_some()
+                } else {
+                    false
+                };
+                return Some((acted, cx, cy));
             }
         }
     }
@@ -651,11 +707,12 @@ unsafe fn find_element_by_ref(
             let count = CFArrayGetCount(children);
             for i in 0..count {
                 let child = CFArrayGetValueAtIndex(children, i);
-                if !child.is_null() {
-                    if let Some(result) = find_element_by_ref(child, target_ref, counter, depth + 1, perform_actions) {
-                        CFRelease(children);
-                        return Some(result);
-                    }
+                if !child.is_null()
+                    && let Some(result) =
+                        find_element_by_ref(child, target_ref, counter, depth + 1, perform_actions)
+                {
+                    CFRelease(children);
+                    return Some(result);
                 }
             }
         }
@@ -673,9 +730,11 @@ fn resolve_ref(pid: i32, ref_id: usize, perform_actions: bool) -> Result<(bool, 
             return Err("failed to create AX element for application".into());
         }
 
-        let window_el = ax_attr(app_el, "AXFocusedWindow")
-            .or_else(|| ax_attr(app_el, "AXMainWindow"));
-        if let Some(w) = window_el { set_element_timeout(w); }
+        let window_el =
+            ax_attr(app_el, "AXFocusedWindow").or_else(|| ax_attr(app_el, "AXMainWindow"));
+        if let Some(w) = window_el {
+            set_element_timeout(w);
+        }
 
         let walk_root = window_el.unwrap_or(app_el);
 
@@ -689,7 +748,10 @@ fn resolve_ref(pid: i32, ref_id: usize, perform_actions: bool) -> Result<(bool, 
 
         match result {
             Some((acted, cx, cy)) => Ok((acted, cx, cy)),
-            None => Err(format!("element [{}] not found in AX tree (scanned {} elements)", ref_id, counter)),
+            None => Err(format!(
+                "element [{}] not found in AX tree (scanned {} elements)",
+                ref_id, counter
+            )),
         }
     }
 }
@@ -713,9 +775,10 @@ pub fn window_bounds(pid: i32) -> Option<(f64, f64, f64, f64)> {
             return None;
         }
 
-        let window = ax_attr(app_el, "AXFocusedWindow")
-            .or_else(|| ax_attr(app_el, "AXMainWindow"));
-        if let Some(w) = window { set_element_timeout(w); }
+        let window = ax_attr(app_el, "AXFocusedWindow").or_else(|| ax_attr(app_el, "AXMainWindow"));
+        if let Some(w) = window {
+            set_element_timeout(w);
+        }
 
         let result = window.and_then(|w| {
             let pos = ax_position(w)?;
@@ -776,9 +839,11 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
         }
 
         // Resolve the target window
-        let window_el = ax_attr(app_el, "AXFocusedWindow")
-            .or_else(|| ax_attr(app_el, "AXMainWindow"));
-        if let Some(w) = window_el { set_element_timeout(w); }
+        let window_el =
+            ax_attr(app_el, "AXFocusedWindow").or_else(|| ax_attr(app_el, "AXMainWindow"));
+        if let Some(w) = window_el {
+            set_element_timeout(w);
+        }
 
         let window_title = window_el
             .and_then(|w| ax_string(w, "AXTitle"))
@@ -801,19 +866,34 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
         // Walk the element tree with batch attribute reading
         let batch_keys = create_batch_keys();
         if batch_keys.is_null() {
-            if let Some(w) = window_el { CFRelease(w); }
+            if let Some(w) = window_el {
+                CFRelease(w);
+            }
             CFRelease(app_el);
             return SnapshotResult {
-                ok: false, app: app_name.to_string(), window: window_title,
+                ok: false,
+                app: app_name.to_string(),
+                window: window_title,
                 window_frame: None,
-                elements: vec![], limit, truncated: false, depth_limited: false,
+                elements: vec![],
+                limit,
+                truncated: false,
+                depth_limited: false,
                 error: Some("failed to create AX batch attribute keys".into()),
             };
         }
         let mut elements = Vec::new();
         let mut counter = 0usize;
         let mut depth_limited = false;
-        walk(walk_root, &mut elements, &mut counter, limit, 0, &mut depth_limited, batch_keys);
+        walk(
+            walk_root,
+            &mut elements,
+            &mut counter,
+            limit,
+            0,
+            &mut depth_limited,
+            batch_keys,
+        );
         CFRelease(batch_keys);
 
         let truncated = elements.len() >= limit;
