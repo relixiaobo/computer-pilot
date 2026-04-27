@@ -24,7 +24,48 @@ cu click 4 --app Finder
 | Dependencies | **zero** | Python | zero |
 | Perception | AX tree + OCR + screenshot | screenshot only | AX tree only |
 | Token cost | **~50 tokens/element** | ~1400 tokens/screenshot | ~50 tokens/element |
-| Commands | **17** | 7 | ~50 |
+| Commands | **24** | 7 | ~50 |
+
+## Why cu doesn't disrupt your workflow
+
+Most desktop-automation tools take focus from the user the moment they act:
+the cursor jumps across the screen, the frontmost app changes, the clipboard
+is overwritten. `cu` is engineered so the agent can work in the background
+while you keep typing in your terminal.
+
+| | cu | Codex Computer Use | Anthropic CUA | kagete |
+|---|---|---|---|---|
+| Cursor stays put | **✓ with `--app`** | ✓ | ✗ (warps) | ✗ (warps) |
+| Frontmost app preserved | **✓ with `--app`** | ✓ | ✗ | ✗ |
+| Clipboard untouched | **✓ always** | ✓ | n/a | ✗ (paste-based) |
+| IME bypassed | **✓ Unicode CGEvent** | ✓ | ✗ | ✗ |
+| Perception | AX tree + OCR + screenshot | screenshot | screenshot | AX tree |
+| AX action chain | **15-step fallback** | proprietary | n/a | basic AXPress |
+| Method audit field | **✓** in every response | ✗ | ✗ | ✗ |
+
+The mechanism is per-process event delivery: when `--app <Name>` is given,
+every CGEvent is posted via `CGEventPostToPid` to the resolved pid instead
+of through the global HID tap. The cursor and focus are not touched.
+
+`cu type` injects UTF-16 directly via `CGEventKeyboardSetUnicodeString` —
+no copy/paste, no clipboard pollution, works with any IME (Chinese, Japanese,
+emoji). `cu key` posts virtual-key events to the same pid.
+
+Every action response includes a `method` field documenting the routing:
+
+| method | meaning |
+|---|---|
+| `ax-action`, `ax-set-value`, `ax-perform` | direct AX call, no cursor move at all |
+| `cgevent-pid`, `unicode-pid`, `key-pid`, `ocr-text-pid` | PID-targeted (non-disruptive) |
+| `cgevent-global`, `unicode-global`, `key-global`, `ocr-text-global` | global HID tap (disruptive — `--app` was missing) |
+
+A `*-global` method in the response is the audit signal that the agent
+forgot `--app` and disrupted the user. Always pass `--app <Name>`.
+
+**Known limitation:** `drag` and `hover` move the cursor by design. A small
+set of sandboxed Mac App Store apps ignores PID-targeted events (symptom:
+`ok:true` returned but the UI doesn't change) — focus the app first and
+re-send without `--app` as the workaround.
 
 ## Install
 
@@ -106,7 +147,7 @@ cu ocr "Google Chrome"
 # [100,240 500x16] "This domain is for use in..." (100%)
 ```
 
-## Commands (17)
+## Commands (24)
 
 ### Discover
 
@@ -115,13 +156,20 @@ cu ocr "Google Chrome"
 | `cu apps` | List running apps (`S` flag = scriptable) |
 | `cu menu <app>` | Enumerate any app's menu bar (works for ALL apps) |
 | `cu sdef <app>` | Show scripting dictionary for scriptable apps |
+| `cu examples [topic]` | Built-in recipe library (12 high-frequency tasks, copy-paste ready) |
 
 ### Observe
 
 | Command | Description |
 |---------|-------------|
 | `cu snapshot [app]` | AX tree with [ref] numbers, position, size, window frame |
+| `cu snapshot [app] --diff` | Only elements that changed since last snapshot of this app |
+| `cu snapshot [app] --annotated --output p.png` | Captures window + draws each ref's box+number on it (for VLM agents) |
+| `cu find --role/--title-contains/--value-contains` | Predicate query — skip the `snapshot + grep` round-trip |
+| `cu nearest <x> <y>` | Pixel → ref reverse lookup (for VLM agents that have visual coords) |
+| `cu observe-region <x> <y> <w> <h>` | List interactive refs whose bbox is in/touches a rect (intersect/center/inside) |
 | `cu screenshot [app]` | Silent window capture (no activation needed) |
+| `cu screenshot --region "x,y WxH"` | Capture a screen rectangle (5–10× smaller, for cheap VLM verification) |
 | `cu ocr [app]` | On-device OCR via macOS Vision framework |
 | `cu wait --text/--ref/--gone` | Poll until UI condition is met |
 
@@ -131,7 +179,7 @@ cu ocr "Google Chrome"
 |---------|-------------|
 | `cu click <ref\|x y\|--text>` | Click by ref, coordinates, or OCR text |
 | `cu key <combo> [--app]` | Keyboard shortcut (e.g., `cmd+c`, `enter`) |
-| `cu type <text> [--app]` | Type text via clipboard paste (IME-safe) |
+| `cu type <text> [--app]` | Type text via Unicode CGEvent (IME-bypass, no clipboard) |
 | `cu scroll <dir> <n> --x --y` | Scroll up/down/left/right |
 | `cu hover <x> <y>` | Move mouse (trigger tooltips) |
 | `cu drag <x1> <y1> <x2> <y2>` | Drag with smooth interpolation |
@@ -143,6 +191,7 @@ cu ocr "Google Chrome"
 | `cu tell <app> <script>` | Run AppleScript against a scriptable app |
 | `cu defaults read/write` | Read/write macOS preferences (no UI needed) |
 | `cu window list/move/resize/focus/...` | Window management |
+| `cu launch <name\|bundleId> [--no-wait]` | Launch app, wait for first window |
 | `cu setup` | Check permissions and version |
 
 Click supports: `--right`, `--double-click`, `--shift`, `--cmd`, `--alt`, `--text`, `--index`.

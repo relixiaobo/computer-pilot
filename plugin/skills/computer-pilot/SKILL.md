@@ -34,6 +34,45 @@ cu apps                              # S flag = scriptable → use cu tell
 
 **System settings?** → Use `cu defaults read/write` to change preferences directly (no System Settings UI needed).
 
+## Decision Tree (which command to use)
+
+When you have a goal, walk down this tree before you write any commands:
+
+```
+Need to act on the system?
+├─ App not yet running?            → cu launch <name|bundleId>      (D6: waits for window-ready)
+├─ Read/write app data?
+│   ├─ S flag in `cu apps`?        → cu tell <App> '<AppleScript>'
+│   └─ otherwise                   → cu snapshot → cu set-value / cu type
+├─ Click something?
+│   ├─ Know its ref (just snapshotted)? → cu click <ref> --app <X>
+│   ├─ Multi-step / UI mutates?         → cu click --ax-path "<path>" --app <X>   (A2: stable across snapshots)
+│   ├─ Know its text/role?              → cu find --first --raw --role <R> --title-contains <S> --app <X> | xargs cu click --app <X>
+│   ├─ Know visual coords (VLM)?        → cu nearest <x> <y> --app <X>   (or cu click <x> <y>)
+│   └─ See it but no AX/text?           → cu click --text "Submit" --app <X>   (OCR-driven)
+├─ Fill a textfield?
+│   ├─ AX field, just snapshotted?     → cu set-value <ref> "..."           (no focus needed)
+│   ├─ AX field, multi-step flow?      → cu set-value --ax-path "<path>" "..."   (selector survives UI churn)
+│   └─ Electron / non-AX?              → cu click <ref>; cu type "..."
+├─ Read screen?
+│   ├─ Tree layout (cheap)?        → cu snapshot --limit N
+│   ├─ Only what changed?          → cu snapshot --diff
+│   ├─ See a region (VLM)?         → cu screenshot --region "x,y WxH"
+│   └─ Pixel + ref labels (VLM)?   → cu snapshot --annotated --output p.png
+├─ Wait for state?
+│   ├─ Text appears?               → cu wait --text "..." --app <X>
+│   ├─ New window opens?           → cu wait --new-window --app <X>
+│   ├─ Modal/sheet appears?        → cu wait --modal --app <X>
+│   ├─ Focus moves?                → cu wait --focused-changed --app <X>
+│   └─ Element disappears?         → cu wait --gone <ref> --app <X>
+└─ System preferences?             → cu defaults read/write <domain> <key>
+```
+
+**Hard rules:**
+- Always pass `--app <Name>` for action commands. Without it, events go through the global HID tap and the cursor warps. The response field `confidence: "low"` + `advice: "pass --app"` flags this after the fact.
+- **Refs are ephemeral, axPaths are stable.** Refs refresh with every snapshot. For multi-step flows that mutate the UI between actions, save the `axPath` from the first snapshot and pass `--ax-path` to subsequent click/set-value/perform calls. The same axPath resolves to the same element even after refs renumber.
+- After every action, read the auto-attached `snapshot` (and `settle_ms`, the actual UI-settle wait) instead of calling `cu snapshot` again.
+
 ## Scripting Workflow (preferred for scriptable apps)
 
 ```bash
@@ -98,6 +137,107 @@ cu click 24 --app Calculator         # Press "Equals"
 cu key cmd+2 --app Calculator        # Switch to scientific mode
 cu snapshot Calculator --limit 50    # Now shows sin, cos, tan, etc.
 ```
+
+### VLM agents: tree + image in one atomic call
+
+When the VLM needs to look at the actual UI (without ref overlays distracting it) AND act via refs in the same step, use `--with-screenshot`:
+
+```bash
+cu snapshot Mail --limit 50 --with-screenshot --output /tmp/m.png
+# JSON: elements[] + window_frame + screenshot:/tmp/m.png + image_scale:2.0
+```
+
+Both the tree and the image are captured in the same call → guaranteed to reflect the same UI instant (no race between two separate `cu` invocations). Combine with `--diff` to get only changed elements + a fresh image.
+
+If you also want refs drawn on the image, use `--annotated` instead (it supersedes `--with-screenshot`).
+
+### VLM agents: cheap visual verification
+
+To check "did that button turn grey?" or "is the modal gone?", don't re-screenshot the whole window. Use `--region` to grab only the area you care about:
+
+```bash
+cu screenshot --region "480,200 400x300" --path /tmp/ck.png  # 200×100 area
+# ~150 tokens for the VLM vs ~1500 for a full 1920×1200 window
+```
+
+Region coords are in **points** (same space as snapshot element x/y). Output PNG is in pixels (Retina is 2×); response always echoes `offset_x/offset_y/width/height` so you can map back.
+
+### VLM agents: region → candidate refs
+
+When the VLM has narrowed the area of interest to a rectangle (a dialog, a list area, a toolbar), `cu observe-region` returns the candidate set inside it — narrower than `cu snapshot`, more flexible than `cu nearest`:
+
+```bash
+cu observe-region 480 200 400 300 --app Mail              # intersect (default)
+cu observe-region 480 200 400 300 --app Mail --mode center  # less noise
+cu observe-region 480 200 400 300 --app Mail --mode inside  # strictest
+```
+
+`--mode` choices:
+- `intersect` — element bbox overlaps the rect at all (broadest)
+- `center` — element center point falls inside (filters big container noise)
+- `inside` — element fully contained (strictest)
+
+Combine with `cu find` filters by piping through jq if you need role/title narrowing on top.
+
+### VLM agents: visual coords → ref
+
+When the VLM has identified WHERE on screen something is but doesn't have a ref, `cu nearest <x> <y>` translates the pixel into the closest interactive element:
+
+```bash
+cu nearest 480 320 --app Mail
+# → {"match":{"ref":12,"role":"button","title":"Send","distance":0.0,"inside":true}}
+REF=$(cu nearest 480 320 --app Mail | jq -r .match.ref)
+cu click "$REF" --app Mail
+```
+
+`distance:0 inside:true` means the point falls inside the element. With `--max-distance N`, returns `match:null` if nothing's within N points — useful for "did the VLM click on background or a real element" sanity checks.
+
+### VLM agents: look at the screen, click by ref
+
+When the agent has vision, the highest-leverage flow is `--annotated`: cu draws each ref's bounding box + number directly on a window screenshot. The agent looks at the image, identifies the right element by visual cues (color, position, neighboring text), then clicks by ref — no coordinate guessing.
+
+```bash
+cu snapshot Mail --limit 50 --annotated --output /tmp/mail.png
+# JSON includes: "annotated_screenshot": "/tmp/mail.png", "image_scale": 2.0
+# (image_scale = pixel/point ratio, typically 2.0 on Retina)
+```
+
+The agent then opens `/tmp/mail.png`, sees boxes labeled `[3]`, `[7]`, `[12]`, picks one by visual identification, and runs `cu click 12 --app Mail`. This sidesteps the failure mode of "VLM picks coordinates that drift after a re-render".
+
+### Cheap re-snapshots between actions
+
+For multi-step flows, `cu snapshot --diff` returns only the elements that changed since the last snapshot of this app — usually a fraction of the full tree. The cache is per-pid at `/tmp/cu-snapshot-cache/<pid>.json`.
+
+```bash
+cu snapshot Mail --limit 100              # baseline (caches it)
+cu click 12 --app Mail --no-snapshot       # do something
+cu snapshot Mail --limit 100 --diff        # → +N ~M -K, usually << 100
+```
+
+The first `--diff` call (no cache) returns the full snapshot with `first_snapshot:true`. Identity is `(role, round(x), round(y))` — robust to ref re-numbering, sensitive to window movement (a moved window will show all elements as removed+added).
+
+### Targeted query (preferred over `snapshot` + grep)
+
+When you know what you're looking for, `cu find` is faster and cheaper than `cu snapshot --limit 200 | grep ...`:
+
+```bash
+# Find one element and act on it in two steps
+cu find --app Mail --role textfield --title-contains "Subject" --first
+# → {"match":{"ref":7,"role":"textfield",...},"count":1}
+cu set-value 7 "Hello" --app Mail
+
+# Or in one pipe
+REF=$(cu find --app Safari --role button --title-equals "Reload" --first | jq -r .match.ref)
+cu click "$REF" --app Safari
+
+# Even simpler with --raw — bare integer, no jq needed
+REF=$(cu find --app Safari --role button --title-equals "Reload" --first --raw)
+cu click "$REF" --app Safari
+```
+
+`--raw` prints bare ref integers (one per line), exits 1 on no match — designed for `$(...)` substitution and shell pipelines.
+
+Filters are AND-combined: `--role`, `--title-contains` (case-insensitive), `--title-equals`, `--value-contains`. Empty result is `ok:true` with `count:0` — not an error.
 
 ### Text-based click (for UI not in AX tree)
 When elements don't appear in `cu snapshot`, use OCR text click:
@@ -165,6 +305,7 @@ Use the `[ref]` number with `cu click <ref>` to interact.
 | `cu apps` | List running apps (`S` = scriptable, with class count) |
 | `cu menu <app>` | List ALL menu bar items of any app (via System Events) |
 | `cu sdef <app>` | Show scripting dictionary for scriptable apps |
+| `cu examples [topic]` | Built-in recipe library — try this when unsure how to chain commands |
 
 ### Scripting (for scriptable apps — check S flag in `cu apps`)
 | Command | Description |
@@ -192,8 +333,15 @@ Use the `[ref]` number with `cu click <ref>` to interact.
 |---------|-------------|
 | `cu apps` | List running apps (`S` = scriptable, with class count) |
 | `cu snapshot [app] --limit N` | AX tree with [ref] numbers |
+| `cu snapshot [app] --diff` | Same, but only elements that changed since last snapshot of this app |
+| `cu snapshot [app] --annotated --output path.png` | Same + writes a PNG with each ref's box+number drawn on it (for VLM agents) |
+| `cu snapshot [app] --with-screenshot --output path.png` | Same + plain (un-annotated) window PNG, guaranteed same instant as the tree |
+| `cu find --app X --role R --title-contains S` | Predicate query (preferred over snapshot+grep) |
+| `cu nearest <x> <y> --app X` | Pixel → ref reverse lookup (for VLM agents that have visual coords) |
+| `cu observe-region <x> <y> <w> <h> --app X` | All interactive refs whose bbox is in/touches a rect |
 | `cu ocr [app]` | Vision OCR text recognition (for non-AX apps) |
 | `cu screenshot [app] --path file.png` | Window capture (for visual analysis) |
+| `cu screenshot --region "x,y WxH" --path file.png` | Capture only a screen rectangle (cheap VLM verification) |
 | `cu wait --text "X" --app Name --timeout 10` | Poll until text/element appears |
 
 ### Act
@@ -205,7 +353,7 @@ Use the `[ref]` number with `cu click <ref>` to interact.
 | `cu click <ref> --shift` | Shift+click (extend selection) |
 | `cu click <x> <y>` | Click screen coordinates |
 | `cu key <combo> --app Name` | Keyboard shortcut |
-| `cu type "text" --app Name` | Type text (clipboard paste, safe with any IME) |
+| `cu type "text" --app Name` | Type text (Unicode CGEvent, IME-bypass, no clipboard) |
 | `cu scroll down 5 --x 400 --y 300` | Scroll |
 | `cu hover <x> <y>` | Move mouse (tooltips) |
 | `cu drag <x1> <y1> <x2> <y2>` | Drag |
@@ -214,6 +362,7 @@ Use the `[ref]` number with `cu click <ref>` to interact.
 | Command | Description |
 |---------|-------------|
 | `cu setup` | Check permissions + version |
+| `cu launch <name\|bundleId> [--no-wait] [--timeout 10]` | Launch app, wait for first window |
 
 ## Perception Strategy
 
@@ -282,6 +431,94 @@ cu snapshot --limit 30               # frontmost app (dialog is usually frontmos
 cu click <button-ref>
 ```
 
+## Cookbook (10 high-frequency recipes)
+
+Each recipe is the shortest correct sequence. Copy, swap names, run.
+
+### 1. Launch an app and wait for it to be usable
+```bash
+cu launch TextEdit                 # waits up to 10s for AX-reported window
+cu launch com.apple.Calculator     # bundle id form
+cu launch Mail --no-wait           # spawn-and-go
+```
+Avoids the empty-AX-tree problem on cold starts. Returns `ready_in_ms` so the agent knows how long it took.
+
+### 2. Read app data via AppleScript (preferred for scriptable apps)
+```bash
+cu apps                                                          # check S flag
+cu sdef Calendar                                                 # discover schema
+cu tell Calendar 'get summary of every event of first calendar'
+```
+
+### 3. Fill a form field without moving the cursor
+```bash
+REF=$(cu find --app Mail --role textfield --title-contains Subject --first --raw)
+cu set-value "$REF" "Hello world" --app Mail   # method=ax-set-value, no focus theft
+```
+When `cu set-value` fails (Electron / non-AX field): `cu click "$REF" --app Mail; cu type "Hello world" --app Mail`.
+
+### 3a. Multi-step flow: save axPath once, act on it across snapshots
+```bash
+# Snapshot once, capture stable selectors for the elements you'll act on:
+SNAP=$(cu snapshot Mail --limit 100)
+SUBJECT=$(echo "$SNAP" | jq -r '.elements[] | select(.role=="textfield" and (.title // "") | contains("Subject")) | .axPath')
+SEND=$(echo "$SNAP" | jq -r '.elements[] | select(.role=="button" and (.title // "") == "Send") | .axPath')
+
+# Now act — refs may have renumbered after each step, but axPaths still resolve:
+cu set-value --ax-path "$SUBJECT" "Quarterly review" --app Mail
+cu click --ax-path "$SEND" --app Mail
+```
+Use this whenever a step mutates the UI (opening a sheet, expanding a section). Refs would shift; axPaths don't.
+
+### 4. Click a button when you only know its label
+```bash
+REF=$(cu find --app Safari --role button --title-equals Reload --first --raw)
+cu click "$REF" --app Safari
+```
+Falls back to OCR when the button isn't in the AX tree:
+```bash
+cu click --text "Reload" --app Safari
+```
+
+### 5. Click by visual coordinates (VLM agent has a screenshot)
+```bash
+cu screenshot Safari --path /tmp/p.png             # agent looks at the image
+REF=$(cu nearest 480 240 --app Safari | jq -r .ref) # pixel → nearest interactive ref
+cu click "$REF" --app Safari
+```
+
+### 6. Scope work to a region (dialog / panel)
+```bash
+cu observe-region 480 200 400 300 --app Mail --mode center
+# returns interactive refs whose centers fall inside the rect
+```
+
+### 7. Cheap visual verification (5–10× smaller than full window)
+```bash
+cu screenshot --region "480,200 400x300" --path /tmp/check.png
+```
+
+### 8. Wait for something to happen
+```bash
+cu wait --new-window     --app Mail --timeout 5     # sheet / new compose window
+cu wait --modal          --app Finder --timeout 5   # save / replace dialog
+cu wait --focused-changed --app Safari --timeout 5  # focus moved to next field
+cu wait --text "Saved" --app TextEdit --timeout 10  # text appeared anywhere in the tree
+```
+
+### 9. See only what changed since last snapshot
+```bash
+cu snapshot Mail --diff
+# {"diff": {"added": [...], "changed": [...], "removed": [...], "unchanged_count": N}}
+```
+Cuts token cost on long sessions where the UI mostly stays the same.
+
+### 10. Read system preferences without opening Settings
+```bash
+cu defaults read com.apple.dock autohide
+cu defaults write com.apple.dock autohide -bool true && killall Dock
+```
+
 ## Key Rules
 
 - **Always use `--app`** to target a specific app. Without it, keys go to the frontmost app which may have changed.
@@ -290,17 +527,49 @@ cu click <button-ref>
 - **Verify after acting** — `cu snapshot` again to confirm the action worked.
 - **JSON output** (when piped) auto-includes a fresh snapshot after click/key/type. Use `--no-snapshot` to disable.
 
+## Focus Model (why `--app` matters)
+
+`cu` is engineered to operate without disrupting the user. The mechanism is per-process event delivery: when `--app <Name>` is given, every CGEvent is posted to the target app's pid via `CGEventPostToPid` instead of the global HID tap.
+
+**With `--app`:** the cursor stays where it is, the frontmost app stays frontmost, the clipboard is untouched, IME state is bypassed. `click`, `type`, `key`, `scroll`, `hover`, `drag`, `set-value`, `perform` all support this routing.
+
+**Without `--app`:** events go through the global HID tap — the cursor warps, focus may shift, and the user notices.
+
+The response includes a `method` field that documents which path was taken:
+
+| method | meaning |
+|--------|---------|
+| `ax-action` | AX native action (no cursor move at all) — best |
+| `ax-set-value` / `ax-perform` | direct AX attribute write / action call |
+| `cgevent-pid`, `unicode-pid`, `key-pid`, `ocr-text-pid` | pid-targeted (non-disruptive) |
+| `cgevent-global`, `unicode-global`, `key-global`, `ocr-text-global` | global HID tap (disruptive) |
+
+If you see a `*-global` method in a response, it means `--app` was missing. Add it.
+
+**Known limitations of pid-targeted delivery:**
+- `drag` and `hover` move the cursor by design — pid-targeting suppresses focus theft but the cursor still moves to the target coordinates.
+- A small set of sandboxed apps (some Mac App Store builds) ignore PID-targeted events. Symptom: action returns `ok:true` but the UI doesn't update. Workaround: focus the app first, then use `cu type` / `cu key` without `--app`.
+
 ## Output Format
 
 When piped (default for agents), output is JSON:
 ```json
-{"ok":true,"app":"Finder","window":"Downloads","elements":[{"ref":1,"role":"button","title":"Back","x":10,"y":40,"width":30,"height":24}]}
+{"ok":true,"app":"Finder","window":"Downloads","elements":[{"ref":1,"role":"button","title":"Back","axPath":"window[Downloads]/toolbar/button[Back]","x":10,"y":40,"width":30,"height":24}],"displays":[{"id":1,"main":true,"x":0,"y":0,"width":1512,"height":982}]}
 ```
+
+Each element carries both `ref` (cheap, ephemeral, refreshes per snapshot) and `axPath` (stable selector that survives UI churn — pass to action commands via `--ax-path` for multi-step flows).
 
 Errors include context:
 ```json
 {"ok":false,"error":"element [99] not found in AX tree (scanned 50 elements)"}
 ```
+
+Action responses also carry these post-action fields:
+- `method` — routing (`ax-action`, `cgevent-pid`, etc.)
+- `confidence` — `high` / `medium` / `low`; check before relying on a coord-based or global-tap action
+- `advice` — only present when not best-case (e.g. "pass --app to keep cursor put")
+- `settle_ms` — actual ms waited via single-shot AXObserver (capped at 500ms)
+- `snapshot` — fresh AX tree (skip with `--no-snapshot`)
 
 ## Tips
 

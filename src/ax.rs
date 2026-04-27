@@ -1,7 +1,8 @@
 //! macOS Accessibility (AX) snapshot — walks the UI element tree of a target application.
 #![allow(unsafe_op_in_unsafe_fn)]
 
-use serde::Serialize;
+use crate::error::CuError;
+use serde::{Deserialize, Serialize};
 use std::ffi::{CStr, c_char, c_long, c_void};
 
 // ── Core Foundation FFI ─────────────────────────────────────────────────────
@@ -70,6 +71,7 @@ unsafe extern "C" {
         options: u32, // 0 = normal
         values: *mut CFArrayRef,
     ) -> AXError;
+    fn AXUIElementCopyActionNames(element: CFTypeRef, names: *mut CFArrayRef) -> AXError;
 }
 
 #[link(name = "CoreFoundation", kind = "framework")]
@@ -110,12 +112,42 @@ pub struct SnapshotResult {
     pub window: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub window_frame: Option<WindowFrame>,
+    /// The currently focused element (where the next keystroke would go).
+    /// Lets the agent skip a redundant click when the field it wants is
+    /// already focused. `ref` may be None if the focused element is outside
+    /// the snapshot's `--limit` window.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub focused: Option<FocusedSummary>,
+    /// A modal (AXSheet / AXSystemDialog) is currently blocking the window.
+    /// Agent should dismiss it before doing anything else.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub modal: Option<ModalSummary>,
     pub elements: Vec<Element>,
     pub limit: usize,
     pub truncated: bool,
     pub depth_limited: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct FocusedSummary {
+    #[serde(rename = "ref", skip_serializing_if = "Option::is_none")]
+    pub ref_id: Option<usize>,
+    pub role: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct ModalSummary {
+    pub role: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subrole: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -126,19 +158,49 @@ pub struct WindowFrame {
     pub height: f64,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Element {
     #[serde(rename = "ref")]
     pub ref_id: usize,
     pub role: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub title: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub value: Option<String>,
     pub x: f64,
     pub y: f64,
     pub width: f64,
     pub height: f64,
+    /// Stable selector that survives across snapshots even when ref numbers
+    /// shuffle. Format: `Role[Title]/Role[Title]:N/...`. The `:N` suffix is
+    /// the 0-indexed position among siblings with the same `Role[Title]`,
+    /// omitted when `N=0`. (A2)
+    #[serde(rename = "axPath", skip_serializing_if = "Option::is_none", default)]
+    pub ax_path: Option<String>,
+}
+
+/// Build one `Role[Title]` segment from raw role + title, sanitizing chars
+/// reserved by the path syntax (`/`, `[`, `]`).
+fn build_path_segment(role: &str, title: Option<&str>) -> String {
+    let role = normalize_role(role);
+    match title {
+        Some(t) if !t.is_empty() => {
+            let safe: String = t
+                .chars()
+                .map(|c| if matches!(c, '/' | '[' | ']') { '_' } else { c })
+                .collect();
+            // Cap title length so the path stays readable on long values.
+            let cut = if safe.chars().count() > 60 {
+                let mut s: String = safe.chars().take(60).collect();
+                s.push('…');
+                s
+            } else {
+                safe
+            };
+            format!("{role}[{cut}]")
+        }
+        _ => role,
+    }
 }
 
 // ── CF helpers ──────────────────────────────────────────────────────────────
@@ -431,6 +493,11 @@ unsafe fn batch_children(values: CFArrayRef, idx: usize) -> Option<CFArrayRef> {
 
 const MAX_DEPTH: usize = 30;
 
+/// Recursive AX tree walker. `my_segment` is the path segment that identifies
+/// this element relative to its parent (already includes any `:N` sibling
+/// disambiguator). `parent_path` is the slash-joined path from the root to
+/// the parent. `self_path = parent_path + "/" + my_segment`.
+#[allow(clippy::too_many_arguments)]
 unsafe fn walk(
     element: CFTypeRef,
     out: &mut Vec<Element>,
@@ -439,6 +506,8 @@ unsafe fn walk(
     depth: usize,
     depth_limited: &mut bool,
     batch_keys: CFArrayRef,
+    my_segment: &str,
+    parent_path: &str,
 ) {
     if out.len() >= limit {
         return;
@@ -448,29 +517,40 @@ unsafe fn walk(
         return;
     }
 
+    let self_path = if parent_path.is_empty() {
+        my_segment.to_string()
+    } else {
+        format!("{parent_path}/{my_segment}")
+    };
+
     // Single IPC call to read all attributes. On failure, fall back to
     // individual reads for AXChildren so we don't lose entire subtrees.
     let values = batch_read(element, batch_keys);
     if values.is_null() {
-        // Fallback: still try to recurse into children via single read
         if let Some(children) = ax_attr(element, "AXChildren") {
             if CFGetTypeID(children) == CFArrayGetTypeID() {
                 let count = CFArrayGetCount(children);
+                let mut seen: std::collections::HashMap<String, usize> =
+                    std::collections::HashMap::new();
                 for i in 0..count {
                     let child = CFArrayGetValueAtIndex(children, i);
-                    if !child.is_null() {
-                        walk(
-                            child,
-                            out,
-                            counter,
-                            limit,
-                            depth + 1,
-                            depth_limited,
-                            batch_keys,
-                        );
-                        if out.len() >= limit {
-                            break;
-                        }
+                    if child.is_null() {
+                        continue;
+                    }
+                    let child_segment = compute_child_segment(child, &mut seen);
+                    walk(
+                        child,
+                        out,
+                        counter,
+                        limit,
+                        depth + 1,
+                        depth_limited,
+                        batch_keys,
+                        &child_segment,
+                        &self_path,
+                    );
+                    if out.len() >= limit {
+                        break;
                     }
                 }
             }
@@ -502,6 +582,7 @@ unsafe fn walk(
                 y: pos.y.round(),
                 width: size.width.round(),
                 height: size.height.round(),
+                ax_path: Some(self_path.clone()),
             });
         }
     }
@@ -511,29 +592,59 @@ unsafe fn walk(
         return;
     }
 
-    // Recurse into children (from the same batch read — no extra IPC)
+    // Recurse into children (from the same batch read — no extra IPC).
+    // Track sibling segments to assign `:N` disambiguators when multiple
+    // children produce the same `Role[Title]` segment.
     if let Some(children) = batch_children(values, BA_CHILDREN) {
         let count = CFArrayGetCount(children);
+        let mut seen: std::collections::HashMap<String, usize> =
+            std::collections::HashMap::new();
         for i in 0..count {
             let child = CFArrayGetValueAtIndex(children, i);
-            if !child.is_null() {
-                walk(
-                    child,
-                    out,
-                    counter,
-                    limit,
-                    depth + 1,
-                    depth_limited,
-                    batch_keys,
-                );
-                if out.len() >= limit {
-                    break;
-                }
+            if child.is_null() {
+                continue;
+            }
+            let child_segment = compute_child_segment(child, &mut seen);
+            walk(
+                child,
+                out,
+                counter,
+                limit,
+                depth + 1,
+                depth_limited,
+                batch_keys,
+                &child_segment,
+                &self_path,
+            );
+            if out.len() >= limit {
+                break;
             }
         }
     }
 
     CFRelease(values);
+}
+
+/// Compute the path segment for `child` (Role[Title]:N). `seen` tracks how
+/// many earlier siblings produced the same `Role[Title]` so we can append
+/// the `:N` disambiguator (omitted when `N == 0`). Mutates `seen` in place.
+unsafe fn compute_child_segment(
+    child: CFTypeRef,
+    seen: &mut std::collections::HashMap<String, usize>,
+) -> String {
+    let role = ax_string(child, "AXRole").unwrap_or_default();
+    let title = ax_string(child, "AXTitle")
+        .or_else(|| ax_string(child, "AXDescription"))
+        .filter(|s| !s.is_empty());
+    let base = build_path_segment(&role, title.as_deref());
+    let idx_ref = seen.entry(base.clone()).or_insert(0);
+    let idx = *idx_ref;
+    *idx_ref += 1;
+    if idx == 0 {
+        base
+    } else {
+        format!("{base}:{idx}")
+    }
 }
 
 // ── AX action helpers ───────────────────────────────────────────────────────
@@ -669,6 +780,123 @@ unsafe fn try_set_bool(element: CFTypeRef, attr: &str, val: bool) -> bool {
     err == AX_OK
 }
 
+/// List the AX actions an element supports (e.g. ["AXPress", "AXShowMenu"]).
+/// Empty vec means the element exposes no actions or the call failed.
+unsafe fn copy_action_names(element: CFTypeRef) -> Vec<String> {
+    let mut names: CFArrayRef = std::ptr::null();
+    let err = AXUIElementCopyActionNames(element, &mut names);
+    if err != AX_OK || names.is_null() {
+        return Vec::new();
+    }
+    let mut out = Vec::new();
+    if CFGetTypeID(names) == CFArrayGetTypeID() {
+        let count = CFArrayGetCount(names);
+        for i in 0..count {
+            let item = CFArrayGetValueAtIndex(names, i);
+            if !item.is_null()
+                && let Some(s) = cfstring_to_string(item)
+            {
+                out.push(s);
+            }
+        }
+    }
+    CFRelease(names);
+    out
+}
+
+/// Walk tree to find element by ref and perform the named AX action.
+/// Returns Some((success, available_actions)) on hit, None on miss.
+/// `available_actions` is always populated when the element is found, so
+/// callers can include it in error hints regardless of success.
+unsafe fn find_and_perform_action(
+    element: CFTypeRef,
+    target_ref: usize,
+    counter: &mut usize,
+    depth: usize,
+    action: &str,
+) -> Option<(bool, Vec<String>)> {
+    if depth > MAX_DEPTH {
+        return None;
+    }
+
+    if let Some(role) = ax_string(element, "AXRole")
+        && is_included(&role)
+    {
+        let size = ax_size(element).unwrap_or_default();
+        if size.width > 0.0 || size.height > 0.0 {
+            *counter += 1;
+            if *counter == target_ref {
+                let success = try_action(element, action);
+                let available = copy_action_names(element);
+                return Some((success, available));
+            }
+        }
+    }
+
+    if let Some(children) = ax_attr(element, "AXChildren") {
+        if CFGetTypeID(children) == CFArrayGetTypeID() {
+            let count = CFArrayGetCount(children);
+            for i in 0..count {
+                let child = CFArrayGetValueAtIndex(children, i);
+                if !child.is_null()
+                    && let Some(result) =
+                        find_and_perform_action(child, target_ref, counter, depth + 1, action)
+                {
+                    CFRelease(children);
+                    return Some(result);
+                }
+            }
+        }
+        CFRelease(children);
+    }
+    None
+}
+
+/// Walk tree to find element by ref and write `value_cf` to its AXValue.
+/// Returns Some(true) on successful write, Some(false) if the element rejected
+/// the write, None if the ref was not found.
+unsafe fn find_and_set_value(
+    element: CFTypeRef,
+    target_ref: usize,
+    counter: &mut usize,
+    depth: usize,
+    value_cf: CFTypeRef,
+) -> Option<bool> {
+    if depth > MAX_DEPTH {
+        return None;
+    }
+
+    if let Some(role) = ax_string(element, "AXRole")
+        && is_included(&role)
+    {
+        let size = ax_size(element).unwrap_or_default();
+        if size.width > 0.0 || size.height > 0.0 {
+            *counter += 1;
+            if *counter == target_ref {
+                return Some(try_set_value(element, "AXValue", value_cf));
+            }
+        }
+    }
+
+    if let Some(children) = ax_attr(element, "AXChildren") {
+        if CFGetTypeID(children) == CFArrayGetTypeID() {
+            let count = CFArrayGetCount(children);
+            for i in 0..count {
+                let child = CFArrayGetValueAtIndex(children, i);
+                if !child.is_null()
+                    && let Some(result) =
+                        find_and_set_value(child, target_ref, counter, depth + 1, value_cf)
+                {
+                    CFRelease(children);
+                    return Some(result);
+                }
+            }
+        }
+        CFRelease(children);
+    }
+    None
+}
+
 /// Walk tree to find element by ref. If `perform_actions` is true, tries AX actions.
 /// Returns (action_performed, x_center, y_center).
 unsafe fn find_element_by_ref(
@@ -761,9 +989,694 @@ pub fn ax_click(pid: i32, ref_id: usize, _limit: usize) -> Result<(bool, f64, f6
     resolve_ref(pid, ref_id, true)
 }
 
+// ── axPath resolution (A2) ──────────────────────────────────────────────────
+
+/// Parse a path segment into (role, optional title, sibling index).
+/// Format: `Role[Title]:N`. `[Title]` and `:N` are both optional.
+fn parse_path_segment(seg: &str) -> (String, Option<String>, usize) {
+    // Split off `:N` suffix if present (only at the end, after any `]`).
+    let (head, idx) = if let Some(colon_pos) = seg.rfind(':') {
+        let after = &seg[colon_pos + 1..];
+        if !after.is_empty() && after.chars().all(|c| c.is_ascii_digit()) {
+            (&seg[..colon_pos], after.parse::<usize>().unwrap_or(0))
+        } else {
+            (seg, 0)
+        }
+    } else {
+        (seg, 0)
+    };
+
+    // Split off `[Title]` if present.
+    if let Some(open) = head.find('[')
+        && head.ends_with(']')
+    {
+        let role = &head[..open];
+        let title = &head[open + 1..head.len() - 1];
+        return (role.to_string(), Some(title.to_string()), idx);
+    }
+    (head.to_string(), None, idx)
+}
+
+/// Find an element matching `ax_path`. Walks the AX tree top-down, descending
+/// into children whose `Role[Title]` segment matches each path part. Sibling
+/// disambiguation honors the `:N` index.
+///
+/// Returns `(acted, center_x, center_y)` where `acted=true` iff an AX action
+/// chain was successfully run on the matched element (when `perform_actions`).
+unsafe fn find_element_by_ax_path(
+    walk_root: CFTypeRef,
+    segments: &[(String, Option<String>, usize)],
+    perform_actions: bool,
+) -> Option<(bool, f64, f64)> {
+    if segments.is_empty() {
+        return None;
+    }
+
+    // The first segment must match the walk_root itself (typically the
+    // window or app element). After matching, descend into children.
+    let mut current = walk_root;
+    let mut owned: Vec<CFTypeRef> = Vec::new(); // elements we must release
+
+    for (depth, (role, title, idx)) in segments.iter().enumerate() {
+        let cur_role = ax_string(current, "AXRole").unwrap_or_default();
+        let cur_title = ax_string(current, "AXTitle")
+            .or_else(|| ax_string(current, "AXDescription"))
+            .filter(|s| !s.is_empty());
+
+        if depth == 0 {
+            // Match against walk_root itself; don't descend yet.
+            if normalize_role(&cur_role) != *role {
+                cleanup(&owned);
+                return None;
+            }
+            if let Some(want) = title.as_deref() {
+                let got = cur_title.as_deref().unwrap_or("");
+                let want_sanitized = build_path_segment(role, Some(want));
+                let got_sanitized = build_path_segment(&cur_role, Some(got));
+                if want_sanitized != got_sanitized {
+                    cleanup(&owned);
+                    return None;
+                }
+            }
+            // Sibling index 0 is implied for root.
+            if *idx != 0 {
+                cleanup(&owned);
+                return None;
+            }
+            continue;
+        }
+
+        // Descend into children: pick the Nth matching child.
+        let children = ax_attr(current, "AXChildren");
+        let Some(children) = children else {
+            cleanup(&owned);
+            return None;
+        };
+
+        let mut found: Option<CFTypeRef> = None;
+        let mut match_count: usize = 0;
+        if CFGetTypeID(children) == CFArrayGetTypeID() {
+            let count = CFArrayGetCount(children);
+            for i in 0..count {
+                let child = CFArrayGetValueAtIndex(children, i);
+                if child.is_null() {
+                    continue;
+                }
+                let child_role = ax_string(child, "AXRole").unwrap_or_default();
+                if normalize_role(&child_role) != *role {
+                    continue;
+                }
+                if let Some(want) = title.as_deref() {
+                    let child_title = ax_string(child, "AXTitle")
+                        .or_else(|| ax_string(child, "AXDescription"))
+                        .filter(|s| !s.is_empty());
+                    let got = child_title.as_deref().unwrap_or("");
+                    let want_sanitized = build_path_segment(role, Some(want));
+                    let got_sanitized = build_path_segment(&child_role, Some(got));
+                    if want_sanitized != got_sanitized {
+                        continue;
+                    }
+                } else if ax_string(child, "AXTitle")
+                    .or_else(|| ax_string(child, "AXDescription"))
+                    .filter(|s| !s.is_empty())
+                    .is_some()
+                {
+                    // Path segment had no [Title], only match children that also have no title.
+                    continue;
+                }
+                if match_count == *idx {
+                    // Retain by getting our own +1 reference via AXAttribute lookup
+                    // is not straightforward; instead clone the ref and add to owned
+                    // via children retention (children stays alive for the loop).
+                    found = Some(child);
+                    break;
+                }
+                match_count += 1;
+            }
+        }
+        if found.is_none() {
+            CFRelease(children);
+            cleanup(&owned);
+            return None;
+        }
+        // Note: we cannot CFRelease(children) yet because `current` (the new child)
+        // is borrowed from it. Track for cleanup once we move past this depth.
+        owned.push(children);
+        current = found.unwrap();
+    }
+
+    // current now points to the matched element. Try AX actions if requested,
+    // grab geometry, then clean up.
+    let pos = ax_position(current).unwrap_or_default();
+    let size = ax_size(current).unwrap_or_default();
+    let cx = pos.x + size.width / 2.0;
+    let cy = pos.y + size.height / 2.0;
+    let acted = if perform_actions {
+        try_ax_actions(current).is_some()
+    } else {
+        false
+    };
+    cleanup(&owned);
+    Some((acted, cx, cy))
+}
+
+unsafe fn cleanup(refs: &[CFTypeRef]) {
+    for r in refs {
+        if !r.is_null() {
+            CFRelease(*r);
+        }
+    }
+}
+
+/// Public entry: resolve an axPath against the app's AX tree and (optionally)
+/// fire the AX action chain. Returns `(acted, center_x, center_y)`.
+pub fn resolve_by_ax_path(
+    pid: i32,
+    ax_path: &str,
+    perform_actions: bool,
+) -> Result<(bool, f64, f64), String> {
+    let segments: Vec<_> = ax_path
+        .split('/')
+        .filter(|s| !s.is_empty())
+        .map(parse_path_segment)
+        .collect();
+    if segments.is_empty() {
+        return Err("axPath is empty or all-slash".into());
+    }
+
+    unsafe {
+        let app_el = create_app_element(pid);
+        if app_el.is_null() {
+            return Err("failed to create AX element for application".into());
+        }
+
+        // axPath is rooted at AXWindow (matches snapshot's `walk_root`), so
+        // resolve via window when the first segment is a window role.
+        let walk_root = if segments[0].0 == "window" {
+            ax_attr(app_el, "AXFocusedWindow").or_else(|| ax_attr(app_el, "AXMainWindow"))
+        } else {
+            None
+        };
+        let root = walk_root.unwrap_or(app_el);
+        if !walk_root.is_some() {
+            // App-rooted path: nothing to do
+        } else {
+            set_element_timeout(root);
+        }
+
+        let result = find_element_by_ax_path(root, &segments, perform_actions);
+
+        if let Some(w) = walk_root {
+            CFRelease(w);
+        }
+        CFRelease(app_el);
+        result.ok_or_else(|| format!("element not found at axPath '{ax_path}'"))
+    }
+}
+
+/// `cu perform --ax-path X` — fire the named AX action on the matched element.
+pub fn ax_perform_by_path(pid: i32, ax_path: &str, action: &str) -> Result<(), CuError> {
+    let segments: Vec<_> = ax_path
+        .split('/')
+        .filter(|s| !s.is_empty())
+        .map(parse_path_segment)
+        .collect();
+    if segments.is_empty() {
+        return Err("axPath is empty".into());
+    }
+    unsafe {
+        let app_el = create_app_element(pid);
+        if app_el.is_null() {
+            return Err("failed to create AX element for application".into());
+        }
+        let walk_root = if segments[0].0 == "window" {
+            ax_attr(app_el, "AXFocusedWindow").or_else(|| ax_attr(app_el, "AXMainWindow"))
+        } else {
+            None
+        };
+        let root = walk_root.unwrap_or(app_el);
+
+        let result = ax_perform_via_path(root, &segments, action);
+
+        if let Some(w) = walk_root {
+            CFRelease(w);
+        }
+        CFRelease(app_el);
+        result
+    }
+}
+
+unsafe fn ax_perform_via_path(
+    walk_root: CFTypeRef,
+    segments: &[(String, Option<String>, usize)],
+    action: &str,
+) -> Result<(), CuError> {
+    let mut owned: Vec<CFTypeRef> = Vec::new();
+    let mut current = walk_root;
+
+    for (depth, (role, title, idx)) in segments.iter().enumerate() {
+        let cur_role = ax_string(current, "AXRole").unwrap_or_default();
+        if depth == 0 {
+            if normalize_role(&cur_role) != *role {
+                cleanup(&owned);
+                return Err("axPath root did not match window/app".into());
+            }
+            continue;
+        }
+        let children = match ax_attr(current, "AXChildren") {
+            Some(c) => c,
+            None => {
+                cleanup(&owned);
+                return Err("axPath descended past last child".into());
+            }
+        };
+        let mut found: Option<CFTypeRef> = None;
+        let mut match_count: usize = 0;
+        if CFGetTypeID(children) == CFArrayGetTypeID() {
+            let count = CFArrayGetCount(children);
+            for i in 0..count {
+                let child = CFArrayGetValueAtIndex(children, i);
+                if child.is_null() {
+                    continue;
+                }
+                let child_role = ax_string(child, "AXRole").unwrap_or_default();
+                if normalize_role(&child_role) != *role {
+                    continue;
+                }
+                if let Some(want) = title.as_deref() {
+                    let child_title = ax_string(child, "AXTitle")
+                        .or_else(|| ax_string(child, "AXDescription"))
+                        .filter(|s| !s.is_empty());
+                    let got = child_title.as_deref().unwrap_or("");
+                    if build_path_segment(role, Some(want))
+                        != build_path_segment(&child_role, Some(got))
+                    {
+                        continue;
+                    }
+                } else if ax_string(child, "AXTitle")
+                    .or_else(|| ax_string(child, "AXDescription"))
+                    .filter(|s| !s.is_empty())
+                    .is_some()
+                {
+                    continue;
+                }
+                if match_count == *idx {
+                    found = Some(child);
+                    break;
+                }
+                match_count += 1;
+            }
+        }
+        if found.is_none() {
+            CFRelease(children);
+            cleanup(&owned);
+            return Err(format!("no match for axPath segment '{}'", role).into());
+        }
+        owned.push(children);
+        current = found.unwrap();
+    }
+
+    let ok = try_action(current, action);
+    cleanup(&owned);
+    if ok {
+        Ok(())
+    } else {
+        Err(format!("AX action '{action}' failed or not supported by element").into())
+    }
+}
+
+/// `cu set-value --ax-path X` — write `value` to the matched element's AXValue.
+pub fn ax_set_value_by_path(pid: i32, ax_path: &str, value: &str) -> Result<(), CuError> {
+    let segments: Vec<_> = ax_path
+        .split('/')
+        .filter(|s| !s.is_empty())
+        .map(parse_path_segment)
+        .collect();
+    if segments.is_empty() {
+        return Err("axPath is empty".into());
+    }
+    unsafe {
+        let app_el = create_app_element(pid);
+        if app_el.is_null() {
+            return Err("failed to create AX element for application".into());
+        }
+        let walk_root = if segments[0].0 == "window" {
+            ax_attr(app_el, "AXFocusedWindow").or_else(|| ax_attr(app_el, "AXMainWindow"))
+        } else {
+            None
+        };
+        let root = walk_root.unwrap_or(app_el);
+
+        // Re-implement descent inline so we can keep `current` alive long
+        // enough to set its value. (find_element_by_ax_path collapses to
+        // (acted,x,y); we need the element handle here.)
+        let result = ax_set_value_via_path(root, &segments, value);
+
+        if let Some(w) = walk_root {
+            CFRelease(w);
+        }
+        CFRelease(app_el);
+        result
+    }
+}
+
+unsafe fn ax_set_value_via_path(
+    walk_root: CFTypeRef,
+    segments: &[(String, Option<String>, usize)],
+    value: &str,
+) -> Result<(), CuError> {
+    let value_cf = cfstr(value).ok_or("failed to allocate value string")?;
+
+    // Same descent as find_element_by_ax_path but stops at the matched element
+    // and writes AXValue.
+    let mut owned: Vec<CFTypeRef> = Vec::new();
+    let mut current = walk_root;
+
+    for (depth, (role, title, idx)) in segments.iter().enumerate() {
+        let cur_role = ax_string(current, "AXRole").unwrap_or_default();
+        if depth == 0 {
+            if normalize_role(&cur_role) != *role {
+                CFRelease(value_cf);
+                cleanup(&owned);
+                return Err(
+                    format!("axPath root '{}' did not match window/app", role).into()
+                );
+            }
+            continue;
+        }
+        let children = match ax_attr(current, "AXChildren") {
+            Some(c) => c,
+            None => {
+                CFRelease(value_cf);
+                cleanup(&owned);
+                return Err(format!("no children at depth {} of axPath", depth).into());
+            }
+        };
+        let mut found: Option<CFTypeRef> = None;
+        let mut match_count: usize = 0;
+        if CFGetTypeID(children) == CFArrayGetTypeID() {
+            let count = CFArrayGetCount(children);
+            for i in 0..count {
+                let child = CFArrayGetValueAtIndex(children, i);
+                if child.is_null() {
+                    continue;
+                }
+                let child_role = ax_string(child, "AXRole").unwrap_or_default();
+                if normalize_role(&child_role) != *role {
+                    continue;
+                }
+                if let Some(want) = title.as_deref() {
+                    let child_title = ax_string(child, "AXTitle")
+                        .or_else(|| ax_string(child, "AXDescription"))
+                        .filter(|s| !s.is_empty());
+                    let got = child_title.as_deref().unwrap_or("");
+                    if build_path_segment(role, Some(want))
+                        != build_path_segment(&child_role, Some(got))
+                    {
+                        continue;
+                    }
+                } else if ax_string(child, "AXTitle")
+                    .or_else(|| ax_string(child, "AXDescription"))
+                    .filter(|s| !s.is_empty())
+                    .is_some()
+                {
+                    continue;
+                }
+                if match_count == *idx {
+                    found = Some(child);
+                    break;
+                }
+                match_count += 1;
+            }
+        }
+        if found.is_none() {
+            CFRelease(children);
+            CFRelease(value_cf);
+            cleanup(&owned);
+            return Err(format!("no match for segment '{}' at depth {}", role, depth).into());
+        }
+        owned.push(children);
+        current = found.unwrap();
+    }
+
+    let ok = try_set_value(current, "AXValue", value_cf);
+    CFRelease(value_cf);
+    cleanup(&owned);
+    if ok {
+        Ok(())
+    } else {
+        Err(CuError::msg("AXValue write was rejected by the element")
+            .with_hint("the element may be read-only or not a value-bearing role"))
+    }
+}
+
 /// Find element by ref — coordinate lookup only, no AX actions triggered.
 pub fn ax_find_element(pid: i32, ref_id: usize, _limit: usize) -> Result<(bool, f64, f64), String> {
     resolve_ref(pid, ref_id, false)
+}
+
+/// Find element by ref and write `value` to its AXValue attribute.
+/// This is the fastest path to populate text fields — no focus, no IME,
+/// no clipboard. Returns Ok(()) when the write succeeded; Err with a hint
+/// when the element is missing or refused the write.
+pub fn ax_set_value(pid: i32, ref_id: usize, _limit: usize, value: &str) -> Result<(), CuError> {
+    unsafe {
+        let value_cf =
+            cfstr(value).ok_or_else(|| CuError::msg("failed to create CFString for value"))?;
+
+        let app_el = create_app_element(pid);
+        if app_el.is_null() {
+            CFRelease(value_cf);
+            return Err(CuError::msg("failed to create AX element for application"));
+        }
+
+        let window_el =
+            ax_attr(app_el, "AXFocusedWindow").or_else(|| ax_attr(app_el, "AXMainWindow"));
+        if let Some(w) = window_el {
+            set_element_timeout(w);
+        }
+        let walk_root = window_el.unwrap_or(app_el);
+
+        let mut counter = 0usize;
+        let result = find_and_set_value(walk_root, ref_id, &mut counter, 0, value_cf);
+
+        if let Some(w) = window_el {
+            CFRelease(w);
+        }
+        CFRelease(app_el);
+        CFRelease(value_cf);
+
+        match result {
+            Some(true) => Ok(()),
+            Some(false) => Err(CuError::msg(format!(
+                "element [{ref_id}] rejected AXValue write"
+            ))
+            .with_hint("Element exists but is not settable. Common reasons: the control is disabled, the value is computed, or the field requires keyboard input.")
+            .with_next(format!("cu click {ref_id} --app <name>"))
+            .with_next(format!("cu type \"{value}\" --app <name>"))),
+            None => Err(CuError::msg(format!(
+                "element [{ref_id}] not found in AX tree (scanned {counter} elements)"
+            ))
+            .with_hint(
+                "Refs are ephemeral and refresh on every action. Re-snapshot to find the current ref.",
+            )
+            .with_next("cu snapshot <app>")),
+        }
+    }
+}
+
+/// Find element by ref and perform a named AX action (e.g. AXShowMenu,
+/// AXIncrement, AXScrollToVisible). On failure, the hint includes the list
+/// of actions the element actually supports — feed that back to the agent.
+pub fn ax_perform(
+    pid: i32,
+    ref_id: usize,
+    _limit: usize,
+    action: &str,
+) -> Result<Vec<String>, CuError> {
+    unsafe {
+        let app_el = create_app_element(pid);
+        if app_el.is_null() {
+            return Err(CuError::msg("failed to create AX element for application"));
+        }
+
+        let window_el =
+            ax_attr(app_el, "AXFocusedWindow").or_else(|| ax_attr(app_el, "AXMainWindow"));
+        if let Some(w) = window_el {
+            set_element_timeout(w);
+        }
+        let walk_root = window_el.unwrap_or(app_el);
+
+        let mut counter = 0usize;
+        let result = find_and_perform_action(walk_root, ref_id, &mut counter, 0, action);
+
+        if let Some(w) = window_el {
+            CFRelease(w);
+        }
+        CFRelease(app_el);
+
+        match result {
+            Some((true, available)) => Ok(available),
+            Some((false, available)) => {
+                let mut err = CuError::msg(format!(
+                    "element [{ref_id}] does not support {action}"
+                ));
+                if available.is_empty() {
+                    err = err.with_hint(
+                        "Element exposes no AX actions. It may be a static container — try clicking a child instead.",
+                    );
+                } else {
+                    err = err
+                        .with_hint(format!("Available actions: {}", available.join(", ")))
+                        .with_diagnostics(serde_json::json!({
+                            "available_actions": available,
+                        }));
+                    for a in &available {
+                        err = err.with_next(format!("cu perform {ref_id} {a} --app <name>"));
+                    }
+                }
+                Err(err)
+            }
+            None => Err(CuError::msg(format!(
+                "element [{ref_id}] not found in AX tree (scanned {counter} elements)"
+            ))
+            .with_hint(
+                "Refs are ephemeral and refresh on every action. Re-snapshot to find the current ref.",
+            )
+            .with_next("cu snapshot <app>")),
+        }
+    }
+}
+
+/// Resolve the currently focused UI element of the app and summarize it.
+/// `elements` is the snapshot's element list — used to look up the matching
+/// ref by (role, x, y). Match on (x,y) is enough in practice — two elements
+/// with the same role and identical screen position would be a UI bug.
+unsafe fn detect_focused(app_el: CFTypeRef, elements: &[Element]) -> Option<FocusedSummary> {
+    let fel = ax_attr(app_el, "AXFocusedUIElement")?;
+    let role = ax_string(fel, "AXRole").unwrap_or_default();
+    if role.is_empty() {
+        CFRelease(fel);
+        return None;
+    }
+    let title = ax_string(fel, "AXTitle")
+        .or_else(|| ax_string(fel, "AXDescription"))
+        .filter(|s| !s.is_empty());
+    let value = ax_string(fel, "AXValue").filter(|s| !s.is_empty());
+    let pos = ax_position(fel);
+    CFRelease(fel);
+
+    let normalized = normalize_role(&role);
+    let ref_id = pos.and_then(|p| {
+        let (px, py) = (p.x.round(), p.y.round());
+        elements
+            .iter()
+            .find(|e| e.role == normalized && (e.x - px).abs() < 1.0 && (e.y - py).abs() < 1.0)
+            .map(|e| e.ref_id)
+    });
+
+    Some(FocusedSummary {
+        ref_id,
+        role: normalized,
+        title,
+        value,
+    })
+}
+
+/// Detect whether a modal (AXSheet) or system dialog is blocking the window.
+/// Checks the window itself first, then its direct children.
+unsafe fn detect_modal(window_el: CFTypeRef) -> Option<ModalSummary> {
+    let win_role = ax_string(window_el, "AXRole").unwrap_or_default();
+    let win_subrole = ax_string(window_el, "AXSubrole").unwrap_or_default();
+    if win_role == "AXSheet"
+        || win_subrole == "AXSystemDialog"
+        || win_subrole == "AXSheet"
+        || win_subrole == "AXDialog"
+    {
+        return Some(ModalSummary {
+            role: win_role,
+            subrole: (!win_subrole.is_empty()).then_some(win_subrole),
+            title: ax_string(window_el, "AXTitle").filter(|s| !s.is_empty()),
+        });
+    }
+
+    // Look one level down — modal sheets typically attach as direct children.
+    let children = ax_attr(window_el, "AXChildren")?;
+    let mut found = None;
+    if CFGetTypeID(children) == CFArrayGetTypeID() {
+        let count = CFArrayGetCount(children);
+        for i in 0..count {
+            let child = CFArrayGetValueAtIndex(children, i);
+            if child.is_null() {
+                continue;
+            }
+            let crole = ax_string(child, "AXRole").unwrap_or_default();
+            if crole == "AXSheet" {
+                let csubrole = ax_string(child, "AXSubrole").unwrap_or_default();
+                let ctitle = ax_string(child, "AXTitle").filter(|s| !s.is_empty());
+                found = Some(ModalSummary {
+                    role: crole,
+                    subrole: (!csubrole.is_empty()).then_some(csubrole),
+                    title: ctitle,
+                });
+                break;
+            }
+        }
+    }
+    CFRelease(children);
+    found
+}
+
+/// Returns the number of standard windows reported by the app element.
+/// Uses `AXWindows` (all windows) attribute. Returns 0 on failure.
+pub fn window_count(pid: i32) -> usize {
+    unsafe {
+        let app_el = create_app_element(pid);
+        if app_el.is_null() {
+            return 0;
+        }
+        let count = if let Some(arr) = ax_attr(app_el, "AXWindows") {
+            let n = if CFGetTypeID(arr) == CFArrayGetTypeID() {
+                CFArrayGetCount(arr) as usize
+            } else {
+                0
+            };
+            CFRelease(arr);
+            n
+        } else {
+            0
+        };
+        CFRelease(app_el);
+        count
+    }
+}
+
+/// Raise (focus) the app's main window via direct AX, no AppleScript.
+///
+/// Sets `AXMain=true` and performs `AXRaise` on the main/focused window.
+/// Returns `true` on success. This is the non-disruptive equivalent of
+/// `tell application "X" to activate` — it brings the window forward without
+/// going through the global activation path. (B6)
+pub fn raise_window(pid: i32) -> bool {
+    unsafe {
+        let app_el = create_app_element(pid);
+        if app_el.is_null() {
+            return false;
+        }
+        let window =
+            ax_attr(app_el, "AXMainWindow").or_else(|| ax_attr(app_el, "AXFocusedWindow"));
+        let mut ok = false;
+        if let Some(w) = window {
+            set_element_timeout(w);
+            // AXMain=true marks this window as the app's main; AXRaise brings it forward.
+            let set_main = try_set_bool(w, "AXMain", true);
+            let raised = try_action(w, "AXRaise");
+            ok = set_main || raised;
+            CFRelease(w);
+        }
+        CFRelease(app_el);
+        ok
+    }
 }
 
 /// Get the frontmost window bounds (x, y, width, height) for an app.
@@ -808,6 +1721,8 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
                 limit,
                 truncated: false,
                 depth_limited: false,
+                focused: None,
+                modal: None,
                 error: Some("failed to create AX element for application".into()),
             };
         }
@@ -834,6 +1749,8 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
                 limit,
                 truncated: false,
                 depth_limited: false,
+                focused: None,
+                modal: None,
                 error: Some(msg),
             };
         }
@@ -879,12 +1796,20 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
                 limit,
                 truncated: false,
                 depth_limited: false,
+                focused: None,
+                modal: None,
                 error: Some("failed to create AX batch attribute keys".into()),
             };
         }
         let mut elements = Vec::new();
         let mut counter = 0usize;
         let mut depth_limited = false;
+        // Compute the root's own path segment so descendants get full paths.
+        let root_role = ax_string(walk_root, "AXRole").unwrap_or_default();
+        let root_title = ax_string(walk_root, "AXTitle")
+            .or_else(|| ax_string(walk_root, "AXDescription"))
+            .filter(|s| !s.is_empty());
+        let root_segment = build_path_segment(&root_role, root_title.as_deref());
         walk(
             walk_root,
             &mut elements,
@@ -893,10 +1818,20 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
             0,
             &mut depth_limited,
             batch_keys,
+            &root_segment,
+            "",
         );
         CFRelease(batch_keys);
 
         let truncated = elements.len() >= limit;
+
+        // A4: surface the currently focused UI element so the agent can skip
+        //     a redundant click on a field that's already focused.
+        let focused = detect_focused(app_el, &elements);
+
+        // A6: surface a modal/sheet warning so the agent dismisses it first
+        //     instead of fruitlessly clicking on the (now-blocked) main window.
+        let modal = window_el.and_then(|w| detect_modal(w));
 
         // Clean up
         if let Some(w) = window_el {
@@ -909,6 +1844,8 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
             app: app_name.to_string(),
             window: window_title,
             window_frame,
+            focused,
+            modal,
             elements,
             limit,
             truncated,

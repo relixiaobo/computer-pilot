@@ -45,8 +45,8 @@ if [[ -n "$FIRST_REF" && "$FIRST_REF" != "__MISSING__" ]]; then
   assert_json_field_exists "method in response" ".method"
 
   METHOD=$(json_get '.method' || echo "")
-  if [[ "$METHOD" == "ax-action" || "$METHOD" == "cgevent" ]]; then
-    _pass "method is ax-action or cgevent ($METHOD)"
+  if [[ "$METHOD" == "ax-action" || "$METHOD" == "cgevent-pid" ]]; then
+    _pass "method is ax-action or cgevent-pid ($METHOD)"
   else
     _fail "method type" "got: $METHOD"
   fi
@@ -88,10 +88,12 @@ assert_fail "click with non-existent app fails"
 
 section "click — text mode (OCR)"
 
-# Ensure Finder has a clean window
+# Ensure Finder has a clean window with the sidebar (Applications row visible).
+# OCR via CGWindowListCreateImage captures behind other windows, so Finder
+# does not have to be frontmost — but `make new Finder window` may briefly
+# pull it forward when it has to spawn a window.
 osascript -e 'tell application "Finder"
   close every window
-  activate
   make new Finder window
   set target of front Finder window to home
 end tell' 2>/dev/null
@@ -99,7 +101,7 @@ sleep 1
 
 cu_json click --text "Applications" --app Finder --no-snapshot
 assert_ok "click --text finds visible text"
-assert_json_field "method is ocr-text" ".method" "ocr-text"
+assert_json_field "method is ocr-text-pid" ".method" "ocr-text-pid"
 assert_json_field_exists "matched text" ".text"
 
 cu_json click --text "ZZZZNONEXISTENT99" --app Finder --no-snapshot

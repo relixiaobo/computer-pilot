@@ -1,4 +1,19 @@
 //! Keyboard events via CGEvent.
+//!
+//! ## Targeting
+//!
+//! Both `send` and `type_text` accept `target_pid: Option<i32>`:
+//! - `Some(pid)` → events delivered only to that process via `CGEventPostToPid`
+//!   using a combined-session event source. Doesn't steal focus, doesn't go
+//!   through the global keyboard hook, doesn't interact with IME state. Used
+//!   when the agent knows the target app.
+//! - `None` → events posted to the global HID tap. Behaves like a real
+//!   keypress; goes to whatever is frontmost. Useful when the user wants
+//!   the agent to operate on the foreground app explicitly.
+//!
+//! `type_text` uses `CGEventKeyboardSetUnicodeString` with virtual_key=0,
+//! one UTF-16 code unit per event. This bypasses the keyboard layout and
+//! IME entirely — Chinese, emoji, and other non-ASCII text Just Works.
 #![allow(unsafe_op_in_unsafe_fn)]
 
 use std::ffi::c_void;
@@ -6,6 +21,7 @@ use std::ffi::c_void;
 type CFTypeRef = *const c_void;
 
 const CG_HID_EVENT_TAP: u32 = 0;
+const K_CG_EVENT_SOURCE_STATE_COMBINED_SESSION_STATE: i32 = 0;
 
 // Modifier flags
 const FLAG_SHIFT: u64 = 0x0002_0000;
@@ -17,8 +33,11 @@ const FLAG_COMMAND: u64 = 0x0010_0000;
 unsafe extern "C" {
     fn CGEventCreateKeyboardEvent(source: CFTypeRef, virtual_key: u16, key_down: bool)
     -> CFTypeRef;
+    fn CGEventKeyboardSetUnicodeString(event: CFTypeRef, length: usize, string: *const u16);
     fn CGEventSetFlags(event: CFTypeRef, flags: u64);
     fn CGEventPost(tap: u32, event: CFTypeRef);
+    fn CGEventPostToPid(pid: i32, event: CFTypeRef);
+    fn CGEventSourceCreate(state_id: i32) -> CFTypeRef;
 }
 
 #[link(name = "CoreFoundation", kind = "framework")]
@@ -26,8 +45,44 @@ unsafe extern "C" {
     fn CFRelease(cf: CFTypeRef);
 }
 
+/// RAII wrapper for a CGEventSource. Held for the duration of a key sequence so
+/// every event in the sequence shares the same session-level source. Null when
+/// targeting the global HID tap.
+struct EventSource(CFTypeRef);
+
+impl EventSource {
+    fn for_target(target_pid: Option<i32>) -> Self {
+        let raw = if target_pid.is_some() {
+            unsafe { CGEventSourceCreate(K_CG_EVENT_SOURCE_STATE_COMBINED_SESSION_STATE) }
+        } else {
+            std::ptr::null()
+        };
+        EventSource(raw)
+    }
+
+    fn raw(&self) -> CFTypeRef {
+        self.0
+    }
+}
+
+impl Drop for EventSource {
+    fn drop(&mut self) {
+        if !self.0.is_null() {
+            unsafe { CFRelease(self.0) };
+        }
+    }
+}
+
+unsafe fn post(event: CFTypeRef, target_pid: Option<i32>) {
+    match target_pid {
+        Some(pid) => CGEventPostToPid(pid, event),
+        None => CGEventPost(CG_HID_EVENT_TAP, event),
+    }
+}
+
 /// Send a key combo like "cmd+c", "enter", "cmd+shift+s".
-pub fn send(combo: &str) -> Result<(), String> {
+/// See module docs for `target_pid` semantics.
+pub fn send(combo: &str, target_pid: Option<i32>) -> Result<(), String> {
     let parts: Vec<&str> = combo.split('+').collect();
     if parts.is_empty() {
         return Err("empty key combo".into());
@@ -39,13 +94,14 @@ pub fn send(combo: &str) -> Result<(), String> {
     let keycode = resolve_keycode(key_name)?;
     let flags = resolve_flags(modifier_names)?;
 
+    let source = EventSource::for_target(target_pid);
     unsafe {
-        let down = CGEventCreateKeyboardEvent(std::ptr::null(), keycode, true);
+        let down = CGEventCreateKeyboardEvent(source.raw(), keycode, true);
         if down.is_null() {
             return Err("failed to create key-down event".into());
         }
 
-        let up = CGEventCreateKeyboardEvent(std::ptr::null(), keycode, false);
+        let up = CGEventCreateKeyboardEvent(source.raw(), keycode, false);
         if up.is_null() {
             CFRelease(down);
             return Err("failed to create key-up event".into());
@@ -56,11 +112,52 @@ pub fn send(combo: &str) -> Result<(), String> {
             CGEventSetFlags(up, flags);
         }
 
-        CGEventPost(CG_HID_EVENT_TAP, down);
-        CGEventPost(CG_HID_EVENT_TAP, up);
+        post(down, target_pid);
+        post(up, target_pid);
 
         CFRelease(down);
         CFRelease(up);
+    }
+
+    Ok(())
+}
+
+/// Type Unicode text into the target. One UTF-16 code unit per key event,
+/// using virtual_key=0 + `CGEventKeyboardSetUnicodeString` so keyboard layout
+/// and IME are bypassed entirely. Works for any language, any script.
+///
+/// `target_pid: Some(pid)` → delivered to that process (no focus theft, no
+/// clipboard pollution, no app activation).
+/// `target_pid: None` → goes to whatever app is frontmost (global HID tap).
+pub fn type_text(text: &str, target_pid: Option<i32>) -> Result<(), String> {
+    let source = EventSource::for_target(target_pid);
+    let utf16: Vec<u16> = text.encode_utf16().collect();
+
+    for ch in utf16 {
+        let mut buf = ch;
+        unsafe {
+            let down = CGEventCreateKeyboardEvent(source.raw(), 0, true);
+            if down.is_null() {
+                return Err("failed to create key-down event for type".into());
+            }
+            let up = CGEventCreateKeyboardEvent(source.raw(), 0, false);
+            if up.is_null() {
+                CFRelease(down);
+                return Err("failed to create key-up event for type".into());
+            }
+
+            CGEventKeyboardSetUnicodeString(down, 1, &mut buf as *mut u16);
+            CGEventKeyboardSetUnicodeString(up, 1, &mut buf as *mut u16);
+
+            post(down, target_pid);
+            post(up, target_pid);
+
+            CFRelease(down);
+            CFRelease(up);
+        }
+        // Inter-event gap: HID drops events that arrive faster than the tap
+        // can drain. 3ms is empirically enough (kagete uses the same value).
+        std::thread::sleep(std::time::Duration::from_micros(3000));
     }
 
     Ok(())

@@ -2,12 +2,13 @@
 # Test: cu screenshot
 source "$(dirname "$0")/helpers.sh"
 
-# Ensure Finder has a visible window
-osascript -e 'tell application "Finder" to activate' 2>/dev/null
+# cu screenshot uses CGWindowListCreateImage and captures behind other windows,
+# so we only need Finder to have a window — Finder does not need to be frontmost.
+# `make new Finder window` here does NOT activate Finder when it already has windows.
 osascript -e 'tell application "Finder"
   if (count of Finder windows) is 0 then make new Finder window
 end tell' 2>/dev/null
-sleep 0.5
+sleep 0.3
 
 SHOT_DIR="/tmp/cu-test-screenshots"
 mkdir -p "$SHOT_DIR"
@@ -66,6 +67,70 @@ if [[ -n "$DEFAULT_PATH" && -f "$DEFAULT_PATH" ]]; then
 else
   _fail "default path file" "path=$DEFAULT_PATH"
 fi
+
+section "screenshot — region mode"
+
+SHOT_REG="$SHOT_DIR/region.png"
+cleanup_register "$SHOT_REG"
+
+cu_json screenshot --region "100,200 300x200" --path "$SHOT_REG"
+assert_ok "region screenshot ok"
+assert_json_field "mode is region" ".mode" "region"
+assert_json_field "offset_x echoes region x" ".offset_x" "100.0"
+assert_json_field "offset_y echoes region y" ".offset_y" "200.0"
+assert_json_field "width echoes region width" ".width" "300.0"
+assert_json_field "height echoes region height" ".height" "200.0"
+assert_file_exists "region file created" "$SHOT_REG"
+assert_file_png "region file is PNG" "$SHOT_REG"
+
+# PNG dimensions should be region size × Retina scale (typically 2 on Retina; could be 1)
+DIMS=$(python3 -c "
+import struct
+with open('$SHOT_REG', 'rb') as f:
+    f.read(8); f.read(4); f.read(4)
+    w, h = struct.unpack('>II', f.read(8))
+    print(f'{w}x{h}')
+")
+W=$(echo "$DIMS" | cut -dx -f1)
+H=$(echo "$DIMS" | cut -dx -f2)
+# Width/height should be multiples of 300 / 200 (300×scale, 200×scale)
+W_RATIO=$(python3 -c "print($W // 300 if $W % 300 == 0 else 0)")
+H_RATIO=$(python3 -c "print($H // 200 if $H % 200 == 0 else 0)")
+if [[ "$W_RATIO" -ge 1 && "$H_RATIO" == "$W_RATIO" ]]; then
+  _pass "PNG dims = region × scale (${W}x${H}, scale=$W_RATIO)"
+else
+  _fail "PNG region dims" "expected k×(300×200), got ${W}x${H}"
+fi
+
+# Region file should be SMALLER than a full window screenshot (the value prop)
+REG_SIZE=$(stat -f%z "$SHOT_REG" 2>/dev/null || echo "0")
+WIN_SIZE=$(stat -f%z "$SHOT1" 2>/dev/null || echo "999999")
+if [[ "$REG_SIZE" -lt "$WIN_SIZE" ]]; then
+  _pass "region file smaller than window file ($REG_SIZE < $WIN_SIZE bytes)"
+else
+  _fail "region < window size" "region=$REG_SIZE, window=$WIN_SIZE"
+fi
+
+# Alternate format: x,y,w,h
+SHOT_REG2="$SHOT_DIR/region2.png"
+cleanup_register "$SHOT_REG2"
+cu_json screenshot --region "100,200,300,200" --path "$SHOT_REG2"
+assert_ok "region 'x,y,w,h' format ok"
+assert_file_png "region2 PNG valid" "$SHOT_REG2"
+
+section "screenshot — region error paths"
+
+cu_json screenshot --region "bogus" --path "$SHOT_DIR/nope.png"
+assert_fail "non-numeric region rejected"
+
+cu_json screenshot --region "1 2 3" --path "$SHOT_DIR/nope.png"
+assert_fail "wrong number of region components rejected"
+
+cu_json screenshot --region "0,0 0x0" --path "$SHOT_DIR/nope.png"
+assert_fail "zero-size region rejected"
+
+cu_json screenshot --region "10,20 -100x-100" --path "$SHOT_DIR/nope.png"
+assert_fail "negative size rejected"
 
 section "screenshot — error: non-existent app"
 

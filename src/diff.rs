@@ -1,0 +1,96 @@
+use crate::ax::Element;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::path::PathBuf;
+
+const CACHE_DIR: &str = "/tmp/cu-snapshot-cache";
+
+/// Identity of a UI element for diffing across snapshots.
+/// (role, round(x), round(y)) — robust to ref re-numbering, sensitive to re-layout.
+type ElementId = (String, i64, i64);
+
+fn id_of(el: &Element) -> ElementId {
+    (el.role.clone(), el.x.round() as i64, el.y.round() as i64)
+}
+
+#[derive(Serialize, Deserialize)]
+struct CacheEntry {
+    elements: Vec<Element>,
+}
+
+fn cache_path(pid: i32) -> PathBuf {
+    let mut p = PathBuf::from(CACHE_DIR);
+    p.push(format!("{pid}.json"));
+    p
+}
+
+pub fn load_previous(pid: i32) -> Option<Vec<Element>> {
+    let path = cache_path(pid);
+    let data = std::fs::read(&path).ok()?;
+    let entry: CacheEntry = serde_json::from_slice(&data).ok()?;
+    Some(entry.elements)
+}
+
+pub fn save_current(pid: i32, elements: &[Element]) -> std::io::Result<()> {
+    std::fs::create_dir_all(CACHE_DIR)?;
+    let entry = CacheEntry {
+        elements: elements.to_vec(),
+    };
+    let json = serde_json::to_vec(&entry)?;
+    std::fs::write(cache_path(pid), json)
+}
+
+#[derive(Serialize)]
+pub struct Diff {
+    /// Elements that exist in `curr` but not in `prev` (by identity).
+    pub added: Vec<Element>,
+    /// Elements with the same identity as before but different title/value/size.
+    pub changed: Vec<Element>,
+    /// Refs (from the previous snapshot) of elements that no longer exist.
+    pub removed: Vec<usize>,
+    pub unchanged_count: usize,
+    pub total: usize,
+}
+
+pub fn diff(prev: &[Element], curr: &[Element]) -> Diff {
+    let prev_map: HashMap<ElementId, &Element> = prev.iter().map(|e| (id_of(e), e)).collect();
+    let curr_ids: std::collections::HashSet<ElementId> = curr.iter().map(id_of).collect();
+
+    let mut added = Vec::new();
+    let mut changed = Vec::new();
+    let mut unchanged = 0usize;
+
+    for el in curr {
+        match prev_map.get(&id_of(el)) {
+            None => added.push(el.clone()),
+            Some(prev_el) => {
+                if content_changed(prev_el, el) {
+                    changed.push(el.clone());
+                } else {
+                    unchanged += 1;
+                }
+            }
+        }
+    }
+
+    let removed: Vec<usize> = prev
+        .iter()
+        .filter(|e| !curr_ids.contains(&id_of(e)))
+        .map(|e| e.ref_id)
+        .collect();
+
+    Diff {
+        added,
+        changed,
+        removed,
+        unchanged_count: unchanged,
+        total: curr.len(),
+    }
+}
+
+fn content_changed(a: &Element, b: &Element) -> bool {
+    a.title != b.title
+        || a.value != b.value
+        || (a.width - b.width).abs() > 0.5
+        || (a.height - b.height).abs() > 0.5
+}

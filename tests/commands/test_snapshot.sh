@@ -132,4 +132,87 @@ section "snapshot — error: non-existent app"
 cu_json "snapshot NonExistentApp98765"
 assert_fail "non-existent app fails"
 
+section "snapshot — focused element (A4)"
+
+# Open TextEdit and create a doc; the textarea should be the focused element
+osascript -e 'tell application "TextEdit" to activate' 2>/dev/null
+sleep 1
+osascript -e 'tell application "TextEdit" to make new document' 2>/dev/null
+"$CU" wait --ref 1 --app TextEdit --timeout 5 >/dev/null 2>&1 || true
+"$CU" snapshot TextEdit --limit 5 >/dev/null 2>&1 || true  # warm up
+sleep 0.3
+
+cu_json snapshot TextEdit --limit 30
+assert_ok "snapshot TextEdit"
+FOCUS_INFO=$(echo "$OUT" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+f = d.get('focused')
+if not f:
+    print('missing'); sys.exit()
+print('|'.join([
+    'role=' + f.get('role', '?'),
+    'has_ref=' + str('ref' in f),
+]))
+" 2>/dev/null || echo "error")
+[[ "$FOCUS_INFO" == *"role=textarea"* ]] && _pass "focused.role is textarea" || _fail "focused.role is textarea" "$FOCUS_INFO"
+[[ "$FOCUS_INFO" == *"has_ref=True"* ]]  && _pass "focused.ref populated"   || _fail "focused.ref populated"   "$FOCUS_INFO"
+
+# Human mode shows "Focused: ..." line
+cu_human snapshot TextEdit --limit 5
+if echo "$OUT" | grep -q "^Focused:"; then
+  _pass "human mode renders 'Focused:' line"
+else
+  _fail "human mode 'Focused:' line" "missing in output"
+fi
+
+section "snapshot — modal warning (A6)"
+
+# Trigger TextEdit's "Save changes?" sheet by closing an unsaved document.
+# Use osascript path because Cmd+W via PID-targeted doesn't fire the menu chain.
+"$CU" set-value 1 "modal-trigger" --app TextEdit --no-snapshot >/dev/null 2>&1 || true
+sleep 0.2
+osascript -e 'tell application "TextEdit" to activate' 2>/dev/null
+sleep 0.3
+osascript -e 'tell application "System Events" to tell process "TextEdit" to keystroke "w" using {command down}' 2>/dev/null
+sleep 1
+
+cu_json snapshot TextEdit --limit 30
+MODAL_INFO=$(echo "$OUT" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+m = d.get('modal')
+if not m:
+    print('missing'); sys.exit()
+print('|'.join([
+    'role=' + m.get('role', '?'),
+    'has_subrole=' + str('subrole' in m),
+]))
+" 2>/dev/null || echo "error")
+
+# The modal trigger is environment-dependent — TextEdit with iCloud auto-save
+# enabled silently closes the doc on Cmd+W and never shows a sheet. When that
+# happens, skip the assertion (it's not a `cu` regression).
+if [[ "$MODAL_INFO" == "missing" ]]; then
+  _skip "modal.role is AXSheet" "TextEdit didn't show save sheet (likely iCloud auto-save)"
+  _skip "human mode '⚠ Modal:' warning" "no sheet to render"
+else
+  [[ "$MODAL_INFO" == *"role=AXSheet"* ]] && _pass "modal.role is AXSheet" || _fail "modal.role is AXSheet" "$MODAL_INFO"
+
+  # Human mode shows the warning line
+  cu_human snapshot TextEdit --limit 5
+  if echo "$OUT" | grep -q "^⚠ Modal:"; then
+    _pass "human mode renders '⚠ Modal:' warning"
+  else
+    _fail "human mode '⚠ Modal:' warning" "missing in output"
+  fi
+fi
+
+# Cleanup: dismiss sheet (don't save), quit. `|| true` because TextEdit's
+# AppleScript bridge can return -128 ("user canceled") when there's still
+# a sheet up; that's not a test failure.
+osascript -e 'tell application "System Events" to tell process "TextEdit" to keystroke "d" using {command down}' 2>/dev/null || true
+sleep 0.5
+osascript -e 'tell application "TextEdit" to quit' 2>/dev/null || true
+
 summary

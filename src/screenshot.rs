@@ -80,6 +80,80 @@ unsafe extern "C" {
     ) -> CFTypeRef;
 }
 
+// Additional CoreGraphics FFI for annotation
+#[link(name = "CoreGraphics", kind = "framework")]
+unsafe extern "C" {
+    fn CGImageGetWidth(image: CFTypeRef) -> usize;
+    fn CGImageGetHeight(image: CFTypeRef) -> usize;
+    fn CGColorSpaceCreateDeviceRGB() -> CFTypeRef;
+    fn CGBitmapContextCreate(
+        data: *mut c_void,
+        width: usize,
+        height: usize,
+        bits_per_component: usize,
+        bytes_per_row: usize,
+        color_space: CFTypeRef,
+        bitmap_info: u32,
+    ) -> CFTypeRef;
+    fn CGBitmapContextCreateImage(ctx: CFTypeRef) -> CFTypeRef;
+    fn CGContextDrawImage(ctx: CFTypeRef, rect: CGRect, image: CFTypeRef);
+    fn CGContextSetRGBStrokeColor(ctx: CFTypeRef, r: f64, g: f64, b: f64, a: f64);
+    fn CGContextSetRGBFillColor(ctx: CFTypeRef, r: f64, g: f64, b: f64, a: f64);
+    fn CGContextSetLineWidth(ctx: CFTypeRef, w: f64);
+    fn CGContextStrokeRect(ctx: CFTypeRef, rect: CGRect);
+    fn CGContextFillRect(ctx: CFTypeRef, rect: CGRect);
+    fn CGContextSetTextPosition(ctx: CFTypeRef, x: f64, y: f64);
+    fn CGContextSetTextMatrix(ctx: CFTypeRef, transform: CGAffineTransform);
+}
+
+// CoreText FFI for digit rendering
+#[link(name = "CoreText", kind = "framework")]
+unsafe extern "C" {
+    fn CTFontCreateWithName(name: CFTypeRef, size: f64, matrix: *const c_void) -> CFTypeRef;
+    fn CTLineCreateWithAttributedString(string: CFTypeRef) -> CFTypeRef;
+    fn CTLineDraw(line: CFTypeRef, ctx: CFTypeRef);
+    static kCTFontAttributeName: CFTypeRef;
+}
+
+// Additional CoreFoundation FFI for attributed strings
+#[link(name = "CoreFoundation", kind = "framework")]
+unsafe extern "C" {
+    fn CFAttributedStringCreate(alloc: CFTypeRef, str: CFTypeRef, attrs: CFTypeRef) -> CFTypeRef;
+    fn CFDictionaryCreate(
+        alloc: CFTypeRef,
+        keys: *const CFTypeRef,
+        values: *const CFTypeRef,
+        count: c_long,
+        key_callbacks: *const c_void,
+        value_callbacks: *const c_void,
+    ) -> CFTypeRef;
+    static kCFTypeDictionaryKeyCallBacks: c_void;
+    static kCFTypeDictionaryValueCallBacks: c_void;
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct CGAffineTransform {
+    a: f64,
+    b: f64,
+    c: f64,
+    d: f64,
+    tx: f64,
+    ty: f64,
+}
+
+const CG_AT_IDENTITY: CGAffineTransform = CGAffineTransform {
+    a: 1.0,
+    b: 0.0,
+    c: 0.0,
+    d: 1.0,
+    tx: 0.0,
+    ty: 0.0,
+};
+
+// kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little — BGRA, native Apple format
+const CG_BITMAP_BGRA: u32 = 2 | (2 << 12);
+
 #[link(name = "ImageIO", kind = "framework")]
 unsafe extern "C" {
     fn CGImageDestinationCreateWithURL(
@@ -259,6 +333,32 @@ pub fn capture_window_raw(window_id: u32) -> CFTypeRef {
     }
 }
 
+/// Capture a window and return the pixel-to-point Retina scale (typically 2.0 on Apple Silicon
+/// displays, 1.0 on standard). Like `capture_window` but exposes the scale so the caller can
+/// translate image pixels back to screen-space points.
+pub fn capture_window_with_scale(window: &WindowInfo, path: &str) -> Result<f64, String> {
+    unsafe {
+        let image = CGWindowListCreateImage(
+            CG_RECT_NULL,
+            CG_WINDOW_LIST_INCLUDING_WINDOW,
+            window.window_id,
+            CG_WINDOW_IMAGE_BOUNDS_IGNORE_FRAMING,
+        );
+        if image.is_null() {
+            return Err("failed to capture window image".into());
+        }
+        let img_w = CGImageGetWidth(image);
+        let scale = if window.width > 0.0 {
+            img_w as f64 / window.width
+        } else {
+            1.0
+        };
+        let result = save_cgimage_as_png(image, path);
+        CFRelease(image);
+        result.map(|_| scale)
+    }
+}
+
 /// Capture a specific window by ID to a PNG file. No activation needed.
 pub fn capture_window(window_id: u32, path: &str) -> Result<(), String> {
     unsafe {
@@ -272,6 +372,241 @@ pub fn capture_window(window_id: u32, path: &str) -> Result<(), String> {
             return Err("failed to capture window image".into());
         }
 
+        let result = save_cgimage_as_png(image, path);
+        CFRelease(image);
+        result
+    }
+}
+
+/// One element to annotate. Coordinates are in screen space (same as snapshot output).
+pub struct Annotation {
+    pub ref_id: usize,
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
+/// Capture a window and overlay each ref's bounding box + number label, save as PNG.
+/// `window_offset` is the window's screen-space origin (from `find_window`); annotations
+/// are translated into image-pixel space using image_width / window_width as the scale
+/// factor (handles Retina automatically).
+pub fn annotate_window(
+    window: &WindowInfo,
+    annotations: &[Annotation],
+    path: &str,
+) -> Result<f64, String> {
+    unsafe {
+        let image = CGWindowListCreateImage(
+            CG_RECT_NULL,
+            CG_WINDOW_LIST_INCLUDING_WINDOW,
+            window.window_id,
+            CG_WINDOW_IMAGE_BOUNDS_IGNORE_FRAMING,
+        );
+        if image.is_null() {
+            return Err("failed to capture window image for annotation".into());
+        }
+
+        let img_w = CGImageGetWidth(image);
+        let img_h = CGImageGetHeight(image);
+        if img_w == 0 || img_h == 0 {
+            CFRelease(image);
+            return Err("captured image has zero dimensions".into());
+        }
+        // Retina ratio. window.width is reported in points; image is in pixels.
+        let scale = if window.width > 0.0 {
+            img_w as f64 / window.width
+        } else {
+            1.0
+        };
+
+        let color_space = CGColorSpaceCreateDeviceRGB();
+        if color_space.is_null() {
+            CFRelease(image);
+            return Err("failed to create RGB color space".into());
+        }
+
+        let bytes_per_row = img_w * 4;
+        let ctx = CGBitmapContextCreate(
+            std::ptr::null_mut(), // CG allocates
+            img_w,
+            img_h,
+            8, // 8 bits per component
+            bytes_per_row,
+            color_space,
+            CG_BITMAP_BGRA,
+        );
+        if ctx.is_null() {
+            CFRelease(color_space);
+            CFRelease(image);
+            return Err("failed to create bitmap context".into());
+        }
+
+        // Paint the screenshot into the context (CG places bottom-left of image at bottom-left of rect)
+        let full_rect = CGRect {
+            origin: CGPoint { x: 0.0, y: 0.0 },
+            size: CGSize {
+                width: img_w as f64,
+                height: img_h as f64,
+            },
+        };
+        CGContextDrawImage(ctx, full_rect, image);
+        CFRelease(image);
+
+        // Prepare a font for the labels. Helvetica-Bold is universally available.
+        let font_size = 14.0 * scale; // scale to look 14pt regardless of Retina
+        let font_name = cfstr("Helvetica-Bold").ok_or_else(|| {
+            CFRelease(ctx);
+            CFRelease(color_space);
+            "failed to create font name"
+        });
+        let font_name = match font_name {
+            Ok(v) => v,
+            Err(e) => return Err(e.into()),
+        };
+        let font = CTFontCreateWithName(font_name, font_size, std::ptr::null());
+        CFRelease(font_name);
+        if font.is_null() {
+            CFRelease(ctx);
+            CFRelease(color_space);
+            return Err("failed to create CTFont".into());
+        }
+
+        // Identity text matrix so digits aren't rotated/flipped.
+        CGContextSetTextMatrix(ctx, CG_AT_IDENTITY);
+        CGContextSetLineWidth(ctx, 2.0 * scale);
+
+        for ann in annotations {
+            // Translate from screen coords to image-pixel coords (top-left origin)
+            let img_x = (ann.x - window.x) * scale;
+            let img_y_top = (ann.y - window.y) * scale;
+            let w = ann.width * scale;
+            let h = ann.height * scale;
+
+            if w < 2.0 || h < 2.0 {
+                continue;
+            }
+
+            // CG y-axis is bottom-up; flip
+            let cg_y = img_h as f64 - img_y_top - h;
+
+            // Stroke red rectangle around the element
+            CGContextSetRGBStrokeColor(ctx, 1.0, 0.2, 0.2, 0.95);
+            let rect = CGRect {
+                origin: CGPoint { x: img_x, y: cg_y },
+                size: CGSize {
+                    width: w,
+                    height: h,
+                },
+            };
+            CGContextStrokeRect(ctx, rect);
+
+            // Draw label background (top-left of element, in CG that's higher y)
+            let label_text = format!("{}", ann.ref_id);
+            let label_w = (10.0 + 8.5 * label_text.len() as f64) * scale;
+            let label_h = 18.0 * scale;
+            let label_x = img_x;
+            let label_y_top = img_y_top.max(0.0); // clamp so it stays in image
+            let label_cg_y = img_h as f64 - label_y_top - label_h;
+
+            CGContextSetRGBFillColor(ctx, 1.0, 0.2, 0.2, 0.95);
+            let label_rect = CGRect {
+                origin: CGPoint {
+                    x: label_x,
+                    y: label_cg_y,
+                },
+                size: CGSize {
+                    width: label_w,
+                    height: label_h,
+                },
+            };
+            CGContextFillRect(ctx, label_rect);
+
+            // Draw the digit(s) in white on top of the label background
+            CGContextSetRGBFillColor(ctx, 1.0, 1.0, 1.0, 1.0);
+            if let Some(line) = build_text_line(&label_text, font) {
+                let baseline_x = label_x + 5.0 * scale;
+                let baseline_y_top = label_y_top + label_h - 4.0 * scale;
+                let baseline_cg_y = img_h as f64 - baseline_y_top;
+                CGContextSetTextPosition(ctx, baseline_x, baseline_cg_y);
+                CTLineDraw(line, ctx);
+                CFRelease(line);
+            }
+        }
+
+        CFRelease(font);
+
+        // Extract the rendered image and save as PNG
+        let out_image = CGBitmapContextCreateImage(ctx);
+        CFRelease(ctx);
+        CFRelease(color_space);
+
+        if out_image.is_null() {
+            return Err("failed to extract image from bitmap context".into());
+        }
+
+        let result = save_cgimage_as_png(out_image, path);
+        CFRelease(out_image);
+        result.map(|_| scale)
+    }
+}
+
+/// Build a CTLine for the given digits in the given font. Caller must CFRelease.
+unsafe fn build_text_line(text: &str, font: CFTypeRef) -> Option<CFTypeRef> {
+    let cf_str = cfstr(text)?;
+
+    // attrs = { kCTFontAttributeName: font }
+    let keys = [kCTFontAttributeName];
+    let values = [font];
+    let attrs = CFDictionaryCreate(
+        std::ptr::null(),
+        keys.as_ptr(),
+        values.as_ptr(),
+        1,
+        &kCFTypeDictionaryKeyCallBacks as *const _ as *const c_void,
+        &kCFTypeDictionaryValueCallBacks as *const _ as *const c_void,
+    );
+    if attrs.is_null() {
+        CFRelease(cf_str);
+        return None;
+    }
+
+    let astr = CFAttributedStringCreate(std::ptr::null(), cf_str, attrs);
+    CFRelease(attrs);
+    CFRelease(cf_str);
+    if astr.is_null() {
+        return None;
+    }
+
+    let line = CTLineCreateWithAttributedString(astr);
+    CFRelease(astr);
+    if line.is_null() { None } else { Some(line) }
+}
+
+/// Capture an arbitrary rectangle of the screen (in screen-space points) to PNG.
+/// Coordinates are the same space as `cu snapshot` element x/y.
+pub fn capture_region(x: f64, y: f64, width: f64, height: f64, path: &str) -> Result<(), String> {
+    if !x.is_finite() || !y.is_finite() || !width.is_finite() || !height.is_finite() {
+        return Err("region coordinates must be finite numbers".into());
+    }
+    if width <= 0.0 || height <= 0.0 {
+        return Err("region width and height must be > 0".into());
+    }
+    unsafe {
+        let rect = CGRect {
+            origin: CGPoint { x, y },
+            size: CGSize { width, height },
+        };
+        // kCGNullWindowID = 0; OnScreenOnly | ExcludeDesktop matches `find_window` filter
+        let image = CGWindowListCreateImage(
+            rect,
+            CG_WINDOW_LIST_ON_SCREEN_ONLY | CG_WINDOW_LIST_EXCLUDE_DESKTOP,
+            0,
+            0, // kCGWindowImageDefault
+        );
+        if image.is_null() {
+            return Err("failed to capture screen region (off-screen, or no permission?)".into());
+        }
         let result = save_cgimage_as_png(image, path);
         CFRelease(image);
         result

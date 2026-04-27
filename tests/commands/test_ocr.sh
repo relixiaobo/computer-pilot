@@ -2,12 +2,12 @@
 # Test: cu ocr
 source "$(dirname "$0")/helpers.sh"
 
-# Ensure Finder has a visible window
-osascript -e 'tell application "Finder" to activate' 2>/dev/null
+# cu ocr captures the target window via CGWindowListCreateImage (behind other
+# windows is fine), so Finder doesn't need to be frontmost — only have a window.
 osascript -e 'tell application "Finder"
   if (count of Finder windows) is 0 then make new Finder window
 end tell' 2>/dev/null
-sleep 0.5
+sleep 0.3
 
 section "ocr — Finder"
 

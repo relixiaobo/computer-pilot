@@ -1,5 +1,16 @@
 //! Mouse operations via CGEvent — click, double-click, right-click, scroll, hover, drag.
 //! All operations support modifier keys (shift, cmd, alt, ctrl) for shift+click, cmd+drag, etc.
+//!
+//! ## Targeting
+//!
+//! Every public function takes `target_pid: Option<i32>`:
+//! - `Some(pid)` → event is delivered only to that process via `CGEventPostToPid`,
+//!   using a combined-session event source. Does NOT move the user's real cursor
+//!   and does NOT steal global keyboard focus. Used when the agent knows which
+//!   app it's targeting (e.g. `cu click <ref> --app Foo`).
+//! - `None` → event posted to the global HID tap. Behaves like a real mouse
+//!   movement: cursor warps, target app may steal focus. Kept for backwards
+//!   compatibility and as a fallback for sandboxed apps that reject `postToPid`.
 #![allow(unsafe_op_in_unsafe_fn)]
 
 use std::ffi::c_void;
@@ -24,6 +35,10 @@ const CG_MOUSE_BUTTON_RIGHT: u32 = 1;
 const CG_HID_EVENT_TAP: u32 = 0;
 const K_CG_MOUSE_EVENT_CLICK_STATE: u32 = 1;
 
+// CGEventSourceStateID. Combined-session means "don't impersonate the HID device";
+// safe to use alongside the user's real input without conflict.
+const K_CG_EVENT_SOURCE_STATE_COMBINED_SESSION_STATE: i32 = 0;
+
 #[link(name = "CoreGraphics", kind = "framework")]
 unsafe extern "C" {
     fn CGEventCreateMouseEvent(source: CFTypeRef, ty: u32, pos: CGPoint, btn: u32) -> CFTypeRef;
@@ -34,6 +49,8 @@ unsafe extern "C" {
         w1: i32,
     ) -> CFTypeRef;
     fn CGEventPost(tap: u32, event: CFTypeRef);
+    fn CGEventPostToPid(pid: i32, event: CFTypeRef);
+    fn CGEventSourceCreate(state_id: i32) -> CFTypeRef;
     fn CGEventSetIntegerValueField(event: CFTypeRef, field: u32, value: i64);
     fn CGEventSetFlags(event: CFTypeRef, flags: u64);
 }
@@ -82,7 +99,36 @@ fn pt(x: f64, y: f64) -> Result<CGPoint, String> {
     Ok(CGPoint { x, y })
 }
 
-fn post(event: CFTypeRef, mods: Modifiers) -> Result<(), String> {
+/// RAII wrapper for a CGEventSource. Released on drop.
+/// Holds null when targeting the global HID tap (no source needed).
+struct EventSource(CFTypeRef);
+
+impl EventSource {
+    /// For PID-targeted delivery: create a combined-session source.
+    /// For global delivery: null source (CGEventCreate* accepts null).
+    fn new(target_pid: Option<i32>) -> Self {
+        let raw = if target_pid.is_some() {
+            unsafe { CGEventSourceCreate(K_CG_EVENT_SOURCE_STATE_COMBINED_SESSION_STATE) }
+        } else {
+            std::ptr::null()
+        };
+        EventSource(raw)
+    }
+
+    fn raw(&self) -> CFTypeRef {
+        self.0
+    }
+}
+
+impl Drop for EventSource {
+    fn drop(&mut self) {
+        if !self.0.is_null() {
+            unsafe { CFRelease(self.0) };
+        }
+    }
+}
+
+fn post(event: CFTypeRef, mods: Modifiers, target_pid: Option<i32>) -> Result<(), String> {
     if event.is_null() {
         return Err("failed to create CGEvent".into());
     }
@@ -91,20 +137,30 @@ fn post(event: CFTypeRef, mods: Modifiers) -> Result<(), String> {
         if flags != 0 {
             CGEventSetFlags(event, flags);
         }
-        CGEventPost(CG_HID_EVENT_TAP, event);
+        match target_pid {
+            Some(pid) => CGEventPostToPid(pid, event),
+            None => CGEventPost(CG_HID_EVENT_TAP, event),
+        }
         CFRelease(event);
     }
     Ok(())
 }
 
-fn post_plain(event: CFTypeRef) -> Result<(), String> {
-    post(event, Modifiers::default())
+fn post_plain(event: CFTypeRef, target_pid: Option<i32>) -> Result<(), String> {
+    post(event, Modifiers::default(), target_pid)
 }
 
 // ── Public API ──────────────────────────────────────────────────────────────
 
 /// Single left or right click, optionally with modifier keys.
-pub fn click(x: f64, y: f64, right: bool, mods: Modifiers) -> Result<(), String> {
+/// `target_pid`: see module docs.
+pub fn click(
+    x: f64,
+    y: f64,
+    right: bool,
+    mods: Modifiers,
+    target_pid: Option<i32>,
+) -> Result<(), String> {
     let p = pt(x, y)?;
     let (dt, ut, btn) = if right {
         (
@@ -119,26 +175,41 @@ pub fn click(x: f64, y: f64, right: bool, mods: Modifiers) -> Result<(), String>
             CG_MOUSE_BUTTON_LEFT,
         )
     };
+    let source = EventSource::new(target_pid);
     unsafe {
-        post(CGEventCreateMouseEvent(std::ptr::null(), dt, p, btn), mods)?;
-        post(CGEventCreateMouseEvent(std::ptr::null(), ut, p, btn), mods)?;
+        post(
+            CGEventCreateMouseEvent(source.raw(), dt, p, btn),
+            mods,
+            target_pid,
+        )?;
+        post(
+            CGEventCreateMouseEvent(source.raw(), ut, p, btn),
+            mods,
+            target_pid,
+        )?;
     }
     Ok(())
 }
 
 /// Double-click at coordinates.
-pub fn double_click(x: f64, y: f64, mods: Modifiers) -> Result<(), String> {
+pub fn double_click(
+    x: f64,
+    y: f64,
+    mods: Modifiers,
+    target_pid: Option<i32>,
+) -> Result<(), String> {
     let p = pt(x, y)?;
+    let source = EventSource::new(target_pid);
     unsafe {
         for count in [1i64, 2] {
             let down = CGEventCreateMouseEvent(
-                std::ptr::null(),
+                source.raw(),
                 CG_EVENT_LEFT_MOUSE_DOWN,
                 p,
                 CG_MOUSE_BUTTON_LEFT,
             );
             let up = CGEventCreateMouseEvent(
-                std::ptr::null(),
+                source.raw(),
                 CG_EVENT_LEFT_MOUSE_UP,
                 p,
                 CG_MOUSE_BUTTON_LEFT,
@@ -155,65 +226,91 @@ pub fn double_click(x: f64, y: f64, mods: Modifiers) -> Result<(), String> {
             }
             CGEventSetIntegerValueField(down, K_CG_MOUSE_EVENT_CLICK_STATE, count);
             CGEventSetIntegerValueField(up, K_CG_MOUSE_EVENT_CLICK_STATE, count);
-            post(down, mods)?;
-            post(up, mods)?;
+            post(down, mods, target_pid)?;
+            post(up, mods, target_pid)?;
         }
     }
     Ok(())
 }
 
 /// Scroll. `dy`: positive = up, negative = down. `dx`: positive = right, negative = left.
-pub fn scroll(x: f64, y: f64, dy: i32, dx: i32) -> Result<(), String> {
+pub fn scroll(
+    x: f64,
+    y: f64,
+    dy: i32,
+    dx: i32,
+    target_pid: Option<i32>,
+) -> Result<(), String> {
     let p = pt(x, y)?;
+    let source = EventSource::new(target_pid);
     unsafe {
-        post_plain(CGEventCreateMouseEvent(
-            std::ptr::null(),
-            CG_EVENT_MOUSE_MOVED,
-            p,
-            CG_MOUSE_BUTTON_LEFT,
-        ))?;
+        post_plain(
+            CGEventCreateMouseEvent(
+                source.raw(),
+                CG_EVENT_MOUSE_MOVED,
+                p,
+                CG_MOUSE_BUTTON_LEFT,
+            ),
+            target_pid,
+        )?;
         if dy != 0 {
-            post_plain(CGEventCreateScrollWheelEvent(std::ptr::null(), 0, 1, dy))?;
+            post_plain(
+                CGEventCreateScrollWheelEvent(source.raw(), 0, 1, dy),
+                target_pid,
+            )?;
         }
         if dx != 0 {
-            let h = CGEventCreateScrollWheelEvent(std::ptr::null(), 0, 1, 0);
+            let h = CGEventCreateScrollWheelEvent(source.raw(), 0, 1, 0);
             if !h.is_null() {
                 CGEventSetIntegerValueField(h, 96, dx as i64);
             }
-            post_plain(h)?;
+            post_plain(h, target_pid)?;
         }
     }
     Ok(())
 }
 
 /// Move mouse to coordinates (hover / trigger tooltips).
-pub fn hover(x: f64, y: f64) -> Result<(), String> {
+pub fn hover(x: f64, y: f64, target_pid: Option<i32>) -> Result<(), String> {
     let p = pt(x, y)?;
+    let source = EventSource::new(target_pid);
     unsafe {
-        post_plain(CGEventCreateMouseEvent(
-            std::ptr::null(),
-            CG_EVENT_MOUSE_MOVED,
-            p,
-            CG_MOUSE_BUTTON_LEFT,
-        ))
+        post_plain(
+            CGEventCreateMouseEvent(
+                source.raw(),
+                CG_EVENT_MOUSE_MOVED,
+                p,
+                CG_MOUSE_BUTTON_LEFT,
+            ),
+            target_pid,
+        )
     }
 }
 
 /// Drag from (x1,y1) to (x2,y2) with smooth interpolation.
 /// Guarantees mouseUp even if intermediate steps fail.
-pub fn drag(x1: f64, y1: f64, x2: f64, y2: f64, mods: Modifiers) -> Result<(), String> {
+pub fn drag(
+    x1: f64,
+    y1: f64,
+    x2: f64,
+    y2: f64,
+    mods: Modifiers,
+    target_pid: Option<i32>,
+) -> Result<(), String> {
     let from = pt(x1, y1)?;
     let to = pt(x2, y2)?;
+    let source = EventSource::new(target_pid);
 
     unsafe {
         post(
             CGEventCreateMouseEvent(
-                std::ptr::null(),
+                source.raw(),
                 CG_EVENT_LEFT_MOUSE_DOWN,
                 from,
                 CG_MOUSE_BUTTON_LEFT,
             ),
             mods,
+            target_pid,
         )?;
         std::thread::sleep(std::time::Duration::from_millis(30));
 
@@ -228,12 +325,13 @@ pub fn drag(x1: f64, y1: f64, x2: f64, y2: f64, mods: Modifiers) -> Result<(), S
             };
             if let Err(e) = post(
                 CGEventCreateMouseEvent(
-                    std::ptr::null(),
+                    source.raw(),
                     CG_EVENT_LEFT_MOUSE_DRAGGED,
                     mid,
                     CG_MOUSE_BUTTON_LEFT,
                 ),
                 mods,
+                target_pid,
             ) {
                 drag_err = Some(e);
                 break;
@@ -244,12 +342,13 @@ pub fn drag(x1: f64, y1: f64, x2: f64, y2: f64, mods: Modifiers) -> Result<(), S
         // Always release mouse — surface release failure if drag succeeded
         let release_result = post(
             CGEventCreateMouseEvent(
-                std::ptr::null(),
+                source.raw(),
                 CG_EVENT_LEFT_MOUSE_UP,
                 to,
                 CG_MOUSE_BUTTON_LEFT,
             ),
             mods,
+            target_pid,
         );
 
         if let Some(e) = drag_err {

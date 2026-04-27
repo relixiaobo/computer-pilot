@@ -2,12 +2,13 @@
 # Test: cu window (list/move/resize/focus/minimize/close)
 source "$(dirname "$0")/helpers.sh"
 
-# Ensure Finder has a window
+# Ensure Finder has a window. We do NOT activate — `cu window list / move /
+# resize / focus` work over AX without requiring Finder to be frontmost. The
+# `cu window focus` test below explicitly verifies focus theft only when asked.
 osascript -e 'tell application "Finder"
-  activate
   if (count of Finder windows) is 0 then make new Finder window
 end tell' 2>/dev/null
-sleep 0.5
+sleep 0.3
 
 section "window list"
 
@@ -102,6 +103,13 @@ section "window focus"
 
 cu_json window focus --app Finder
 assert_ok "window focus ok"
+# B6: focus should report method=ax-raise (direct AX, no global activate)
+METHOD=$(json_get '.method' || echo "")
+if [[ "$METHOD" == "ax-raise" ]]; then
+  _pass "focus uses method=ax-raise (B6)"
+else
+  _fail "focus method" "expected ax-raise, got '$METHOD'"
+fi
 
 section "window — error handling"
 

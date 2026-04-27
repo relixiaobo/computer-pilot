@@ -2,9 +2,8 @@
 # Test: cu key
 source "$(dirname "$0")/helpers.sh"
 
-# Open TextEdit for safe key testing
-osascript -e 'tell application "TextEdit" to activate' 2>/dev/null
-sleep 1
+# Make sure TextEdit has a document. We do NOT activate — `cu key --app TextEdit`
+# is PID-targeted, so TextEdit doesn't need to be frontmost.
 osascript -e 'tell application "TextEdit" to make new document' 2>/dev/null
 sleep 0.5
 

@@ -1,7 +1,6 @@
 //! macOS system integration — app resolution, System Events, permissions.
 //! All scripting uses AppleScript (no JXA). Sdef parsing is in sdef.rs (Rust native).
 
-use crate::key;
 use std::process::{Command, Stdio};
 
 // ── Permissions ─────────────────────────────────────────────────────────────
@@ -197,115 +196,6 @@ fn applescript_escape(s: &str) -> String {
     out
 }
 
-// ── System Events (type text / send key to specific app) ────────────────────
-
-pub fn type_text(text: &str, app: Option<&str>) -> Result<(), String> {
-    // Save current clipboard
-    let prev_clip = Command::new("pbpaste")
-        .stdin(Stdio::null())
-        .stderr(Stdio::null())
-        .output()
-        .ok()
-        .and_then(|o| {
-            if o.status.success() {
-                Some(o.stdout)
-            } else {
-                None
-            }
-        });
-
-    // Write text to clipboard via pbcopy (handles any Unicode, newlines, etc.)
-    let mut child = Command::new("pbcopy")
-        .stdin(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .map_err(|e| format!("pbcopy failed: {e}"))?;
-    if let Some(mut stdin) = child.stdin.take() {
-        use std::io::Write;
-        stdin
-            .write_all(text.as_bytes())
-            .map_err(|e| format!("failed to write to pbcopy: {e}"))?;
-    }
-    child.wait().map_err(|e| format!("pbcopy failed: {e}"))?;
-
-    // Activate target app and paste
-    if let Some(app_name) = app {
-        let escaped_app = applescript_escape(app_name);
-        run_applescript(&format!(
-            "tell application \"{escaped_app}\" to activate\ndelay 0.3"
-        ))?;
-    }
-    run_applescript("tell application \"System Events\" to keystroke \"v\" using command down")?;
-
-    // Small delay then restore clipboard
-    std::thread::sleep(std::time::Duration::from_millis(100));
-    if let Some(prev) = prev_clip {
-        let mut child = Command::new("pbcopy")
-            .stdin(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn()
-            .map_err(|e| format!("pbcopy restore failed: {e}"))?;
-        if let Some(mut stdin) = child.stdin.take() {
-            use std::io::Write;
-            let _ = stdin.write_all(&prev);
-        }
-        let _ = child.wait();
-    }
-
-    Ok(())
-}
-
-pub fn send_key(combo: &str, app: &str) -> Result<(), String> {
-    let parts: Vec<&str> = combo.split('+').collect();
-    if parts.is_empty() {
-        return Err("empty key combo".into());
-    }
-
-    let key_name = parts.last().unwrap();
-    let modifier_names = &parts[..parts.len() - 1];
-
-    let lower = key_name.to_lowercase();
-    let is_printable = lower.len() == 1
-        && lower
-            .chars()
-            .next()
-            .map(|c| c.is_ascii_alphanumeric() || ".,;'/\\[]=-`".contains(c))
-            .unwrap_or(false);
-
-    let key_clause = if is_printable {
-        let escaped = lower.replace('\\', "\\\\").replace('"', "\\\"");
-        format!("keystroke \"{escaped}\"")
-    } else {
-        let keycode = key::resolve_keycode(key_name)?;
-        format!("key code {keycode}")
-    };
-
-    let mut modifiers = Vec::new();
-    for name in modifier_names {
-        modifiers.push(match name.to_lowercase().as_str() {
-            "cmd" | "command" => "command down",
-            "shift" => "shift down",
-            "ctrl" | "control" => "control down",
-            "alt" | "option" | "opt" => "option down",
-            other => return Err(format!("unknown modifier: {other}")),
-        });
-    }
-
-    let using_clause = if modifiers.is_empty() {
-        String::new()
-    } else if modifiers.len() == 1 {
-        format!(" using {}", modifiers[0])
-    } else {
-        format!(" using {{{}}}", modifiers.join(", "))
-    };
-
-    let escaped_app = applescript_escape(app);
-    let script = format!(
-        "tell application \"{escaped_app}\" to activate\ndelay 0.3\n\
-         tell application \"System Events\" to {key_clause}{using_clause}"
-    );
-    run_applescript(&script)
-}
 
 // ── Window management (via System Events) ──────────────────────────────────
 
@@ -532,6 +422,56 @@ pub fn defaults_write(domain: &str, key: &str, value_args: &[String]) -> Result<
     Ok(())
 }
 
+// ── Launch (D6) ─────────────────────────────────────────────────────────────
+
+/// Resolve a process by bundle identifier (System Events lookup).
+/// Returns `(pid, app_name)` once the process exists, error otherwise.
+pub fn resolve_by_bundle_id(bundle_id: &str) -> Result<(i32, String), String> {
+    let escaped = applescript_escape(bundle_id);
+    let script = format!(
+        "tell application \"System Events\"\n\
+            set p to first process whose bundle identifier is \"{escaped}\"\n\
+            return ((unix id of p) as text) & tab & (name of p)\n\
+        end tell"
+    );
+    let stdout = run_applescript_capture(&script, 5, false)?;
+    let parts: Vec<&str> = stdout.splitn(2, '\t').collect();
+    if parts.len() != 2 {
+        return Err(format!("unexpected output: {stdout}"));
+    }
+    let pid: i32 = parts[0]
+        .trim()
+        .parse()
+        .map_err(|_| format!("invalid pid: {}", parts[0]))?;
+    Ok((pid, parts[1].trim().to_string()))
+}
+
+/// Launch an app by name or bundle identifier via Launch Services.
+/// Heuristic: an `id` argument with a `.` is treated as a bundle id (`open -b`),
+/// otherwise as an app name (`open -a`). Returns immediately — the caller is
+/// responsible for waiting on readiness if needed.
+pub fn launch_app(id: &str) -> Result<(), String> {
+    let flag = if id.contains('.') && !id.contains(' ') {
+        "-b"
+    } else {
+        "-a"
+    };
+    let status = Command::new("open")
+        .args([flag, id])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .output()
+        .map_err(|e| format!("failed to spawn `open`: {e}"))?;
+    if !status.status.success() {
+        let stderr = String::from_utf8_lossy(&status.stderr);
+        let msg = stderr.trim();
+        let detail = if msg.is_empty() { "not found" } else { msg };
+        return Err(format!("open {flag} {id} failed: {detail}"));
+    }
+    Ok(())
+}
+
 // ── Tell (AppleScript execution against an app) ─────────────────────────────
 
 pub fn tell_app(app: &str, expr: &str, timeout_secs: u64) -> Result<String, String> {
@@ -635,21 +575,3 @@ fn run_applescript_capture(
     }
 }
 
-/// Run AppleScript, fire-and-forget (no output capture).
-fn run_applescript(script: &str) -> Result<(), String> {
-    let output = Command::new("osascript")
-        .args(["-e", script])
-        .stdin(Stdio::null())
-        .stderr(Stdio::piped())
-        .stdout(Stdio::piped())
-        .output()
-        .map_err(|e| format!("osascript failed: {e}"))?;
-
-    if !output.status.success() {
-        return Err(format!(
-            "osascript failed: {}",
-            String::from_utf8_lossy(&output.stderr).trim()
-        ));
-    }
-    Ok(())
-}

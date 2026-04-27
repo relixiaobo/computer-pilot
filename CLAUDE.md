@@ -9,7 +9,7 @@ Three-tier control: **AppleScript** (scriptable apps) → **AX tree + CGEvent** 
 
 ```
 cargo build --release                         # Build
-bash tests/commands/run_all.sh                # Run 258 command tests
+bash tests/commands/run_all.sh                # Run 470+ command tests
 ./target/release/cu --human <command>         # Run in dev
 bash scripts/release.sh <version>             # Release: bump → tag → push → GitHub
 bash scripts/release.sh <version> --dry-run   # Dry run first
@@ -55,12 +55,15 @@ src/key.rs         → Keyboard events (CGEvent FFI)
 src/screenshot.rs  → Window capture (CGWindowListCreateImage + ImageIO)
 src/ocr.rs         → OCR (macOS Vision framework via objc2)
 src/system.rs      → App resolution, permissions, System Events bridges:
-                     tell, menu, defaults, window mgmt, type/key
+                     tell, menu, defaults, window mgmt, type/key, launch
 src/sdef.rs        → Scripting dictionary parser (Rust native, quick-xml)
-src/wait.rs        → UI condition polling
+src/wait.rs        → UI condition polling (--text/--ref/--gone/--new-window/--modal/--focused-changed)
+src/diff.rs        → Snapshot diff cache (cu snapshot --diff)
+src/observer.rs    → Single-shot AXObserver post-action settle wait (D7)
+src/display.rs     → CGGetActiveDisplayList + CGDisplayBounds (D1)
 ```
 
-**17 commands** across discovery, observation, action, scripting, system control.
+**24 commands** across discovery, observation, action, scripting, system control.
 
 ## Design Rules
 
@@ -107,11 +110,38 @@ Fall back to AX snapshot+click when:
 - The task involves UI elements not exposed via the scripting dictionary
 - The scripting approach fails
 
-### 6. Key/Type targeting
+### 6. Focus model — `--app` and PID-targeted delivery
 
-`cu key` supports `--app <name>` to target a specific app. When `--app` is specified, **AppleScript System Events** (activate + keystroke/key code) is used for reliable delivery. Without `--app`, CGEvent posts to the frontmost app.
+`cu`'s non-disruption guarantee comes from **per-process CGEvent delivery**:
+when `--app <Name>` is given, every event is posted via `CGEventPostToPid`
+to the resolved pid instead of through the global HID tap. The cursor stays
+put, the frontmost app stays frontmost, and the user is not interrupted.
 
-`cu type` uses **clipboard paste** (copy to pasteboard, then Cmd+V) for reliable text input that works with any IME. Supports `--app <name>` to target a specific app.
+This applies to every action command: `click`, `type`, `key`, `scroll`,
+`hover`, `drag`, `set-value`, `perform`. All of them resolve `--app` to a
+pid up front and pass it down to `mouse::*` / `key::*`.
+
+The `EventSource` RAII wrapper in `src/mouse.rs` and `src/key.rs` creates a
+`kCGEventSourceStateCombinedSessionState` (=0) source when targeted, so PID
+events do not collide with the user's real HID stream. Without `--app`, the
+source is null (default global source) and events go through the global tap.
+
+`cu type` uses **`CGEventKeyboardSetUnicodeString`** with `virtual_key=0` —
+it injects UTF-16 code units directly per CGEvent, bypassing IME and the
+clipboard. No pbcopy/pbpaste round-trip. `cu key` parses the combo and
+posts virtual-key down/up events the same way.
+
+Every action response carries a `method` field that documents the routing:
+`ax-action`, `ax-set-value`, `ax-perform` (best — no cursor move at all),
+`cgevent-pid` / `unicode-pid` / `key-pid` / `ocr-text-pid` (PID-targeted),
+or `*-global` (global tap, disruptive). When debugging "did this disrupt
+the user", grep for `*-global` in logs.
+
+**Known limitation:** a small set of sandboxed apps (some Mac App Store
+builds) ignore PID-targeted events. Symptom: `ok:true` returned but the UI
+doesn't change. Workaround: focus the app first, then send keys without
+`--app`. Detecting this automatically (D4 in `docs/ROADMAP.md`) is deferred
+to Sprint 2 because it requires the diff-snapshot machinery (C1).
 
 ### 7. Screenshot rules
 

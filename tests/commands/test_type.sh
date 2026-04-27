@@ -3,10 +3,9 @@
 # Opens TextEdit, types text, verifies
 source "$(dirname "$0")/helpers.sh"
 
-# Open TextEdit for testing
-osascript -e 'tell application "TextEdit" to activate' 2>/dev/null
-sleep 1
-# Create a new document
+# Make sure TextEdit has a document. We do NOT activate — `cu type --app
+# TextEdit` is PID-targeted, so TextEdit doesn't need to be frontmost as long
+# as the document's textarea is its focused element.
 osascript -e 'tell application "TextEdit" to make new document' 2>/dev/null
 sleep 0.5
 
