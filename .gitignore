@@ -5,3 +5,6 @@ bin/
 .env
 test-results/
 __pycache__/
+
+# Generated artifact from `python tests/agent/caliper_report.py`
+tests/agent/caliper_records.json
