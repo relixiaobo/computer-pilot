@@ -1408,6 +1408,97 @@ pub fn ax_perform(
     }
 }
 
+/// Diagnostic info for a single ref — used by `cu why` (B7) to explain
+/// why a click might have failed. Walks the tree to find the element,
+/// then returns its supported AX actions + AXEnabled flag.
+pub struct RefInspection {
+    pub actions: Vec<String>,
+    pub enabled: Option<bool>,
+    pub focused: Option<bool>,
+    pub subrole: Option<String>,
+}
+
+unsafe fn find_and_inspect(
+    element: CFTypeRef,
+    target_ref: usize,
+    counter: &mut usize,
+    depth: usize,
+) -> Option<RefInspection> {
+    if depth > MAX_DEPTH {
+        return None;
+    }
+    if let Some(role) = ax_string(element, "AXRole")
+        && is_included(&role)
+    {
+        let size = ax_size(element).unwrap_or_default();
+        if size.width > 0.0 || size.height > 0.0 {
+            *counter += 1;
+            if *counter == target_ref {
+                let actions = copy_action_names(element);
+                let enabled = ax_attr(element, "AXEnabled").map(|v| {
+                    let is_bool = CFGetTypeID(v) == CFBooleanGetTypeID();
+                    let result = is_bool && std::ptr::eq(v, kCFBooleanTrue);
+                    CFRelease(v);
+                    result
+                });
+                let focused = ax_attr(element, "AXFocused").map(|v| {
+                    let is_bool = CFGetTypeID(v) == CFBooleanGetTypeID();
+                    let result = is_bool && std::ptr::eq(v, kCFBooleanTrue);
+                    CFRelease(v);
+                    result
+                });
+                let subrole = ax_string(element, "AXSubrole").filter(|s| !s.is_empty());
+                return Some(RefInspection {
+                    actions,
+                    enabled,
+                    focused,
+                    subrole,
+                });
+            }
+        }
+    }
+    if let Some(children) = ax_attr(element, "AXChildren") {
+        if CFGetTypeID(children) == CFArrayGetTypeID() {
+            let count = CFArrayGetCount(children);
+            for i in 0..count {
+                let child = CFArrayGetValueAtIndex(children, i);
+                if !child.is_null()
+                    && let Some(r) = find_and_inspect(child, target_ref, counter, depth + 1)
+                {
+                    CFRelease(children);
+                    return Some(r);
+                }
+            }
+        }
+        CFRelease(children);
+    }
+    None
+}
+
+/// Walk the tree to find a ref and return its supported actions + enabled state.
+/// Returns None if the ref is out of range. Used by `cu why`.
+pub fn inspect_ref(pid: i32, ref_id: usize) -> Option<RefInspection> {
+    unsafe {
+        let app_el = create_app_element(pid);
+        if app_el.is_null() {
+            return None;
+        }
+        let window_el =
+            ax_attr(app_el, "AXFocusedWindow").or_else(|| ax_attr(app_el, "AXMainWindow"));
+        if let Some(w) = window_el {
+            set_element_timeout(w);
+        }
+        let walk_root = window_el.unwrap_or(app_el);
+        let mut counter = 0usize;
+        let result = find_and_inspect(walk_root, ref_id, &mut counter, 0);
+        if let Some(w) = window_el {
+            CFRelease(w);
+        }
+        CFRelease(app_el);
+        result
+    }
+}
+
 /// Resolve the currently focused UI element of the app and summarize it.
 /// `elements` is the snapshot's element list — used to look up the matching
 /// ref by (role, x, y). Match on (x,y) is enough in practice — two elements

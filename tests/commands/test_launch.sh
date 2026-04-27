@@ -31,6 +31,15 @@ print('|'.join([
 [[ "$PARSED" == *"window_ok=True"* ]] && _pass "window frame ok"   || _fail "window frame ok"   "$PARSED"
 [[ "$PARSED" == *"ms_ok=True"* ]]     && _pass "ready_in_ms set"   || _fail "ready_in_ms set"   "$PARSED"
 
+section "launch — warmup_ms reported"
+
+WARMUP=$(json_get '.warmup_ms' || echo "missing")
+if [[ "$WARMUP" =~ ^[0-9]+$ ]]; then
+  _pass "warmup_ms reported (${WARMUP}ms)"
+else
+  _fail "warmup_ms" "got '$WARMUP'"
+fi
+
 section "launch — already-running app: returns immediately"
 
 cu_json launch Calculator --timeout 5

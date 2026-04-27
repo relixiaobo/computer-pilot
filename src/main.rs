@@ -81,7 +81,7 @@ fn annotate_method(result: &mut serde_json::Value) {
         Discover         setup · apps · menu · sdef · examples\n  \
         Observe          snapshot · find · nearest · observe-region · ocr · screenshot · wait\n  \
         Act              click · type · key · set-value · perform · scroll · hover · drag\n  \
-        Script & System  tell · defaults · window · launch\n\n\
+        Script & System  tell · defaults · window · launch · warm · why\n\n\
         Run `cu <command> --help` for any command's full reference + examples.\n\
         Stuck? Try `cu examples` for a built-in recipe list.",
     long_about = "macOS desktop automation CLI for AI agents.\n\n\
@@ -650,6 +650,42 @@ enum Cmd {
         timeout: u64,
     },
 
+    /// Diagnose why a click/perform/set-value targeting a ref might fail
+    #[command(after_help = "\
+        Run this AFTER a click/perform/set-value returns ok=false (or after a click\n\
+        appeared to succeed but the UI didn't change). Returns a structured report:\n\
+        whether the ref is in the current snapshot, the element's role/title/coords,\n\
+        whether it's inside the focused-window bounds, AXEnabled, AXSubrole, and the\n\
+        list of AX actions the element actually supports.\n\n\
+        Examples:\n  \
+        cu why 17 --app TextEdit       # diagnose ref 17\n  \
+        cu why 99 --app Calculator     # for a ref past the snapshot's --limit\n\n\
+        Returns: { ok, ref, found, element?, checks, advice, snapshot_size }\n\
+        Pair with the next-step suggestions in 'advice' to recover.")]
+    Why {
+        /// Element ref from the most recent snapshot
+        ref_id: usize,
+        #[arg(long)]
+        app: Option<String>,
+        /// Snapshot --limit to use when looking up the ref (default 50)
+        #[arg(long, default_value = "50")]
+        limit: usize,
+    },
+
+    /// Warm up the AX bridge for an already-running app
+    #[command(after_help = "\
+        Triggers a tiny AX snapshot so the first real `cu snapshot`/`cu click`\n\
+        is fast. Useful for apps you didn't launch via `cu launch` — some apps\n\
+        (TextEdit, Mail, ...) take 200-500ms on the very first AX walk.\n\n\
+        Examples:\n  \
+        cu warm Mail            # one-off after the user opened Mail manually\n  \
+        cu warm TextEdit        # before a hot loop of clicks\n\n\
+        Returns: { ok, app, pid, warmup_ms }")]
+    Warm {
+        /// App name (must already be running)
+        app: String,
+    },
+
     /// List an app's menu bar items (works for ALL apps via System Events)
     #[command(after_help = "\
         Enumerates every menu and menu item in the app's menu bar.\n\
@@ -958,6 +994,8 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
             no_wait,
             timeout,
         } => cmd_launch(json, id, no_wait, timeout),
+        Cmd::Warm { app } => cmd_warm(json, app),
+        Cmd::Why { ref_id, app, limit } => cmd_why(json, ref_id, app, limit),
         Cmd::Menu { app } => cmd_menu(json, app),
         Cmd::Defaults {
             action,
@@ -2281,6 +2319,11 @@ fn cmd_launch(json: bool, id: String, no_wait: bool, timeout: u64) -> Result<(),
         match resolved {
             Ok((pid, name)) => {
                 if let Some((wx, wy, ww, wh)) = ax::window_bounds(pid) {
+                    // D8: warm the AX bridge so the first downstream snapshot is fast.
+                    // Some apps (TextEdit, Mail) take 200-500ms on the very first AX walk.
+                    let warm_started = Instant::now();
+                    let _ = ax::snapshot(pid, &name, 5);
+                    let warmup_ms = warm_started.elapsed().as_millis() as u64;
                     let ms = started.elapsed().as_millis() as u64;
                     if json {
                         return ok(serde_json::json!({
@@ -2289,11 +2332,14 @@ fn cmd_launch(json: bool, id: String, no_wait: bool, timeout: u64) -> Result<(),
                             "app": name,
                             "pid": pid,
                             "ready_in_ms": ms,
+                            "warmup_ms": warmup_ms,
                             "waited": true,
                             "window": {"x": wx, "y": wy, "width": ww, "height": wh},
                         }));
                     }
-                    println!("Launched {name} (pid {pid}) — window ready in {ms}ms");
+                    println!(
+                        "Launched {name} (pid {pid}) — window ready in {ms}ms (warmup {warmup_ms}ms)"
+                    );
                     return Ok(());
                 }
             }
@@ -2311,6 +2357,170 @@ fn cmd_launch(json: bool, id: String, no_wait: bool, timeout: u64) -> Result<(),
             .unwrap_or_default()
     )
     .into())
+}
+
+fn cmd_why(json: bool, ref_id: usize, app: Option<String>, limit: usize) -> Result<(), CuError> {
+    let (pid, name) = system::resolve_target_app(&app)?;
+    let snap = ax::snapshot(pid, &name, limit);
+    if !snap.ok {
+        return Err(snap
+            .error
+            .unwrap_or_else(|| "snapshot failed".into())
+            .into());
+    }
+
+    let snapshot_size = snap.elements.len();
+    let element = snap.elements.iter().find(|e| e.ref_id == ref_id);
+
+    let window_frame = snap.window_frame.as_ref();
+    let modal_present = snap.modal.is_some();
+
+    let (found, element_json, checks, advice) = match element {
+        None => {
+            let advice = if snap.truncated {
+                format!(
+                    "Ref {ref_id} not in snapshot (size={snapshot_size}, truncated). Re-snapshot with --limit {}.",
+                    limit.max(100)
+                )
+            } else if ref_id > snapshot_size {
+                format!(
+                    "Ref {ref_id} is past snapshot end (size={snapshot_size}). Either the ref is stale or the UI changed — re-run cu snapshot."
+                )
+            } else {
+                format!(
+                    "Ref {ref_id} not found in snapshot (size={snapshot_size}). The element may have been removed; re-snapshot."
+                )
+            };
+            (
+                false,
+                serde_json::Value::Null,
+                serde_json::json!({
+                    "in_snapshot": false,
+                    "snapshot_truncated": snap.truncated,
+                    "modal_present": modal_present,
+                }),
+                advice,
+            )
+        }
+        Some(el) => {
+            let inspection = ax::inspect_ref(pid, ref_id);
+            let cx = el.x + el.width / 2.0;
+            let cy = el.y + el.height / 2.0;
+            let in_window_bounds = window_frame
+                .map(|w| cx >= w.x && cx <= w.x + w.width && cy >= w.y && cy <= w.y + w.height)
+                .unwrap_or(true);
+
+            let (actions, enabled, focused, subrole) = match inspection {
+                Some(i) => (i.actions, i.enabled, i.focused, i.subrole),
+                None => (Vec::new(), None, None, None),
+            };
+
+            let click_supported = actions
+                .iter()
+                .any(|a| a == "AXPress" || a == "AXConfirm" || a == "AXOpen");
+
+            let mut advice_parts: Vec<String> = Vec::new();
+            if modal_present {
+                advice_parts
+                    .push("A modal sheet/dialog is blocking the window — dismiss it first.".into());
+            }
+            if !in_window_bounds {
+                advice_parts.push(format!(
+                    "Click point ({cx:.0}, {cy:.0}) is outside the focused window — element may be in a sibling window or offscreen."
+                ));
+            }
+            if matches!(enabled, Some(false)) {
+                advice_parts.push(
+                    "Element is disabled (AXEnabled=false) — clicking will be a no-op.".into(),
+                );
+            }
+            if actions.is_empty() && enabled.is_none() {
+                advice_parts.push(
+                    "Element exposes no AX actions and AXEnabled is unreadable — likely a static container; try a child element.".into(),
+                );
+            } else if !click_supported && !actions.is_empty() {
+                advice_parts.push(format!(
+                    "Element does not support AXPress/AXConfirm/AXOpen. Available: [{}]. Try `cu perform <ref> <action>`.",
+                    actions.join(", ")
+                ));
+            }
+            if advice_parts.is_empty() {
+                advice_parts.push(
+                    "Element looks clickable. If click still fails, the app may ignore PID-targeted events (some sandboxed apps) — focus the app and retry without --app.".into(),
+                );
+            }
+
+            let element_json = serde_json::json!({
+                "ref": el.ref_id,
+                "role": el.role,
+                "title": el.title,
+                "value": el.value,
+                "x": el.x,
+                "y": el.y,
+                "width": el.width,
+                "height": el.height,
+                "click_x": cx,
+                "click_y": cy,
+                "axPath": el.ax_path,
+                "subrole": subrole,
+            });
+            let checks_json = serde_json::json!({
+                "in_snapshot": true,
+                "in_window_bounds": in_window_bounds,
+                "enabled": enabled,
+                "focused": focused,
+                "click_supported": click_supported,
+                "actions_supported": actions,
+                "modal_present": modal_present,
+            });
+            (true, element_json, checks_json, advice_parts.join(" "))
+        }
+    };
+
+    if json {
+        ok(serde_json::json!({
+            "ok": true,
+            "ref": ref_id,
+            "app": name,
+            "found": found,
+            "snapshot_size": snapshot_size,
+            "element": element_json,
+            "checks": checks,
+            "advice": advice,
+        }))
+    } else {
+        if !found {
+            println!("ref {ref_id}: NOT FOUND (snapshot size={snapshot_size})");
+        } else if let Some(el) = element {
+            let title = el.title.as_deref().unwrap_or("");
+            println!(
+                "ref {ref_id}: {} \"{title}\" at ({:.0}, {:.0}) {:.0}x{:.0}",
+                el.role, el.x, el.y, el.width, el.height
+            );
+            println!("checks: {checks}");
+        }
+        println!("advice: {advice}");
+        Ok(())
+    }
+}
+
+fn cmd_warm(json: bool, app: String) -> Result<(), CuError> {
+    use std::time::Instant;
+    let (pid, name) = system::resolve_target_app(&Some(app.clone()))?;
+    let started = Instant::now();
+    let _ = ax::snapshot(pid, &name, 5);
+    let warmup_ms = started.elapsed().as_millis() as u64;
+    if json {
+        ok(serde_json::json!({
+            "ok": true,
+            "app": name,
+            "pid": pid,
+            "warmup_ms": warmup_ms,
+        }))
+    } else {
+        println!("Warmed AX bridge for {name} (pid {pid}) in {warmup_ms}ms");
+        Ok(())
+    }
 }
 
 fn cmd_menu(json: bool, app: String) -> Result<(), CuError> {
