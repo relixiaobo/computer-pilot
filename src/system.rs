@@ -83,7 +83,10 @@ tell application "System Events"
 end tell
 "#;
 
-    let raw = run_applescript_capture(script, 30, false)?;
+    // 60s timeout: enumerating + resolving bundle paths via System Events scales
+    // with the number of running GUI apps. Machines with 20+ apps can hit ~30s
+    // under load; 60s gives reliable headroom without masking real hangs.
+    let raw = run_applescript_capture(script, 60, false)?;
 
     // Parse tab-separated output, then use Rust sdef::count_classes for scriptable detection
     let mut apps: Vec<serde_json::Value> = Vec::new();
