@@ -7,7 +7,7 @@
 > - [`competitive-analysis.md`](./competitive-analysis.md) — 多项目特性栅格（事实快照）
 > - 本文档 — 执行计划 + 进度追踪（动态）
 
-最后更新：2026-04-27（**Sprint 1 + Sprint 2 完结**；Sprint 3 进行中 — A2 axPath / D8 AX warmup / B7 cu why 完成；26 命令、544 测试）
+最后更新：2026-04-27（**Sprint 1 + Sprint 2 完结 · v0.4.0 发布**；Sprint 3 进行中 — A2 axPath / D8 AX warmup / B7 cu why 完成；A5 CDP 舍弃；E1 / E2 待启动；26 命令、570+ 测试）
 
 ---
 
@@ -373,10 +373,7 @@
   - **价值**：click 返回 `ok:false`（或返回 ok 但 UI 没变）后，agent 直接调一次 why 就能知道 "ref 不存在 / 元素 disabled / 不支持 AXPress 应该用 perform / sandbox 应用要换路径" 等具体原因，少走探索性 grep
   - **测试**：`tests/commands/test_why.sh` 15 assertions（found / 缺失 ref / 非运行 app / human mode）
 
-- [ ] **A5** Chrome CDP bridge（3d）
-  - **做法**：检测目标是 Chrome/Edge/Electron 时尝试连 9222 端口
-  - **参考**：[ghost-os `Vision/CDPBridge.swift`](https://github.com/ghostwright/ghost-os)
-  - **取舍**：用户必须手动启用 Chrome 的 debug port，体验不如 Codex CU；优先级中后
+- ~~**A5** Chrome CDP bridge（3d）~~ — **舍弃**（2026-04-27），见 Out of Scope 表
 
 - [ ] **E1** macOSWorld baseline 跑通 + 发布（1d）
   - **做法**：跑 GPT-5.4 / Claude Opus 4.7 / Sonnet 4.6 三档基线，发布到 README
@@ -451,6 +448,7 @@
 | 视觉模型 fallback（cu 内置 VLM 调用） | 🟡 GPT-5.4 自带，模型与工具一体化 | 我们的 agent 自己有 vision（Claude / GPT），cu 是被复用的"手"，不应再调一次远程 VLM |
 | 长生命周期 daemon + AXObserver 推送 | ✅ 内部架构 | 违反"单二进制 CLI"哲学；用 D7（单次 AXObserver wait）拿走 80% 价值，剩余的 daemon 收益不值复杂度 |
 | 模型与工具一体化训练（co-trained）| ✅ Codex CU 核心壁垒 | 我们是 model-agnostic 工具，刻意不绑定特定模型 —— 这是 cu 相对 Codex CU 唯一的护城河 |
+| Chrome CDP bridge（专门给 Chrome/Edge/Electron 走 DevTools Protocol）| 🟡 ghost-os 做了 | 用户得手动 `--remote-debugging-port=9222` 才能用，体验本身就降级；cu 的统一抽象是"任意 macOS 应用"，给 Chrome 开后门会削弱这个一致性。AX 树 + cu tell 已经覆盖 95% 的浏览器操作，剩 5% 的代价不值 3 天 |
 
 > 关键洞察：cu 与 Codex CU 在战略上**根本不同**。Codex CU 走"模型+工具一体化"封闭产品；cu 走"任何 agent + shell 都能用、零集成成本"开放工具。两者各自的最优解很多时候是相反的（daemon vs CLI、内置 VLM vs 把 vision 留给 agent、训练共生 vs model-agnostic）。Sprint 2 的设计原则是**在不放弃 cu 战略前提下，把 VLM agent 用 cu 时的体验做到最好**。
 
@@ -474,4 +472,4 @@
 |---|---|---|---|
 | Sprint 1 — 不抢焦 + 工具暴露 | **完成** | 2026-04-27 | 10/10 任务（含 F2 关闭，F2a + F2b + E3 等价完成）|
 | Sprint 2 — VLM 桥梁 + CLI 工程力 + 闭环 | ✅ 完结 | 2026-04-27 | 18/18：A 系列 (5) + A1/C1 + G1–G4 + B6/C3/C4/D1/D6/D7/F3；24 命令、479 测试 |
-| Sprint 3 — 长期能力 | 进行中 | 2026-04-27 — | A2 axPath + D8 AX warmup + B7 cu why 完成；A5 / E1 / E2 待启动 |
+| Sprint 3 — 长期能力 | 进行中 | 2026-04-27 — | A2 axPath + D8 AX warmup + B7 cu why 完成（v0.4.0 发布）；A5 舍弃（CDP）；E1 / E2 待启动 |
