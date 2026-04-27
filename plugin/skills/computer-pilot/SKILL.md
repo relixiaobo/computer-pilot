@@ -65,7 +65,9 @@ Need to act on the system?
 │   ├─ Modal/sheet appears?        → cu wait --modal --app <X>
 │   ├─ Focus moves?                → cu wait --focused-changed --app <X>
 │   └─ Element disappears?         → cu wait --gone <ref> --app <X>
-└─ System preferences?             → cu defaults read/write <domain> <key>
+├─ System preferences?             → cu defaults read/write <domain> <key>
+└─ Click/perform returned ok=false (or the UI didn't change)?
+                                   → cu why <ref> --app <X>   (B7: structured "what's wrong with this ref" report)
 ```
 
 **Hard rules:**
@@ -354,6 +356,8 @@ Use the `[ref]` number with `cu click <ref>` to interact.
 | `cu click <x> <y>` | Click screen coordinates |
 | `cu key <combo> --app Name` | Keyboard shortcut |
 | `cu type "text" --app Name` | Type text (Unicode CGEvent, IME-bypass, no clipboard) |
+| `cu set-value <ref\|--ax-path> "text" --app Name` | Write text into an AX field — no focus, no IME |
+| `cu perform <ref\|--ax-path> <AXAction> --app Name` | Invoke a named AX action (`AXShowMenu`, `AXIncrement`, `AXScrollToVisible`, ...) |
 | `cu scroll down 5 --x 400 --y 300` | Scroll |
 | `cu hover <x> <y>` | Move mouse (tooltips) |
 | `cu drag <x1> <y1> <x2> <y2>` | Drag |
@@ -362,7 +366,9 @@ Use the `[ref]` number with `cu click <ref>` to interact.
 | Command | Description |
 |---------|-------------|
 | `cu setup` | Check permissions + version |
-| `cu launch <name\|bundleId> [--no-wait] [--timeout 10]` | Launch app, wait for first window |
+| `cu launch <name\|bundleId> [--no-wait] [--timeout 10]` | Launch app, wait for first window (auto-warms AX bridge) |
+| `cu warm <app>` | Warm AX bridge for a manually-opened app (avoids 200–500ms first-snapshot cost) |
+| `cu why <ref> --app Name` | Diagnose why a click/perform/set-value failed — returns enabled/in-bounds/actions/advice |
 
 ## Perception Strategy
 

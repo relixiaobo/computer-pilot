@@ -147,7 +147,7 @@ cu ocr "Google Chrome"
 # [100,240 500x16] "This domain is for use in..." (100%)
 ```
 
-## Commands (24)
+## Commands (26)
 
 ### Discover
 
@@ -180,6 +180,8 @@ cu ocr "Google Chrome"
 | `cu click <ref\|x y\|--text>` | Click by ref, coordinates, or OCR text |
 | `cu key <combo> [--app]` | Keyboard shortcut (e.g., `cmd+c`, `enter`) |
 | `cu type <text> [--app]` | Type text via Unicode CGEvent (IME-bypass, no clipboard) |
+| `cu set-value <ref\|--ax-path> <text>` | Write text directly into an AX field — no focus, no IME, no clipboard |
+| `cu perform <ref\|--ax-path> <action>` | Invoke a named AX action (`AXShowMenu`, `AXIncrement`, `AXScrollToVisible`, ...) |
 | `cu scroll <dir> <n> --x --y` | Scroll up/down/left/right |
 | `cu hover <x> <y>` | Move mouse (trigger tooltips) |
 | `cu drag <x1> <y1> <x2> <y2>` | Drag with smooth interpolation |
@@ -191,7 +193,9 @@ cu ocr "Google Chrome"
 | `cu tell <app> <script>` | Run AppleScript against a scriptable app |
 | `cu defaults read/write` | Read/write macOS preferences (no UI needed) |
 | `cu window list/move/resize/focus/...` | Window management |
-| `cu launch <name\|bundleId> [--no-wait]` | Launch app, wait for first window |
+| `cu launch <name\|bundleId> [--no-wait]` | Launch app, wait for first window (auto-warms AX bridge) |
+| `cu warm <app>` | Warm the AX bridge for a manually-opened app (avoids the 200–500ms first-snapshot cost) |
+| `cu why <ref> --app <name>` | Diagnose why a click/perform/set-value failed — returns enabled/in-bounds/supported-actions/advice |
 | `cu setup` | Check permissions and version |
 
 Click supports: `--right`, `--double-click`, `--shift`, `--cmd`, `--alt`, `--text`, `--index`.

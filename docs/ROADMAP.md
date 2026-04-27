@@ -7,7 +7,7 @@
 > - [`competitive-analysis.md`](./competitive-analysis.md) — 多项目特性栅格（事实快照）
 > - 本文档 — 执行计划 + 进度追踪（动态）
 
-最后更新：2026-04-27（**Sprint 1 + Sprint 2 完结**；Sprint 3 进行中 — A2 axPath 稳定 selector 完成；24 命令、530 测试）
+最后更新：2026-04-27（**Sprint 1 + Sprint 2 完结**；Sprint 3 进行中 — A2 axPath / D8 AX warmup / B7 cu why 完成；26 命令、544 测试）
 
 ---
 
@@ -363,6 +363,16 @@
 
 - ~~**A3** 截图叠加 ref 编号~~ — **已移到 Sprint 2 第一位**
 
+- [x] **D8** AX bridge 预热（0.3d）✅ 2026-04-27
+  - **做法**：`cmd_launch` 在窗口出现后追加 `ax::snapshot(pid, &name, 5)`，响应附 `warmup_ms` 字段；新增 `cu warm <app>` 让用户自己开的应用也能手动预热
+  - **背景**：TextEdit / Mail 等首次 AX walk 有 200–500ms 冷启延迟，影响第一条 click/snapshot 的响应时长
+  - **测试**：`tests/commands/test_warm.sh` 8 assertions + `test_launch.sh` 新增 `warmup_ms` 断言
+
+- [x] **B7** 失败诊断 `cu why`（0.5d）✅ 2026-04-27
+  - **做法**：新增 `ax::inspect_ref(pid, ref_id)` 走 AX 树取出 AXEnabled / AXFocused / AXSubrole / 支持的 actions；`cu why <ref> --app <name>` 拼装结构化 `{ found, element, checks, advice }` —— check 包括 in_snapshot / in_window_bounds / click_supported / modal_present，advice 文本覆盖 modal 阻塞 / disabled / 无 AXPress / sandbox 沙盒等典型失败原因
+  - **价值**：click 返回 `ok:false`（或返回 ok 但 UI 没变）后，agent 直接调一次 why 就能知道 "ref 不存在 / 元素 disabled / 不支持 AXPress 应该用 perform / sandbox 应用要换路径" 等具体原因，少走探索性 grep
+  - **测试**：`tests/commands/test_why.sh` 15 assertions（found / 缺失 ref / 非运行 app / human mode）
+
 - [ ] **A5** Chrome CDP bridge（3d）
   - **做法**：检测目标是 Chrome/Edge/Electron 时尝试连 9222 端口
   - **参考**：[ghost-os `Vision/CDPBridge.swift`](https://github.com/ghostwright/ghost-os)
@@ -464,4 +474,4 @@
 |---|---|---|---|
 | Sprint 1 — 不抢焦 + 工具暴露 | **完成** | 2026-04-27 | 10/10 任务（含 F2 关闭，F2a + F2b + E3 等价完成）|
 | Sprint 2 — VLM 桥梁 + CLI 工程力 + 闭环 | ✅ 完结 | 2026-04-27 | 18/18：A 系列 (5) + A1/C1 + G1–G4 + B6/C3/C4/D1/D6/D7/F3；24 命令、479 测试 |
-| Sprint 3 — 长期能力 | 未开始 | — | |
+| Sprint 3 — 长期能力 | 进行中 | 2026-04-27 — | A2 axPath + D8 AX warmup + B7 cu why 完成；A5 / E1 / E2 待启动 |
