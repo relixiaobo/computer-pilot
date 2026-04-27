@@ -459,11 +459,7 @@ pub fn annotate_window(
             CFRelease(ctx);
             CFRelease(color_space);
             "failed to create font name"
-        });
-        let font_name = match font_name {
-            Ok(v) => v,
-            Err(e) => return Err(e.into()),
-        };
+        })?;
         let font = CTFontCreateWithName(font_name, font_size, std::ptr::null());
         CFRelease(font_name);
         if font.is_null() {
@@ -563,8 +559,8 @@ unsafe fn build_text_line(text: &str, font: CFTypeRef) -> Option<CFTypeRef> {
         keys.as_ptr(),
         values.as_ptr(),
         1,
-        &kCFTypeDictionaryKeyCallBacks as *const _ as *const c_void,
-        &kCFTypeDictionaryValueCallBacks as *const _ as *const c_void,
+        &kCFTypeDictionaryKeyCallBacks as *const _,
+        &kCFTypeDictionaryValueCallBacks as *const _,
     );
     if attrs.is_null() {
         CFRelease(cf_str);

@@ -196,7 +196,6 @@ fn applescript_escape(s: &str) -> String {
     out
 }
 
-
 // ── Window management (via System Events) ──────────────────────────────────
 
 #[derive(serde::Serialize)]
@@ -574,4 +573,3 @@ fn run_applescript_capture(
         }
     }
 }
-

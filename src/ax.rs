@@ -597,8 +597,7 @@ unsafe fn walk(
     // children produce the same `Role[Title]` segment.
     if let Some(children) = batch_children(values, BA_CHILDREN) {
         let count = CFArrayGetCount(children);
-        let mut seen: std::collections::HashMap<String, usize> =
-            std::collections::HashMap::new();
+        let mut seen: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
         for i in 0..count {
             let child = CFArrayGetValueAtIndex(children, i);
             if child.is_null() {
@@ -1017,60 +1016,98 @@ fn parse_path_segment(seg: &str) -> (String, Option<String>, usize) {
     (head.to_string(), None, idx)
 }
 
-/// Find an element matching `ax_path`. Walks the AX tree top-down, descending
-/// into children whose `Role[Title]` segment matches each path part. Sibling
-/// disambiguation honors the `:N` index.
-///
-/// Returns `(acted, center_x, center_y)` where `acted=true` iff an AX action
-/// chain was successfully run on the matched element (when `perform_actions`).
-unsafe fn find_element_by_ax_path(
+// ── axPath descent: shared implementation ───────────────────────────────────
+
+/// Returns `true` when this child's role+title pair matches the segment
+/// (`role` + optional `title`). The `:N` index is handled by the caller.
+unsafe fn child_matches_segment(child: CFTypeRef, role: &str, title: Option<&str>) -> bool {
+    let child_role = ax_string(child, "AXRole").unwrap_or_default();
+    if normalize_role(&child_role) != role {
+        return false;
+    }
+    let child_title = ax_string(child, "AXTitle")
+        .or_else(|| ax_string(child, "AXDescription"))
+        .filter(|s| !s.is_empty());
+    match (title, child_title.as_deref()) {
+        (Some(want), Some(got)) => {
+            // Compare via the same sanitization the writer used so titles
+            // containing `/`, `[`, `]` round-trip correctly.
+            build_path_segment(role, Some(want)) == build_path_segment(&child_role, Some(got))
+        }
+        // Path segment had no [Title]: child must also have no title to match.
+        (None, None) => true,
+        _ => false,
+    }
+}
+
+/// Result of a successful axPath descent. Holds the matched element pointer
+/// plus the chain of `AXChildren` arrays that must outlive `element` (children
+/// own the references the descent used). Caller drops via `release()`.
+struct AxPathMatch {
+    element: CFTypeRef,
+    /// AXChildren arrays, ordered from shallowest to deepest. They keep
+    /// `element` alive until cleanup.
+    owned: Vec<CFTypeRef>,
+}
+
+impl AxPathMatch {
+    /// Release the children arrays we kept alive during descent. Must be
+    /// called exactly once. Intentionally not `Drop` — we want the unsafety
+    /// to be visible at the call site.
+    unsafe fn release(self) {
+        for r in &self.owned {
+            if !r.is_null() {
+                CFRelease(*r);
+            }
+        }
+    }
+}
+
+/// Walk `walk_root` top-down, matching each path segment against the element
+/// (depth 0) or its `AXChildren` (depth ≥ 1). Sibling disambiguation honors
+/// the `:N` index. Returns the matched element on success.
+unsafe fn descend_to_ax_path(
     walk_root: CFTypeRef,
     segments: &[(String, Option<String>, usize)],
-    perform_actions: bool,
-) -> Option<(bool, f64, f64)> {
+) -> Result<AxPathMatch, String> {
     if segments.is_empty() {
-        return None;
+        return Err("axPath is empty".into());
     }
 
-    // The first segment must match the walk_root itself (typically the
-    // window or app element). After matching, descend into children.
     let mut current = walk_root;
-    let mut owned: Vec<CFTypeRef> = Vec::new(); // elements we must release
+    let mut owned: Vec<CFTypeRef> = Vec::new();
 
     for (depth, (role, title, idx)) in segments.iter().enumerate() {
-        let cur_role = ax_string(current, "AXRole").unwrap_or_default();
-        let cur_title = ax_string(current, "AXTitle")
-            .or_else(|| ax_string(current, "AXDescription"))
-            .filter(|s| !s.is_empty());
-
         if depth == 0 {
-            // Match against walk_root itself; don't descend yet.
-            if normalize_role(&cur_role) != *role {
-                cleanup(&owned);
-                return None;
-            }
-            if let Some(want) = title.as_deref() {
-                let got = cur_title.as_deref().unwrap_or("");
-                let want_sanitized = build_path_segment(role, Some(want));
-                let got_sanitized = build_path_segment(&cur_role, Some(got));
-                if want_sanitized != got_sanitized {
-                    cleanup(&owned);
-                    return None;
+            // The root segment must match walk_root itself (window or app);
+            // we never descend at this depth. Sibling indices > 0 are nonsense
+            // for the root.
+            if !child_matches_segment(current, role, title.as_deref()) {
+                for r in &owned {
+                    if !r.is_null() {
+                        CFRelease(*r);
+                    }
                 }
+                return Err(format!("axPath root did not match (expected '{role}')"));
             }
-            // Sibling index 0 is implied for root.
             if *idx != 0 {
-                cleanup(&owned);
-                return None;
+                for r in &owned {
+                    if !r.is_null() {
+                        CFRelease(*r);
+                    }
+                }
+                return Err("axPath root cannot have a :N suffix > 0".into());
             }
             continue;
         }
 
-        // Descend into children: pick the Nth matching child.
-        let children = ax_attr(current, "AXChildren");
-        let Some(children) = children else {
-            cleanup(&owned);
-            return None;
+        let Some(children) = ax_attr(current, "AXChildren") else {
+            for r in &owned {
+                if !r.is_null() {
+                    CFRelease(*r);
+                }
+            }
+            return Err(format!("axPath has no children at depth {depth}"));
         };
 
         let mut found: Option<CFTypeRef> = None;
@@ -1079,82 +1116,50 @@ unsafe fn find_element_by_ax_path(
             let count = CFArrayGetCount(children);
             for i in 0..count {
                 let child = CFArrayGetValueAtIndex(children, i);
-                if child.is_null() {
-                    continue;
-                }
-                let child_role = ax_string(child, "AXRole").unwrap_or_default();
-                if normalize_role(&child_role) != *role {
-                    continue;
-                }
-                if let Some(want) = title.as_deref() {
-                    let child_title = ax_string(child, "AXTitle")
-                        .or_else(|| ax_string(child, "AXDescription"))
-                        .filter(|s| !s.is_empty());
-                    let got = child_title.as_deref().unwrap_or("");
-                    let want_sanitized = build_path_segment(role, Some(want));
-                    let got_sanitized = build_path_segment(&child_role, Some(got));
-                    if want_sanitized != got_sanitized {
-                        continue;
-                    }
-                } else if ax_string(child, "AXTitle")
-                    .or_else(|| ax_string(child, "AXDescription"))
-                    .filter(|s| !s.is_empty())
-                    .is_some()
-                {
-                    // Path segment had no [Title], only match children that also have no title.
+                if child.is_null() || !child_matches_segment(child, role, title.as_deref()) {
                     continue;
                 }
                 if match_count == *idx {
-                    // Retain by getting our own +1 reference via AXAttribute lookup
-                    // is not straightforward; instead clone the ref and add to owned
-                    // via children retention (children stays alive for the loop).
                     found = Some(child);
                     break;
                 }
                 match_count += 1;
             }
         }
-        if found.is_none() {
-            CFRelease(children);
-            cleanup(&owned);
-            return None;
-        }
-        // Note: we cannot CFRelease(children) yet because `current` (the new child)
-        // is borrowed from it. Track for cleanup once we move past this depth.
-        owned.push(children);
-        current = found.unwrap();
-    }
 
-    // current now points to the matched element. Try AX actions if requested,
-    // grab geometry, then clean up.
-    let pos = ax_position(current).unwrap_or_default();
-    let size = ax_size(current).unwrap_or_default();
-    let cx = pos.x + size.width / 2.0;
-    let cy = pos.y + size.height / 2.0;
-    let acted = if perform_actions {
-        try_ax_actions(current).is_some()
-    } else {
-        false
-    };
-    cleanup(&owned);
-    Some((acted, cx, cy))
-}
-
-unsafe fn cleanup(refs: &[CFTypeRef]) {
-    for r in refs {
-        if !r.is_null() {
-            CFRelease(*r);
+        match found {
+            Some(child) => {
+                // Keep `children` alive — `child` is borrowed from it.
+                owned.push(children);
+                current = child;
+            }
+            None => {
+                CFRelease(children);
+                for r in &owned {
+                    if !r.is_null() {
+                        CFRelease(*r);
+                    }
+                }
+                return Err(format!(
+                    "no match for axPath segment '{role}' at depth {depth}"
+                ));
+            }
         }
     }
+
+    Ok(AxPathMatch {
+        element: current,
+        owned,
+    })
 }
 
-/// Public entry: resolve an axPath against the app's AX tree and (optionally)
-/// fire the AX action chain. Returns `(acted, center_x, center_y)`.
-pub fn resolve_by_ax_path(
-    pid: i32,
-    ax_path: &str,
-    perform_actions: bool,
-) -> Result<(bool, f64, f64), String> {
+/// Parse, descend, and run `f` on the matched element. Encapsulates the
+/// app/window resolution + cleanup so callers focus on the action they want
+/// to perform on the matched element.
+fn with_ax_path<F, R>(pid: i32, ax_path: &str, f: F) -> Result<R, String>
+where
+    F: FnOnce(CFTypeRef) -> R,
+{
     let segments: Vec<_> = ax_path
         .split('/')
         .filter(|s| !s.is_empty())
@@ -1178,45 +1183,19 @@ pub fn resolve_by_ax_path(
             None
         };
         let root = walk_root.unwrap_or(app_el);
-        if !walk_root.is_some() {
-            // App-rooted path: nothing to do
-        } else {
+        if walk_root.is_some() {
             set_element_timeout(root);
         }
 
-        let result = find_element_by_ax_path(root, &segments, perform_actions);
-
-        if let Some(w) = walk_root {
-            CFRelease(w);
-        }
-        CFRelease(app_el);
-        result.ok_or_else(|| format!("element not found at axPath '{ax_path}'"))
-    }
-}
-
-/// `cu perform --ax-path X` — fire the named AX action on the matched element.
-pub fn ax_perform_by_path(pid: i32, ax_path: &str, action: &str) -> Result<(), CuError> {
-    let segments: Vec<_> = ax_path
-        .split('/')
-        .filter(|s| !s.is_empty())
-        .map(parse_path_segment)
-        .collect();
-    if segments.is_empty() {
-        return Err("axPath is empty".into());
-    }
-    unsafe {
-        let app_el = create_app_element(pid);
-        if app_el.is_null() {
-            return Err("failed to create AX element for application".into());
-        }
-        let walk_root = if segments[0].0 == "window" {
-            ax_attr(app_el, "AXFocusedWindow").or_else(|| ax_attr(app_el, "AXMainWindow"))
-        } else {
-            None
+        let descent = descend_to_ax_path(root, &segments);
+        let result = match descent {
+            Ok(m) => {
+                let r = f(m.element);
+                m.release();
+                Ok(r)
+            }
+            Err(e) => Err(e),
         };
-        let root = walk_root.unwrap_or(app_el);
-
-        let result = ax_perform_via_path(root, &segments, action);
 
         if let Some(w) = walk_root {
             CFRelease(w);
@@ -1226,78 +1205,40 @@ pub fn ax_perform_by_path(pid: i32, ax_path: &str, action: &str) -> Result<(), C
     }
 }
 
-unsafe fn ax_perform_via_path(
-    walk_root: CFTypeRef,
-    segments: &[(String, Option<String>, usize)],
-    action: &str,
-) -> Result<(), CuError> {
-    let mut owned: Vec<CFTypeRef> = Vec::new();
-    let mut current = walk_root;
-
-    for (depth, (role, title, idx)) in segments.iter().enumerate() {
-        let cur_role = ax_string(current, "AXRole").unwrap_or_default();
-        if depth == 0 {
-            if normalize_role(&cur_role) != *role {
-                cleanup(&owned);
-                return Err("axPath root did not match window/app".into());
-            }
-            continue;
-        }
-        let children = match ax_attr(current, "AXChildren") {
-            Some(c) => c,
-            None => {
-                cleanup(&owned);
-                return Err("axPath descended past last child".into());
-            }
+/// Public entry: resolve an axPath against the app's AX tree and (optionally)
+/// fire the AX action chain. Returns `(acted, center_x, center_y)`.
+pub fn resolve_by_ax_path(
+    pid: i32,
+    ax_path: &str,
+    perform_actions: bool,
+) -> Result<(bool, f64, f64), String> {
+    with_ax_path(pid, ax_path, |element| unsafe {
+        let pos = ax_position(element).unwrap_or_default();
+        let size = ax_size(element).unwrap_or_default();
+        let acted = if perform_actions {
+            try_ax_actions(element).is_some()
+        } else {
+            false
         };
-        let mut found: Option<CFTypeRef> = None;
-        let mut match_count: usize = 0;
-        if CFGetTypeID(children) == CFArrayGetTypeID() {
-            let count = CFArrayGetCount(children);
-            for i in 0..count {
-                let child = CFArrayGetValueAtIndex(children, i);
-                if child.is_null() {
-                    continue;
-                }
-                let child_role = ax_string(child, "AXRole").unwrap_or_default();
-                if normalize_role(&child_role) != *role {
-                    continue;
-                }
-                if let Some(want) = title.as_deref() {
-                    let child_title = ax_string(child, "AXTitle")
-                        .or_else(|| ax_string(child, "AXDescription"))
-                        .filter(|s| !s.is_empty());
-                    let got = child_title.as_deref().unwrap_or("");
-                    if build_path_segment(role, Some(want))
-                        != build_path_segment(&child_role, Some(got))
-                    {
-                        continue;
-                    }
-                } else if ax_string(child, "AXTitle")
-                    .or_else(|| ax_string(child, "AXDescription"))
-                    .filter(|s| !s.is_empty())
-                    .is_some()
-                {
-                    continue;
-                }
-                if match_count == *idx {
-                    found = Some(child);
-                    break;
-                }
-                match_count += 1;
-            }
+        (acted, pos.x + size.width / 2.0, pos.y + size.height / 2.0)
+    })
+    .map_err(|e| {
+        if e.starts_with("axPath") {
+            e
+        } else {
+            format!("element not found at axPath '{ax_path}': {e}")
         }
-        if found.is_none() {
-            CFRelease(children);
-            cleanup(&owned);
-            return Err(format!("no match for axPath segment '{}'", role).into());
-        }
-        owned.push(children);
-        current = found.unwrap();
-    }
+    })
+}
 
-    let ok = try_action(current, action);
-    cleanup(&owned);
+/// `cu perform --ax-path X` — fire the named AX action on the matched element.
+pub fn ax_perform_by_path(pid: i32, ax_path: &str, action: &str) -> Result<(), CuError> {
+    let ok = with_ax_path(pid, ax_path, |element| unsafe {
+        try_action(element, action)
+    })
+    .map_err(|e| {
+        CuError::msg(e).with_hint("axPath did not resolve — re-snapshot to refresh paths")
+    })?;
     if ok {
         Ok(())
     } else {
@@ -1307,121 +1248,19 @@ unsafe fn ax_perform_via_path(
 
 /// `cu set-value --ax-path X` — write `value` to the matched element's AXValue.
 pub fn ax_set_value_by_path(pid: i32, ax_path: &str, value: &str) -> Result<(), CuError> {
-    let segments: Vec<_> = ax_path
-        .split('/')
-        .filter(|s| !s.is_empty())
-        .map(parse_path_segment)
-        .collect();
-    if segments.is_empty() {
-        return Err("axPath is empty".into());
-    }
-    unsafe {
-        let app_el = create_app_element(pid);
-        if app_el.is_null() {
-            return Err("failed to create AX element for application".into());
-        }
-        let walk_root = if segments[0].0 == "window" {
-            ax_attr(app_el, "AXFocusedWindow").or_else(|| ax_attr(app_el, "AXMainWindow"))
-        } else {
-            None
-        };
-        let root = walk_root.unwrap_or(app_el);
-
-        // Re-implement descent inline so we can keep `current` alive long
-        // enough to set its value. (find_element_by_ax_path collapses to
-        // (acted,x,y); we need the element handle here.)
-        let result = ax_set_value_via_path(root, &segments, value);
-
-        if let Some(w) = walk_root {
-            CFRelease(w);
-        }
-        CFRelease(app_el);
-        result
-    }
-}
-
-unsafe fn ax_set_value_via_path(
-    walk_root: CFTypeRef,
-    segments: &[(String, Option<String>, usize)],
-    value: &str,
-) -> Result<(), CuError> {
-    let value_cf = cfstr(value).ok_or("failed to allocate value string")?;
-
-    // Same descent as find_element_by_ax_path but stops at the matched element
-    // and writes AXValue.
-    let mut owned: Vec<CFTypeRef> = Vec::new();
-    let mut current = walk_root;
-
-    for (depth, (role, title, idx)) in segments.iter().enumerate() {
-        let cur_role = ax_string(current, "AXRole").unwrap_or_default();
-        if depth == 0 {
-            if normalize_role(&cur_role) != *role {
+    let ok = with_ax_path(pid, ax_path, |element| unsafe {
+        match cfstr(value) {
+            None => false,
+            Some(value_cf) => {
+                let result = try_set_value(element, "AXValue", value_cf);
                 CFRelease(value_cf);
-                cleanup(&owned);
-                return Err(
-                    format!("axPath root '{}' did not match window/app", role).into()
-                );
-            }
-            continue;
-        }
-        let children = match ax_attr(current, "AXChildren") {
-            Some(c) => c,
-            None => {
-                CFRelease(value_cf);
-                cleanup(&owned);
-                return Err(format!("no children at depth {} of axPath", depth).into());
-            }
-        };
-        let mut found: Option<CFTypeRef> = None;
-        let mut match_count: usize = 0;
-        if CFGetTypeID(children) == CFArrayGetTypeID() {
-            let count = CFArrayGetCount(children);
-            for i in 0..count {
-                let child = CFArrayGetValueAtIndex(children, i);
-                if child.is_null() {
-                    continue;
-                }
-                let child_role = ax_string(child, "AXRole").unwrap_or_default();
-                if normalize_role(&child_role) != *role {
-                    continue;
-                }
-                if let Some(want) = title.as_deref() {
-                    let child_title = ax_string(child, "AXTitle")
-                        .or_else(|| ax_string(child, "AXDescription"))
-                        .filter(|s| !s.is_empty());
-                    let got = child_title.as_deref().unwrap_or("");
-                    if build_path_segment(role, Some(want))
-                        != build_path_segment(&child_role, Some(got))
-                    {
-                        continue;
-                    }
-                } else if ax_string(child, "AXTitle")
-                    .or_else(|| ax_string(child, "AXDescription"))
-                    .filter(|s| !s.is_empty())
-                    .is_some()
-                {
-                    continue;
-                }
-                if match_count == *idx {
-                    found = Some(child);
-                    break;
-                }
-                match_count += 1;
+                result
             }
         }
-        if found.is_none() {
-            CFRelease(children);
-            CFRelease(value_cf);
-            cleanup(&owned);
-            return Err(format!("no match for segment '{}' at depth {}", role, depth).into());
-        }
-        owned.push(children);
-        current = found.unwrap();
-    }
-
-    let ok = try_set_value(current, "AXValue", value_cf);
-    CFRelease(value_cf);
-    cleanup(&owned);
+    })
+    .map_err(|e| {
+        CuError::msg(e).with_hint("axPath did not resolve — re-snapshot to refresh paths")
+    })?;
     if ok {
         Ok(())
     } else {
@@ -1663,8 +1502,7 @@ pub fn raise_window(pid: i32) -> bool {
         if app_el.is_null() {
             return false;
         }
-        let window =
-            ax_attr(app_el, "AXMainWindow").or_else(|| ax_attr(app_el, "AXFocusedWindow"));
+        let window = ax_attr(app_el, "AXMainWindow").or_else(|| ax_attr(app_el, "AXFocusedWindow"));
         let mut ok = false;
         if let Some(w) = window {
             set_element_timeout(w);

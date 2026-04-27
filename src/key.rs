@@ -122,19 +122,27 @@ pub fn send(combo: &str, target_pid: Option<i32>) -> Result<(), String> {
     Ok(())
 }
 
-/// Type Unicode text into the target. One UTF-16 code unit per key event,
-/// using virtual_key=0 + `CGEventKeyboardSetUnicodeString` so keyboard layout
-/// and IME are bypassed entirely. Works for any language, any script.
+/// Type Unicode text into the target. One Unicode scalar per key event —
+/// non-BMP characters (e.g. most emoji) encode as a UTF-16 surrogate pair
+/// and the **pair** is delivered in a single `CGEventKeyboardSetUnicodeString`
+/// call, so emoji are not split across two key events.
+///
+/// virtual_key=0 + `CGEventKeyboardSetUnicodeString` bypasses keyboard layout
+/// and IME entirely. Works for any language, any script.
 ///
 /// `target_pid: Some(pid)` → delivered to that process (no focus theft, no
 /// clipboard pollution, no app activation).
 /// `target_pid: None` → goes to whatever app is frontmost (global HID tap).
 pub fn type_text(text: &str, target_pid: Option<i32>) -> Result<(), String> {
     let source = EventSource::for_target(target_pid);
-    let utf16: Vec<u16> = text.encode_utf16().collect();
 
-    for ch in utf16 {
-        let mut buf = ch;
+    for ch in text.chars() {
+        // BMP scalars encode to 1 unit; non-BMP (e.g. U+1F600) to 2 (a
+        // surrogate pair). Both forms are accepted by macOS.
+        let mut buf = [0u16; 2];
+        let units = ch.encode_utf16(&mut buf);
+        let len = units.len();
+
         unsafe {
             let down = CGEventCreateKeyboardEvent(source.raw(), 0, true);
             if down.is_null() {
@@ -146,8 +154,8 @@ pub fn type_text(text: &str, target_pid: Option<i32>) -> Result<(), String> {
                 return Err("failed to create key-up event for type".into());
             }
 
-            CGEventKeyboardSetUnicodeString(down, 1, &mut buf as *mut u16);
-            CGEventKeyboardSetUnicodeString(up, 1, &mut buf as *mut u16);
+            CGEventKeyboardSetUnicodeString(down, len, buf.as_mut_ptr());
+            CGEventKeyboardSetUnicodeString(up, len, buf.as_mut_ptr());
 
             post(down, target_pid);
             post(up, target_pid);

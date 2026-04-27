@@ -38,6 +38,38 @@ section "type — spaces and punctuation"
 cu_json type "hello, world!" --app TextEdit --no-snapshot
 assert_ok "type with spaces and punctuation"
 
+section "type — non-BMP emoji (UTF-16 surrogate pairs)"
+
+# Clear any prior content via select-all + delete (PID-targeted, no focus theft).
+"$CU" key cmd+a --app TextEdit --no-snapshot >/dev/null 2>&1 || true
+"$CU" key delete --app TextEdit --no-snapshot >/dev/null 2>&1 || true
+sleep 0.2
+
+# 😀 (U+1F600) and 🎉 (U+1F389) are non-BMP — each encodes to a UTF-16
+# surrogate pair, which the previous "one code unit per event" loop would
+# have split. Both must round-trip whole.
+cu_json type "ab 😀 🎉 cd" --app TextEdit --no-snapshot
+assert_ok "type emoji + ASCII"
+
+sleep 0.5
+"$CU" snapshot TextEdit --limit 30 > /tmp/cu-emoji-snap.json 2>/dev/null
+EMOJI_FOUND=$(python3 -c "
+import json
+d = json.load(open('/tmp/cu-emoji-snap.json'))
+for e in d.get('elements', []):
+    v = (e.get('value') or '').strip()
+    if '😀' in v and '🎉' in v:
+        print('yes'); break
+else:
+    print('no')
+" 2>/dev/null || echo "error")
+
+if [[ "$EMOJI_FOUND" == "yes" ]]; then
+  _pass "non-BMP emoji round-tripped via TextEdit"
+else
+  _fail "emoji round-trip" "emoji not in TextEdit document — surrogate pairs may have split"
+fi
+
 section "type — --no-snapshot flag"
 
 cu_json "type test --app TextEdit --no-snapshot"

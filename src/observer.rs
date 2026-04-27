@@ -4,10 +4,12 @@
 //!
 //! The agent triggers an action (click / type / set-value) and we then attach
 //! an AXObserver to the app, listen for any of:
-//!   - AXValueChanged          (text fields update, checkboxes flip, ...)
-//!   - AXFocusedUIElementChanged (focus shifted to a new field)
-//!   - AXMainWindowChanged     (a new window opened or main window switched)
-//!   - AXSelectedChildrenChanged (lists / outlines / popups opened)
+//!
+//! - `AXValueChanged` (text fields update, checkboxes flip, ...)
+//! - `AXFocusedUIElementChanged` (focus shifted to a new field)
+//! - `AXMainWindowChanged` (a new window opened or main window switched)
+//! - `AXSelectedChildrenChanged` (lists / outlines / popups opened)
+//!
 //! When the first notification fires, we tear down and return immediately.
 //!
 //! This is *not* a daemon — the observer only lives for the duration of one
@@ -16,12 +18,12 @@
 #![allow(unsafe_op_in_unsafe_fn)]
 
 use std::ffi::c_void;
-use std::os::raw::c_char;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 type Boolean = u8;
-type CFIndex = isize;
-type CFTypeID = usize;
+// Match the i64 width used by the FFI declaration in src/ax.rs so the linker
+// sees one consistent CFStringCreateWithBytes signature.
+type CFIndex = i64;
 type CFTypeRef = *const c_void;
 type CFStringRef = CFTypeRef;
 type CFRunLoopRef = CFTypeRef;
@@ -146,12 +148,7 @@ pub fn wait_for_settle(pid: i32, max_ms: u64) -> u64 {
         for name in &notifs {
             let cf = cfstr(name);
             if !cf.is_null() {
-                let e = AXObserverAddNotification(
-                    observer,
-                    app_el,
-                    cf,
-                    fired_ptr as *mut c_void,
-                );
+                let e = AXObserverAddNotification(observer, app_el, cf, fired_ptr as *mut c_void);
                 if e == AX_OK {
                     subscribed.push(cf);
                 } else {

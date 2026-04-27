@@ -1072,14 +1072,17 @@ fn cmd_snapshot(
     let (pid, name) = system::resolve_target_app(&app)?;
     let result = ax::snapshot(pid, &name, limit);
     if !result.ok {
-        return Err(result.error.unwrap_or_else(|| "snapshot failed".into()).into());
+        return Err(result
+            .error
+            .unwrap_or_else(|| "snapshot failed".into())
+            .into());
     }
 
     // --with-screenshot (skipped when --annotated is set since annotated already
     // bakes a screenshot into the response).
     let plain_screenshot: Option<(String, f64)> = if with_screenshot && !annotated {
-        let win = screenshot::find_window(pid)
-            .ok_or("no on-screen window found for the target app")?;
+        let win =
+            screenshot::find_window(pid).ok_or("no on-screen window found for the target app")?;
         let path = output.clone().unwrap_or_else(|| {
             let ts = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -1095,8 +1098,8 @@ fn cmd_snapshot(
 
     // --annotated: capture window + draw ref boxes/labels, attach path to JSON output.
     let annotated_info: Option<(String, f64)> = if annotated {
-        let win = screenshot::find_window(pid)
-            .ok_or("no on-screen window found for the target app")?;
+        let win =
+            screenshot::find_window(pid).ok_or("no on-screen window found for the target app")?;
         let path = output.clone().unwrap_or_else(|| {
             let ts = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -1239,7 +1242,10 @@ fn cmd_observe_region(
     let (pid, name) = system::resolve_target_app(&app)?;
     let snap = ax::snapshot(pid, &name, limit);
     if !snap.ok {
-        return Err(snap.error.unwrap_or_else(|| "snapshot failed".into()).into());
+        return Err(snap
+            .error
+            .unwrap_or_else(|| "snapshot failed".into())
+            .into());
     }
 
     let rx0 = x;
@@ -1315,7 +1321,10 @@ fn cmd_nearest(
     let (pid, name) = system::resolve_target_app(&app)?;
     let snap = ax::snapshot(pid, &name, limit);
     if !snap.ok {
-        return Err(snap.error.unwrap_or_else(|| "snapshot failed".into()).into());
+        return Err(snap
+            .error
+            .unwrap_or_else(|| "snapshot failed".into())
+            .into());
     }
 
     // Distance from (x, y) to each element's bounding box (0 if point is inside).
@@ -1422,7 +1431,10 @@ fn cmd_find(
     let (pid, name) = system::resolve_target_app(&app)?;
     let snap = ax::snapshot(pid, &name, limit);
     if !snap.ok {
-        return Err(snap.error.unwrap_or_else(|| "snapshot failed".into()).into());
+        return Err(snap
+            .error
+            .unwrap_or_else(|| "snapshot failed".into())
+            .into());
     }
 
     let role_filter = role.as_deref().map(|r| r.to_lowercase());
@@ -2080,7 +2092,9 @@ fn cmd_drag(
         "cgevent-global"
     };
     if json {
-        ok(serde_json::json!({"ok": true, "method": method, "from": {"x": x1, "y": y1}, "to": {"x": x2, "y": y2}}))
+        ok(
+            serde_json::json!({"ok": true, "method": method, "from": {"x": x1, "y": y1}, "to": {"x": x2, "y": y2}}),
+        )
     } else {
         println!("Dragged ({x1},{y1}) → ({x2},{y2})");
         Ok(())
@@ -2258,7 +2272,9 @@ fn cmd_launch(json: bool, id: String, no_wait: bool, timeout: u64) -> Result<(),
     }
     Err(format!(
         "timed out after {timeout}s waiting for window of '{id}'{}",
-        last_err.map(|e| format!(" (last: {e})")).unwrap_or_default()
+        last_err
+            .map(|e| format!(" (last: {e})"))
+            .unwrap_or_default()
     )
     .into())
 }
@@ -2326,7 +2342,10 @@ fn cmd_sdef(json: bool, app: String) -> Result<(), CuError> {
     let result = sdef::parse(&app, &bundle_path);
 
     if !result.ok {
-        return Err(result.error.unwrap_or_else(|| "sdef parse failed".into()).into());
+        return Err(result
+            .error
+            .unwrap_or_else(|| "sdef parse failed".into())
+            .into());
     }
 
     if json {
@@ -2500,10 +2519,7 @@ fn cmd_examples(json: bool, topic: Option<String>) -> Result<(), CuError> {
             None => {
                 let topic_names: Vec<&str> = RECIPES.iter().map(|(n, _, _)| *n).collect();
                 Err(CuError::msg(format!("unknown topic: {t}"))
-                    .with_hint(format!(
-                        "available topics: {}",
-                        topic_names.join(", ")
-                    ))
+                    .with_hint(format!("available topics: {}", topic_names.join(", ")))
                     .with_next("cu examples"))
             }
         },
@@ -2702,12 +2718,23 @@ fn maybe_attach_snapshot(
         // (typical: ~50ms) or after POST_ACTION_DELAY_MS at most.
         let waited = observer::wait_for_settle(pid, POST_ACTION_DELAY_MS);
         let snap = ax::snapshot(pid, &name, limit);
+        // D1: agents read the auto-attached snapshot far more often than they
+        // call `cu snapshot` directly, so the displays array must be reachable
+        // here too — otherwise multi-display info silently drops out of the
+        // most common code path.
+        let mut snap_value = serde_json::to_value(&snap).unwrap_or_default();
+        if let Some(obj) = snap_value.as_object_mut() {
+            obj.insert(
+                "displays".to_string(),
+                serde_json::to_value(display::list()).unwrap_or_default(),
+            );
+        }
         if let Some(obj) = result.as_object_mut() {
             obj.insert(
                 "settle_ms".to_string(),
                 serde_json::Value::Number(serde_json::Number::from(waited)),
             );
         }
-        result["snapshot"] = serde_json::to_value(&snap).unwrap_or_default();
+        result["snapshot"] = snap_value;
     }
 }

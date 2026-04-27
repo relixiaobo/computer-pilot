@@ -234,23 +234,12 @@ pub fn double_click(
 }
 
 /// Scroll. `dy`: positive = up, negative = down. `dx`: positive = right, negative = left.
-pub fn scroll(
-    x: f64,
-    y: f64,
-    dy: i32,
-    dx: i32,
-    target_pid: Option<i32>,
-) -> Result<(), String> {
+pub fn scroll(x: f64, y: f64, dy: i32, dx: i32, target_pid: Option<i32>) -> Result<(), String> {
     let p = pt(x, y)?;
     let source = EventSource::new(target_pid);
     unsafe {
         post_plain(
-            CGEventCreateMouseEvent(
-                source.raw(),
-                CG_EVENT_MOUSE_MOVED,
-                p,
-                CG_MOUSE_BUTTON_LEFT,
-            ),
+            CGEventCreateMouseEvent(source.raw(), CG_EVENT_MOUSE_MOVED, p, CG_MOUSE_BUTTON_LEFT),
             target_pid,
         )?;
         if dy != 0 {
@@ -276,12 +265,7 @@ pub fn hover(x: f64, y: f64, target_pid: Option<i32>) -> Result<(), String> {
     let source = EventSource::new(target_pid);
     unsafe {
         post_plain(
-            CGEventCreateMouseEvent(
-                source.raw(),
-                CG_EVENT_MOUSE_MOVED,
-                p,
-                CG_MOUSE_BUTTON_LEFT,
-            ),
+            CGEventCreateMouseEvent(source.raw(), CG_EVENT_MOUSE_MOVED, p, CG_MOUSE_BUTTON_LEFT),
             target_pid,
         )
     }

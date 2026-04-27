@@ -37,6 +37,21 @@ else
   _fail "settle_ms cap" "max=${MAX}ms exceeded ~700ms cap"
 fi
 
+section "auto-snapshot carries displays (D1)"
+
+cu_json key escape --app Finder
+HAS_DISPLAYS=$(echo "$OUT" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+ds = d.get('snapshot', {}).get('displays')
+print('yes' if isinstance(ds, list) and len(ds) >= 1 else 'no')
+" 2>/dev/null || echo "error")
+if [[ "$HAS_DISPLAYS" == "yes" ]]; then
+  _pass "action's auto-snapshot includes displays array"
+else
+  _fail "auto-snapshot displays" "got: $HAS_DISPLAYS"
+fi
+
 section "settle_ms — absent when --no-snapshot"
 
 cu_json key escape --app Finder --no-snapshot

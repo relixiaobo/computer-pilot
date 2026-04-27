@@ -28,7 +28,6 @@ pub struct WaitResult {
     pub snapshot: ax::SnapshotResult,
 }
 
-
 /// Returns the focused element's ref id if present, else None.
 fn focused_ref(snap: &ax::SnapshotResult) -> Option<usize> {
     snap.focused.as_ref().and_then(|f| f.ref_id)
@@ -92,9 +91,7 @@ pub fn wait_for(
                     !snap.elements.iter().any(|el| el.ref_id == *ref_id)
                 }
             }
-            Condition::NewWindow => {
-                ax::window_count(pid) > baseline_window_count.unwrap_or(0)
-            }
+            Condition::NewWindow => ax::window_count(pid) > baseline_window_count.unwrap_or(0),
             Condition::Modal => snap.modal.is_some(),
             Condition::FocusedChanged => focused_ref(&snap) != baseline_focused.unwrap_or(None),
         };
