@@ -61,34 +61,72 @@ summary() {
 
 # ── cu runners ──────────────────────────────────────────────────────────────
 
-# Run cu in JSON mode (piped), capture stdout+stderr+exit code
+# Per-call timeout. A stuck `cu` (permission dialog, AX/System Events hang, …)
+# would otherwise pin the suite indefinitely. Tunable via env: CU_TIMEOUT_SECS.
+CU_TIMEOUT_SECS="${CU_TIMEOUT_SECS:-30}"
+
+# Run a command with a hard wall-clock deadline. Uses GNU `timeout`/`gtimeout`
+# when available, otherwise falls back to perl's alarm() (preinstalled on
+# macOS). Sets exit 124 on timeout so callers can detect it the same way GNU
+# `timeout` does.
+_run_with_timeout() {
+  local secs="$1"; shift
+  if command -v gtimeout >/dev/null 2>&1; then
+    gtimeout --preserve-status "$secs" "$@"
+  elif command -v timeout >/dev/null 2>&1; then
+    timeout --preserve-status "$secs" "$@"
+  else
+    perl -e '
+      my $secs = shift;
+      my $pid = fork();
+      if ($pid == 0) { exec @ARGV; exit 127; }
+      eval {
+        local $SIG{ALRM} = sub { kill 15, $pid; sleep 1; kill 9, $pid; die "timeout\n"; };
+        alarm $secs;
+        waitpid $pid, 0;
+        alarm 0;
+      };
+      if ($@ eq "timeout\n") { exit 124; }
+      exit $? >> 8;
+    ' "$secs" "$@"
+  fi
+}
+
+# Run cu in JSON mode (piped), capture stdout+stderr+exit code under a hard
+# per-call timeout (see CU_TIMEOUT_SECS).
 # Usage: cu_json "snapshot Finder --limit 5"
 #   or:  cu_json snapshot Finder --limit 5
-# Sets: OUT (stdout), ERR (stderr), EXIT (exit code)
-# When called with one arg:  cu_json "snapshot Finder --limit 5"  → word-split
-# When called with many args: cu_json type "hello world" --app X  → proper quoting
+# Sets: OUT (stdout), ERR (stderr), EXIT (exit code; 124 = timed out)
 cu_json() {
   EXIT=0
   if [[ $# -eq 1 ]]; then
     # Single string arg — word-split it (legacy callers)
     # shellcheck disable=SC2086
-    OUT=$($CU $1 2>/tmp/cu-test-stderr) || EXIT=$?
+    OUT=$(_run_with_timeout "$CU_TIMEOUT_SECS" "$CU" $1 2>/tmp/cu-test-stderr) || EXIT=$?
   else
-    OUT=$("$CU" "$@" 2>/tmp/cu-test-stderr) || EXIT=$?
+    OUT=$(_run_with_timeout "$CU_TIMEOUT_SECS" "$CU" "$@" 2>/tmp/cu-test-stderr) || EXIT=$?
   fi
   ERR=$(cat /tmp/cu-test-stderr 2>/dev/null || true)
+  if [[ "$EXIT" -eq 124 ]]; then
+    ERR="${ERR}${ERR:+
+}cu_json TIMED OUT after ${CU_TIMEOUT_SECS}s"
+  fi
 }
 
-# Run cu in human mode (--human flag)
+# Run cu in human mode (--human flag) under the same wall-clock deadline.
 cu_human() {
   EXIT=0
   if [[ $# -eq 1 ]]; then
     # shellcheck disable=SC2086
-    OUT=$($CU --human $1 2>/tmp/cu-test-stderr) || EXIT=$?
+    OUT=$(_run_with_timeout "$CU_TIMEOUT_SECS" "$CU" --human $1 2>/tmp/cu-test-stderr) || EXIT=$?
   else
-    OUT=$("$CU" --human "$@" 2>/tmp/cu-test-stderr) || EXIT=$?
+    OUT=$(_run_with_timeout "$CU_TIMEOUT_SECS" "$CU" --human "$@" 2>/tmp/cu-test-stderr) || EXIT=$?
   fi
   ERR=$(cat /tmp/cu-test-stderr 2>/dev/null || true)
+  if [[ "$EXIT" -eq 124 ]]; then
+    ERR="${ERR}${ERR:+
+}cu_human TIMED OUT after ${CU_TIMEOUT_SECS}s"
+  fi
 }
 
 # ── JSON helpers (require python3) ──────────────────────────────────────────

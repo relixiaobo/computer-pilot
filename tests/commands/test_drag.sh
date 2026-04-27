@@ -38,4 +38,29 @@ cu_human "drag 100 200 400 200"
 assert_exit_zero "drag human exits 0"
 assert_contains "shows drag info" "Dragged"
 
+section "drag — auto-snapshot contract"
+
+cu_json drag 100 200 400 200 --app Finder
+assert_ok "drag with default attaches snapshot"
+HAS=$(echo "$OUT" | python3 -c "
+import sys, json
+print('yes' if 'snapshot' in json.load(sys.stdin) else 'no')
+" 2>/dev/null || echo "error")
+if [[ "$HAS" == "yes" ]]; then
+  _pass "drag attaches snapshot"
+else
+  _fail "drag attaches snapshot" "got $HAS"
+fi
+
+cu_json drag 100 200 400 200 --app Finder --no-snapshot
+assert_ok "drag --no-snapshot ok"
+NO_SNAP=$(echo "$OUT" | python3 -c "
+import sys, json; d = json.load(sys.stdin); print('absent' if 'snapshot' not in d else 'present')
+" 2>/dev/null || echo "error")
+if [[ "$NO_SNAP" == "absent" ]]; then
+  _pass "drag --no-snapshot omits snapshot"
+else
+  _fail "drag --no-snapshot" "snapshot was present"
+fi
+
 summary

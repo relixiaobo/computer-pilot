@@ -57,4 +57,30 @@ assert_exit_zero "scroll human exits 0"
 assert_contains "shows scroll info" "Scrolled"
 assert_contains "shows direction" "down"
 
+section "scroll — auto-snapshot contract (post-action UI state)"
+
+cu_json scroll down 1 --x 600 --y 400 --app Finder
+assert_ok "scroll with default attaches snapshot"
+PARSED=$(echo "$OUT" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+print('|'.join([
+    'has_snapshot=' + str('snapshot' in d),
+    'has_settle_ms=' + str('settle_ms' in d),
+]))
+" 2>/dev/null || echo "malformed")
+[[ "$PARSED" == *"has_snapshot=True"* ]]   && _pass "scroll attaches snapshot"   || _fail "scroll attaches snapshot"   "$PARSED"
+[[ "$PARSED" == *"has_settle_ms=True"* ]]  && _pass "scroll has settle_ms"       || _fail "scroll settle_ms"           "$PARSED"
+
+cu_json scroll down 1 --x 600 --y 400 --app Finder --no-snapshot
+assert_ok "scroll --no-snapshot ok"
+NO_SNAP=$(echo "$OUT" | python3 -c "
+import sys, json; d = json.load(sys.stdin); print('absent' if 'snapshot' not in d else 'present')
+" 2>/dev/null || echo "error")
+if [[ "$NO_SNAP" == "absent" ]]; then
+  _pass "--no-snapshot omits snapshot"
+else
+  _fail "scroll --no-snapshot" "snapshot was present"
+fi
+
 summary

@@ -524,6 +524,9 @@ enum Cmd {
         /// (no cursor warp, no focus theft)
         #[arg(long)]
         app: Option<String>,
+        /// Skip auto-snapshot in JSON output
+        #[arg(long)]
+        no_snapshot: bool,
     },
 
     /// Move mouse to coordinates (trigger tooltips, hover menus)
@@ -535,6 +538,9 @@ enum Cmd {
         /// (no cursor warp, no focus theft)
         #[arg(long)]
         app: Option<String>,
+        /// Skip auto-snapshot in JSON output
+        #[arg(long)]
+        no_snapshot: bool,
     },
 
     /// Drag from (x1,y1) to (x2,y2) with smooth interpolation
@@ -561,6 +567,9 @@ enum Cmd {
         /// (no cursor warp, no focus theft)
         #[arg(long)]
         app: Option<String>,
+        /// Skip auto-snapshot in JSON output
+        #[arg(long)]
+        no_snapshot: bool,
     },
 
     /// Capture window screenshot (silent, no app activation needed)
@@ -904,8 +913,14 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
             x,
             y,
             app,
-        } => cmd_scroll(json, direction, amount, x, y, app),
-        Cmd::Hover { x, y, app } => cmd_hover(json, x, y, app),
+            no_snapshot,
+        } => cmd_scroll(json, direction, amount, x, y, app, no_snapshot),
+        Cmd::Hover {
+            x,
+            y,
+            app,
+            no_snapshot,
+        } => cmd_hover(json, x, y, app, no_snapshot),
         Cmd::Drag {
             x1,
             y1,
@@ -915,6 +930,7 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
             cmd,
             alt,
             app,
+            no_snapshot,
         } => {
             let mods = mouse::Modifiers {
                 shift,
@@ -922,7 +938,7 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
                 alt,
                 ctrl: false,
             };
-            cmd_drag(json, x1, y1, x2, y2, mods, app)
+            cmd_drag(json, x1, y1, x2, y2, mods, app, no_snapshot)
         }
         Cmd::Screenshot {
             app,
@@ -2011,6 +2027,7 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn cmd_scroll(
     json: bool,
     direction: String,
@@ -2018,6 +2035,7 @@ fn cmd_scroll(
     x: Option<f64>,
     y: Option<f64>,
     app: Option<String>,
+    no_snapshot: bool,
 ) -> Result<(), CuError> {
     let (dx, dy) = match direction.to_lowercase().as_str() {
         "up" => (0, amount),
@@ -2041,17 +2059,26 @@ fn cmd_scroll(
     } else {
         "cgevent-global"
     };
+    let mut result = serde_json::json!({
+        "ok": true, "method": method, "direction": direction,
+        "amount": amount, "x": sx, "y": sy,
+    });
+    maybe_attach_snapshot(&mut result, json, no_snapshot, &app, 50);
     if json {
-        ok(
-            serde_json::json!({"ok": true, "method": method, "direction": direction, "amount": amount, "x": sx, "y": sy}),
-        )
+        ok(result)
     } else {
         println!("Scrolled {direction} {amount} at ({sx}, {sy})");
         Ok(())
     }
 }
 
-fn cmd_hover(json: bool, x: f64, y: f64, app: Option<String>) -> Result<(), CuError> {
+fn cmd_hover(
+    json: bool,
+    x: f64,
+    y: f64,
+    app: Option<String>,
+    no_snapshot: bool,
+) -> Result<(), CuError> {
     let target_pid = if app.is_some() {
         Some(system::resolve_target_app(&app)?.0)
     } else {
@@ -2063,14 +2090,17 @@ fn cmd_hover(json: bool, x: f64, y: f64, app: Option<String>) -> Result<(), CuEr
     } else {
         "cgevent-global"
     };
+    let mut result = serde_json::json!({"ok": true, "method": method, "x": x, "y": y});
+    maybe_attach_snapshot(&mut result, json, no_snapshot, &app, 50);
     if json {
-        ok(serde_json::json!({"ok": true, "method": method, "x": x, "y": y}))
+        ok(result)
     } else {
         println!("Hover at ({x}, {y})");
         Ok(())
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn cmd_drag(
     json: bool,
     x1: f64,
@@ -2079,6 +2109,7 @@ fn cmd_drag(
     y2: f64,
     mods: mouse::Modifiers,
     app: Option<String>,
+    no_snapshot: bool,
 ) -> Result<(), CuError> {
     let target_pid = if app.is_some() {
         Some(system::resolve_target_app(&app)?.0)
@@ -2091,10 +2122,13 @@ fn cmd_drag(
     } else {
         "cgevent-global"
     };
+    let mut result = serde_json::json!({
+        "ok": true, "method": method,
+        "from": {"x": x1, "y": y1}, "to": {"x": x2, "y": y2},
+    });
+    maybe_attach_snapshot(&mut result, json, no_snapshot, &app, 50);
     if json {
-        ok(
-            serde_json::json!({"ok": true, "method": method, "from": {"x": x1, "y": y1}, "to": {"x": x2, "y": y2}}),
-        )
+        ok(result)
     } else {
         println!("Dragged ({x1},{y1}) → ({x2},{y2})");
         Ok(())

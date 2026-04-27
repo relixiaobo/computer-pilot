@@ -40,6 +40,8 @@ unsafe extern "C" {
 
     fn CFArrayGetCount(the_array: CFArrayRef) -> CFIndex;
     fn CFArrayGetValueAtIndex(the_array: CFArrayRef, idx: CFIndex) -> CFTypeRef;
+
+    fn CFBooleanGetTypeID() -> CFTypeID;
 }
 
 // ── Accessibility FFI ───────────────────────────────────────────────────────
@@ -689,14 +691,33 @@ unsafe fn try_ax_actions(element: CFTypeRef) -> Option<&'static str> {
         CFRelease(children);
     }
 
-    // Step 7: Toggle AXValue for checkboxes/switches
+    // Step 7: Toggle AXValue for checkboxes/switches.
+    //
+    // We read the current value and write the opposite, so an "uncheck"
+    // request actually unchecks. The previous version forced AXValue=true
+    // first; on an already-checked control that would silently succeed
+    // (no UI change) and the action would falsely report "clicked". A
+    // type check guards against the rare cases where AXValue isn't a
+    // CFBoolean — in that case we fall through to the CGEvent click
+    // path so the toggle still happens, just via a real mouse event.
     let role = ax_string(element, "AXRole").unwrap_or_default();
-    if role == "AXCheckBox" || role == "AXSwitch" {
-        // Try setting to 1 (checked), then 0 (unchecked) — one will be the toggle
-        if try_set_value(element, "AXValue", kCFBooleanTrue)
-            || try_set_value(element, "AXValue", kCFBooleanFalse)
-        {
-            return Some("ax-toggle");
+    if (role == "AXCheckBox" || role == "AXSwitch")
+        && let Some(current) = ax_attr(element, "AXValue")
+    {
+        let is_bool = CFGetTypeID(current) == CFBooleanGetTypeID();
+        if is_bool {
+            let is_on = std::ptr::eq(current, kCFBooleanTrue);
+            CFRelease(current);
+            let new_val = if is_on {
+                kCFBooleanFalse
+            } else {
+                kCFBooleanTrue
+            };
+            if try_set_value(element, "AXValue", new_val) {
+                return Some("ax-toggle");
+            }
+        } else {
+            CFRelease(current);
         }
     }
 
