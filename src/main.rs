@@ -77,7 +77,7 @@ fn annotate_method(result: &mut serde_json::Value) {
     name = "cu",
     version = VERSION,
     about = "macOS desktop automation CLI for AI agents",
-    before_help = "COMMANDS BY CATEGORY (24 total):\n  \
+    before_help = "COMMANDS BY CATEGORY (26 total):\n  \
         Discover         setup · apps · menu · sdef · examples\n  \
         Observe          snapshot · find · nearest · observe-region · ocr · screenshot · wait\n  \
         Act              click · type · key · set-value · perform · scroll · hover · drag\n  \
@@ -2378,9 +2378,10 @@ fn cmd_why(json: bool, ref_id: usize, app: Option<String>, limit: usize) -> Resu
     let (found, element_json, checks, advice) = match element {
         None => {
             let advice = if snap.truncated {
+                // Suggest a limit big enough to actually reach this ref, with headroom.
+                let suggested = limit.max(ref_id + 50).max(100);
                 format!(
-                    "Ref {ref_id} not in snapshot (size={snapshot_size}, truncated). Re-snapshot with --limit {}.",
-                    limit.max(100)
+                    "Ref {ref_id} not in snapshot (size={snapshot_size}, truncated). Re-snapshot with --limit {suggested}."
                 )
             } else if ref_id > snapshot_size {
                 format!(
@@ -2434,11 +2435,11 @@ fn cmd_why(json: bool, ref_id: usize, app: Option<String>, limit: usize) -> Resu
                     "Element is disabled (AXEnabled=false) — clicking will be a no-op.".into(),
                 );
             }
-            if actions.is_empty() && enabled.is_none() {
+            if actions.is_empty() {
                 advice_parts.push(
-                    "Element exposes no AX actions and AXEnabled is unreadable — likely a static container; try a child element.".into(),
+                    "Element exposes no AX actions — likely a static container (label/group). Try clicking a child element or a parent that owns the click target.".into(),
                 );
-            } else if !click_supported && !actions.is_empty() {
+            } else if !click_supported {
                 advice_parts.push(format!(
                     "Element does not support AXPress/AXConfirm/AXOpen. Available: [{}]. Try `cu perform <ref> <action>`.",
                     actions.join(", ")
@@ -2508,7 +2509,13 @@ fn cmd_warm(json: bool, app: String) -> Result<(), CuError> {
     use std::time::Instant;
     let (pid, name) = system::resolve_target_app(&Some(app.clone()))?;
     let started = Instant::now();
-    let _ = ax::snapshot(pid, &name, 5);
+    let snap = ax::snapshot(pid, &name, 5);
+    if !snap.ok {
+        return Err(snap
+            .error
+            .unwrap_or_else(|| "AX snapshot failed during warm-up".into())
+            .into());
+    }
     let warmup_ms = started.elapsed().as_millis() as u64;
     if json {
         ok(serde_json::json!({

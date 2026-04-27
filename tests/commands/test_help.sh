@@ -47,8 +47,8 @@ else
   _fail "flat Commands section" "missing"
 fi
 
-# All 24 subcommands listed
-EXPECTED_CMDS="setup apps snapshot type perform set-value key wait find nearest observe-region ocr click scroll hover drag screenshot window launch menu defaults sdef tell examples"
+# All 26 subcommands listed
+EXPECTED_CMDS="setup apps snapshot type perform set-value key wait find nearest observe-region ocr click scroll hover drag screenshot window launch warm why menu defaults sdef tell examples"
 ALL_FOUND=yes
 for cmd in $EXPECTED_CMDS; do
   if ! echo "$OUT_TXT" | grep -qE "^  $cmd  "; then
@@ -57,9 +57,15 @@ for cmd in $EXPECTED_CMDS; do
   fi
 done
 if [[ "$ALL_FOUND" == "yes" ]]; then
-  _pass "all 24 commands appear in flat listing"
+  _pass "all 26 commands appear in flat listing"
 else
   _fail "flat listing complete" "$ALL_FOUND"
+fi
+
+if echo "$OUT_TXT" | grep -qE "COMMANDS BY CATEGORY \(26 total\)"; then
+  _pass "category header reports 26 total"
+else
+  _fail "category header total" "expected 26"
 fi
 
 section "help — long_about narrative present in --help"
