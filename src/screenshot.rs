@@ -256,6 +256,13 @@ pub struct WindowInfo {
     pub width: f64,
     #[allow(dead_code)]
     pub height: f64,
+    /// kCGWindowSharingState: 0=None, 1=ReadOnly, 2=ReadWrite. When 0, the
+    /// window opted out of being captured by other processes (deliberate
+    /// privacy choice — common in messaging apps like WeChat). Both
+    /// CGWindowListCreateImage and ScreenCaptureKit honor this; capture
+    /// returns transparent pixels. Detect upfront so we can return a
+    /// structured error instead of a useless blank PNG.
+    pub sharing_state: i64,
 }
 
 /// Find the main (layer 0) window of a process, returning ID + bounds from the same source.
@@ -303,12 +310,15 @@ pub fn find_window(pid: i32) -> Option<WindowInfo> {
                     (0.0, 0.0, 0.0, 0.0)
                 };
 
+                let sharing_state = dict_i64(w, "kCGWindowSharingState").unwrap_or(1);
+
                 result = Some(WindowInfo {
                     window_id: id as u32,
                     x,
                     y,
                     width,
                     height,
+                    sharing_state,
                 });
                 break;
             }
@@ -336,7 +346,26 @@ pub fn capture_window_raw(window_id: u32) -> CFTypeRef {
 /// Capture a window and return the pixel-to-point Retina scale (typically 2.0 on Apple Silicon
 /// displays, 1.0 on standard). Like `capture_window` but exposes the scale so the caller can
 /// translate image pixels back to screen-space points.
+/// Pre-capture sanity check: if the target window has opted out of being
+/// captured (sharing state = None), refuse with a structured error rather
+/// than producing a blank PNG that misleads the agent. Common case: WeChat,
+/// some Microsoft Office Mac App Store builds, and other privacy-conscious apps.
+fn capture_protected_check(window: &WindowInfo) -> Result<(), String> {
+    if window.sharing_state == 0 {
+        return Err(
+            "window is capture-protected (kCGWindowSharingState=None) — \
+             the target app explicitly disables screen capture as a privacy \
+             measure. CGWindowListCreateImage and ScreenCaptureKit both honor \
+             this; cu cannot bypass it. Use cu snapshot/find for AX-based \
+             interaction; visual verification will require manual inspection."
+                .into(),
+        );
+    }
+    Ok(())
+}
+
 pub fn capture_window_with_scale(window: &WindowInfo, path: &str) -> Result<f64, String> {
+    capture_protected_check(window)?;
     unsafe {
         let image = CGWindowListCreateImage(
             CG_RECT_NULL,
@@ -359,13 +388,15 @@ pub fn capture_window_with_scale(window: &WindowInfo, path: &str) -> Result<f64,
     }
 }
 
-/// Capture a specific window by ID to a PNG file. No activation needed.
-pub fn capture_window(window_id: u32, path: &str) -> Result<(), String> {
+/// Capture a specific window to a PNG file. No activation needed. Refuses
+/// when the target opted out of capture (`sharing_state=0`).
+pub fn capture_window(window: &WindowInfo, path: &str) -> Result<(), String> {
+    capture_protected_check(window)?;
     unsafe {
         let image = CGWindowListCreateImage(
             CG_RECT_NULL,
             CG_WINDOW_LIST_INCLUDING_WINDOW,
-            window_id,
+            window.window_id,
             CG_WINDOW_IMAGE_BOUNDS_IGNORE_FRAMING,
         );
         if image.is_null() {
@@ -396,6 +427,7 @@ pub fn annotate_window(
     annotations: &[Annotation],
     path: &str,
 ) -> Result<f64, String> {
+    capture_protected_check(window)?;
     unsafe {
         let image = CGWindowListCreateImage(
             CG_RECT_NULL,

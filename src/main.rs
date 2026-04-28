@@ -2325,7 +2325,7 @@ fn cmd_screenshot(
 
     let (pid, name) = system::resolve_target_app(&app)?;
     let win = screenshot::find_window(pid).ok_or("no on-screen window found for the target app")?;
-    screenshot::capture_window(win.window_id, &output_path)?;
+    screenshot::capture_window(&win, &output_path)?;
 
     if json {
         ok(
@@ -2667,9 +2667,11 @@ fn cmd_state(
         .map(|f| f.eq_ignore_ascii_case(&name))
         .unwrap_or(false);
 
-    // Optional screenshot of the front window
-    let screenshot_info: Option<(String, f64)> = if no_screenshot {
-        None
+    // Optional screenshot of the front window. Soft-fails on capture errors but
+    // surfaces the reason in `screenshot_error` so the agent knows whether the
+    // image was skipped (e.g. capture-protected app like WeChat) versus available.
+    let (screenshot_info, screenshot_err): (Option<(String, f64)>, Option<String>) = if no_screenshot {
+        (None, None)
     } else {
         match screenshot::find_window(pid) {
             Some(win) => {
@@ -2681,11 +2683,11 @@ fn cmd_state(
                     format!("/tmp/cu-state-{ts}.png")
                 });
                 match screenshot::capture_window_with_scale(&win, &path) {
-                    Ok(scale) => Some((path, scale)),
-                    Err(_) => None, // soft-fail: report state without image
+                    Ok(scale) => (Some((path, scale)), None),
+                    Err(e) => (None, Some(e)),
                 }
             }
-            None => None, // app has no on-screen window
+            None => (None, Some("no on-screen window found for the target app".into())),
         }
     };
 
@@ -2710,6 +2712,8 @@ fn cmd_state(
         if let Some((path, scale)) = screenshot_info {
             full["screenshot"] = serde_json::json!(path);
             full["image_scale"] = serde_json::json!(scale);
+        } else if let Some(err) = screenshot_err {
+            full["screenshot_error"] = serde_json::json!(err);
         }
         ok(full)
     } else {
@@ -2722,6 +2726,8 @@ fn cmd_state(
         );
         if let Some((path, _)) = &screenshot_info {
             println!("Screenshot: {path}");
+        } else if let Some(err) = &screenshot_err {
+            println!("Screenshot skipped: {err}");
         }
         Ok(())
     }
