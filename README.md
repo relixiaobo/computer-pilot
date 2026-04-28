@@ -169,7 +169,7 @@ cu ocr "Google Chrome"
 | `cu find --role/--title-contains/--value-contains` | Predicate query — skip the `snapshot + grep` round-trip |
 | `cu nearest <x> <y>` | Pixel → ref reverse lookup (for VLM agents that have visual coords) |
 | `cu observe-region <x> <y> <w> <h>` | List interactive refs whose bbox is in/touches a rect (intersect/center/inside) |
-| `cu screenshot [app]` | Silent window capture (no activation needed) |
+| `cu screenshot [app]` | Silent window capture (ScreenCaptureKit primary path — works across Mission Control Spaces; refuses with `screenshot_error` for `kCGWindowSharingState=0` apps like WeChat) |
 | `cu screenshot --region "x,y WxH"` | Capture a screen rectangle (5–10× smaller, for cheap VLM verification) |
 | `cu ocr [app]` | On-device OCR via macOS Vision framework |
 | `cu wait --text/--ref/--gone` | Poll until UI condition is met |
@@ -178,9 +178,9 @@ cu ocr "Google Chrome"
 
 | Command | Description |
 |---------|-------------|
-| `cu click <ref\|x y\|--text>` | Click by ref, coordinates, or OCR text |
+| `cu click <ref\|x y\|--text>` | Click by ref, coordinates, or OCR text. Pre/post AX diff verifies by default — `verified:false` + `verify_advice` when sandbox apps swallow the event. `--no-verify` to skip |
 | `cu key <combo> [--app]` | Keyboard shortcut (e.g., `cmd+c`, `enter`) |
-| `cu type <text> [--app]` | Type text via Unicode CGEvent (IME-bypass, no clipboard) |
+| `cu type <text> [--app]` | Type text. Auto-routes via clipboard paste for CJK/chat apps (WeChat, Slack, Discord, Telegram, Lark, QQ, DingTalk, …) — see `paste_reason` |
 | `cu set-value <ref\|--ax-path> <text>` | Write text directly into an AX field — no focus, no IME, no clipboard |
 | `cu perform <ref\|--ax-path> <action>` | Invoke a named AX action (`AXShowMenu`, `AXIncrement`, `AXScrollToVisible`, ...) |
 | `cu scroll <dir> <n> --x --y` | Scroll up/down/left/right |

@@ -7,7 +7,29 @@
 > - [`competitive-analysis.md`](./competitive-analysis.md) — 多项目特性栅格（事实快照）
 > - 本文档 — 执行计划 + 进度追踪（动态）
 
-最后更新：2026-04-28（**Sprint 1 + Sprint 2 完结 · v0.4.0 发布**；Sprint 3 进行中 — A2 axPath / D8 AX warmup / B7 cu why 完成；E3 微信任务暴露的 4 个根因修复完成（cu key 终端安全检查 / cu state 组合命令 / cu type --paste / cu click --verify）；A5 CDP 舍弃；E1 / E2 待启动；27 命令、660+ 测试）
+最后更新：2026-04-28（**Sprint 1 + Sprint 2 完结 · v0.5.x 发布**；Sprint 3 进行中 — A2 axPath / D8 AX warmup / B7 cu why 完成；E3 微信任务暴露的 4 个根因修复完成（cu key 终端安全检查 / cu state 组合命令 / cu type --paste / cu click --verify）；A5 CDP 舍弃；A capture-protected / B SCK / R1-R7 reliability 批次完成（v0.5.2）— 见下文 "可靠性沉淀"；E1 / E2 待启动；27 命令、699+ 测试）
+
+---
+
+## 可靠性沉淀（2026-04-28，v0.5.2 批次）
+
+E3 收尾后用户提出"哪些信息是错的"系统性审视。一次开了 7 个根因修复 + 2 个底层迁移，把 agent reliability 提升到一个新台阶：
+
+| ID | 修复 | 解决的"错误信息"类别 |
+|---|---|---|
+| A | `cu screenshot` 检测 capture-protected 窗口（kCGWindowSharingState=0） | 不再为 WeChat 类隐私窗口生成空白 PNG，改为结构化报错 |
+| B | 窗口截图主路径迁移 ScreenCaptureKit | 跨 Mission Control Space 的窗口可截图（CGWindowList 在另一 Space 返空） |
+| R1 | `screenshot::find_window` 走 AX（AXFocusedWindow + `_AXUIElementGetWindow`） | snapshot/screenshot/click 用同一个权威窗口，杜绝"看 A 截 B" |
+| R2 | `cu click` verify 默认开启 | sandbox app 静默吞 PID-targeted 事件，ok=true 但 UI 不变 |
+| R3 | `cu snapshot` 截断时附 `truncation_hint` 字符串 | 替代隐式 `truncated:true` —— agent 跳过 bool 但不跳过 string |
+| R4 | `annotate_window` 也走 SCK | 跨 Space 注释截图不再空白 |
+| R5 | element 标题走 AXTitle → AXDescription → AXHelp → AXIdentifier 链 | Electron/CEF app 的 AXTitle 是内部 ID，user-facing label 在 AXHelp 里 |
+| R6 | `cu ocr` 附聚合 confidence 字段 + `confidence_hint` | Vision 在 0.2-0.4 区间会出"看似真实"的幻觉 |
+| R7 | `cu type` CJK / 聊天 app 自动走 paste | WeChat/Slack/Discord/Telegram/Lark/QQ/DingTalk 丢首字 |
+
+**反模式沉淀**：CLAUDE.md / AGENTS.md 新增 "Agent Reliability Principles" 节 —— 三原则（Single source of truth · Loud failures · Confidence-tiered output）+ 反模式清单，每条都钉在具体的 commit 上。新 agent 进项目第一件事就会读到。
+
+**回归测试**：R3-R7 各有专门的 `tests/commands/test_*.sh`（test_truncation / test_label_fallback / test_ocr_confidence / test_paste_auto）守护，命令测试 673 → 699。R4 的跨 Space 验证只能手动。
 
 ---
 
