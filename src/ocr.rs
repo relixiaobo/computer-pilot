@@ -24,6 +24,22 @@ unsafe extern "C" {
 pub struct OcrResult {
     pub ok: bool,
     pub texts: Vec<OcrText>,
+    /// Aggregate confidence stats so the agent doesn't have to walk the
+    /// array to know "is this OCR result trustworthy". Populated only on
+    /// success and only when at least one text was recognized.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub min_confidence: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mean_confidence: Option<f64>,
+    /// Count of recognitions below 0.5 confidence — Apple Vision returns
+    /// dubious matches with confidence in the 0.2-0.4 range that look
+    /// real but are often hallucinated. Agents should treat them as hints.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub low_confidence_count: Option<usize>,
+    /// Attached when at least one recognition is low-confidence. Tells
+    /// the agent to verify visually rather than acting on the OCR alone.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub confidence_hint: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }
@@ -112,9 +128,39 @@ unsafe fn run_ocr(cg_image: CFTypeRef, win: &screenshot::WindowInfo) -> OcrResul
         }
     }
 
+    let (min_conf, mean_conf, low_count) = if texts.is_empty() {
+        (None, None, None)
+    } else {
+        let mut min = f64::INFINITY;
+        let mut sum = 0.0;
+        let mut low = 0usize;
+        for t in &texts {
+            if t.confidence < min {
+                min = t.confidence;
+            }
+            sum += t.confidence;
+            if t.confidence < 0.5 {
+                low += 1;
+            }
+        }
+        (Some(min), Some(sum / texts.len() as f64), Some(low))
+    };
+
+    let confidence_hint = match low_count {
+        Some(n) if n > 0 => Some(format!(
+            "{n} of {total} recognitions are below 0.5 confidence — Vision returns plausible-looking hallucinations in this range. Verify visually before acting on these results.",
+            total = texts.len()
+        )),
+        _ => None,
+    };
+
     OcrResult {
         ok: true,
         texts,
+        min_confidence: min_conf,
+        mean_confidence: mean_conf,
+        low_confidence_count: low_count,
+        confidence_hint,
         error: None,
     }
 }
@@ -123,6 +169,10 @@ fn err(msg: &str) -> OcrResult {
     OcrResult {
         ok: false,
         texts: vec![],
+        min_confidence: None,
+        mean_confidence: None,
+        low_confidence_count: None,
+        confidence_hint: None,
         error: Some(msg.to_string()),
     }
 }

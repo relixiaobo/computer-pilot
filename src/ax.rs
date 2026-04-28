@@ -74,6 +74,13 @@ unsafe extern "C" {
         values: *mut CFArrayRef,
     ) -> AXError;
     fn AXUIElementCopyActionNames(element: CFTypeRef, names: *mut CFArrayRef) -> AXError;
+
+    /// Private API exported by HIServices since 10.5 — used by Chromium /
+    /// Electron / VS Code / every major Mac browser to map an AXUIElement
+    /// to its CGWindowID. We need it because AX is the only authoritative
+    /// "this is the window the app considers primary"; CGWindowList is a
+    /// flat list with no such notion. Symbol is permanently stable.
+    fn _AXUIElementGetWindow(element: CFTypeRef, window_id: *mut u32) -> AXError;
 }
 
 #[link(name = "CoreFoundation", kind = "framework")]
@@ -127,6 +134,12 @@ pub struct SnapshotResult {
     pub elements: Vec<Element>,
     pub limit: usize,
     pub truncated: bool,
+    /// Actionable hint attached only when `truncated=true`. Agents skim
+    /// for unfamiliar fields more reliably than for boolean flags — making
+    /// the cause loud here prevents the "I keep searching for ref [73]
+    /// that was never returned" failure mode.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub truncation_hint: Option<String>,
     pub depth_limited: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
@@ -327,6 +340,62 @@ unsafe fn ax_size(element: CFTypeRef) -> Option<CGSize> {
     if ok != 0 { Some(size) } else { None }
 }
 
+// ── Public window discovery (single source of truth for "which window") ────
+
+/// Geometry of an app's authoritative window, as AX sees it. Used by
+/// `screenshot::find_window` so the screenshot path agrees with everything
+/// else (`cu snapshot`, `cu click`, `cu find` already drive off AX).
+#[derive(Debug, Clone, Copy)]
+pub struct AxWindowGeom {
+    pub window_id: u32,
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
+/// Resolve the primary window of `pid` via AX (`AXFocusedWindow` →
+/// `AXMainWindow` fallback) and return its CGWindowID + bounds. None if
+/// AX is unavailable (no a11y permission, or app exposes no AX windows).
+///
+/// Why AX-first: layer-0 windows in CGWindowList include menu-bar proxies,
+/// AX helpers, palette stubs, and minimized stand-ins. CGWindowList has no
+/// way to identify which is "the real window"; AX does, by definition.
+pub fn focused_window_geom(pid: i32) -> Option<AxWindowGeom> {
+    unsafe {
+        let app = create_app_element(pid);
+        if app.is_null() {
+            return None;
+        }
+        let window = ax_attr(app, "AXFocusedWindow").or_else(|| ax_attr(app, "AXMainWindow"));
+        CFRelease(app);
+        let window = window?;
+        set_element_timeout(window);
+
+        let pos = ax_position(window);
+        let size = ax_size(window);
+        let mut wid: u32 = 0;
+        let err = _AXUIElementGetWindow(window, &mut wid);
+        CFRelease(window);
+
+        if err != AX_OK || wid == 0 {
+            return None;
+        }
+        let pos = pos?;
+        let size = size?;
+        if size.width <= 1.0 || size.height <= 1.0 {
+            return None;
+        }
+        Some(AxWindowGeom {
+            window_id: wid,
+            x: pos.x,
+            y: pos.y,
+            width: size.width,
+            height: size.height,
+        })
+    }
+}
+
 // ── Role filtering ──────────────────────────────────────────────────────────
 
 const INCLUDED_ROLES: &[&str] = &[
@@ -367,6 +436,8 @@ const BA_VALUE: usize = 3;
 const BA_POS: usize = 4;
 const BA_SIZE: usize = 5;
 const BA_CHILDREN: usize = 6;
+const BA_HELP: usize = 7;
+const BA_IDENTIFIER: usize = 8;
 const BATCH_ATTR_NAMES: &[&str] = &[
     "AXRole",
     "AXTitle",
@@ -375,6 +446,13 @@ const BATCH_ATTR_NAMES: &[&str] = &[
     "AXPosition",
     "AXSize",
     "AXChildren",
+    // Extra label sources in fallback chain (R5). Electron/CEF apps often
+    // set AXTitle to internal IDs ("submit_btn_primary") while the
+    // user-visible label lives in AXHelp (tooltip) or AXIdentifier (aria-label).
+    // Adding two batch keys is one extra IPC field per element — negligible
+    // at typical 200-element snapshots.
+    "AXHelp",
+    "AXIdentifier",
 ];
 
 /// Create the CFArray of attribute name strings. Returns null on failure.
@@ -567,6 +645,8 @@ unsafe fn walk(
     {
         let title = batch_string(values, BA_TITLE)
             .or_else(|| batch_string(values, BA_DESC))
+            .or_else(|| batch_string(values, BA_HELP))
+            .or_else(|| batch_string(values, BA_IDENTIFIER))
             .filter(|s| !s.is_empty());
 
         let value = batch_string(values, BA_VALUE).filter(|s| !s.is_empty());
@@ -1670,6 +1750,7 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
                 elements: vec![],
                 limit,
                 truncated: false,
+                truncation_hint: None,
                 depth_limited: false,
                 focused: None,
                 modal: None,
@@ -1698,6 +1779,7 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
                 elements: vec![],
                 limit,
                 truncated: false,
+                truncation_hint: None,
                 depth_limited: false,
                 focused: None,
                 modal: None,
@@ -1745,6 +1827,7 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
                 elements: vec![],
                 limit,
                 truncated: false,
+                truncation_hint: None,
                 depth_limited: false,
                 focused: None,
                 modal: None,
@@ -1774,6 +1857,15 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
         CFRelease(batch_keys);
 
         let truncated = elements.len() >= limit;
+        let truncation_hint = if truncated {
+            Some(format!(
+                "snapshot stopped at {limit} elements — there are MORE elements past this point. \
+                 Re-run with --limit {} (or higher) if the element you need isn't in this batch.",
+                limit * 2
+            ))
+        } else {
+            None
+        };
 
         // A4: surface the currently focused UI element so the agent can skip
         //     a redundant click on a field that's already focused.
@@ -1799,6 +1891,7 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
             elements,
             limit,
             truncated,
+            truncation_hint,
             depth_limited,
             error: None,
         }

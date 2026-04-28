@@ -65,10 +65,25 @@ else
   _skip "cgevent-pid silent click" "did not produce the expected method+verified combination ($PARSED)"
 fi
 
-section "verify — without flag, no verify fields attached"
+section "verify — verify is ON by default (R2)"
 
 cu_json click 1 --app Finder
-assert_ok "click without --verify ok"
+assert_ok "click without --no-verify ok"
+
+DEFAULT=$(echo "$OUT" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+print('has_verified=' + str('verified' in d) + '|verified_is_bool=' + str(isinstance(d.get('verified'), bool)))
+" 2>/dev/null || echo "malformed")
+
+[[ "$DEFAULT" == *"has_verified=True"* && "$DEFAULT" == *"verified_is_bool=True"* ]] \
+  && _pass "verified attached by default" \
+  || _fail "verified attached by default" "$DEFAULT"
+
+section "verify — --no-verify opts out"
+
+cu_json click 1 --app Finder --no-verify
+assert_ok "click --no-verify ok"
 
 NO_VERIFY=$(echo "$OUT" | python3 -c "
 import sys, json
@@ -76,22 +91,20 @@ d = json.load(sys.stdin)
 print('has_verified=' + str('verified' in d))
 " 2>/dev/null || echo "malformed")
 
-[[ "$NO_VERIFY" == *"has_verified=False"* ]] && _pass "verified omitted by default" || _fail "verified omitted by default" "$NO_VERIFY"
+[[ "$NO_VERIFY" == *"has_verified=False"* ]] && _pass "verified omitted with --no-verify" || _fail "verified omitted with --no-verify" "$NO_VERIFY"
 
-section "verify — --no-snapshot skips verification with explanation"
+section "verify — --no-snapshot also disables verify (verify needs the post-snapshot)"
 
-cu_json click 1 --app Finder --verify --no-snapshot
-PARSED=$(echo "$OUT" | python3 -c "
+cu_json click 1 --app Finder --no-snapshot
+NO_SNAP=$(echo "$OUT" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
-print('verified=' + str(d.get('verified')) + '|skipped=' + str(d.get('verification_skipped','')))
+print('has_verified=' + str('verified' in d) + '|has_snapshot=' + str('snapshot' in d))
 " 2>/dev/null || echo "malformed")
 
-if [[ "$PARSED" == *"verified=None"* && "$PARSED" == *"skipped="*"no post-action snapshot"* ]]; then
-  _pass "--verify + --no-snapshot reports skipped"
-else
-  _fail "--verify + --no-snapshot reports skipped" "$PARSED"
-fi
+[[ "$NO_SNAP" == *"has_verified=False"* && "$NO_SNAP" == *"has_snapshot=False"* ]] \
+  && _pass "--no-snapshot disables both snapshot and verify" \
+  || _fail "--no-snapshot disables both" "$NO_SNAP"
 
 # Cleanup
 osascript -e 'tell application "TextEdit" to close every document saving no' >/dev/null 2>&1 || true

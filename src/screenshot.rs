@@ -278,19 +278,77 @@ pub struct WindowInfo {
     pub sharing_state: i64,
 }
 
-/// Find the main (layer 0) window of a process, returning ID + bounds from the same source.
+/// Find the primary window of a process, returning CGWindowID + bounds.
+///
+/// Strategy: ask AX for the authoritative window (AXFocusedWindow →
+/// AXMainWindow) and convert to CGWindowID via `_AXUIElementGetWindow`.
+/// AX is the only source that knows which window is "the real one" — the
+/// layer-0 list returned by CGWindowList includes menu-bar proxies, AX
+/// helpers, palette stubs, and minimized stand-ins, with no semantic way
+/// to distinguish them.
+///
+/// Fallback (AX unavailable / no a11y / app exposes no AX windows): try
+/// CGWindowList with OnScreenOnly first, then unfiltered + largest area.
+/// The fallback is a heuristic — but every command that uses ref/coords
+/// (snapshot/click/find) goes through AX too, so when AX is unavailable
+/// those commands fail anyway, and the fallback is just a best-effort.
 pub fn find_window(pid: i32) -> Option<WindowInfo> {
+    if let Some(geom) = crate::ax::focused_window_geom(pid) {
+        // sharing_state isn't an AX attribute — read it from CGWindowList
+        // by ID. If the lookup fails we assume sharable (1) since that's
+        // the common case and capture will produce a real error if not.
+        let sharing_state = sharing_state_for_window_id(geom.window_id).unwrap_or(1);
+        return Some(WindowInfo {
+            window_id: geom.window_id,
+            x: geom.x,
+            y: geom.y,
+            width: geom.width,
+            height: geom.height,
+            sharing_state,
+        });
+    }
+
+    if let Some(w) =
+        find_window_with_options(pid, CG_WINDOW_LIST_ON_SCREEN_ONLY | CG_WINDOW_LIST_EXCLUDE_DESKTOP)
+    {
+        return Some(w);
+    }
+    find_window_with_options(pid, CG_WINDOW_LIST_EXCLUDE_DESKTOP)
+}
+
+/// Look up `kCGWindowSharingState` for a single CGWindowID. Used by
+/// `find_window` after AX gives us the authoritative window — we only
+/// need this one extra attribute that AX doesn't expose.
+fn sharing_state_for_window_id(window_id: u32) -> Option<i64> {
     unsafe {
-        let list = CGWindowListCopyWindowInfo(
-            CG_WINDOW_LIST_ON_SCREEN_ONLY | CG_WINDOW_LIST_EXCLUDE_DESKTOP,
-            0,
-        );
+        let list = CGWindowListCopyWindowInfo(CG_WINDOW_LIST_INCLUDING_WINDOW, window_id);
+        if list.is_null() {
+            return None;
+        }
+        let count = CFArrayGetCount(list);
+        let mut result = None;
+        for i in 0..count {
+            let w = CFArrayGetValueAtIndex(list, i);
+            if let Some(id) = dict_i64(w, "kCGWindowNumber")
+                && id == window_id as i64
+            {
+                result = Some(dict_i64(w, "kCGWindowSharingState").unwrap_or(1));
+                break;
+            }
+        }
+        CFRelease(list);
+        result
+    }
+}
+
+fn find_window_with_options(pid: i32, options: u32) -> Option<WindowInfo> {
+    unsafe {
+        let list = CGWindowListCopyWindowInfo(options, 0);
         if list.is_null() {
             return None;
         }
 
         let count = CFArrayGetCount(list);
-        let mut result = None;
 
         let bounds_key = match cfstr("kCGWindowBounds") {
             Some(k) => k,
@@ -300,46 +358,56 @@ pub fn find_window(pid: i32) -> Option<WindowInfo> {
             }
         };
 
+        // Collect every layer-0 PID match, then pick the largest by area —
+        // many apps own multiple layer-0 windows (full-width menu-bar
+        // stubs, palettes, dropper helpers) at typical heights of 30pt or
+        // less. The actual content window is the one with real area.
+        let mut best: Option<(WindowInfo, f64)> = None;
+
         for i in 0..count {
             let w = CFArrayGetValueAtIndex(list, i);
             let w_pid = dict_i64(w, "kCGWindowOwnerPID");
             let layer = dict_i64(w, "kCGWindowLayer");
             let wid = dict_i64(w, "kCGWindowNumber");
 
-            if w_pid == Some(pid as i64)
-                && layer == Some(0)
-                && let Some(id) = wid
-            {
-                // Read bounds from the same window dict
-                let bounds_dict = CFDictionaryGetValue(w, bounds_key);
-                let (x, y, width, height) = if !bounds_dict.is_null() {
-                    (
-                        dict_f64(bounds_dict, "X").unwrap_or(0.0),
-                        dict_f64(bounds_dict, "Y").unwrap_or(0.0),
-                        dict_f64(bounds_dict, "Width").unwrap_or(0.0),
-                        dict_f64(bounds_dict, "Height").unwrap_or(0.0),
-                    )
-                } else {
-                    (0.0, 0.0, 0.0, 0.0)
-                };
-
-                let sharing_state = dict_i64(w, "kCGWindowSharingState").unwrap_or(1);
-
-                result = Some(WindowInfo {
-                    window_id: id as u32,
-                    x,
-                    y,
-                    width,
-                    height,
-                    sharing_state,
-                });
-                break;
+            if w_pid != Some(pid as i64) || layer != Some(0) {
+                continue;
             }
+            let Some(id) = wid else { continue };
+
+            let bounds_dict = CFDictionaryGetValue(w, bounds_key);
+            if bounds_dict.is_null() {
+                continue;
+            }
+            let x = dict_f64(bounds_dict, "X").unwrap_or(0.0);
+            let y = dict_f64(bounds_dict, "Y").unwrap_or(0.0);
+            let width = dict_f64(bounds_dict, "Width").unwrap_or(0.0);
+            let height = dict_f64(bounds_dict, "Height").unwrap_or(0.0);
+
+            if width <= 1.0 || height <= 1.0 {
+                continue;
+            }
+
+            let area = width * height;
+            let sharing_state = dict_i64(w, "kCGWindowSharingState").unwrap_or(1);
+            let candidate = WindowInfo {
+                window_id: id as u32,
+                x,
+                y,
+                width,
+                height,
+                sharing_state,
+            };
+
+            best = match best {
+                Some((cur, cur_area)) if cur_area >= area => Some((cur, cur_area)),
+                _ => Some((candidate, area)),
+            };
         }
 
         CFRelease(bounds_key);
         CFRelease(list);
-        result
+        best.map(|(w, _)| w)
     }
 }
 
@@ -443,15 +511,30 @@ pub fn annotate_window(
 ) -> Result<f64, String> {
     capture_protected_check(window)?;
     unsafe {
-        let image = CGWindowListCreateImage(
-            CG_RECT_NULL,
-            CG_WINDOW_LIST_INCLUDING_WINDOW,
+        // Try SCK first so cross-Space windows annotate correctly. SCK
+        // returns a +1 retained CGImage; if it fails, fall back to
+        // CGWindowListCreateImage.
+        let image: CFTypeRef = match crate::sck::capture_window_to_cgimage(
             window.window_id,
-            CG_WINDOW_IMAGE_BOUNDS_IGNORE_FRAMING,
-        );
-        if image.is_null() {
-            return Err("failed to capture window image for annotation".into());
-        }
+            window.width,
+            window.height,
+        ) {
+            Ok((ptr, _)) => ptr as CFTypeRef,
+            Err(_) => {
+                let img = CGWindowListCreateImage(
+                    CG_RECT_NULL,
+                    CG_WINDOW_LIST_INCLUDING_WINDOW,
+                    window.window_id,
+                    CG_WINDOW_IMAGE_BOUNDS_IGNORE_FRAMING,
+                );
+                if img.is_null() {
+                    return Err(
+                        "failed to capture window image for annotation (SCK + CGWindowList both failed)".into()
+                    );
+                }
+                img
+            }
+        };
 
         let img_w = CGImageGetWidth(image);
         let img_h = CGImageGetHeight(image);

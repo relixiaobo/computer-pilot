@@ -41,15 +41,18 @@ unsafe extern "C" {
 struct SafeContent(Retained<SCShareableContent>);
 unsafe impl Send for SafeContent {}
 
-/// Capture a window (by CGWindowID) and write the result to `path`. Returns
-/// the captured image's pixel width so callers can recompute the
-/// pixel-to-points scale.
-pub fn capture_window_to_png(
+/// Capture a window via SCK and return a +1 retained CGImageRef plus its
+/// pixel width. Caller must `CFRelease` the returned pointer (or hand it
+/// off to `screenshot::save_image_ptr`, which does the release).
+///
+/// Used by both the plain capture path (`capture_window_to_png`) and the
+/// annotation path (`screenshot::annotate_window`) — same SCK pipeline,
+/// different downstream image processing.
+pub fn capture_window_to_cgimage(
     window_id: u32,
     target_pts_w: f64,
     target_pts_h: f64,
-    path: &str,
-) -> Result<usize, String> {
+) -> Result<(*const c_void, usize), String> {
     let content = get_shareable_content()?;
 
     let target = unsafe {
@@ -81,9 +84,21 @@ pub fn capture_window_to_png(
         config.setShowsCursor(false);
 
         let image_ptr = capture_image(&filter, &config)?;
-        crate::screenshot::save_image_ptr(image_ptr as *const c_void, path)?;
-        Ok(px_w)
+        Ok((image_ptr as *const c_void, px_w))
     }
+}
+
+/// Capture a window via SCK and write it to `path`. Returns the pixel
+/// width of the saved image.
+pub fn capture_window_to_png(
+    window_id: u32,
+    target_pts_w: f64,
+    target_pts_h: f64,
+    path: &str,
+) -> Result<usize, String> {
+    let (image_ptr, px_w) = capture_window_to_cgimage(window_id, target_pts_w, target_pts_h)?;
+    crate::screenshot::save_image_ptr(image_ptr, path)?;
+    Ok(px_w)
 }
 
 fn get_shareable_content() -> Result<Retained<SCShareableContent>, String> {

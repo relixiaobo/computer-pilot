@@ -179,14 +179,17 @@ enum Cmd {
         Examples:\n  \
         cu type 'hello world' --app TextEdit\n  \
         cu type 'https://example.com' --app 'Google Chrome'\n  \
-        cu type '你好世界' --app WeChat --paste     # CEF / chat apps drop unicode events\n\n\
+        cu type '你好世界' --app WeChat            # auto-routed via paste (CJK + chat app)\n\
+        cu type 'hello' --app TextEdit --no-paste # force unicode events\n\n\
         With --app: events go directly to that app's pid via Unicode CGEvent —\n\
         no focus theft, no clipboard pollution, IME bypassed.\n\
         Without --app: refused by default if the frontmost is a terminal or IDE\n\
         (stray text would execute commands). Pass --allow-global to override.\n\n\
-        --paste: pbcopy + ⌘V instead of N unicode events. Use for chat apps\n\
-        (WeChat, Slack, Telegram desktop) that drop the first CJK character.\n\
-        Saves and restores the original clipboard.")]
+        Paste mode (auto, opt-in via --paste, opt-out via --no-paste):\n\
+        Routes through pbcopy + ⌘V instead of N unicode events. Auto-enabled when\n\
+        the text contains CJK characters OR the target app is in the chat-app list\n\
+        (WeChat, Slack, Discord, Telegram, QQ, Lark/Feishu, DingTalk). These apps\n\
+        drop the first character of unicode events. Original clipboard preserved.")]
     Type {
         /// Text to type
         text: String,
@@ -200,11 +203,13 @@ enum Cmd {
         /// when the frontmost is a terminal or IDE — pass this to override.
         #[arg(long = "allow-global")]
         allow_global: bool,
-        /// Use clipboard paste (pbcopy + ⌘V) instead of unicode events.
-        /// Required for CEF/Electron chat apps (WeChat, Slack) that drop unicode
-        /// events. Saves and restores the original clipboard contents.
-        #[arg(long)]
+        /// Force clipboard paste (pbcopy + ⌘V) regardless of auto-detection.
+        #[arg(long, conflicts_with = "no_paste")]
         paste: bool,
+        /// Force unicode-event typing even when auto-detection would route via paste.
+        /// Use when you've confirmed the target app handles unicode events correctly.
+        #[arg(long = "no-paste")]
+        no_paste: bool,
     },
 
     /// Perform any AX action on an element (AXShowMenu, AXIncrement, AXScrollToVisible, ...)
@@ -476,15 +481,17 @@ enum Cmd {
         cu click 3 --app Finder                # by ref (from cu snapshot)\n  \
         cu click 500 300                       # by coordinates\n  \
         cu click --text 'Submit' --app Safari  # by OCR text (finds text on screen)\n  \
-        cu click 3 --app WeChat --verify       # detect silent failure on sandboxed apps\n\n\
+        cu click 3 --app WeChat                # verify is on by default (~50-150ms)\n\
+        cu click 3 --app Finder --no-verify    # opt out of verify when speed matters\n\n\
         Text mode (--text) uses OCR to find the text, then clicks its center.\n\
         Works for UI elements not in the AX tree (Notification Center, system panels).\n\
         Use --index N to click the Nth match (default: first).\n\n\
         Ref mode tries AX actions first, falls back to CGEvent.\n\
         Always use --app for reliability. Refs come from 'cu snapshot'.\n\n\
-        --verify: takes a pre-action AX snapshot and diffs after the click.\n\
+        Verify (default ON): takes a pre-action AX snapshot and diffs after the click.\n\
         Returns `verified: bool` + `verify_diff` + remediation `verify_advice`.\n\
-        Detects sandboxed apps that silently swallow PID-targeted CGEvents.")]
+        Catches sandboxed apps that silently swallow PID-targeted CGEvents — the\n\
+        #1 cause of \"ok=true but the UI didn't change\" agent confusion.")]
     Click {
         /// Element ref number, or x coordinate
         target: Option<String>,
@@ -523,11 +530,16 @@ enum Cmd {
         /// Skip auto-snapshot in JSON output
         #[arg(long)]
         no_snapshot: bool,
-        /// Verify the click took effect by diffing the AX tree before vs. after.
-        /// Adds one extra snapshot (≈50–150ms). Use to detect silent failures
-        /// from sandboxed/Electron apps that ignore PID-targeted CGEvents.
-        /// Returns `verified: bool` + remediation advice when no change is seen.
-        #[arg(long)]
+        /// Skip pre/post AX diff. Verify is ON by default to catch silent
+        /// failures (sandboxed apps that ignore PID-targeted CGEvents).
+        /// Use this when you've measured the verify cost (~50–150ms) and
+        /// know the target app is reliable.
+        #[arg(long = "no-verify")]
+        no_verify: bool,
+
+        /// Deprecated: verify is now the default. Kept as a hidden no-op
+        /// for backward compatibility with existing scripts.
+        #[arg(long, hide = true)]
         verify: bool,
     },
 
@@ -943,7 +955,8 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
             no_snapshot,
             allow_global,
             paste,
-        } => cmd_type(json, text, app, no_snapshot, allow_global, paste),
+            no_paste,
+        } => cmd_type(json, text, app, no_snapshot, allow_global, paste, no_paste),
         Cmd::SetValue {
             ref_id,
             value,
@@ -980,7 +993,8 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
             cmd,
             alt,
             no_snapshot,
-            verify,
+            no_verify,
+            verify: _legacy_verify,
         } => {
             let mods = mouse::Modifiers {
                 shift,
@@ -988,6 +1002,11 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
                 alt,
                 ctrl: false,
             };
+            // Verify is ON by default (R2). --no-snapshot disables it
+            // mechanically — verify needs the post-action snapshot to
+            // diff against. The deprecated `--verify` flag is accepted
+            // and ignored (already the default behavior).
+            let verify = !no_verify && !no_snapshot;
             cmd_click(ClickOptions {
                 json,
                 target,
@@ -1742,6 +1761,54 @@ fn cmd_ocr(json: bool, app: Option<String>) -> Result<(), CuError> {
     Ok(())
 }
 
+/// Apps known to drop the first character of PID-targeted unicode CGEvents.
+/// All CEF/Electron-based chat clients exhibit the bug because their text
+/// input field is a webview and the first synthetic event reaches the
+/// pre-init JS layer. Hardcoded list is conservative — adding a false
+/// positive only forces clipboard paste, which still works.
+const PASTE_APPS: &[&str] = &[
+    "WeChat", "微信",
+    "Slack",
+    "Discord",
+    "Telegram",
+    "QQ", "TIM",
+    "Lark", "飞书", "Feishu",
+    "DingTalk", "钉钉",
+    "WhatsApp",
+    "Signal",
+];
+
+fn contains_cjk(text: &str) -> bool {
+    text.chars().any(|c| {
+        let n = c as u32;
+        // CJK Unified Ideographs + Extension A, Hiragana, Katakana, Hangul,
+        // CJK Symbols and Punctuation, Halfwidth/Fullwidth forms.
+        matches!(n,
+            0x3000..=0x303F |   // CJK symbols
+            0x3040..=0x309F |   // Hiragana
+            0x30A0..=0x30FF |   // Katakana
+            0x3400..=0x4DBF |   // CJK Ext A
+            0x4E00..=0x9FFF |   // CJK Unified Ideographs
+            0xAC00..=0xD7AF |   // Hangul
+            0xFF00..=0xFFEF     // Halfwidth and Fullwidth Forms
+        )
+    })
+}
+
+/// Returns Some(reason) when the type call should auto-route through paste.
+/// `reason` is surfaced in the JSON output so the agent can see why.
+fn should_auto_paste(text: &str, app: &Option<String>) -> Option<String> {
+    if contains_cjk(text) {
+        return Some("text contains CJK characters (unicode events drop first char in CEF/Electron)".into());
+    }
+    if let Some(name) = app
+        && PASTE_APPS.iter().any(|known| name.eq_ignore_ascii_case(known) || name.contains(*known))
+    {
+        return Some(format!("target app '{name}' is in the paste list (CEF chat apps drop unicode events)"));
+    }
+    None
+}
+
 fn cmd_type(
     json: bool,
     text: String,
@@ -1749,6 +1816,7 @@ fn cmd_type(
     no_snapshot: bool,
     allow_global: bool,
     paste: bool,
+    no_paste: bool,
 ) -> Result<(), CuError> {
     // With --app: deliver Unicode events directly to the target pid (no focus
     // theft, no clipboard pollution, IME bypassed). Without --app: events go
@@ -1761,7 +1829,20 @@ fn cmd_type(
         }
         None
     };
-    let method = if paste {
+
+    // R7: auto-route via paste when the text contains CJK or the target is
+    // a chat app known to drop unicode events. --paste forces on, --no-paste
+    // forces off, otherwise auto.
+    let (use_paste, paste_reason) = if paste {
+        (true, Some("explicit --paste".to_string()))
+    } else if no_paste {
+        (false, None)
+    } else {
+        let auto_reason = should_auto_paste(&text, &app);
+        (auto_reason.is_some(), auto_reason)
+    };
+
+    let method = if use_paste {
         key::type_via_paste(&text, target_pid)?;
         if target_pid.is_some() { "paste-pid" } else { "paste-global" }
     } else {
@@ -1769,6 +1850,9 @@ fn cmd_type(
         if target_pid.is_some() { "unicode-pid" } else { "unicode-global" }
     };
     let mut result = serde_json::json!({"ok": true, "text": text, "method": method});
+    if let Some(reason) = paste_reason {
+        result["paste_reason"] = serde_json::Value::String(reason);
+    }
     maybe_attach_snapshot(&mut result, json, no_snapshot, &app, 50);
     if json {
         ok(result)
