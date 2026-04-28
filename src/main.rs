@@ -77,9 +77,9 @@ fn annotate_method(result: &mut serde_json::Value) {
     name = "cu",
     version = VERSION,
     about = "macOS desktop automation CLI for AI agents",
-    before_help = "COMMANDS BY CATEGORY (26 total):\n  \
+    before_help = "COMMANDS BY CATEGORY (27 total):\n  \
         Discover         setup · apps · menu · sdef · examples\n  \
-        Observe          snapshot · find · nearest · observe-region · ocr · screenshot · wait\n  \
+        Observe          snapshot · state · find · nearest · observe-region · ocr · screenshot · wait\n  \
         Act              click · type · key · set-value · perform · scroll · hover · drag\n  \
         Script & System  tell · defaults · window · launch · warm · why\n\n\
         Run `cu <command> --help` for any command's full reference + examples.\n\
@@ -177,10 +177,15 @@ enum Cmd {
         to drive a multi-step keystroke flow that requires real focus + IME-bypass entry.\n\n\
         Examples:\n  \
         cu type 'hello world' --app TextEdit\n  \
-        cu type 'https://example.com' --app 'Google Chrome'\n\n\
+        cu type 'https://example.com' --app 'Google Chrome'\n  \
+        cu type '你好世界' --app WeChat --paste     # CEF / chat apps drop unicode events\n\n\
         With --app: events go directly to that app's pid via Unicode CGEvent —\n\
         no focus theft, no clipboard pollution, IME bypassed.\n\
-        Without --app: events go to whatever app is frontmost.")]
+        Without --app: refused by default if the frontmost is a terminal or IDE\n\
+        (stray text would execute commands). Pass --allow-global to override.\n\n\
+        --paste: pbcopy + ⌘V instead of N unicode events. Use for chat apps\n\
+        (WeChat, Slack, Telegram desktop) that drop the first CJK character.\n\
+        Saves and restores the original clipboard.")]
     Type {
         /// Text to type
         text: String,
@@ -190,6 +195,15 @@ enum Cmd {
         /// Skip auto-snapshot in JSON output
         #[arg(long)]
         no_snapshot: bool,
+        /// Skip the frontmost-app safety check. Without --app, cu refuses by default
+        /// when the frontmost is a terminal or IDE — pass this to override.
+        #[arg(long = "allow-global")]
+        allow_global: bool,
+        /// Use clipboard paste (pbcopy + ⌘V) instead of unicode events.
+        /// Required for CEF/Electron chat apps (WeChat, Slack) that drop unicode
+        /// events. Saves and restores the original clipboard contents.
+        #[arg(long)]
+        paste: bool,
     },
 
     /// Perform any AX action on an element (AXShowMenu, AXIncrement, AXScrollToVisible, ...)
@@ -267,10 +281,11 @@ enum Cmd {
         Examples:\n  \
         cu key cmd+c --app 'Google Chrome'    # copy\n  \
         cu key cmd+shift+n --app 'Google Chrome'  # new incognito\n  \
-        cu key cmd+space                      # open Spotlight\n  \
+        cu key cmd+space --allow-global       # open Spotlight (system-level)\n  \
         cu key enter --app Safari             # confirm\n  \
-        cu key cmd+, --app Finder             # open Preferences\n  \
-        cu key escape                         # cancel/close\n\n\
+        cu key cmd+, --app Finder             # open Preferences\n\n\
+        Without --app: refused by default if frontmost is a terminal or IDE\n\
+        (stray keys would execute commands). Pass --allow-global to override.\n\n\
         Modifiers: cmd, shift, ctrl, alt (option)\n\
         Keys: a-z, 0-9, enter, tab, space, escape, delete, up/down/left/right, f1-f12")]
     Key {
@@ -282,6 +297,10 @@ enum Cmd {
         /// Skip auto-snapshot in JSON output
         #[arg(long)]
         no_snapshot: bool,
+        /// Skip the frontmost-app safety check. Without --app, cu refuses by default
+        /// when the frontmost is a terminal or IDE — pass this to override.
+        #[arg(long = "allow-global")]
+        allow_global: bool,
     },
 
     /// List interactive AX elements whose bounding box intersects a screen rectangle
@@ -455,12 +474,16 @@ enum Cmd {
         Three ways to click:\n  \
         cu click 3 --app Finder                # by ref (from cu snapshot)\n  \
         cu click 500 300                       # by coordinates\n  \
-        cu click --text 'Submit' --app Safari  # by OCR text (finds text on screen)\n\n\
+        cu click --text 'Submit' --app Safari  # by OCR text (finds text on screen)\n  \
+        cu click 3 --app WeChat --verify       # detect silent failure on sandboxed apps\n\n\
         Text mode (--text) uses OCR to find the text, then clicks its center.\n\
         Works for UI elements not in the AX tree (Notification Center, system panels).\n\
         Use --index N to click the Nth match (default: first).\n\n\
         Ref mode tries AX actions first, falls back to CGEvent.\n\
-        Always use --app for reliability. Refs come from 'cu snapshot'.")]
+        Always use --app for reliability. Refs come from 'cu snapshot'.\n\n\
+        --verify: takes a pre-action AX snapshot and diffs after the click.\n\
+        Returns `verified: bool` + `verify_diff` + remediation `verify_advice`.\n\
+        Detects sandboxed apps that silently swallow PID-targeted CGEvents.")]
     Click {
         /// Element ref number, or x coordinate
         target: Option<String>,
@@ -499,6 +522,12 @@ enum Cmd {
         /// Skip auto-snapshot in JSON output
         #[arg(long)]
         no_snapshot: bool,
+        /// Verify the click took effect by diffing the AX tree before vs. after.
+        /// Adds one extra snapshot (≈50–150ms). Use to detect silent failures
+        /// from sandboxed/Electron apps that ignore PID-targeted CGEvents.
+        /// Returns `verified: bool` + remediation advice when no change is seen.
+        #[arg(long)]
+        verify: bool,
     },
 
     /// Scroll at a position (specify --x and --y)
@@ -684,6 +713,32 @@ enum Cmd {
     Warm {
         /// App name (must already be running)
         app: String,
+    },
+
+    /// Unified state probe — snapshot + windows + screenshot + frontmost in one call
+    #[command(after_help = "\
+        PREFER:\n  \
+        First call when starting a task on a specific app — saves one LLM round-trip\n  \
+        vs `cu snapshot` + `cu window list` + `cu screenshot`. The screenshot gives\n  \
+        a VLM agent visual context; the snapshot gives ref-based interaction targets.\n\n\
+        Examples:\n  \
+        cu state Safari                # full state, screenshot to /tmp/cu-state-<ts>.png\n  \
+        cu state Mail --no-screenshot  # tree + windows only (faster)\n  \
+        cu state TextEdit --limit 100  # deeper tree walk\n\n\
+        Returns: { ok, app, pid, frontmost, windows[], displays[], elements[],\n\
+                   snapshot_size, tree_truncated, screenshot?, image_scale? }")]
+    State {
+        /// Application name (must be running)
+        app: String,
+        /// AX tree depth limit
+        #[arg(long, default_value = "50")]
+        limit: usize,
+        /// Skip the screenshot capture (faster, tree+windows only)
+        #[arg(long = "no-screenshot")]
+        no_screenshot: bool,
+        /// Output path for the window screenshot
+        #[arg(long)]
+        output: Option<String>,
     },
 
     /// List an app's menu bar items (works for ALL apps via System Events)
@@ -885,7 +940,9 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
             text,
             app,
             no_snapshot,
-        } => cmd_type(json, text, app, no_snapshot),
+            allow_global,
+            paste,
+        } => cmd_type(json, text, app, no_snapshot, allow_global, paste),
         Cmd::SetValue {
             ref_id,
             value,
@@ -906,7 +963,8 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
             combo,
             app,
             no_snapshot,
-        } => cmd_key(json, combo, app, no_snapshot),
+            allow_global,
+        } => cmd_key(json, combo, app, no_snapshot, allow_global),
         Cmd::Click {
             target,
             y,
@@ -921,6 +979,7 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
             cmd,
             alt,
             no_snapshot,
+            verify,
         } => {
             let mods = mouse::Modifiers {
                 shift,
@@ -941,6 +1000,7 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
                 double: double_click,
                 mods,
                 no_snapshot,
+                verify,
             })
         }
         Cmd::Scroll {
@@ -996,6 +1056,12 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
         } => cmd_launch(json, id, no_wait, timeout),
         Cmd::Warm { app } => cmd_warm(json, app),
         Cmd::Why { ref_id, app, limit } => cmd_why(json, ref_id, app, limit),
+        Cmd::State {
+            app,
+            limit,
+            no_screenshot,
+            output,
+        } => cmd_state(json, app, limit, no_screenshot, output),
         Cmd::Menu { app } => cmd_menu(json, app),
         Cmd::Defaults {
             action,
@@ -1680,6 +1746,8 @@ fn cmd_type(
     text: String,
     app: Option<String>,
     no_snapshot: bool,
+    allow_global: bool,
+    paste: bool,
 ) -> Result<(), CuError> {
     // With --app: deliver Unicode events directly to the target pid (no focus
     // theft, no clipboard pollution, IME bypassed). Without --app: events go
@@ -1687,13 +1755,17 @@ fn cmd_type(
     let target_pid = if app.is_some() {
         Some(system::resolve_target_app(&app)?.0)
     } else {
+        if !allow_global {
+            system::check_global_frontmost_safety("type")?;
+        }
         None
     };
-    key::type_text(&text, target_pid)?;
-    let method = if target_pid.is_some() {
-        "unicode-pid"
+    let method = if paste {
+        key::type_via_paste(&text, target_pid)?;
+        if target_pid.is_some() { "paste-pid" } else { "paste-global" }
     } else {
-        "unicode-global"
+        key::type_text(&text, target_pid)?;
+        if target_pid.is_some() { "unicode-pid" } else { "unicode-global" }
     };
     let mut result = serde_json::json!({"ok": true, "text": text, "method": method});
     maybe_attach_snapshot(&mut result, json, no_snapshot, &app, 50);
@@ -1817,11 +1889,15 @@ fn cmd_key(
     combo: String,
     app: Option<String>,
     no_snapshot: bool,
+    allow_global: bool,
 ) -> Result<(), CuError> {
     // With --app: PID-targeted (no focus theft). Without --app: global HID tap.
     let target_pid = if app.is_some() {
         Some(system::resolve_target_app(&app)?.0)
     } else {
+        if !allow_global {
+            system::check_global_frontmost_safety("send keys")?;
+        }
         None
     };
     key::send(&combo, target_pid)?;
@@ -1853,6 +1929,7 @@ struct ClickOptions {
     double: bool,
     mods: mouse::Modifiers,
     no_snapshot: bool,
+    verify: bool,
 }
 
 fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
@@ -1869,7 +1946,29 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
         double,
         mods,
         no_snapshot,
+        verify,
     } = opts;
+
+    // --verify: capture the AX state before any action so we can diff it
+    // against the post-action snapshot. We resolve the app once here and stash
+    // the (pid, name, prev_elements) tuple; downstream code paths read it back
+    // through `attach_verification` after maybe_attach_snapshot has populated
+    // result["snapshot"].
+    let pre_state: Option<(i32, String, Vec<ax::Element>)> = if verify {
+        match system::resolve_target_app(&app) {
+            Ok((pid, name)) => {
+                let snap = ax::snapshot(pid, &name, limit);
+                if snap.ok {
+                    Some((pid, name, snap.elements))
+                } else {
+                    None
+                }
+            }
+            Err(_) => None,
+        }
+    } else {
+        None
+    };
 
     // Mode 0: --ax-path → resolve via stable selector, then dispatch to AX
     // action chain (or CGEvent fallback). Same code path as ref click but the
@@ -1899,6 +1998,9 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
             "ok": true, "ax_path": p, "app": name, "method": method, "x": cx, "y": cy
         });
         maybe_attach_snapshot(&mut result, json, no_snapshot, &app, limit);
+        if let Some((_, _, ref prev)) = pre_state {
+            attach_verification(&mut result, prev, method);
+        }
         return if json {
             ok(result)
         } else {
@@ -1975,6 +2077,9 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
             "x": cx, "y": cy, "matches": matches.len()
         });
         maybe_attach_snapshot(&mut result, json, no_snapshot, &app, limit);
+        if let Some((_, _, ref prev)) = pre_state {
+            attach_verification(&mut result, prev, method);
+        }
         return if json {
             ok(result)
         } else {
@@ -2015,6 +2120,9 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
         let mut result =
             serde_json::json!({"ok": true, "method": method, "x": x, "y": y, "right": right});
         maybe_attach_snapshot(&mut result, json, no_snapshot, &app, limit);
+        if let Some((_, _, ref prev)) = pre_state {
+            attach_verification(&mut result, prev, method);
+        }
         return if json {
             ok(result)
         } else {
@@ -2057,6 +2165,9 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
 
     let mut result = serde_json::json!({"ok": true, "ref": ref_id, "app": name, "method": method, "x": cx, "y": cy});
     maybe_attach_snapshot(&mut result, json, no_snapshot, &app, limit);
+    if let Some((_, _, ref prev)) = pre_state {
+        attach_verification(&mut result, prev, method);
+    }
     if json {
         ok(result)
     } else {
@@ -2530,6 +2641,92 @@ fn cmd_warm(json: bool, app: String) -> Result<(), CuError> {
     }
 }
 
+fn cmd_state(
+    json: bool,
+    app: String,
+    limit: usize,
+    no_screenshot: bool,
+    output: Option<String>,
+) -> Result<(), CuError> {
+    let (pid, name) = system::resolve_target_app(&Some(app.clone()))?;
+
+    // Snapshot tree (load-bearing — fail loudly if AX is broken)
+    let snap = ax::snapshot(pid, &name, limit);
+    if !snap.ok {
+        return Err(snap
+            .error
+            .unwrap_or_else(|| "AX snapshot failed".into())
+            .into());
+    }
+
+    // Window list (best-effort — empty list is allowed if app has no windows yet)
+    let windows = system::list_windows(Some(&name)).unwrap_or_default();
+
+    // Frontmost flag — soft-fail (don't block on a flaky System Events)
+    let frontmost = system::frontmost_app_name()
+        .map(|f| f.eq_ignore_ascii_case(&name))
+        .unwrap_or(false);
+
+    // Optional screenshot of the front window
+    let screenshot_info: Option<(String, f64)> = if no_screenshot {
+        None
+    } else {
+        match screenshot::find_window(pid) {
+            Some(win) => {
+                let path = output.unwrap_or_else(|| {
+                    let ts = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.as_millis())
+                        .unwrap_or(0);
+                    format!("/tmp/cu-state-{ts}.png")
+                });
+                match screenshot::capture_window_with_scale(&win, &path) {
+                    Ok(scale) => Some((path, scale)),
+                    Err(_) => None, // soft-fail: report state without image
+                }
+            }
+            None => None, // app has no on-screen window
+        }
+    };
+
+    if json {
+        let mut full = serde_json::json!({
+            "ok": true,
+            "app": name,
+            "pid": pid,
+            "frontmost": frontmost,
+            "windows": windows,
+            "displays": display::list(),
+            "elements": snap.elements,
+            "snapshot_size": snap.elements.len(),
+            "tree_truncated": snap.truncated,
+        });
+        if let Some(frame) = &snap.window_frame {
+            full["window_frame"] = serde_json::json!({
+                "x": frame.x, "y": frame.y,
+                "width": frame.width, "height": frame.height,
+            });
+        }
+        if let Some((path, scale)) = screenshot_info {
+            full["screenshot"] = serde_json::json!(path);
+            full["image_scale"] = serde_json::json!(scale);
+        }
+        ok(full)
+    } else {
+        println!(
+            "{name} (pid {pid}){}  windows={}  elements={}{}",
+            if frontmost { " [frontmost]" } else { "" },
+            windows.len(),
+            snap.elements.len(),
+            if snap.truncated { " (truncated)" } else { "" },
+        );
+        if let Some((path, _)) = &screenshot_info {
+            println!("Screenshot: {path}");
+        }
+        Ok(())
+    }
+}
+
 fn cmd_menu(json: bool, app: String) -> Result<(), CuError> {
     let items = system::list_menu(&app)?;
 
@@ -2948,6 +3145,77 @@ fn print_diff_human(snap: &ax::SnapshotResult, d: &diff::Diff) {
         d.unchanged_count,
         d.total
     );
+}
+
+/// Compares the pre-action AX state against the snapshot already attached to
+/// `result` by `maybe_attach_snapshot`, then enriches the response with a
+/// `verified` flag and per-action diff stats. Used by `cu click --verify`.
+///
+/// `verified=false` means the AX tree did not change after the action — most
+/// often a sandboxed/Electron app silently ignored a PID-targeted CGEvent.
+/// We don't auto-retry: focus stealing is disruptive and AX-empty diffs have
+/// false positives (network roundtrips, animations not yet started). The
+/// agent reads the advice and chooses whether to recover.
+fn attach_verification(
+    result: &mut serde_json::Value,
+    pre: &[ax::Element],
+    method: &str,
+) {
+    // Pull post-action elements from the snapshot maybe_attach_snapshot already
+    // attached. If there's no snapshot (e.g. --no-snapshot), verification is
+    // still meaningful — fall back to {"verified": null} with an explanation.
+    let post_elements: Option<Vec<ax::Element>> = result
+        .get("snapshot")
+        .and_then(|s| s.get("elements"))
+        .and_then(|v| serde_json::from_value(v.clone()).ok());
+
+    let Some(post) = post_elements else {
+        if let Some(obj) = result.as_object_mut() {
+            obj.insert("verified".to_string(), serde_json::Value::Null);
+            obj.insert(
+                "verification_skipped".to_string(),
+                serde_json::Value::String(
+                    "no post-action snapshot available (--no-snapshot was set)".into(),
+                ),
+            );
+        }
+        return;
+    };
+
+    let d = diff::diff(pre, &post);
+    let verified = !(d.added.is_empty() && d.changed.is_empty() && d.removed.is_empty());
+
+    if let Some(obj) = result.as_object_mut() {
+        obj.insert(
+            "verified".to_string(),
+            serde_json::Value::Bool(verified),
+        );
+        obj.insert(
+            "verify_diff".to_string(),
+            serde_json::json!({
+                "added": d.added.len(),
+                "changed": d.changed.len(),
+                "removed": d.removed.len(),
+            }),
+        );
+        if !verified {
+            // Tailor the advice to the method that produced the silent failure.
+            let advice = if method.starts_with("cgevent-pid")
+                || method == "double-click-pid"
+                || method == "cgevent-right-pid"
+            {
+                "AX tree unchanged after PID-targeted CGEvent click — target app may be sandboxed (some Mac App Store / CEF apps drop pid-targeted events). Recovery: `cu window focus --app <Name>` then retry without --app via `cu click <ref> --allow-global` (focus shifts but the click lands)."
+            } else if method == "ax-action" {
+                "AX action returned ok but the tree didn't change. The action may have triggered an async operation (network, navigation) whose result hasn't landed yet — re-run cu snapshot after a short wait, or use `cu wait --gone <ref>` to wait for the actual transition."
+            } else {
+                "AX tree unchanged after the action. Either the click missed the target, the app handled it silently, or the resulting UI change hasn't landed yet."
+            };
+            obj.insert(
+                "verify_advice".to_string(),
+                serde_json::Value::String(advice.into()),
+            );
+        }
+    }
 }
 
 fn maybe_attach_snapshot(

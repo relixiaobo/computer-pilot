@@ -23,7 +23,10 @@ print('|'.join([
 
 section "method meta — global tap → confidence=low + advice"
 
-cu_json key escape --no-snapshot
+# --allow-global opts past the frontmost-app safety check (test runs from a terminal,
+# which is now refused by default). The intent here is to exercise the global tap
+# path itself and verify it carries low confidence + remediation advice.
+cu_json key escape --no-snapshot --allow-global
 assert_ok "cu key escape (no --app)"
 
 PARSED=$(echo "$OUT" | python3 -c "

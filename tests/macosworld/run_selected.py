@@ -16,8 +16,12 @@ if env_path.exists():
 sys.path.insert(0, str(Path(__file__).parent))
 from run_benchmark import run_task
 
-TASK_LIST = "/tmp/macosworld_final.txt"
-MODELS = ["claude-sonnet-4-6", "gpt-5.4"]
+TASK_LIST = os.environ.get("TASK_LIST", "/tmp/macosworld_final.txt")
+# Comma-separated. Default is the v0.4.0 baseline pair; override per-run via:
+#   MODELS=claude-sonnet-4-6 python tests/macosworld/run_selected.py
+MODELS = [m.strip() for m in os.environ.get(
+    "MODELS", "claude-sonnet-4-6,gpt-5.4"
+).split(",") if m.strip()]
 
 with open(TASK_LIST) as f:
     task_files = [l.strip() for l in f if l.strip()]

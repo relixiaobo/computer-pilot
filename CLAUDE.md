@@ -63,7 +63,7 @@ src/observer.rs    → Single-shot AXObserver post-action settle wait (D7)
 src/display.rs     → CGGetActiveDisplayList + CGDisplayBounds (D1)
 ```
 
-**26 commands** across discovery, observation, action, scripting, system control.
+**27 commands** across discovery, observation, action, scripting, system control.
 
 ## Design Rules
 

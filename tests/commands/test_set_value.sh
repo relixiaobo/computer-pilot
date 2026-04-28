@@ -102,8 +102,9 @@ cu_human set-value 1 "testing" --app TextEdit
 assert_exit_zero "set-value human exits 0"
 assert_contains "shows write confirmation" "Set"
 
-# Cleanup
-osascript -e 'tell application "TextEdit" to close every document saving no' 2>/dev/null
-osascript -e 'tell application "TextEdit" to quit' 2>/dev/null
+# Cleanup — `|| true` because quit may prompt to save (-128) and set -e would
+# otherwise kill the script before summary().
+osascript -e 'tell application "TextEdit" to close every document saving no' >/dev/null 2>&1 || true
+osascript -e 'tell application "TextEdit" to quit' >/dev/null 2>&1 || true
 
 summary

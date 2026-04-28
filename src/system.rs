@@ -63,6 +63,57 @@ pub fn resolve_target_app(name: &Option<String>) -> Result<(i32, String), String
     Ok((pid, app_name))
 }
 
+/// Apps where stray keystrokes are most damaging — terminals execute every line as a
+/// command, IDEs interpret shortcuts as destructive operations (close tab, delete file).
+/// When `cu key` / `cu type` runs without `--app`, events go to whatever is frontmost
+/// via the global HID tap; if the user happens to have one of these focused, the agent
+/// silently types into the wrong window. Refuse early with a clear error instead.
+pub const DANGEROUS_FRONTMOST: &[&str] = &[
+    // Terminal emulators
+    "Terminal", "iTerm", "iTerm2", "Ghostty", "Alacritty", "kitty",
+    "WezTerm", "Tabby", "Hyper", "Warp",
+    // Editors / IDEs
+    "Code", "Visual Studio Code", "Code - Insiders", "Cursor", "Windsurf",
+    "Xcode", "Sublime Text", "Nova", "Zed",
+    "IntelliJ IDEA", "IntelliJ IDEA CE", "PyCharm", "PyCharm CE",
+    "WebStorm", "RustRover", "GoLand", "CLion", "RubyMine", "PhpStorm",
+    "Android Studio", "DataGrip",
+];
+
+/// Cheap query: name of the frontmost GUI process.
+/// 5s timeout; intended for safety-check fast paths.
+///
+/// `CU_TEST_FRONTMOST_OVERRIDE` (unset in production) lets shell tests inject
+/// a deterministic frontmost name without activating an app and disrupting the
+/// user. This is the only test seam in this module.
+pub fn frontmost_app_name() -> Result<String, String> {
+    if let Ok(name) = std::env::var("CU_TEST_FRONTMOST_OVERRIDE")
+        && !name.is_empty()
+    {
+        return Ok(name);
+    }
+    let script = r#"tell application "System Events" to get name of first process whose frontmost is true"#;
+    run_applescript_capture(script, 5, false).map(|s| s.trim().to_string())
+}
+
+/// Returns Err with a structured message when the frontmost app is one of
+/// `DANGEROUS_FRONTMOST`. Soft-fails (returns Ok) if the frontmost lookup itself
+/// fails — we don't want to block legitimate use because System Events hung.
+pub fn check_global_frontmost_safety(verb: &str) -> Result<(), String> {
+    let front = match frontmost_app_name() {
+        Ok(name) if !name.is_empty() => name,
+        _ => return Ok(()),
+    };
+    if DANGEROUS_FRONTMOST.iter().any(|d| d.eq_ignore_ascii_case(&front)) {
+        return Err(format!(
+            "refusing to {verb} without --app: frontmost is \"{front}\" \
+             (terminal/IDE — stray keys would execute commands or destructive shortcuts). \
+             Pass --app <Name> to target a specific app, or --allow-global to override."
+        ));
+    }
+    Ok(())
+}
+
 // ── List apps ──────────────────────────────────────────────────────────────
 
 pub fn list_apps() -> Result<String, String> {

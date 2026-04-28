@@ -41,11 +41,14 @@ When you have a goal, walk down this tree before you write any commands:
 ```
 Need to act on the system?
 ├─ App not yet running?            → cu launch <name|bundleId>      (D6: waits for window-ready)
+├─ Starting a task on a specific app?
+│                                  → cu state <app>                  (snapshot + screenshot + windows + frontmost in one call)
 ├─ Read/write app data?
 │   ├─ S flag in `cu apps`?        → cu tell <App> '<AppleScript>'
 │   └─ otherwise                   → cu snapshot → cu set-value / cu type
 ├─ Click something?
 │   ├─ Know its ref (just snapshotted)? → cu click <ref> --app <X>
+│   ├─ Sandboxed/Electron app?          → cu click <ref> --app <X> --verify   (returns verified:bool + advice on silent failure)
 │   ├─ Multi-step / UI mutates?         → cu click --ax-path "<path>" --app <X>   (A2: stable across snapshots)
 │   ├─ Know its text/role?              → cu find --first --raw --role <R> --title-contains <S> --app <X> | xargs cu click --app <X>
 │   ├─ Know visual coords (VLM)?        → cu nearest <x> <y> --app <X>   (or cu click <x> <y>)
@@ -53,6 +56,7 @@ Need to act on the system?
 ├─ Fill a textfield?
 │   ├─ AX field, just snapshotted?     → cu set-value <ref> "..."           (no focus needed)
 │   ├─ AX field, multi-step flow?      → cu set-value --ax-path "<path>" "..."   (selector survives UI churn)
+│   ├─ Chat app + CJK/emoji?           → cu type "..." --app <X> --paste    (clipboard ⌘V — bypasses unicode-event drops)
 │   └─ Electron / non-AX?              → cu click <ref>; cu type "..."
 ├─ Read screen?
 │   ├─ Tree layout (cheap)?        → cu snapshot --limit N
@@ -71,9 +75,12 @@ Need to act on the system?
 ```
 
 **Hard rules:**
-- Always pass `--app <Name>` for action commands. Without it, events go through the global HID tap and the cursor warps. The response field `confidence: "low"` + `advice: "pass --app"` flags this after the fact.
+- **Every action command needs `--app <Name>`.** Not just `click` — also `cu key`, `cu type`, `cu scroll`, `cu hover`, `cu drag`, `cu set-value`, `cu perform`. Without `--app`, events go through the global HID tap → they hit *whatever's frontmost*. `cu key` and `cu type` now **refuse outright** when frontmost is a terminal/IDE (the most common foot-gun: typing into the terminal that's running cu). Pass `--allow-global` to override, but the right fix is almost always `--app`.
+- **Observe the target app directly, even if it's behind other windows.** `cu snapshot <app>` and `cu screenshot --app <app>` both work without bringing the app to the front. Don't run `cu apps`, scan the list, click on a window, then snapshot. Just snapshot the app you care about by name on step 1. **First call when starting a task**: prefer `cu state <app>` — one call returns snapshot + screenshot + window list + frontmost flag, saves a round-trip.
 - **Refs are ephemeral, axPaths are stable.** Refs refresh with every snapshot. For multi-step flows that mutate the UI between actions, save the `axPath` from the first snapshot and pass `--ax-path` to subsequent click/set-value/perform calls. The same axPath resolves to the same element even after refs renumber.
 - After every action, read the auto-attached `snapshot` (and `settle_ms`, the actual UI-settle wait) instead of calling `cu snapshot` again.
+- **CJK / emoji into chat apps (WeChat, Slack, Telegram desktop): use `cu type "..." --paste`.** The CEF-based input layer in these apps drops the leading characters of `CGEventKeyboardSetUnicodeString` events. `--paste` uses pbcopy + ⌘V (single keystroke, atomic delivery) and saves/restores your existing clipboard. For ASCII into normal AppKit apps, plain `cu type` still works.
+- **A few sandboxed apps (some Mac App Store builds — WeChat, parts of Microsoft Office) silently ignore PID-targeted CGEvents.** Symptom: `ok:true` returned but the UI doesn't change. Detection: pass `--verify` to `cu click` — it diffs the AX tree before vs. after and returns `verified: false` + remediation advice when the tree didn't move. Recovery: `cu window focus --app <X>` (ax-raise, non-disruptive) then retry, or pass `--allow-global` to use the global tap path (focus shifts but the click lands).
 
 ## Scripting Workflow (preferred for scriptable apps)
 
@@ -334,6 +341,8 @@ Use the `[ref]` number with `cu click <ref>` to interact.
 | Command | Description |
 |---------|-------------|
 | `cu apps` | List running apps (`S` = scriptable, with class count) |
+| `cu state <app>` | **First call when starting a task.** Snapshot + windows + screenshot + frontmost in one command — saves a round-trip vs. `snapshot` + `window list` + `screenshot` |
+| `cu state <app> --no-screenshot` | Same, faster (skips the PNG capture) |
 | `cu snapshot [app] --limit N` | AX tree with [ref] numbers |
 | `cu snapshot [app] --diff` | Same, but only elements that changed since last snapshot of this app |
 | `cu snapshot [app] --annotated --output path.png` | Same + writes a PNG with each ref's box+number drawn on it (for VLM agents) |
@@ -350,12 +359,14 @@ Use the `[ref]` number with `cu click <ref>` to interact.
 | Command | Description |
 |---------|-------------|
 | `cu click <ref> --app Name` | Click element (AX action first, CGEvent fallback) |
+| `cu click <ref> --app Name --verify` | Same + diff AX tree before/after, return `verified: bool` (detects sandboxed apps that swallow PID-targeted clicks) |
 | `cu click <ref> --right` | Right-click |
 | `cu click <ref> --double-click` | Double-click (open files, select words) |
 | `cu click <ref> --shift` | Shift+click (extend selection) |
 | `cu click <x> <y>` | Click screen coordinates |
-| `cu key <combo> --app Name` | Keyboard shortcut |
+| `cu key <combo> --app Name` | Keyboard shortcut (refused when frontmost is a terminal/IDE — pass `--allow-global` to override) |
 | `cu type "text" --app Name` | Type text (Unicode CGEvent, IME-bypass, no clipboard) |
+| `cu type "text" --app Name --paste` | **Use this for chat/CEF apps (WeChat, Slack, Telegram desktop) and CJK text.** pbcopy + ⌘V instead of N unicode events; saves/restores clipboard automatically |
 | `cu set-value <ref\|--ax-path> "text" --app Name` | Write text into an AX field — no focus, no IME |
 | `cu perform <ref\|--ax-path> <AXAction> --app Name` | Invoke a named AX action (`AXShowMenu`, `AXIncrement`, `AXScrollToVisible`, ...) |
 | `cu scroll down 5 --x 400 --y 300` | Scroll |
@@ -524,6 +535,30 @@ Cuts token cost on long sessions where the UI mostly stays the same.
 cu defaults read com.apple.dock autohide
 cu defaults write com.apple.dock autohide -bool true && killall Dock
 ```
+
+### 11. Send a message in a chat / IM app (WeChat, Messages, Slack, Telegram)
+Chat apps need three behaviors different from normal AppKit apps:
+1. They're often **partly sandboxed** — PID-targeted CGEvents may be silently ignored. Use `--verify` on critical clicks.
+2. Their **rich-text editors drop the leading code units of `CGEventKeyboardSetUnicodeString`** events — non-ASCII (Chinese, Japanese, emoji) gets half-eaten. Use `--paste` instead.
+3. The **conversation you want is often already open** — don't waste a step searching/switching.
+
+```bash
+# 1. One call: tree + windows + screenshot + frontmost. Saves a round-trip.
+cu state WeChat                               # /tmp/cu-state-*.png attached for visual context
+
+# 2. Find the message input field (rich textarea / textfield by role).
+INPUT=$(cu find --app WeChat --role textarea --first --raw)
+
+# 3. Click into the field, then paste the message. --paste handles CJK + emoji
+#    correctly and saves/restores your existing clipboard automatically.
+cu click "$INPUT" --app WeChat --verify       # --verify flags silent failures
+cu type "你好，这是来自 cu 的消息" --app WeChat --paste
+cu key enter --app WeChat                     # send (some apps want cmd+enter — try enter first)
+```
+
+**Why `--paste` and not plain `cu type`?** Plain `cu type` posts one `CGEventKeyboardSetUnicodeString` per character. Chat-app rich-text editors (CEF / Electron / IME-aware) often drop the first 1–3 events while focus is still settling, so "你好世界" arrives as "好世界" or "世界". `--paste` posts a single ⌘V instead — atomic, no per-character race. Costs ~150ms extra.
+
+**If `--verify` returns `verified: false`:** the click hit the wrong target or the app silently dropped the event. Recovery: `cu window focus --app WeChat` (ax-raise — non-disruptive), then retry. Last resort: pass `--allow-global` to use the global-tap path (focus shifts but the click lands).
 
 ## Key Rules
 

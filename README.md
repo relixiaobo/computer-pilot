@@ -147,7 +147,7 @@ cu ocr "Google Chrome"
 # [100,240 500x16] "This domain is for use in..." (100%)
 ```
 
-## Commands (26)
+## Commands (27)
 
 ### Discover
 
@@ -165,6 +165,7 @@ cu ocr "Google Chrome"
 | `cu snapshot [app]` | AX tree with [ref] numbers, position, size, window frame |
 | `cu snapshot [app] --diff` | Only elements that changed since last snapshot of this app |
 | `cu snapshot [app] --annotated --output p.png` | Captures window + draws each ref's box+number on it (for VLM agents) |
+| `cu state <app>` | Snapshot + windows + screenshot + frontmost in one call (saves a round-trip when starting a task) |
 | `cu find --role/--title-contains/--value-contains` | Predicate query — skip the `snapshot + grep` round-trip |
 | `cu nearest <x> <y>` | Pixel → ref reverse lookup (for VLM agents that have visual coords) |
 | `cu observe-region <x> <y> <w> <h>` | List interactive refs whose bbox is in/touches a rect (intersect/center/inside) |

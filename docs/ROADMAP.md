@@ -7,7 +7,7 @@
 > - [`competitive-analysis.md`](./competitive-analysis.md) — 多项目特性栅格（事实快照）
 > - 本文档 — 执行计划 + 进度追踪（动态）
 
-最后更新：2026-04-27（**Sprint 1 + Sprint 2 完结 · v0.4.0 发布**；Sprint 3 进行中 — A2 axPath / D8 AX warmup / B7 cu why 完成；A5 CDP 舍弃；E1 / E2 待启动；26 命令、570+ 测试）
+最后更新：2026-04-28（**Sprint 1 + Sprint 2 完结 · v0.4.0 发布**；Sprint 3 进行中 — A2 axPath / D8 AX warmup / B7 cu why 完成；E3 微信任务暴露的 4 个根因修复完成（cu key 终端安全检查 / cu state 组合命令 / cu type --paste / cu click --verify）；A5 CDP 舍弃；E1 / E2 待启动；27 命令、660+ 测试）
 
 ---
 

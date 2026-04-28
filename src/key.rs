@@ -133,8 +133,83 @@ pub fn send(combo: &str, target_pid: Option<i32>) -> Result<(), String> {
 /// `target_pid: Some(pid)` → delivered to that process (no focus theft, no
 /// clipboard pollution, no app activation).
 /// `target_pid: None` → goes to whatever app is frontmost (global HID tap).
+/// Type text via clipboard paste. Saves the current clipboard, sets it to
+/// `text`, sends ⌘V to the target, then restores the original clipboard.
+///
+/// This is the proven path for CEF / Electron chat apps (WeChat, Slack,
+/// Telegram desktop) where `CGEventKeyboardSetUnicodeString` can drop the
+/// first character — pasting is a single keyboard shortcut, not N unicode
+/// events, so the input listener can't lose any.
+///
+/// Round-trip cost: two pbcopy/pbpaste subprocesses + one ⌘V key event,
+/// ~50-100ms total. Falls back to `type_text` on pbcopy/pbpaste failure.
+pub fn type_via_paste(text: &str, target_pid: Option<i32>) -> Result<(), String> {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+
+    // Snapshot the existing clipboard so we can restore it after pasting.
+    let saved = Command::new("pbpaste")
+        .output()
+        .map_err(|e| format!("pbpaste failed: {e}"))?;
+    let saved_text = String::from_utf8_lossy(&saved.stdout).to_string();
+
+    // Replace clipboard contents with the text we want to paste.
+    let mut child = Command::new("pbcopy")
+        .stdin(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("pbcopy spawn failed: {e}"))?;
+    child
+        .stdin
+        .as_mut()
+        .ok_or("pbcopy stdin unavailable")?
+        .write_all(text.as_bytes())
+        .map_err(|e| format!("pbcopy write failed: {e}"))?;
+    child
+        .wait()
+        .map_err(|e| format!("pbcopy wait failed: {e}"))?;
+
+    // Give the pasteboard a moment to settle before the paste shortcut. Without
+    // this, ⌘V can fire before the new clipboard contents are visible to the
+    // target app, pasting either nothing or the previous clipboard.
+    std::thread::sleep(std::time::Duration::from_millis(40));
+
+    // Paste — same PID-targeting rules as a normal key shortcut.
+    let paste_result = send("cmd+v", target_pid);
+
+    // Wait for the target app to actually consume the pasteboard before we
+    // overwrite it with the restored value. Without this delay, cmd+v is
+    // asynchronous from our side: pbcopy-restore runs first, the target then
+    // reads "the clipboard" and gets the restored (wrong) text instead of
+    // the text we wanted to paste. 150ms is enough on a busy machine.
+    std::thread::sleep(std::time::Duration::from_millis(150));
+
+    // Best-effort restore of the original clipboard. We don't bubble pbcopy
+    // restore failures because the paste itself may have already succeeded.
+    let _ = (|| -> Result<(), std::io::Error> {
+        let mut restore = Command::new("pbcopy").stdin(Stdio::piped()).spawn()?;
+        restore
+            .stdin
+            .as_mut()
+            .ok_or_else(|| std::io::Error::other("stdin"))?
+            .write_all(saved_text.as_bytes())?;
+        restore.wait()?;
+        Ok(())
+    })();
+
+    paste_result
+}
+
 pub fn type_text(text: &str, target_pid: Option<i32>) -> Result<(), String> {
     let source = EventSource::for_target(target_pid);
+
+    // First-event wake-up for PID-targeted delivery. CEF / Electron chat apps
+    // (WeChat, Slack, …) can drop the very first CGEvent when their input
+    // listener hasn't finished registering. 15ms gives the target one
+    // run-loop tick before we start dispatching characters. Skipped for the
+    // global tap (no race — the user's own focus already woke the listener).
+    if target_pid.is_some() {
+        std::thread::sleep(std::time::Duration::from_millis(15));
+    }
 
     for ch in text.chars() {
         // BMP scalars encode to 1 unit; non-BMP (e.g. U+1F600) to 2 (a
