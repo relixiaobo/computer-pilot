@@ -6,6 +6,7 @@ mod key;
 mod mouse;
 mod observer;
 mod ocr;
+mod sck;
 mod screenshot;
 mod sdef;
 mod system;

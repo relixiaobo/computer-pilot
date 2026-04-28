@@ -210,6 +210,19 @@ unsafe fn dict_i64(dict: CFTypeRef, key: &str) -> Option<i64> {
     }
 }
 
+/// Save an arbitrary `CGImageRef` (passed as `*const c_void`) to a PNG file.
+/// CFReleases the image after writing — caller must hand off a +1 reference.
+pub fn save_image_ptr(image: *const c_void, path: &str) -> Result<(), String> {
+    if image.is_null() {
+        return Err("save_image_ptr: null image".into());
+    }
+    unsafe {
+        let result = save_cgimage_as_png(image, path);
+        CFRelease(image);
+        result
+    }
+}
+
 unsafe fn save_cgimage_as_png(image: CFTypeRef, path: &str) -> Result<(), String> {
     let path_cf = cfstr(path).ok_or("failed to create path string")?;
     let url = CFURLCreateWithFileSystemPath(std::ptr::null(), path_cf, CF_URL_POSIX_PATH_STYLE, 0);
@@ -366,6 +379,22 @@ fn capture_protected_check(window: &WindowInfo) -> Result<(), String> {
 
 pub fn capture_window_with_scale(window: &WindowInfo, path: &str) -> Result<f64, String> {
     capture_protected_check(window)?;
+
+    // Primary path: ScreenCaptureKit (cross-Space capable; CGWindowList
+    // returns blank for windows on a non-active Space on macOS 14+).
+    match crate::sck::capture_window_to_png(window.window_id, window.width, window.height, path) {
+        Ok(px_w) => {
+            let scale = if window.width > 0.0 { px_w as f64 / window.width } else { 1.0 };
+            return Ok(scale);
+        }
+        Err(_sck_err) => {
+            // Fall through to CGWindowListCreateImage. SCK can fail on
+            // pre-13 macOS, when the window is gone, or when SCK's TCC
+            // bucket isn't authorized (separate from regular Screen
+            // Recording, in some configurations).
+        }
+    }
+
     unsafe {
         let image = CGWindowListCreateImage(
             CG_RECT_NULL,
@@ -374,7 +403,7 @@ pub fn capture_window_with_scale(window: &WindowInfo, path: &str) -> Result<f64,
             CG_WINDOW_IMAGE_BOUNDS_IGNORE_FRAMING,
         );
         if image.is_null() {
-            return Err("failed to capture window image".into());
+            return Err("failed to capture window image (SCK + CGWindowList both failed)".into());
         }
         let img_w = CGImageGetWidth(image);
         let scale = if window.width > 0.0 {
@@ -391,22 +420,7 @@ pub fn capture_window_with_scale(window: &WindowInfo, path: &str) -> Result<f64,
 /// Capture a specific window to a PNG file. No activation needed. Refuses
 /// when the target opted out of capture (`sharing_state=0`).
 pub fn capture_window(window: &WindowInfo, path: &str) -> Result<(), String> {
-    capture_protected_check(window)?;
-    unsafe {
-        let image = CGWindowListCreateImage(
-            CG_RECT_NULL,
-            CG_WINDOW_LIST_INCLUDING_WINDOW,
-            window.window_id,
-            CG_WINDOW_IMAGE_BOUNDS_IGNORE_FRAMING,
-        );
-        if image.is_null() {
-            return Err("failed to capture window image".into());
-        }
-
-        let result = save_cgimage_as_png(image, path);
-        CFRelease(image);
-        result
-    }
+    capture_window_with_scale(window, path).map(|_| ())
 }
 
 /// One element to annotate. Coordinates are in screen space (same as snapshot output).

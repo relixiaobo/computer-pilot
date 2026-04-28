@@ -56,7 +56,8 @@ src/main.rs        → CLI entry (clap), command routing, output formatting
 src/ax.rs          → AX tree walker + AX actions (macOS Accessibility FFI)
 src/mouse.rs       → Mouse operations (CGEvent FFI): click, scroll, hover, drag
 src/key.rs         → Keyboard events (CGEvent FFI)
-src/screenshot.rs  → Window capture (CGWindowListCreateImage + ImageIO)
+src/screenshot.rs  → Window capture (ScreenCaptureKit primary, CGWindowListCreateImage fallback)
+src/sck.rs         → ScreenCaptureKit sync wrapper (cross-Space capable, macOS 13+)
 src/ocr.rs         → OCR (macOS Vision framework via objc2)
 src/system.rs      → App resolution, permissions, System Events bridges:
                      tell, menu, defaults, window mgmt, type/key, launch
@@ -149,16 +150,16 @@ to Sprint 2 because it requires the diff-snapshot machinery (C1).
 
 ### 7. Screenshot rules
 
-- **Rust-native** — uses `CGWindowListCreateImage` (no `screencapture` CLI).
-- **No activation needed** — captures window content even when the app is behind other windows.
+- **Rust-native** — `ScreenCaptureKit` primary path (cross-Space capable, macOS 13+); `CGWindowListCreateImage` fallback. No `screencapture` CLI.
+- **No activation needed** — captures window content even when the app is behind other windows or on a different Space.
 - **Window-scoped by default**, full screen with `--full`.
 - Always return `offset_x`, `offset_y` in window mode: `screen = pixel + offset`.
+- **Capture-protected windows refuse upfront** — when `kCGWindowSharingState=0` (WeChat etc.), return a structured error rather than a blank PNG. SCK and CGWindowList both honor this; it cannot be bypassed.
 
 ### 8. Agent operation etiquette
 
 - When the agent operates another app (click, key, type, screenshot), it takes focus away from the user's terminal. **Minimize disruption time.**
-- Screenshot is observation-only — but still needs app activation for `-R` mode. Accept this limitation for v1.
-- Future: consider `ScreenCaptureKit` for per-window capture without activation.
+- Screenshot is observation-only and runs without activation. Visualization-mode (`--full -R`) still requires raising the window.
 
 ### 9. Error handling
 

@@ -16,3 +16,5 @@ objc2-foundation = { version = "0.3", features = ["alloc", "NSArray", "NSDiction
 objc2-vision = { version = "0.3", features = ["alloc", "objc2-core-graphics", "VNRecognizeTextRequest", "VNRequestHandler", "VNRequest", "VNObservation"] }
 objc2-core-graphics = { version = "0.3", features = ["CGImage"] }
 quick-xml = "0.37"
+objc2-screen-capture-kit = { version = "0.3.2", default-features = false, features = ["alloc", "std", "SCShareableContent", "SCScreenshotManager", "SCStream", "objc2-core-graphics", "block2", "dispatch2"] }
+block2 = "0.6.2"
