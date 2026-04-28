@@ -11,8 +11,9 @@ Three-tier control: **AppleScript** (scriptable apps) → **AX tree + CGEvent** 
 cargo build --release                         # Build
 bash tests/commands/run_all.sh                # Run 470+ command tests
 ./target/release/cu --human <command>         # Run in dev
-bash scripts/release.sh <version>             # Release: bump → tag → push → GitHub
-bash scripts/release.sh <version> --dry-run   # Dry run first
+bash scripts/release.sh <version>                          # Release: bump → tag → push → GitHub
+bash scripts/release.sh <version> --dry-run                # Dry run first
+bash scripts/release.sh <version> --skip-tests             # Skip test re-run (use only when run_all.sh just passed manually)
 ```
 
 ## Release Flow

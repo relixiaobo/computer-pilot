@@ -2,14 +2,18 @@
 # Release script for computer-pilot.
 #
 # Usage:
-#   bash scripts/release.sh <version>      # e.g. bash scripts/release.sh 0.2.1
-#   bash scripts/release.sh <version> --dry-run
+#   bash scripts/release.sh <version>                      # full release
+#   bash scripts/release.sh <version> --dry-run            # walk through, run nothing
+#   bash scripts/release.sh <version> --skip-tests         # skip the in-script test run
+#                                                          # (use only when you JUST ran
+#                                                          #  run_all.sh manually and got 0 failures)
+#   Flags can combine: --dry-run --skip-tests
 #
 # What it does:
 #   1. Verifies clean working tree, on main, in sync with origin
 #   2. Updates Cargo.toml version
 #   3. Runs cargo build --release
-#   4. Runs all tests (must pass)
+#   4. Runs all tests (must pass) — skipped with --skip-tests
 #   5. Commits the version bump
 #   6. Pushes the commit to origin
 #   7. Creates and pushes the v<version> tag
@@ -26,12 +30,33 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
-VERSION="${1:-}"
+VERSION=""
 DRY_RUN=""
-[[ "${2:-}" == "--dry-run" ]] && DRY_RUN=1
+SKIP_TESTS=""
+
+# Accept --dry-run / --skip-tests in any position; first positional arg is version.
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run)    DRY_RUN=1 ;;
+    --skip-tests) SKIP_TESTS=1 ;;
+    --*)
+      echo "Error: unknown flag '$arg'" >&2
+      echo "Usage: bash scripts/release.sh <version> [--dry-run] [--skip-tests]" >&2
+      exit 1
+      ;;
+    *)
+      if [[ -z "$VERSION" ]]; then
+        VERSION="$arg"
+      else
+        echo "Error: unexpected positional argument '$arg'" >&2
+        exit 1
+      fi
+      ;;
+  esac
+done
 
 if [[ -z "$VERSION" ]]; then
-  echo "Usage: bash scripts/release.sh <version> [--dry-run]" >&2
+  echo "Usage: bash scripts/release.sh <version> [--dry-run] [--skip-tests]" >&2
   echo "  Example: bash scripts/release.sh 0.2.1" >&2
   exit 1
 fi
@@ -124,9 +149,15 @@ echo ""
 echo "→ Building release binary"
 run "cargo build --release"
 
-echo ""
-echo "→ Running test suite"
-run "bash tests/commands/run_all.sh"
+if [[ -n "$SKIP_TESTS" ]]; then
+  echo ""
+  echo "→ Skipping test suite (--skip-tests)"
+  echo "  Caller is responsible for having run \`bash tests/commands/run_all.sh\` recently."
+else
+  echo ""
+  echo "→ Running test suite"
+  run "bash tests/commands/run_all.sh"
+fi
 
 # Verify binary version matches
 if [[ -z "$DRY_RUN" ]]; then
