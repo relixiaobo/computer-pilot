@@ -5,9 +5,9 @@
   },
   "plugins": [
     {
-      "name": "computer-pilot-plugin",
+      "name": "computer-pilot",
       "source": "./plugin",
-      "description": "Control the macOS desktop via CLI. AppleScript (cu tell/sdef), AX tree (cu snapshot/menu/click/window), OCR fallback. 17 commands.",
+      "description": "Control the macOS desktop via CLI. AppleScript (cu tell/sdef), AX tree (cu snapshot/menu/click/window), OCR fallback. 27 commands.",
       "version": "0.5.0"
     }
   ]
