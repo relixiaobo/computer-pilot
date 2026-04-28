@@ -91,7 +91,7 @@ In Claude Code, run:
 
 ```
 /plugin marketplace add relixiaobo/computer-pilot
-/plugin install computer-pilot-plugin@computer-pilot-marketplace
+/plugin install computer-pilot@computer-pilot-marketplace
 ```
 
 This teaches Claude Code how to use `cu` automatically — just ask it to interact with desktop apps.
@@ -102,7 +102,7 @@ When a new version is released, update with:
 
 ```
 /plugin marketplace update computer-pilot-marketplace
-/plugin update computer-pilot-plugin@computer-pilot-marketplace
+/plugin update computer-pilot@computer-pilot-marketplace
 ```
 
 The `cu` binary is separate — re-run the install curl command to upgrade it:

@@ -44,7 +44,7 @@ All three must move together. Claude Code only detects a plugin update if `marke
 Users update the plugin with:
 ```
 /plugin marketplace update computer-pilot-marketplace
-/plugin update computer-pilot-plugin@computer-pilot-marketplace
+/plugin update computer-pilot@computer-pilot-marketplace
 ```
 
 ## Architecture

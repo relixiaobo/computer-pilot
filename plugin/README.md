@@ -27,7 +27,7 @@ cu setup
 
 ```
 /plugin marketplace add relixiaobo/computer-pilot
-/plugin install computer-pilot-plugin@relixiaobo-computer-pilot
+/plugin install computer-pilot@relixiaobo-computer-pilot
 ```
 
 ## What it does

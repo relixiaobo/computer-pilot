@@ -1,6 +1,6 @@
 {
-  "name": "computer-pilot-plugin",
-  "version": "0.1.0",
+  "name": "computer-pilot",
+  "version": "0.5.1",
   "description": "Agent plugin for computer-pilot — teach AI coding agents to control the macOS desktop via CLI",
   "keywords": [
     "computer-pilot",
