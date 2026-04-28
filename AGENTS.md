@@ -182,6 +182,84 @@ to Sprint 2 because it requires the diff-snapshot machinery (C1).
 - **AppleScript injection**: Escape `\` and `"` in user-provided text before embedding in AppleScript strings.
 - **`cu tell` expressions**: The user/agent provides AppleScript expression, auto-wrapped in `tell application "X" ... end tell`. App name escaped via `applescript_escape()`. Timeout enforced (default 10s). Output uses `-ss` flag for unambiguous structured text.
 
+## Agent Reliability Principles
+
+Three principles govern every command's IO contract. Following them prevents
+the *"agent acted on wrong information and didn't notice"* failure class —
+the most lethal failure mode for an automation tool, because the agent has
+no way to recover from input it doesn't know is wrong.
+
+### Principle 1 — Single source of truth for identity
+
+Anything that resolves "which window" or "which element" must go through AX.
+`AXFocusedWindow` → `AXMainWindow` → `_AXUIElementGetWindow` for CGWindowID.
+Do **not** pick a window from CGWindowList by heuristic (largest area, lowest
+layer, first match). CGWindowList is a flat list with no semantic notion of
+"the real window" — the same app typically has 3-5 layer-0 windows
+(menu-bar proxy, AX helper, palette stubs) and choosing the wrong one
+silently breaks every downstream command.
+
+Implemented in `screenshot::find_window` (commit shipping R1). When adding a
+new path that needs window identity, mirror this — never reach into
+CGWindowList directly.
+
+### Principle 2 — `ok=true` must mean it really happened
+
+State-mutating actions (click/type/key) default to verifying their effect
+via pre/post AX diff. Sandboxed and Electron apps return ok=true silently
+when PID-targeted CGEvents are dropped — this is the #1 cause of "the agent
+thinks it succeeded but the UI didn't change" debugging sessions.
+
+Flag layout convention: `--no-verify` to opt out, **never** `--verify` to
+opt in. New state-mutating commands follow the same pattern.
+
+Implemented in `cu click` (R2 commit). When `verified=false`, attach a
+`verify_advice` string with concrete remediation, not a generic "it didn't
+work" — agents need next-step instructions, not just a flag.
+
+### Principle 3 — Degraded output must be loud
+
+When output is partial, low-confidence, omitted, or auto-routed, attach a
+top-level **string** advisory the agent can read and react to. Boolean
+flags (`truncated: true`) are easy for an agent to skip; explicit advisories
+("snapshot stopped at 50 — re-run with `--limit 100`") are not.
+
+Examples already wired:
+- `truncation_hint` on `cu snapshot` (R3)
+- `confidence_hint` on `cu ocr` when any recognition is below 0.5 (R6)
+- `paste_reason` on `cu type` when auto-routed via clipboard (R7)
+- `verify_advice` on `cu click` when verified=false (R2)
+- `screenshot_error` on `cu state` when capture refused (A from earlier batch)
+
+Whenever a command returns degraded or auto-corrected output, follow the
+same pattern: a string field whose name ends with `_hint` / `_reason` /
+`_advice` / `_error`, populated only on the degraded path.
+
+### Anti-patterns (concrete things NOT to reintroduce)
+
+These are real bugs we've already paid for. The fix is in code; this
+checklist exists so a future revert doesn't bring them back.
+
+- **"Pick the largest / first / on-screen layer-0 window from CGWindowList"**
+  — pick by AX, not heuristic. Rediscovered 2026-04: captured the menu-bar
+  stub (3840×30) instead of the real off-Space window for TextEdit.
+- **"Treat `AXTitle` as the user-visible label"** — Electron/CEF apps set
+  AXTitle to internal IDs ("submit_btn_primary"). Walk
+  AXTitle → AXDescription → AXHelp → AXIdentifier (R5).
+- **"Return ok=true after a CGEvent click without verification"** —
+  sandboxed apps silently drop PID-targeted events. Verify by AX diff (R2).
+- **"Send unicode CGEvents to chat apps"** — WeChat/Slack/Discord/Telegram/
+  Lark/QQ/DingTalk drop the first character. Auto-route through paste when
+  text contains CJK or target is on the chat-app list (R7).
+- **"Capture cross-Space window via CGWindowListCreateImage"** — returns
+  blank PNG. Use ScreenCaptureKit (`sck.rs`) primary path (B), and honor
+  `kCGWindowSharingState=0` upfront with a structured error (A).
+- **"Truncate or low-confidence silently"** — attach an actionable hint
+  string. Agents skim for unfamiliar string fields; they miss booleans.
+- **"Use OnScreenOnly + first match heuristic"** — OnScreenOnly hides
+  Mission Control windows, and "first match" depends on enumeration order.
+  Both bite the moment conditions change.
+
 ## Testing
 
 Three layers (defined in `tests/`):
