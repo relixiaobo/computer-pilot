@@ -617,19 +617,28 @@ enum Cmd {
     /// Capture window screenshot (silent, no app activation needed)
     #[command(after_help = "\
         Three modes:\n  \
-        cu screenshot 'Google Chrome' --path /tmp/chrome.png  # window\n  \
+        cu screenshot 'Google Chrome' --path /tmp/chrome.png  # window (positional)\n  \
+        cu screenshot --app 'Google Chrome' --path /tmp/c.png # window (--app form)\n  \
         cu screenshot --full --path /tmp/screen.png           # full screen\n  \
         cu screenshot --region '480,200 400x300' --path /tmp/r.png  # region\n\n\
         Region format: 'x,y WxH' (point space, same as snapshot element coords).\n\
         Region mode is great for VLM verification: instead of re-screenshotting\n\
         a 1920×1200 window (~1500 tokens), grab just the area you care about\n\
         (~150 tokens for a 200×100 region).\n\n\
-        All modes return offset_x/offset_y so screen_coord = image_pixel/scale + offset.")]
+        All modes return offset_x/offset_y so screen_coord = image_pixel/scale + offset.\n\n\
+        Flag aliases: --app accepted in addition to the positional argument; \
+        --output accepted as an alias for --path. This matches every other \
+        cu command's flag layout — agents don't need to remember the exception.")]
     Screenshot {
-        /// Application name (default: frontmost)
-        app: Option<String>,
-        /// Output file path (default: /tmp/cu-screenshot-<ts>.png)
-        #[arg(long)]
+        /// Application name (positional). Equivalent to --app; either works.
+        app_positional: Option<String>,
+        /// Application name (--app form). For consistency with every other cu
+        /// command. Conflicts with the positional form.
+        #[arg(long = "app", conflicts_with = "app_positional")]
+        app_flag: Option<String>,
+        /// Output file path (default: /tmp/cu-screenshot-<ts>.png).
+        /// `--output` is accepted as an alias.
+        #[arg(long, alias = "output")]
         path: Option<String>,
         /// Capture full screen instead of single window
         #[arg(long)]
@@ -1057,11 +1066,12 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
             cmd_drag(json, x1, y1, x2, y2, mods, app, no_snapshot)
         }
         Cmd::Screenshot {
-            app,
+            app_positional,
+            app_flag,
             path,
             full,
             region,
-        } => cmd_screenshot(json, app, path, full, region),
+        } => cmd_screenshot(json, app_positional.or(app_flag), path, full, region),
         Cmd::Window {
             action,
             arg1,
@@ -3290,16 +3300,29 @@ fn attach_verification(
             }),
         );
         if !verified {
-            // Tailor the advice to the method that produced the silent failure.
+            // Recovery advice — purposefully avoids `--allow-global`. The
+            // global HID tap path is brittle: between the cu window focus
+            // call and the next bash invocation, focus can drift back to
+            // the terminal, and the fallback click lands on the wrong app.
+            // Stay on `--app`-targeted cu primitives; if AX is too sparse
+            // for ref/ax-path actions, single AppleScript activate first
+            // and retry the cu command (still with --app).
             let advice = if method.starts_with("cgevent-pid")
                 || method == "double-click-pid"
                 || method == "cgevent-right-pid"
             {
-                "AX tree unchanged after PID-targeted CGEvent click — target app may be sandboxed (some Mac App Store / CEF apps drop pid-targeted events). Recovery: `cu window focus --app <Name>` then retry without --app via `cu click <ref> --allow-global` (focus shifts but the click lands)."
+                "AX tree unchanged after PID-targeted CGEvent click — the target app may be sandboxed/CEF and dropped the event, or the click coordinates missed the intended element. Try, in order: \
+                 (1) re-snapshot to confirm the UI state — the auto-attached snapshot already shows the post-action tree; \
+                 (2) if the element has a ref, switch to ref-based click (`cu click <ref> --app <Name>`) which uses the AX action chain (AXPress/AXConfirm) — these aren't dropped by sandboxes the way coord-clicks are; \
+                 (3) if no usable ref exists, use `cu perform <ref|--ax-path> AXPress --app <Name>` against a parent element; \
+                 (4) only as a last resort, run a single `osascript -e 'tell application \"<Name>\" to activate'` and retry the same `cu click ... --app <Name>`. \
+                 Do not fall back to the global-tap path — between bash invocations, focus drifts back to your terminal and the click lands there instead of on the target."
             } else if method == "ax-action" {
-                "AX action returned ok but the tree didn't change. The action may have triggered an async operation (network, navigation) whose result hasn't landed yet — re-run cu snapshot after a short wait, or use `cu wait --gone <ref>` to wait for the actual transition."
+                "AX action returned ok but the tree didn't change. The action may have triggered an async operation (network, navigation, animation) whose result hasn't landed yet. Either re-run `cu snapshot --diff` after a short wait, or use `cu wait --text <expected> --app <Name>` / `cu wait --gone <ref> --app <Name>` to block until the transition lands."
+            } else if method.starts_with("unicode-pid") || method.starts_with("paste-pid") {
+                "AX tree unchanged after `cu type`. Possibilities: (1) no input field was focused — click the input first (`cu click <ref> --app <Name>`); (2) the app's text widget doesn't update AX on every keystroke — wait briefly and re-snapshot; (3) IME swallowed the input — switch to `--paste` (or rely on auto-paste for CJK / chat-app targets, which is on by default)."
             } else {
-                "AX tree unchanged after the action. Either the click missed the target, the app handled it silently, or the resulting UI change hasn't landed yet."
+                "AX tree unchanged after the action. Either the action missed the target, the app handled it silently, or the resulting UI change hasn't landed yet. Re-snapshot to confirm; if you used coordinates, switch to a ref-based action (`cu click <ref> --app <Name>` or `cu perform <ref> AXPress --app <Name>`)."
             };
             obj.insert(
                 "verify_advice".to_string(),

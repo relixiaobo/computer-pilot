@@ -74,15 +74,40 @@ Need to act on the system?
                                    → cu why <ref> --app <X>   (B7: structured "what's wrong with this ref" report)
 ```
 
-**Hard rules:**
-- **Every action command needs `--app <Name>`.** Not just `click` — also `cu key`, `cu type`, `cu scroll`, `cu hover`, `cu drag`, `cu set-value`, `cu perform`. Without `--app`, events go through the global HID tap → they hit *whatever's frontmost*. `cu key` and `cu type` now **refuse outright** when frontmost is a terminal/IDE (the most common foot-gun: typing into the terminal that's running cu). Pass `--allow-global` to override, but the right fix is almost always `--app`.
-- **Observe the target app directly, even if it's behind other windows.** `cu snapshot <app>` and `cu screenshot --app <app>` both work without bringing the app to the front. Don't run `cu apps`, scan the list, click on a window, then snapshot. Just snapshot the app you care about by name on step 1. **First call when starting a task**: prefer `cu state <app>` — one call returns snapshot + screenshot + window list + frontmost flag, saves a round-trip.
-- **Refs are ephemeral, axPaths are stable.** Refs refresh with every snapshot. For multi-step flows that mutate the UI between actions, save the `axPath` from the first snapshot and pass `--ax-path` to subsequent click/set-value/perform calls. The same axPath resolves to the same element even after refs renumber.
-- After every action, read the auto-attached `snapshot` (and `settle_ms`, the actual UI-settle wait) instead of calling `cu snapshot` again.
-- **`cu type` auto-routes through clipboard paste** when the text contains CJK characters or the target is on the chat-app list (WeChat, Slack, Discord, Telegram, Lark/Feishu, QQ/TIM, DingTalk, WhatsApp, Signal). These apps' CEF-based inputs drop leading characters of `CGEventKeyboardSetUnicodeString` events. When auto-routed, `paste_reason` is in the JSON output. Force off with `--no-paste` if you've confirmed the target handles unicode events. Force on with `--paste`.
-- **`cu click` verify is ON by default.** Pre/post AX diff catches sandboxed/Electron apps that silently swallow PID-targeted CGEvents (the #1 "ok=true but UI didn't change" failure). Always read `verified` in the response. When `verified=false`, follow the `verify_advice` string — typical recovery: `cu window focus --app <X>` (non-disruptive ax-raise) then retry, or pass `--allow-global` to use the global tap path (focus shifts but click lands). Pass `--no-verify` only when you've measured the cost (~50–150ms) and need throughput on a known-reliable target.
-- **Read the `*_hint` / `*_reason` / `*_advice` strings.** When cu attaches an extra string field beyond the data, it's because the result is degraded or auto-corrected and you need to do something differently. Names to watch: `truncation_hint` (snapshot was clipped — re-run with bigger `--limit`), `confidence_hint` (OCR has low-confidence matches — verify visually before acting), `paste_reason` (type was auto-routed via clipboard), `verify_advice` (action returned ok but didn't move the tree), `screenshot_error` (capture refused — usually `kCGWindowSharingState=0`).
-- **`screenshot::find_window` resolves windows via AX**, so `cu screenshot` always captures the same window that `cu snapshot` shows. Multi-window-per-app, off-Space windows, Electron menu-bar stubs — all handled. ScreenCaptureKit is the primary capture path so cross-Space windows produce real PNGs. `kCGWindowSharingState=0` apps (WeChat, some Microsoft Office Mac App Store builds) refuse upfront with a structured error rather than producing a blank PNG.
+**Hard rules** (numbered — read in order):
+
+1. **Always start with `cu state <app>`.** One call returns snapshot + screenshot + windows + frontmost. Do NOT start with `cu setup` then `cu apps` then `cu snapshot` — that's three round-trips for what `cu state` gives in one. Reserve `cu setup` for when permissions are actually broken; reserve `cu apps` for when you genuinely don't know what's running.
+
+2. **Every action command needs `--app <Name>`.** Applies to `click`, `key`, `type`, `scroll`, `hover`, `drag`, `set-value`, `perform`. With `--app`, events are PID-targeted — cursor stays put, frontmost stays put. Without `--app`, events go through the global HID tap and hit whatever is frontmost (which may have shifted between bash invocations). `cu key` / `cu type` refuse outright when frontmost is a terminal/IDE.
+
+3. **Refs are ephemeral, axPaths are stable.** Refs refresh with every snapshot. For multi-step flows, save the `axPath` from the first snapshot and pass `--ax-path` to subsequent click/set-value/perform calls.
+
+4. **Read the auto-attached `snapshot`** (and `settle_ms`) after every action instead of calling `cu snapshot` again.
+
+5. **`cu click` verify is ON by default.** Pre/post AX diff catches sandboxed/Electron apps that silently drop PID-targeted CGEvents — the #1 "ok=true but UI didn't change" failure. Always read `verified` in the response.
+   - When `verified=false`: read `verify_advice`. The right recovery is **another cu primitive with `--app`**, not a global-tap fallback. Concretely: try the action again via a different cu method (e.g., `--ax-path` instead of coords; `cu set-value` instead of `click + type`; `cu perform <ref> AXPress` instead of coord click). If the AX tree is too sparse for ref-based action, **first** focus the window via a single AppleScript (`osascript -e 'tell application "X" to activate'`) and retry the cu command — but stay on `--app`-targeted cu, **never** drop to `--allow-global` mid-flow.
+   - Use `--no-verify` only on bulk operations against a known-reliable target.
+
+6. **`cu type` auto-routes through clipboard paste** when text contains CJK or target is a chat-app (WeChat, Slack, Discord, Telegram, Lark/Feishu, QQ/TIM, DingTalk, WhatsApp, Signal). When auto-routed, `paste_reason` appears in the JSON output. Force off with `--no-paste`. Force on with `--paste`.
+
+7. **Read every `*_hint` / `*_reason` / `*_advice` / `*_error` string.** When cu attaches one of these, the result is degraded or auto-corrected and you need to react. Names to watch: `truncation_hint` (snapshot clipped — bigger `--limit`), `confidence_hint` (OCR has low-confidence matches — verify visually), `paste_reason` (type was auto-pasted), `verify_advice` (action ran but tree didn't change), `screenshot_error` (capture refused, usually `kCGWindowSharingState=0`).
+
+8. **Window identity is unified across `cu snapshot` / `cu screenshot` / `cu click`.** All resolve via AX (`AXFocusedWindow` → `AXMainWindow` → `_AXUIElementGetWindow`), so what you see in the snapshot is what you'll capture and click on. Cross-Space windows work (ScreenCaptureKit primary path). `kCGWindowSharingState=0` apps refuse capture upfront with a structured error — drive those tasks via AX (`snapshot/find/click`), no visual verification.
+
+## Anti-patterns — DO NOT do these
+
+These are concrete dead-ends. They look like reasonable approaches; they're not. If you find yourself reaching for one, stop — there's a cu primitive that does it correctly.
+
+| ❌ Don't | Why it fails | ✅ Do instead |
+|---|---|---|
+| `osascript -e 'tell ... keystroke "..."'` for typing | Drops CJK silently (no error). Bypasses cu's auto-paste, verify, and routing. Failure is invisible. | `cu type "..." --app <X>` |
+| `pbcopy && osascript -e 'keystroke "v" using command down'` for paste | Reinventing what `cu type --paste` already does (and the auto-detection in #6 already triggers it). Loses `paste_reason` field. | `cu type "..." --app <X>` |
+| `cu window focus --app X && cu click ... --allow-global` for sandboxed apps | The `&&` between bash calls lets focus drift back to the terminal. Click lands on the terminal, not the target. | Stay on cu primitives with `--app`. Try a different action method (ax-path, perform, set-value), not a different focus mode. |
+| `cu click --allow-global` as a recovery for `verified: false` | `--allow-global` is global HID tap — every focus race in subsequent bash invocations affects it. | Retry via cu primitive with `--app`. If AX is sparse, single `osascript activate` then cu. |
+| `cu setup && cu apps && cu snapshot <app>` to start a task | Three round-trips to learn what `cu state` returns in one. | `cu state <app>` |
+| `cu snapshot <app>` first, then guess flag for `cu screenshot` | `cu state` already attaches the screenshot on the same window — no second resolve. | `cu state <app>` (the screenshot is in the response). |
+| Chaining `cu` action commands via `&&` for multi-step flows | Each bash invocation has its own focus epoch. State changes between calls; the second cu call may target a different focus. | Issue them as separate steps so you can read each result before the next, and re-snapshot if the auto-attached snapshot shows the UI moved. |
+| Treating `verified: true` as "the click did the right thing" | Verified only means the AX tree changed — not that it changed the way you wanted. | After any verified action, read the post-action snapshot to confirm the change matches your intent. |
 
 ## Scripting Workflow (preferred for scriptable apps)
 
@@ -561,7 +586,7 @@ cu type "你好，这是来自 cu 的消息" --app WeChat # auto-paste, see `pas
 cu key enter --app WeChat                     # send (some apps want cmd+enter — try enter first)
 ```
 
-**If the click response has `verified: false`:** the target app silently dropped the event (sandboxed apps that ignore PID-targeted CGEvents). Read `verify_advice` for next-step instructions. Typical recovery: `cu window focus --app WeChat` (non-disruptive ax-raise) and retry, or pass `--allow-global` to fall back to the global-tap path (cursor moves but the click lands).
+**If the click response has `verified: false`:** the target app may have dropped the event, or your click coordinates missed. Read `verify_advice` for the structured recovery list. Typical order: re-snapshot to inspect the post-action tree → switch to ref-based or `--ax-path` click (uses AX action chain, which sandboxes don't drop the way they drop coord clicks) → if AX is too sparse for refs, `osascript -e 'tell application "WeChat" to activate'` then retry the same `cu click ... --app WeChat`. Stay on `--app`-targeted cu; do not fall back to global-tap delivery — bash-interval focus drift will route the next click to your terminal.
 
 **If `cu state WeChat` returns `screenshot_error: "...capture-protected..."`:** that's expected. WeChat (and a few other privacy-conscious apps) opt out of screen capture at the OS level — both `CGWindowListCreateImage` and `ScreenCaptureKit` honor `kCGWindowSharingState=0`. cu cannot bypass it; this is the OS, not a bug. Drive the task with AX (snapshot/find/click) and accept that there's no visual verification.
 
