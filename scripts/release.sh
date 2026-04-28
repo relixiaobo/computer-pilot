@@ -155,8 +155,14 @@ run "git push origin $TAG"
 
 echo ""
 echo "→ Creating GitHub release"
+# Two binary assets per release:
+#   cu-arm64-$VERSION  versioned (provenance / pinning)
+#   cu-arm64           unversioned alias (so the README's
+#                       /releases/latest/download/cu-arm64 URL resolves)
 ASSET="/tmp/cu-arm64-$VERSION"
+ASSET_ALIAS="/tmp/cu-arm64"
 run "cp ./target/release/cu '$ASSET'"
+run "cp ./target/release/cu '$ASSET_ALIAS'"
 
 # Generate notes from commits since last tag
 LAST_TAG="$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo '')"
@@ -184,13 +190,13 @@ $NOTES_BODY
 EOF
 
 if [[ -n "$DRY_RUN" ]]; then
-  echo "[DRY-RUN] gh release create $TAG '$ASSET' --title 'cu $VERSION' --notes-file $NOTES_FILE"
+  echo "[DRY-RUN] gh release create $TAG '$ASSET' '$ASSET_ALIAS' --title 'cu $VERSION' --notes-file $NOTES_FILE"
   echo ""
   echo "[DRY-RUN] Notes:"
   cat "$NOTES_FILE"
 else
-  gh release create "$TAG" "$ASSET" --title "cu $VERSION" --notes-file "$NOTES_FILE"
-  rm -f "$ASSET" "$NOTES_FILE"
+  gh release create "$TAG" "$ASSET" "$ASSET_ALIAS" --title "cu $VERSION" --notes-file "$NOTES_FILE"
+  rm -f "$ASSET" "$ASSET_ALIAS" "$NOTES_FILE"
 fi
 
 echo ""
