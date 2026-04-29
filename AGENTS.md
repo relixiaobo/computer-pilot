@@ -265,11 +265,41 @@ checklist exists so a future revert doesn't bring them back.
 
 Three layers (defined in `tests/`):
 
-- **L1 Command tests** (`tests/commands/run_all.sh`) — 258 assertions covering every CLI command in isolation. Run: `bash tests/commands/run_all.sh` or `bash tests/commands/run_all.sh snapshot key tell` for specific suites.
-- **L2 Agent E2E** (`tests/agent/run.py`) — real LLM agent + cross-check verification. Loads `plugin/skills/computer-pilot/SKILL.md` as the system prompt so the test mirrors production. Needs `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in `.env`.
-- **L3 macOSWorld** (`tests/macosworld/`) — 133 locally-runnable tasks classified in `local_test_set.json`. Run via `tests/macosworld/run_selected.py`.
+- **L1 Command tests** (`tests/commands/run_all.sh`) — 700+ assertions covering every CLI command in isolation. Run: `bash tests/commands/run_all.sh` or `bash tests/commands/run_all.sh snapshot key tell` for specific suites.
+- **L2 Agent E2E** (`tests/agent/run.py`) — real LLM agent + cross-check verification. Loads `plugin/skills/computer-pilot/SKILL.md` as the system prompt so the test mirrors production. Needs `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in `.env`. Wired into `scripts/release.sh` — every release runs L2 unless `--skip-agent` or no API key.
+- **L3 macOSWorld** (`tests/macosworld/`) — 133 locally-runnable tasks classified in `local_test_set.json`. Run via `tests/macosworld/run_selected.py`. Manual / quarterly cadence — too slow + heavy for per-release.
 
 All tests use the release binary: `target/release/cu`. Build first with `cargo build --release`.
+
+### Two rules for adding tests
+
+These two rules close the gap that L1's 700+ structural assertions cannot
+close on their own — *"the field is present"* says nothing about whether
+the feature actually does what it was built for, and L1 can't see what an
+LLM agent does with the skill.
+
+**Rule 1 — Every new flag or output field must come with a behavior test**
+that constructs the scenario the feature was built for and asserts the
+user-visible state changed correctly. Structural assertions (field exists,
+method equals X, error path returns non-zero) are necessary but never
+sufficient. If a feature was added to disambiguate same-label-multi-pane,
+the test must construct that situation and verify the click landed in the
+right pane — not just verify an offscreen rect rejects.
+
+Reference example: `tests/commands/test_region_disambiguation.sh` — opens
+Finder home folder where folder names appear in both sidebar and main
+pane, runs `cu click --text --region` against each, asserts the clicks
+produced different coordinates (proving the filter actually filtered).
+
+**Rule 2 — L2 agent E2E runs on every release**, not "when someone
+remembers." `tests/agent/run.py` is wired into `scripts/release.sh`. It
+catches what L1 cannot: agent training-prior regressions (inventing
+flags, falling back to `osascript`, ignoring `verify_advice`). Skip with
+`--skip-agent` only for emergency releases; mute by removing the API key
+from `.env` only when explicitly debugging without LLM calls.
+
+These rules don't replace L1 — they layer on top. L1 stays the
+fast-feedback protocol guard.
 
 ## What NOT to do
 
