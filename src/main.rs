@@ -1128,12 +1128,22 @@ fn cmd_setup(json: bool) -> Result<(), CuError> {
     let auto = system::check_automation();
     let ready = ax && sr; // core: snapshot, click, key, type, screenshot, ocr
     let scripting_ready = ready && auto; // scripting: cu tell
+    // Currently-running apps with kCGWindowSharingState=0 — `cu screenshot`
+    // refuses upfront for these. Exposed here so agents see the constraint
+    // before they hit it. Skip when AX is missing (the AX walks underneath
+    // CGWindowList enumeration would just fail anyway).
+    let protected_apps = if sr {
+        screenshot::capture_protected_apps()
+    } else {
+        Vec::new()
+    };
 
     if json {
         return ok(serde_json::json!({
             "ok": true, "version": VERSION, "platform": "macos",
             "accessibility": ax, "screen_recording": sr, "automation": auto,
-            "ready": ready, "scripting_ready": scripting_ready
+            "ready": ready, "scripting_ready": scripting_ready,
+            "capture_protected_apps": protected_apps,
         }));
     }
 
@@ -1150,6 +1160,12 @@ fn cmd_setup(json: bool) -> Result<(), CuError> {
         "Automation:       {}",
         if auto { "granted" } else { "NOT GRANTED" }
     );
+    if !protected_apps.is_empty() {
+        println!(
+            "Capture-protected running apps: {} (cu screenshot will refuse — use blind operation + manual confirmation)",
+            protected_apps.join(", ")
+        );
+    }
     println!();
 
     if scripting_ready {
@@ -1243,6 +1259,12 @@ fn cmd_snapshot(
             .into());
     }
 
+    // Capture the previous cache before overwriting — `--diff` reads it below.
+    // Cache is updated unconditionally so the stale-state guard in action
+    // commands sees the latest tree the agent saw, not just `--diff` calls.
+    let previous = diff::load_previous(pid);
+    let _ = diff::save_current(pid, &result.elements);
+
     // --with-screenshot (skipped when --annotated is set since annotated already
     // bakes a screenshot into the response).
     let plain_screenshot: Option<(String, f64)> = if with_screenshot && !annotated {
@@ -1315,8 +1337,7 @@ fn cmd_snapshot(
     }
 
     // Diff mode: compare against the cached previous snapshot for this pid.
-    let previous = diff::load_previous(pid);
-    let _ = diff::save_current(pid, &result.elements);
+    // (`previous` was captured above before overwriting the cache.)
 
     match previous {
         None => {
@@ -1931,6 +1952,8 @@ fn cmd_set_value(
     }
     let (pid, name) = system::resolve_target_app(&app)?;
 
+    let stale_advice = ref_id.and_then(|r| stale_advice_for_ref(pid, r, limit, None));
+
     let (selector_kind, selector_value) = if let Some(p) = ax_path.as_deref() {
         ax::ax_set_value_by_path(pid, p, &value)?;
         ("ax-path", serde_json::Value::String(p.to_string()))
@@ -1950,6 +1973,14 @@ fn cmd_set_value(
         "ui_effect_verified": serde_json::Value::Null,
         "effect_advice": "AXValue write succeeded, but this only proves the accessibility value changed. Some apps do not run their normal UI/search/input handlers for AXValue changes; verify with snapshot/OCR/wait when the business effect matters.",
     });
+    if let Some(advice) = stale_advice {
+        if let Some(obj) = result.as_object_mut() {
+            obj.insert(
+                "stale_state_advice".to_string(),
+                serde_json::Value::String(advice),
+            );
+        }
+    }
     maybe_attach_snapshot(&mut result, json, no_snapshot, &app, limit);
     if json {
         ok(result)
@@ -1982,6 +2013,8 @@ fn cmd_perform(
     }
     let (pid, name) = system::resolve_target_app(&app)?;
 
+    let stale_advice = ref_id.and_then(|r| stale_advice_for_ref(pid, r, limit, None));
+
     let (selector_kind, selector_value, available) = if let Some(p) = ax_path.as_deref() {
         // Resolve via axPath, fire AXAction directly. We piggyback on
         // resolve_by_ax_path to validate the path first; then list actions
@@ -2009,6 +2042,14 @@ fn cmd_perform(
         "method": "ax-perform",
         "available_actions": available,
     });
+    if let Some(advice) = stale_advice {
+        if let Some(obj) = result.as_object_mut() {
+            obj.insert(
+                "stale_state_advice".to_string(),
+                serde_json::Value::String(advice),
+            );
+        }
+    }
     maybe_attach_snapshot(&mut result, json, no_snapshot, &app, limit);
     if json {
         ok(result)
@@ -2300,6 +2341,15 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
 
     let (pid, name) = system::resolve_target_app(&app)?;
 
+    // Stale-state guard: when --verify is on (default) we already walked a fresh
+    // AX tree into pre_state. Compare against the cached previous snapshot —
+    // if ref_id resolves to a different element now than it did the last time
+    // cu observed this app, the agent's mental model has drifted (user activity
+    // or async UI update). Soft signal: action still runs, advice surfaces.
+    let stale_advice: Option<String> = pre_state
+        .as_ref()
+        .and_then(|(_, _, fresh)| stale_advice_for_ref(pid, ref_id, limit, Some(fresh)));
+
     // Mode 3 always knows the target pid, so all CGEvent fallbacks are PID-targeted —
     // no cursor warp, no focus theft.
     let target_pid = Some(pid);
@@ -2323,6 +2373,14 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
     };
 
     let mut result = serde_json::json!({"ok": true, "ref": ref_id, "app": name, "method": method, "x": cx, "y": cy});
+    if let Some(advice) = stale_advice {
+        if let Some(obj) = result.as_object_mut() {
+            obj.insert(
+                "stale_state_advice".to_string(),
+                serde_json::Value::String(advice),
+            );
+        }
+    }
     maybe_attach_snapshot(&mut result, json, no_snapshot, &app, limit);
     if let Some((_, _, ref prev)) = pre_state {
         attach_verification(&mut result, prev, method);
@@ -3324,6 +3382,33 @@ fn print_diff_human(snap: &ax::SnapshotResult, d: &diff::Diff) {
     );
 }
 
+/// Stale-state guard helper: returns drift advice when ref_id maps to a
+/// different element now than it did in the cached previous snapshot.
+/// `fresh` lets callers piggyback on a pre-existing AX walk (cu click does
+/// this via `pre_state` from --verify); if None, takes its own walk sized
+/// to `limit` so the target ref is reachable. Returns None when no previous
+/// cache exists, the fresh walk fails, or the ref's identity is unchanged.
+fn stale_advice_for_ref(
+    pid: i32,
+    ref_id: usize,
+    limit: usize,
+    fresh: Option<&[ax::Element]>,
+) -> Option<String> {
+    let prev = diff::load_previous(pid)?;
+    match fresh {
+        Some(curr) => diff::detect_ref_drift(&prev, curr, ref_id),
+        None => {
+            // Walk at least far enough to reach this ref, with headroom.
+            let walk_limit = limit.max(ref_id + 50).max(100);
+            let snap = ax::snapshot(pid, "", walk_limit);
+            if !snap.ok {
+                return None;
+            }
+            diff::detect_ref_drift(&prev, &snap.elements, ref_id)
+        }
+    }
+}
+
 /// Compares the pre-action AX state against the snapshot already attached to
 /// `result` by `maybe_attach_snapshot`, then enriches the response with a
 /// `verified` flag and per-action diff stats. Used by `cu click --verify`.
@@ -3427,6 +3512,10 @@ fn maybe_attach_snapshot(
         // (typical: ~50ms) or after POST_ACTION_DELAY_MS at most.
         let waited = observer::wait_for_settle(pid, POST_ACTION_DELAY_MS);
         let snap = ax::snapshot(pid, &name, limit);
+        // Keep the diff cache in sync with the latest tree cu observed, so the
+        // next action's stale-state guard compares against post-action state
+        // rather than the long-stale pre-action cache.
+        let _ = diff::save_current(pid, &snap.elements);
         // D1: agents read the auto-attached snapshot far more often than they
         // call `cu snapshot` directly, so the displays array must be reachable
         // here too — otherwise multi-display info silently drops out of the

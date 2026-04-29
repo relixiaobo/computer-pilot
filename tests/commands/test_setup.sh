@@ -47,4 +47,27 @@ else
   _skip "not ready" "need both permissions"
 fi
 
+section "setup — capture-protected app enumeration"
+
+cu_json "setup"
+assert_json_field_exists "capture_protected_apps field present" ".capture_protected_apps"
+
+# Behavior assertion: if WeChat is running, it must be enumerated. WeChat is
+# the canonical capture-protected app on macOS — if cu detects it elsewhere
+# (cu screenshot refuses upfront) but cu setup omits it, the env-check is lying.
+if pgrep -x WeChat >/dev/null; then
+  PROTECTED=$(echo "$OUT" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+print(','.join(d.get('capture_protected_apps', [])))
+")
+  if [[ "$PROTECTED" == *"WeChat"* ]]; then
+    _pass "WeChat (running) enumerated as capture-protected"
+  else
+    _fail "WeChat (running) enumerated as capture-protected" "expected 'WeChat' in capture_protected_apps, got: '$PROTECTED'"
+  fi
+else
+  _skip "WeChat enumeration" "WeChat not running — start it to verify capture-protected detection"
+fi
+
 summary

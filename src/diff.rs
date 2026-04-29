@@ -94,3 +94,35 @@ fn content_changed(a: &Element, b: &Element) -> bool {
         || (a.width - b.width).abs() > 0.5
         || (a.height - b.height).abs() > 0.5
 }
+
+/// Compare what was at `ref_id` in the previous snapshot against what is at
+/// `ref_id` in the current AX walk. Returns an advice string when the identity
+/// has changed, indicating the UI shifted between snapshots and the agent's
+/// ref likely points to a different element than it expected. Soft signal —
+/// the action still runs; the agent reads the advice and chooses to recover.
+pub fn detect_ref_drift(
+    prev: &[Element],
+    curr: &[Element],
+    ref_id: usize,
+) -> Option<String> {
+    let prev_el = prev.iter().find(|e| e.ref_id == ref_id)?;
+    let curr_el = curr.iter().find(|e| e.ref_id == ref_id)?;
+    if id_of(prev_el) == id_of(curr_el) {
+        return None;
+    }
+    let prev_label = prev_el
+        .title
+        .as_deref()
+        .or(prev_el.value.as_deref())
+        .unwrap_or("");
+    let curr_label = curr_el
+        .title
+        .as_deref()
+        .or(curr_el.value.as_deref())
+        .unwrap_or("");
+    Some(format!(
+        "ref [{ref_id}] now points to a different element than the previous snapshot — was {} \"{}\" at ({:.0},{:.0}), now {} \"{}\" at ({:.0},{:.0}). UI shifted between snapshots; re-snapshot before relying on this ref.",
+        prev_el.role, prev_label, prev_el.x, prev_el.y,
+        curr_el.role, curr_label, curr_el.x, curr_el.y,
+    ))
+}

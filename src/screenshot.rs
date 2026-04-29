@@ -65,6 +65,13 @@ unsafe extern "C" {
     fn CFArrayGetValueAtIndex(array: CFTypeRef, index: c_long) -> CFTypeRef;
     fn CFDictionaryGetValue(dict: CFTypeRef, key: CFTypeRef) -> CFTypeRef;
     fn CFNumberGetValue(number: CFTypeRef, the_type: isize, value_ptr: *mut c_void) -> u8;
+    fn CFStringGetLength(theString: CFTypeRef) -> c_long;
+    fn CFStringGetCString(
+        theString: CFTypeRef,
+        buffer: *mut std::ffi::c_char,
+        buffer_size: c_long,
+        encoding: u32,
+    ) -> u8;
     fn CFStringCreateWithBytes(
         alloc: CFTypeRef,
         bytes: *const u8,
@@ -210,6 +217,35 @@ unsafe fn dict_i64(dict: CFTypeRef, key: &str) -> Option<i64> {
     }
 }
 
+unsafe fn dict_string(dict: CFTypeRef, key: &str) -> Option<String> {
+    let k = cfstr(key)?;
+    let v = CFDictionaryGetValue(dict, k);
+    CFRelease(k);
+    if v.is_null() {
+        return None;
+    }
+    let len = CFStringGetLength(v);
+    if len == 0 {
+        return Some(String::new());
+    }
+    let buf_size = len * 4 + 1;
+    let mut buf: Vec<u8> = vec![0; buf_size as usize];
+    if CFStringGetCString(
+        v,
+        buf.as_mut_ptr() as *mut std::ffi::c_char,
+        buf_size,
+        CF_STRING_ENCODING_UTF8,
+    ) != 0
+    {
+        std::ffi::CStr::from_ptr(buf.as_ptr() as *const std::ffi::c_char)
+            .to_str()
+            .ok()
+            .map(|s| s.to_owned())
+    } else {
+        None
+    }
+}
+
 /// Save an arbitrary `CGImageRef` (passed as `*const c_void`) to a PNG file.
 /// CFReleases the image after writing — caller must hand off a +1 reference.
 pub fn save_image_ptr(image: *const c_void, path: &str) -> Result<(), String> {
@@ -314,6 +350,43 @@ pub fn find_window(pid: i32) -> Option<WindowInfo> {
         return Some(w);
     }
     find_window_with_options(pid, CG_WINDOW_LIST_EXCLUDE_DESKTOP)
+}
+
+/// Enumerate currently-running apps that own at least one capture-protected
+/// window (`kCGWindowSharingState=0`). Surface candidates for `cu setup` so
+/// agents know upfront which running apps will refuse `cu screenshot` —
+/// WeChat is the canonical example, but Signal, password managers, banking
+/// apps, and some Mac App Store Office builds set the same flag.
+pub fn capture_protected_apps() -> Vec<String> {
+    unsafe {
+        let list = CGWindowListCopyWindowInfo(
+            CG_WINDOW_LIST_ON_SCREEN_ONLY | CG_WINDOW_LIST_EXCLUDE_DESKTOP,
+            0,
+        );
+        if list.is_null() {
+            return Vec::new();
+        }
+        let count = CFArrayGetCount(list);
+        let mut seen: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+        for i in 0..count {
+            let w = CFArrayGetValueAtIndex(list, i);
+            if dict_i64(w, "kCGWindowSharingState") != Some(0) {
+                continue;
+            }
+            // Skip layer != 0 windows (menu-bar proxies, palettes, etc.) —
+            // we only care about user-visible content windows.
+            if dict_i64(w, "kCGWindowLayer") != Some(0) {
+                continue;
+            }
+            if let Some(name) = dict_string(w, "kCGWindowOwnerName")
+                && !name.is_empty()
+            {
+                seen.insert(name);
+            }
+        }
+        CFRelease(list);
+        seen.into_iter().collect()
+    }
 }
 
 /// Look up `kCGWindowSharingState` for a single CGWindowID. Used by
