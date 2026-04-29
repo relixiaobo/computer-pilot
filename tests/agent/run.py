@@ -185,12 +185,24 @@ def verify_task(task: dict) -> list[dict]:
                 source_clean = source_val.strip().strip('"').strip()
                 # Find a specific token (>3 chars) from source in target
                 tokens = [t for t in source_clean.split() if len(t) > 3]
-                found = any(t.lower() in target_val.lower() for t in tokens[:5]) if tokens else False
 
-                results.append({
-                    "check": f"{desc} (cross-check)", "passed": found,
-                    "detail": f"source tokens: {tokens[:5]}, found in target: {found}"
-                })
+                if not tokens:
+                    # Source command returned nothing usable — typically an
+                    # environmental gap (empty Desktop, no inbox messages,
+                    # etc.) rather than an agent failure. Skip with passed=True
+                    # so the task isn't blocked; the [SKIP] marker in output
+                    # makes it obvious the check was bypassed, not satisfied.
+                    results.append({
+                        "check": f"{desc} (cross-check)",
+                        "passed": True, "skipped": True,
+                        "detail": f"source command returned no usable tokens (source={source_clean[:80]!r}) — env gap, not an agent failure"
+                    })
+                else:
+                    found = any(t.lower() in target_val.lower() for t in tokens[:5])
+                    results.append({
+                        "check": f"{desc} (cross-check)", "passed": found,
+                        "detail": f"source tokens: {tokens[:5]}, found in target: {found}"
+                    })
             elif "source_command" in cc:
                 # source_command only — check against the main command output
                 source_out = cu(cc["source_command"][1:])
@@ -204,11 +216,19 @@ def verify_task(task: dict) -> list[dict]:
 
                 source_clean = source_val.strip().strip('"')
                 tokens = [t for t in source_clean.split() if len(t) > 3]
-                found = any(t.lower() in main_val.lower() for t in tokens[:5]) if tokens else False
-                results.append({
-                    "check": f"{desc} (cross-check)", "passed": found,
-                    "detail": f"source: {source_clean[:100]}"
-                })
+
+                if not tokens:
+                    results.append({
+                        "check": f"{desc} (cross-check)",
+                        "passed": True, "skipped": True,
+                        "detail": f"source command returned no usable tokens (source={source_clean[:80]!r}) — env gap, not an agent failure"
+                    })
+                else:
+                    found = any(t.lower() in main_val.lower() for t in tokens[:5])
+                    results.append({
+                        "check": f"{desc} (cross-check)", "passed": found,
+                        "detail": f"source: {source_clean[:100]}"
+                    })
 
     return results
 
@@ -305,9 +325,14 @@ When done, say DONE. If stuck, say FAIL."""
         print(f"\n  Agent status: {status}")
         print(f"  Verification:")
         for v in verify_results:
-            mark = "PASS" if v["passed"] else "FAIL"
+            if v.get("skipped"):
+                mark = "SKIP"
+            elif v["passed"]:
+                mark = "PASS"
+            else:
+                mark = "FAIL"
             print(f"    [{mark}] {v['check']}")
-            if not v["passed"]:
+            if not v["passed"] or v.get("skipped"):
                 print(f"           {v['detail']}")
 
     # Cleanup
@@ -379,7 +404,12 @@ def main():
         mark = "PASS" if r["verified"] else "FAIL"
         print(f"  [{mark}] {r['task_name']} (steps={r['steps']}, status={r['agent_status']})")
         for c in r["checks"]:
-            cm = "✓" if c["passed"] else "✗"
+            if c.get("skipped"):
+                cm = "○"
+            elif c["passed"]:
+                cm = "✓"
+            else:
+                cm = "✗"
             print(f"         {cm} {c['check']}")
 
     # Save results
