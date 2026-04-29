@@ -1,166 +1,233 @@
-# Computer Pilot CLI — Complete Command Reference
+# Computer Pilot CLI — Full Command Reference
 
-## Setup
+Read this file when you need exhaustive flag-level detail for a `cu` command — e.g. all the modifiers `cu click` accepts, the full set of `cu wait` conditions, every field in a `cu state` response. The main `SKILL.md` covers the load-bearing 80%; this file covers the rest.
+
+All commands return JSON when piped; pass `--human` to force readable output.
+
+---
+
+## Discovery
 
 ### `cu setup`
-Check permissions, version, and guide authorization.
-- Reports: Accessibility (required for snapshot/click/key/type), Screen Recording (required for screenshot/OCR), and automation/scripting_ready status
-- Opens System Settings if permissions are missing
+Check Accessibility / Screen Recording / Automation permissions and report cu version. Opens System Settings if a permission is missing. Run once after install.
+
+### `cu apps`
+List every running app: `name`, `pid`, `active` (frontmost), `scriptable` (`S` flag), `sdef_classes` (count of scripting classes — higher = richer dictionary). Use the `S` flag to decide whether to reach for `cu tell`.
+
+### `cu menu <app>`
+Enumerate every menu and menu item in the app's menu bar via System Events. Works for **any** app — scriptable or not. Returns menu name, item name, and enabled status. After discovering, click any item via:
+```bash
+cu tell "System Events" 'tell process "<App>" to click menu item "<Item>" of menu "<Menu>" of menu bar 1'
+```
+
+### `cu sdef <app>`
+Show the AppleScript scripting dictionary — classes, properties, commands. Pure-Rust XML parsing, no external tools. Use this before writing `cu tell` to know what the app supports.
+
+### `cu examples [topic]`
+Built-in recipe library. `cu examples` lists topics; `cu examples launch-app` (etc.) prints the recipe. Useful when you forget how a particular workflow chains.
+
+---
+
+## Observation
+
+### `cu state <app> [--no-screenshot]`
+**Canonical "start a task" call.** Returns snapshot + windows + screenshot path + frontmost in one call — replaces four separate round-trips (`cu apps` + `cu window list` + `cu snapshot` + `cu screenshot`).
+
+Output fields:
+- `app`, `pid`, `frontmost`, `windows[]`, `elements[]`
+- `screenshot_path` — PNG path (omitted with `--no-screenshot`)
+- `screenshot_error` — string when capture refused (`kCGWindowSharingState=0`); AX tree still works, drive task without visual verification
+- `truncation_hint` — when snapshot was clipped
+
+### `cu snapshot [app] [--limit N] [--diff] [--annotated --output P] [--with-screenshot --output P]`
+AX tree of interactive UI elements. Each element has `ref`, `role`, `title`, `value`, `axPath`, `x`, `y`, `width`, `height`.
+
+Flags:
+- `--limit N` — max elements (default 50). If hit, response carries `truncation_hint` — re-run with larger limit.
+- `--diff` — return only elements that changed since the previous snapshot of this app. Cache lives at `/tmp/cu-snapshot-cache/<pid>.json`. First call returns full snapshot with `first_snapshot:true`.
+- `--annotated --output path.png` — writes a PNG with each ref's bounding box + number drawn. Highest-leverage flow for VLM agents (the model sees the UI with refs already labeled).
+- `--with-screenshot --output path.png` — captures a plain (un-annotated) PNG in the same instant as the tree. Use when you want both tree and image but don't want refs drawn on the image.
+
+Only interactive roles get refs: `button`, `textfield`, `textarea`, `statictext`, `row`, `cell`, `checkbox`, `radiobutton`, `popupbutton`, `combobox`, `link`, `menuitem`, `menubutton`, `tab`, `slider`, `image`.
+
+### `cu find --app X [--role R] [--title-contains S] [--title-equals S] [--value-contains S] [--first] [--raw]`
+Predicate query. Faster + cheaper than `cu snapshot --limit 200 | grep ...`.
+
+Filters AND-combine. Empty result is `ok:true` with `count:0` (not an error).
+- `--first` — return one match instead of all
+- `--raw` — print bare integer ref(s), one per line; exits 1 on no match. Designed for `$(...)` substitution: `REF=$(cu find --app X --role button --title-equals "OK" --first --raw)`.
+
+### `cu nearest <x> <y> --app X [--max-distance N]`
+Pixel → nearest interactive ref. For VLM agents that have visual coordinates from a screenshot.
+
+Returns `match.ref`, `match.role`, `match.title`, `distance`, `inside` (bool — point falls inside the element). With `--max-distance N`, returns `match:null` if nothing's within N points — a sanity check for "did the VLM click on background or a real element".
+
+### `cu observe-region <x> <y> <w> <h> --app X [--mode intersect|center|inside]`
+All interactive refs whose bbox is in / touches a rectangle. Narrower than `cu snapshot`, more flexible than `cu nearest`.
+- `intersect` (default) — element bbox overlaps the rect at all (broadest)
+- `center` — element center falls inside (filters big container noise)
+- `inside` — element fully contained (strictest)
+
+### `cu ocr [app]`
+Vision OCR text recognition. On-device, no network. Returns matches with `text`, `x`, `y`, `width`, `height`, `confidence` (0–1).
+
+Aggregate fields on the response:
+- `min_confidence`, `mean_confidence`, `low_confidence_count` (matches < 0.5)
+- `confidence_hint` — string when any match is below 0.5. Vision returns plausible-looking hallucinations in this range; verify visually before acting on a low-confidence match.
+
+Best for apps with poor AX support (games, Qt, Java, custom-drawn UIs).
+
+### `cu screenshot [app] [--path P] [--region "x,y WxH"] [--full]`
+Window capture, silent (no activation). Cross-Space capable via ScreenCaptureKit. Region capture uses point coords (same space as snapshot `x`/`y`).
+
+Output:
+- `path` — PNG location
+- `offset_x`, `offset_y`, `width`, `height` — for mapping back from pixel to window/screen coords (`screen = pixel/scale + offset`)
+- `image_scale` — pixel/point ratio (typically 2.0 on Retina)
+- Capture-protected windows (`kCGWindowSharingState=0`) refuse upfront with a structured error — the OS-level opt-out cannot be bypassed.
+
+Flags:
+- `--full` — entire screen (all monitors) instead of single window
+- `--region "x,y WxH"` — only that screen rectangle (cheap visual verification: ~150 tokens vs ~1500 for full window)
+
+### `cu wait <condition> [--app X] [--timeout 10] [--limit N]`
+Poll the AX tree until a condition is met. Returns `elapsed_ms` and `matched`.
+
+Conditions:
+- `--text "..."` — any element contains this text
+- `--ref N` — element ref N exists
+- `--gone N` — element ref N disappears
+- `--new-window` — a new window appeared (sheet, compose, dialog)
+- `--modal` — a modal/sheet is now frontmost
+- `--focused-changed` — `AXFocusedUIElement` changed
+- `--app-running` — the app finished launching
+
+Prefer text/window/modal conditions over `--ref`/`--gone` — refs are unstable across UI changes.
+
+---
+
+## Action
+
+All action commands accept `--app <Name>` for PID-targeted delivery (cursor stays, frontmost stays). Without `--app`, they go through the global HID tap. See `references/method_field.md` for routing details.
+
+All action commands auto-attach a fresh `snapshot` to the response; suppress with `--no-snapshot`. They also report `method`, `confidence`, and `settle_ms` (capped at 500ms via single-shot AXObserver).
+
+### `cu click <ref|x y> [--app X] [--ax-path P] [--text "..." [--index N]] [--right|--double-click] [--shift|--cmd|--alt] [--no-verify] [--no-snapshot] [--allow-global]`
+Click by ref, screen coordinates, on-screen text (OCR), or stable `--ax-path` selector.
+
+Verify is **on by default** — the response includes `verified` (bool), `verify_diff` (`{added, changed, removed}` element counts), and `verify_advice` (string with concrete recovery steps when `verified:false`).
+
+Flags:
+- `<ref>` — click by ref from snapshot. Tries AX actions (AXPress / AXConfirm / AXOpen) first, falls back to CGEvent.
+- `<x> <y>` — click screen coordinates (CGEvent path).
+- `--ax-path "<path>"` — stable selector that survives ref renumbering. Use for multi-step flows.
+- `--text "Submit" [--index 2]` — find text via OCR and click it. Useful when AX is sparse.
+- `--right` — right-click. Always CGEvent (skips AX action chain).
+- `--double-click` — open files, select words.
+- `--shift` / `--cmd` / `--alt` — modifiers.
+- `--no-verify` — skip the AX-diff check (~50–150ms faster). Use only on known-reliable targets in bulk.
+- `--allow-global` — last-resort flag to allow global-tap delivery when `--app` resolution fails. Avoid; bash-interval focus drift will land the click on the wrong window.
+
+### `cu type <text> [--app X] [--paste|--no-paste] [--no-snapshot]`
+Type text into the focused element. Default routing is unicode CGEvent (`CGEventKeyboardSetUnicodeString`) — IME-bypass, no clipboard touch.
+
+Auto-routes through clipboard paste when:
+- text contains CJK / emoji / other non-ASCII that CEF apps drop, OR
+- target app is on the chat-app list (WeChat, Slack, Discord, Telegram, Lark/Feishu, QQ/TIM, DingTalk, WhatsApp, Signal).
+
+When auto-routed, response carries `paste_reason` (e.g. `"contains CJK"` / `"chat app target"`).
+
+- `--paste` — force paste mode regardless of detection.
+- `--no-paste` — force unicode-event delivery even when auto-paste would trigger.
+
+### `cu key <combo> [--app X] [--allow-global] [--no-snapshot]`
+Send a keyboard shortcut. Modifiers: `cmd`, `shift`, `ctrl`, `alt` (option). Keys: `a-z`, `0-9`, `enter`, `tab`, `space`, `escape`, `delete`, `up/down/left/right`, `f1`–`f12`, `minus`, `equal`, etc.
+
+**Refused when frontmost is a terminal/IDE** — the safety check exists because a stray `cmd+w` would close the agent's own shell. Pass `--allow-global` to override; don't unless you know what you're doing.
+
+### `cu set-value <ref|--ax-path> "text" --app X [--no-snapshot]`
+Write text directly into an AX field via `AXValue` setter. **No focus needed, no IME involved, no clipboard touched.** Best path for filling textfields when supported. Returns `method: "ax-set-value"`.
+
+When it fails (Electron / non-AX field), the response says so — fall back to `cu click <ref>; cu type "..."`.
+
+### `cu perform <ref|--ax-path> <AXAction> --app X [--no-snapshot]`
+Invoke a named AX action. Common actions: `AXPress`, `AXShowMenu` (right-click equivalent), `AXIncrement` / `AXDecrement` (sliders/steppers), `AXScrollToVisible`, `AXConfirm`, `AXCancel`, `AXOpen`, `AXPick`, `AXRaise`. The available actions for any element are reported by `cu why <ref>`.
+
+### `cu scroll <up|down|left|right> [amount] --x X --y Y [--app A]`
+Scroll N lines (default 3) at a screen position.
+
+### `cu hover <x> <y> [--app A]`
+Move the mouse to a coordinate. Triggers tooltips and hover menus. Cursor moves by design even with `--app`.
+
+### `cu drag <x1> <y1> <x2> <y2> [--shift|--cmd|--alt] [--app A]`
+Drag with 10-step interpolation. `--shift` = extend selection, `--alt` = copy in Finder. Guarantees `mouseUp` even if intermediate steps fail. Cursor moves by design even with `--app`.
+
+---
 
 ## Scripting
 
 ### `cu tell <app> '<AppleScript>'`
-Execute AppleScript against an app. Auto-wraps in `tell application "..." ... end tell`.
-- `cu tell "System Events" 'get name of every process whose visible is true'`
-- `cu tell Finder 'get name of every item of desktop'`
-- Uses `-ss` flag for structured output (unambiguous text)
-- Auto-launches the app if not already running
-- Timeout enforced (default 10s)
+Run AppleScript against the app. Auto-wraps your expression in `tell application "<app>" ... end tell`. Multi-line scripts work — pass them inside the single-quoted argument.
 
-### `cu sdef <app>`
-Show the scripting dictionary for an app.
-- Returns classes, properties, and commands the app exposes via AppleScript
-- `cu sdef Finder` — discover Finder scripting capabilities
-- Pure Rust XML parsing (no external tools)
-- Use this to discover what operations are available before writing `cu tell` commands
+Behavior:
+- Auto-launches the app if not already running.
+- App name is escaped against AppleScript injection.
+- Uses `osascript -ss` for unambiguous structured output.
+- Default timeout 10s.
 
-### `cu menu <app>`
-Enumerate every menu and menu item in the app's menu bar via System Events.
-- Works for ALL apps — scriptable or not
-- `cu menu Calculator` → see `View > Scientific`, `View > Programmer`, etc.
-- `cu menu Finder` → see `Go > Home`, `View > as List`, etc.
-- Returns: menu name, item name, enabled status
-- After discovering, click any item:
-  ```
-  cu tell "System Events" 'tell process "AppName" to click menu item "Foo" of menu "View" of menu bar 1'
-  ```
+When to use: any time the target app has the `S` flag in `cu apps`. Reading data and bulk operations are dramatically cheaper via AppleScript than via UI automation.
 
-## System Preferences
+---
 
-### `cu defaults read <domain> [key]`
-Read macOS preferences via the `defaults` system.
-- `cu defaults read com.apple.dock autohide` — read specific key
-- `cu defaults read com.apple.dock` — read entire domain
+## System
+
+### `cu defaults read <domain> [key]` / `cu defaults write <domain> <key> <value>`
+Read or write macOS preferences via the `defaults` system. Bypasses System Settings UI entirely.
+- `cu defaults read com.apple.dock` — entire domain
+- `cu defaults read com.apple.dock autohide` — single key
+- `cu defaults write com.apple.dock autohide -bool true` — write; `killall Dock` to apply
 - Common domains: `com.apple.dock`, `com.apple.finder`, `NSGlobalDomain`
 
-### `cu defaults write <domain> <key> <value>`
-Write macOS preferences. Bypasses System Settings UI.
-- `cu defaults write com.apple.dock autohide -bool true`
-- `cu defaults write NSGlobalDomain KeyRepeat -int 2`
-- After writing dock/finder settings, restart with `killall Dock` or `killall Finder`
+### `cu window <list|move|resize|focus|minimize|unminimize|close>`
+- `cu window list [--app X]` — every visible window or filter by app. Returns `app`, `index`, `title`, `x`, `y`, `width`, `height`, `minimized`, `focused`.
+- `cu window move <x> <y> --app X [--window N]` — N defaults to 1 (frontmost).
+- `cu window resize <w> <h> --app X [--window N]`
+- `cu window focus --app X` — bring app/window to front. The one place where `cu` deliberately does take focus.
+- `cu window minimize/unminimize/close --app X [--window N]`
 
-## Window Management
+### `cu launch <name|bundleId> [--no-wait] [--timeout 10]`
+Launch app and wait for first AX-ready window (avoids the empty-tree problem on cold starts). `--no-wait` for spawn-and-go. Returns `ready_in_ms`. Both name (`"TextEdit"`) and bundle ID (`"com.apple.TextEdit"`) work.
 
-### `cu window list [--app Name]`
-List windows of all apps or a specific app.
-- Returns: app, index, title, x, y, width, height, minimized, focused
-- `cu window list` — every visible window across all apps
-- `cu window list --app Safari` — Safari windows only
+### `cu warm <app>`
+Pay the 200–500ms first-AX-call cost up front for an already-running app the user opened manually. Useful at the very start of a task to make the first `cu state` / `cu snapshot` snappy.
 
-### `cu window <action> --app Name [args]`
-Window actions: `move`, `resize`, `focus`, `minimize`, `unminimize`, `close`.
-- `cu window move 100 100 --app Safari` — move front window
-- `cu window resize 1200 800 --app Safari` — resize front window
-- `cu window focus --app Safari` — bring to front
-- `cu window minimize --app Safari`
-- `cu window close --app Safari`
-- `--window N` to target a specific window (default: 1 = frontmost)
+### `cu why <ref> --app X`
+Diagnose why a click / perform / set-value didn't take. Returns the element's `enabled`, `in_bounds` (vs window frame), `actions[]` (available AX actions), and `advice` (text — e.g. *"element is offscreen, scroll first"* / *"element is disabled"* / *"role doesn't support AXPress, try AXShowMenu"*).
 
-## Observation
+Reach for it whenever an action returned `ok:false` or `verified:false` and the cause isn't obvious.
 
-### `cu apps`
-List running applications with name, PID, active status, scriptable flag, and sdef_classes count.
-- `*` = frontmost app, `S` = AppleScript scriptable
-- Scriptable apps show `sdef_classes` count indicating scripting dictionary richness
+---
 
-### `cu snapshot [app] [--limit N]`
-Get the AX tree — interactive UI elements with `[ref]` numbers.
-- `app` — target app name (default: frontmost)
-- `--limit 50` — max elements (default: 50)
-- Returns: ref, role, title, value, x, y, width, height per element
-- Only interactive roles get refs: button, textfield, textarea, statictext, row, cell, checkbox, radiobutton, popupbutton, combobox, link, menuitem, menubutton, tab, slider, image
+## Universal output fields
 
-### `cu screenshot [app] [--path file.png] [--full]`
-Capture window screenshot silently. No app activation needed.
-- `--path /tmp/shot.png` — output path (default: auto-generated in /tmp)
-- `--full` — capture entire screen (all monitors) instead of single window
-- Window mode returns `offset_x`, `offset_y` for coordinate translation: `screen = pixel + offset`
+Every JSON response includes:
+- `ok` — bool, success
+- `error` — string, only when `ok:false`. Always actionable: `"element [99] not found in AX tree (scanned 50 elements — try --limit 100)"`.
 
-### `cu ocr [app]`
-Recognize text on screen via macOS Vision framework.
-- Returns text with screen coordinates and confidence scores
-- Best for apps with poor AX support (games, Qt, Java)
-- Runs on-device, no network needed
+Most action responses additionally include:
+- `method` — routing path: `ax-action` / `ax-set-value` / `ax-perform` (best — no cursor move) / `cgevent-pid` / `unicode-pid` / `key-pid` / `ocr-text-pid` (PID-targeted, non-disruptive) / `*-global` (global tap, disruptive — usually means `--app` was missing). Full table: `references/method_field.md`.
+- `confidence` — `high` / `medium` / `low`. Coord-based and global-tap actions skew lower.
+- `advice` — string, present only when not best-case (e.g. *"pass --app to keep cursor put"*).
+- `settle_ms` — actual ms waited for AXObserver post-action settle (capped at 500ms).
+- `snapshot` — fresh AX tree of the target app (suppress with `--no-snapshot`).
 
-### `cu wait --text "X" | --ref N | --gone N [--app name] [--timeout 10] [--limit 200]`
-Poll the AX tree until a condition is met.
-- `--text "Submit"` — wait until any element contains this text
-- `--ref 5` — wait until element ref 5 exists
-- `--gone 5` — wait until element ref 5 disappears
-- `--timeout 10` — seconds before giving up (default: 10)
-- Note: prefer `--text` over `--ref`/`--gone` since refs are unstable across UI changes
+**Reliability advisory strings — always read them when present:**
+| field | command | meaning |
+|---|---|---|
+| `verify_advice` | click | action ran but AX tree didn't change → follow recovery steps |
+| `truncation_hint` | snapshot, state | `--limit` was hit → re-run with larger limit |
+| `confidence_hint` | ocr | a match is below 0.5 → Vision may have hallucinated |
+| `paste_reason` | type | text was auto-routed via clipboard (CJK or chat-app target) |
+| `screenshot_error` | state, screenshot | capture refused by `kCGWindowSharingState=0` — AX tree still works |
 
-## Interaction
-
-### `cu click <ref|x y> [--text "..."] [--app name] [--right] [--double-click] [--shift] [--cmd] [--alt] [--no-snapshot]`
-Click by ref, screen coordinates, or on-screen text.
-- `cu click 3 --app Finder` — click ref [3] from snapshot
-- `cu click 500 300` — click screen coordinates
-- `cu click --text "Submit" --app Safari` — find text via OCR, click it
-- `cu click --text "OK" --index 2` — click 2nd occurrence
-- `--right` — right-click
-- `--double-click` — double-click (open files, select words)
-- `--shift` — shift+click (extend selection)
-- `--cmd` — cmd+click (toggle selection, open in new tab)
-- `--alt` — alt/option+click
-- Ref mode: tries AX actions (AXPress/AXConfirm) first, falls back to CGEvent
-- Text mode: uses OCR to locate text, useful when AX tree is sparse
-- Right-click and double-click always use CGEvent (skip AX actions)
-
-### `cu key <combo> [--app name] [--no-snapshot]`
-Send a keyboard shortcut.
-- `cu key cmd+c --app "Google Chrome"` — copy
-- `cu key cmd+shift+n --app "Google Chrome"` — new incognito window
-- `cu key cmd+space` — open Spotlight
-- `cu key enter --app Safari` — confirm
-- `cu key escape` — cancel/close
-- Modifiers: `cmd`, `shift`, `ctrl`, `alt` (option)
-- Keys: a-z, 0-9, enter, tab, space, escape, delete, up/down/left/right, f1-f12, minus, equal, etc.
-- With `--app`: uses AppleScript System Events (reliable delivery to target app)
-- Without `--app`: uses CGEvent (sends to frontmost app)
-
-### `cu type <text> [--app name] [--no-snapshot]`
-Type text into the focused element via clipboard paste. Safe with any IME. Unicode supported.
-- `cu type "hello world" --app TextEdit`
-- `cu type "https://example.com" --app "Google Chrome"`
-- Uses clipboard paste (Cmd+V) for reliable input regardless of keyboard layout or IME
-- With `--app`: activates app first, then pastes
-
-### `cu scroll <direction> <amount> --x X --y Y`
-Scroll at specified coordinates.
-- Directions: `up`, `down`, `left`, `right`
-- Amount: number of lines (default: 3)
-- `cu scroll down 5 --x 400 --y 300`
-
-### `cu hover <x> <y>`
-Move mouse to coordinates. Triggers tooltips and hover menus.
-
-### `cu drag <x1> <y1> <x2> <y2> [--shift] [--cmd] [--alt]`
-Drag from one position to another with smooth 10-step interpolation.
-- `cu drag 100 200 400 200` — drag right
-- `--shift` — shift+drag (extend selection)
-- `--alt` — option+drag (copy in Finder)
-- Guarantees mouseUp even if intermediate steps fail
-
-## Output
-
-JSON when piped (default for agents), human-readable when TTY.
-
-Action commands (`click`, `key`, `type`) include a fresh snapshot in JSON mode:
-```json
-{"ok":true,"combo":"cmd+t","snapshot":{"ok":true,"app":"Chrome","elements":[...]}}
-```
-
-Use `--no-snapshot` to suppress the auto-snapshot.
-
-Use `--human` flag to force human-readable output regardless of pipe status.
+These exist because boolean flags (`verified:true`, `truncated:true`) are easy to skim past. Strings are not.

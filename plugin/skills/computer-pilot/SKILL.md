@@ -1,13 +1,14 @@
 ---
 name: computer-pilot
 description: >
-  Control the macOS desktop via the `cu` CLI tool. Use when the user needs to
-  interact with desktop applications — open apps, read/write app data, click
-  buttons, fill forms, navigate menus, take screenshots, or read screen content.
-  Three-tier control: AppleScript (scriptable apps) → AX tree + CGEvent
-  (non-scriptable) → OCR + screenshot (fallback). Activate this skill whenever
-  a task involves desktop automation, app control, GUI interaction, or any
-  operation outside the terminal and web browser.
+  Control the macOS desktop via the `cu` CLI tool. Activate whenever a task
+  asks Claude to drive a macOS GUI app on the user's behalf — clicking
+  buttons, filling forms, reading screen state, controlling Finder / Mail /
+  Calendar / Notes / Messages / WeChat, automating menu bars, taking
+  window screenshots, or reading on-screen text via OCR. Three-tier
+  control: AppleScript (scriptable apps) → AX tree + CGEvent
+  (non-scriptable) → OCR + screenshot (fallback). Do NOT activate for
+  text-only file edits inside an editor, even when the editor is "an app".
 ---
 
 # Computer Pilot
@@ -282,42 +283,6 @@ cu click --text "Edit Widgets" --app "System Settings"    # finds text via OCR, 
 cu click --text "Submit" --app Safari --index 2            # click 2nd match
 ```
 
-## Common Patterns
-
-### Launch any app
-```bash
-cu key cmd+space                     # Spotlight
-cu type "App Name"                   # search
-cu key enter                         # launch
-cu wait --text "AppName" --timeout 5 # wait for it
-```
-
-### Discover any app's capabilities
-```bash
-cu menu "App Name"                   # list ALL menu items (works for every app)
-# Output: View > Scientific, Edit > Copy, File > Export, etc.
-# Then click any menu item:
-cu tell "System Events" 'tell process "App Name" to click menu item "Scientific" of menu "View" of menu bar 1'
-```
-
-### Change system settings (no UI needed)
-```bash
-cu defaults read com.apple.dock autohide                 # read a preference
-cu defaults write com.apple.dock autohide -bool true     # change it
-# Common domains: com.apple.dock, com.apple.finder, NSGlobalDomain
-# For settings not in defaults, use cu tell "System Events":
-cu tell "System Events" 'tell appearance preferences to set dark mode to true'
-osascript -e 'set volume output volume 50'               # volume (0-100)
-```
-
-### Click any menu item (universal)
-```bash
-# System Events can click menu items in ANY app
-cu tell "System Events" 'tell process "AppName"
-  click menu item "About AppName" of menu "AppName" of menu bar 1
-end tell'
-```
-
 ## Understanding Snapshots
 
 `cu snapshot` returns the AX tree — a structured list of interactive UI elements:
@@ -333,323 +298,158 @@ Each element has: `[ref]` number, role, title/value, position, size.
 Use the `[ref]` number with `cu click <ref>` to interact.
 **Refs change after every action** — always re-snapshot before clicking.
 
-## Commands
+## Commands cheat sheet
 
-### Discovery (use first to understand what's available)
-| Command | Description |
-|---------|-------------|
-| `cu apps` | List running apps (`S` = scriptable, with class count) |
-| `cu menu <app>` | List ALL menu bar items of any app (via System Events) |
-| `cu sdef <app>` | Show scripting dictionary for scriptable apps |
-| `cu examples [topic]` | Built-in recipe library — try this when unsure how to chain commands |
+The 15 commands you'll reach for most. **Full per-flag reference (every command, every flag, every output field):** `references/commands.md`.
 
-### Scripting (for scriptable apps — check S flag in `cu apps`)
-| Command | Description |
-|---------|-------------|
-| `cu tell <app> '<AppleScript>'` | Run AppleScript against app (read/write data) |
+| Command | One-line purpose |
+|---|---|
+| `cu state <app>` | **First call.** Tree + windows + screenshot + frontmost in one round-trip |
+| `cu apps` | List running apps (`*`=frontmost, `S`=scriptable) |
+| `cu menu <app>` | Dump every menu-bar item (works on any app, scriptable or not) |
+| `cu launch <name\|bundleId>` | Launch + wait for first AX-ready window (or `--no-wait`) |
+| `cu snapshot <app> [--limit N] [--diff] [--annotated]` | AX tree; `--diff` = changes since last; `--annotated` = PNG with refs drawn |
+| `cu find --app X --role R --title-contains S [--first --raw]` | Predicate query (faster + cheaper than snapshot+grep) |
+| `cu click <ref> --app X` | Click + verify by default; read `verified` and `verify_advice` |
+| `cu set-value <ref\|--ax-path> "text" --app X` | Write into an AX field — no focus, no IME |
+| `cu perform <ref\|--ax-path> <AXAction> --app X` | Invoke a named AX action (`AXPress`, `AXShowMenu`, …) |
+| `cu type "text" --app X` | Type; auto-routes via paste for CJK / chat apps (`paste_reason` in output) |
+| `cu key <combo> --app X` | Keyboard shortcut; refused when frontmost is a terminal/IDE |
+| `cu screenshot <app> [--path p.png] [--region "x,y WxH"]` | Window or rectangle capture (silent, no activation) |
+| `cu ocr <app>` | Vision OCR for apps with sparse AX |
+| `cu wait --text "..." --app X --timeout 10` | Poll until text / window / modal / focus condition |
+| `cu tell <app> '<AppleScript>'` | Run AppleScript against the app (read/write data directly) |
+| `cu why <ref> --app X` | Diagnose why a click/perform/set-value didn't take |
+| `cu defaults read/write <domain> <key>` | Read/write macOS preferences without opening Settings |
 
-### System Preferences (bypass System Settings UI)
-| Command | Description |
-|---------|-------------|
-| `cu defaults read <domain> [key]` | Read a macOS preference |
-| `cu defaults write <domain> <key> <value>` | Write a macOS preference |
-
-### Window management
-| Command | Description |
-|---------|-------------|
-| `cu window list [--app Name]` | List all windows (title, position, size, state) |
-| `cu window move <x> <y> --app Name` | Move window |
-| `cu window resize <w> <h> --app Name` | Resize window |
-| `cu window focus --app Name` | Bring app/window to front |
-| `cu window minimize --app Name` | Minimize window |
-| `cu window close --app Name` | Close window |
-
-### Observe
-| Command | Description |
-|---------|-------------|
-| `cu apps` | List running apps (`S` = scriptable, with class count) |
-| `cu state <app>` | **First call when starting a task.** Snapshot + windows + screenshot + frontmost in one command — saves a round-trip vs. `snapshot` + `window list` + `screenshot` |
-| `cu state <app> --no-screenshot` | Same, faster (skips the PNG capture) |
-| `cu snapshot [app] --limit N` | AX tree with [ref] numbers |
-| `cu snapshot [app] --diff` | Same, but only elements that changed since last snapshot of this app |
-| `cu snapshot [app] --annotated --output path.png` | Same + writes a PNG with each ref's box+number drawn on it (for VLM agents) |
-| `cu snapshot [app] --with-screenshot --output path.png` | Same + plain (un-annotated) window PNG, guaranteed same instant as the tree |
-| `cu find --app X --role R --title-contains S` | Predicate query (preferred over snapshot+grep) |
-| `cu nearest <x> <y> --app X` | Pixel → ref reverse lookup (for VLM agents that have visual coords) |
-| `cu observe-region <x> <y> <w> <h> --app X` | All interactive refs whose bbox is in/touches a rect |
-| `cu ocr [app]` | Vision OCR text recognition (for non-AX apps) |
-| `cu screenshot [app] --path file.png` | Window capture (for visual analysis) |
-| `cu screenshot --region "x,y WxH" --path file.png` | Capture only a screen rectangle (cheap VLM verification) |
-| `cu wait --text "X" --app Name --timeout 10` | Poll until text/element appears |
-
-### Act
-| Command | Description |
-|---------|-------------|
-| `cu click <ref> --app Name` | Click + verify (default ON). Returns `verified: bool` and `verify_advice` when not verified — the safety net for sandboxed/Electron silent failures |
-| `cu click <ref> --app Name --no-verify` | Skip verify (~50–150ms faster). Use only on known-reliable targets in bulk |
-| `cu click <ref> --right` | Right-click |
-| `cu click <ref> --double-click` | Double-click (open files, select words) |
-| `cu click <ref> --shift` | Shift+click (extend selection) |
-| `cu click <x> <y>` | Click screen coordinates |
-| `cu key <combo> --app Name` | Keyboard shortcut (refused when frontmost is a terminal/IDE — pass `--allow-global` to override) |
-| `cu type "text" --app Name` | Type text. Auto-routes via clipboard paste when text contains CJK or target is a chat app — see `paste_reason` in output |
-| `cu type "text" --app Name --no-paste` | Force unicode-event delivery even on auto-paste-eligible inputs |
-| `cu type "text" --app Name --paste` | Force paste (pbcopy + ⌘V) regardless of auto-detection |
-| `cu set-value <ref\|--ax-path> "text" --app Name` | Write text into an AX field — no focus, no IME |
-| `cu perform <ref\|--ax-path> <AXAction> --app Name` | Invoke a named AX action (`AXShowMenu`, `AXIncrement`, `AXScrollToVisible`, ...) |
-| `cu scroll down 5 --x 400 --y 300` | Scroll |
-| `cu hover <x> <y>` | Move mouse (tooltips) |
-| `cu drag <x1> <y1> <x2> <y2>` | Drag |
-
-### System
-| Command | Description |
-|---------|-------------|
-| `cu setup` | Check permissions + version |
-| `cu launch <name\|bundleId> [--no-wait] [--timeout 10]` | Launch app, wait for first window (auto-warms AX bridge) |
-| `cu warm <app>` | Warm AX bridge for a manually-opened app (avoids 200–500ms first-snapshot cost) |
-| `cu why <ref> --app Name` | Diagnose why a click/perform/set-value failed — returns enabled/in-bounds/actions/advice |
+Window management (`cu window list/move/resize/focus/minimize/close`), `cu sdef`, `cu warm`, `cu nearest`, `cu observe-region`, `cu setup`, `cu examples` — covered in `references/commands.md`.
 
 ## Perception Strategy
 
-Use the cheapest observation method first:
+Cheapest first: **`cu snapshot`** (AX tree, lowest tokens) → **`cu ocr`** (Vision, for apps with sparse AX — games, Qt, Java) → **`cu screenshot`** (image, when you need vision).
 
-1. **`cu snapshot`** — structured AX tree (lowest tokens, most precise)
-2. **`cu ocr`** — Vision OCR (for apps with poor AX: games, Qt, Java)
-3. **`cu screenshot`** — image file (use your own vision to analyze)
-
-## macOS Operation Patterns
-
-### Open an app
-```bash
-cu key cmd+space                    # open Spotlight
-cu type "Calculator" --app Spotlight  # search
-cu key enter --app Spotlight         # launch
-cu wait --text "Calculator" --timeout 5  # wait for it
-```
-
-### Navigate menu bar
-```bash
-# Method 1: Help menu search (works in most apps)
-cu key cmd+shift+/ --app "App Name"
-cu type "menu item name" --app "App Name"
-cu key enter --app "App Name"
-
-# Method 2: Direct menu shortcut
-cu key cmd+, --app "App Name"      # Preferences/Settings
-cu key cmd+n --app "App Name"      # New
-cu key cmd+o --app "App Name"      # Open
-cu key cmd+s --app "App Name"      # Save
-cu key cmd+w --app "App Name"      # Close window
-cu key cmd+q --app "App Name"      # Quit app
-```
-
-### About window (get app version)
-```bash
-# Click app name in menu bar, then About
-cu snapshot "App Name" --limit 50   # find menu bar items
-cu click <menu-ref> --app "App Name"
-# Or use keyboard: most apps respond to cmd+shift+/ → "About"
-```
-
-### Text selection and clipboard
-```bash
-cu key cmd+a --app "App Name"       # select all
-cu key cmd+c --app "App Name"       # copy
-pbpaste                              # read clipboard
-echo "text" | pbcopy                 # write clipboard
-cu key cmd+v --app "App Name"       # paste
-```
-
-### File operations in Finder
-```bash
-cu snapshot Finder --limit 50        # see files
-cu click <file-ref> --app Finder     # select file
-cu click <file-ref> --double-click --app Finder  # open file
-cu key cmd+delete --app Finder       # move to trash
-cu key cmd+shift+n --app Finder      # new folder
-```
-
-### Handle dialogs and alerts
-```bash
-cu snapshot --limit 30               # frontmost app (dialog is usually frontmost)
-# Look for button refs like "OK", "Cancel", "Allow", "Save"
-cu click <button-ref>
-```
-
-## Cookbook (10 high-frequency recipes)
+## Cookbook (high-frequency recipes)
 
 Each recipe is the shortest correct sequence. Copy, swap names, run.
 
-### 1. Launch an app and wait for it to be usable
+### 1. Start a task on an app — always do this first
+```bash
+cu state Mail                        # tree + windows + screenshot + frontmost in one call
+cu state Mail --no-screenshot        # same, ~50ms faster (skip capture)
+```
+This is the canonical first move. Reading the response gives you everything `cu apps` + `cu window list` + `cu snapshot` + `cu screenshot` would give in four separate round-trips. If the response carries `screenshot_error`, the app is capture-protected — proceed via AX (`elements`) without visual verification.
+
+### 2. Launch an app and wait until usable
 ```bash
 cu launch TextEdit                 # waits up to 10s for AX-reported window
 cu launch com.apple.Calculator     # bundle id form
 cu launch Mail --no-wait           # spawn-and-go
 ```
-Avoids the empty-AX-tree problem on cold starts. Returns `ready_in_ms` so the agent knows how long it took.
+Avoids the empty-AX-tree problem on cold starts. Returns `ready_in_ms` so you know how long it took. For an app the user opened manually, run `cu warm <app>` to pay the first-AX-call cost up front.
 
-### 2. Read app data via AppleScript (preferred for scriptable apps)
+### 3. Read or write app data via AppleScript (preferred for scriptable apps)
 ```bash
 cu apps                                                          # check S flag
 cu sdef Calendar                                                 # discover schema
 cu tell Calendar 'get summary of every event of first calendar'
+cu tell Notes 'make new note with properties {name:"Title", body:"Content"}'
 ```
+If the app has the `S` flag, `cu tell` will almost always be faster and more reliable than UI automation.
 
-### 3. Fill a form field without moving the cursor
+### 4. Fill a textfield or click a button you can name
 ```bash
+# Fill — no focus, no IME
 REF=$(cu find --app Mail --role textfield --title-contains Subject --first --raw)
-cu set-value "$REF" "Hello world" --app Mail   # method=ax-set-value, no focus theft
-```
-When `cu set-value` fails (Electron / non-AX field): `cu click "$REF" --app Mail; cu type "Hello world" --app Mail`.
+cu set-value "$REF" "Quarterly review" --app Mail
 
-### 3a. Multi-step flow: save axPath once, act on it across snapshots
+# Click — by exact label
+REF=$(cu find --app Safari --role button --title-equals Reload --first --raw)
+cu click "$REF" --app Safari
+```
+If `set-value` fails (Electron / non-AX field): `cu click "$REF"; cu type "..."`. If the button isn't in the AX tree at all: `cu click --text "Reload" --app Safari` (OCR-driven).
+
+### 5. Multi-step flow that mutates the UI — capture axPath once
 ```bash
-# Snapshot once, capture stable selectors for the elements you'll act on:
 SNAP=$(cu snapshot Mail --limit 100)
 SUBJECT=$(echo "$SNAP" | jq -r '.elements[] | select(.role=="textfield" and (.title // "") | contains("Subject")) | .axPath')
 SEND=$(echo "$SNAP" | jq -r '.elements[] | select(.role=="button" and (.title // "") == "Send") | .axPath')
 
-# Now act — refs may have renumbered after each step, but axPaths still resolve:
 cu set-value --ax-path "$SUBJECT" "Quarterly review" --app Mail
-cu click --ax-path "$SEND" --app Mail
+cu click     --ax-path "$SEND"    --app Mail
 ```
-Use this whenever a step mutates the UI (opening a sheet, expanding a section). Refs would shift; axPaths don't.
+Use `--ax-path` whenever a step opens a sheet / expands a section / triggers a re-render. Refs renumber; axPaths survive.
 
-### 4. Click a button when you only know its label
+### 6. VLM agent: screen → ref → click
 ```bash
-REF=$(cu find --app Safari --role button --title-equals Reload --first --raw)
-cu click "$REF" --app Safari
-```
-Falls back to OCR when the button isn't in the AX tree:
-```bash
-cu click --text "Reload" --app Safari
-```
+cu snapshot Mail --limit 50 --annotated --output /tmp/m.png  # boxes drawn for each ref
+# Agent looks at /tmp/m.png, identifies element by visual cues, then:
+cu click 12 --app Mail
 
-### 5. Click by visual coordinates (VLM agent has a screenshot)
-```bash
-cu screenshot Safari --path /tmp/p.png             # agent looks at the image
-REF=$(cu nearest 480 240 --app Safari | jq -r .ref) # pixel → nearest interactive ref
-cu click "$REF" --app Safari
-```
+# Or: VLM has pixel coords from a separate screenshot — translate to nearest ref
+REF=$(cu nearest 480 240 --app Mail | jq -r .match.ref)
+cu click "$REF" --app Mail
 
-### 6. Scope work to a region (dialog / panel)
-```bash
+# Or: scope to a rectangle (dialog / panel) instead of the whole window
 cu observe-region 480 200 400 300 --app Mail --mode center
-# returns interactive refs whose centers fall inside the rect
-```
 
-### 7. Cheap visual verification (5–10× smaller than full window)
-```bash
+# Cheap visual re-check after acting (5–10× smaller than full window)
 cu screenshot --region "480,200 400x300" --path /tmp/check.png
 ```
+`--annotated` is the highest-leverage flow when the model has vision: it sees the UI with refs already labeled, so coordinate guessing never enters the loop.
 
-### 8. Wait for something to happen
+### 7. Wait for something to happen
 ```bash
-cu wait --new-window     --app Mail --timeout 5     # sheet / new compose window
-cu wait --modal          --app Finder --timeout 5   # save / replace dialog
-cu wait --focused-changed --app Safari --timeout 5  # focus moved to next field
-cu wait --text "Saved" --app TextEdit --timeout 10  # text appeared anywhere in the tree
+cu wait --new-window      --app Mail    --timeout 5   # sheet / compose window
+cu wait --modal           --app Finder  --timeout 5   # save / replace dialog
+cu wait --focused-changed --app Safari  --timeout 5   # focus moved to next field
+cu wait --text "Saved"    --app TextEdit --timeout 10 # text appeared in the tree
 ```
+Prefer text/window/modal conditions over `--ref` / `--gone` (refs are unstable).
 
-### 9. See only what changed since last snapshot
-```bash
-cu snapshot Mail --diff
-# {"diff": {"added": [...], "changed": [...], "removed": [...], "unchanged_count": N}}
-```
-Cuts token cost on long sessions where the UI mostly stays the same.
+### 8. Send a message in a chat / IM app (WeChat, Messages, Slack, Telegram, Lark)
+Chat apps trip three landmines simultaneously. **cu auto-handles all three** — your job is to read the advisory fields it surfaces.
 
-### 10. Read system preferences without opening Settings
-```bash
-cu defaults read com.apple.dock autohide
-cu defaults write com.apple.dock autohide -bool true && killall Dock
-```
-
-### 11. Send a message in a chat / IM app (WeChat, Messages, Slack, Telegram)
-Chat apps need behaviors different from normal AppKit apps. **The good news: cu does the right thing automatically.** You just need to know what the auto-routing means and what to do when it surfaces a problem.
-
-1. They're often **partly sandboxed** — PID-targeted CGEvents may be silently ignored. `cu click` verifies by default and surfaces `verified: false` + `verify_advice` when this happens.
-2. Their **rich-text editors drop the leading code units of unicode events** — non-ASCII (Chinese, Japanese, emoji) gets half-eaten. `cu type` auto-routes through clipboard paste when the text contains CJK or the target app is on the chat-app list (WeChat, Slack, Discord, Telegram, Lark, QQ, DingTalk, etc.). Look for `paste_reason` in the output.
-3. **WeChat (and some Microsoft Office MAS builds) set `kCGWindowSharingState=0`** — capture-protected. `cu screenshot` and the screenshot embedded in `cu state` will refuse with `screenshot_error`; the AX tree (`elements`) still works. Use AX-based interaction; visual verification is impossible by design.
+1. **Partly sandboxed** — PID-targeted CGEvents may be silently dropped. `cu click` verifies by default; watch for `verified: false` + `verify_advice`.
+2. **Rich-text editors drop leading unicode code units** — `cu type` auto-routes through clipboard paste for CJK content or chat-app targets. Watch for `paste_reason`.
+3. **Some opt out of screen capture** (`kCGWindowSharingState=0` — WeChat, parts of Office MAS) — `cu state` / `cu screenshot` return `screenshot_error`; AX tree still works.
 
 ```bash
-# 1. One call: tree + windows + capture-protected error (if any). The agent
-#    sees screenshot_error in the result and knows to skip visual verification.
-cu state WeChat
-
-# 2. Find the message input field (rich textarea / textfield by role).
+cu state WeChat                                      # tree + windows + (maybe) screenshot_error
 INPUT=$(cu find --app WeChat --role textarea --first --raw)
-
-# 3. Click into the field, then type the message. Both auto-protect:
-#    click verifies by default, type auto-pastes for CJK / chat apps.
-cu click "$INPUT" --app WeChat                # verified by default — read `verified` + `verify_advice`
-cu type "你好，这是来自 cu 的消息" --app WeChat # auto-paste, see `paste_reason`
-cu key enter --app WeChat                     # send (some apps want cmd+enter — try enter first)
+cu click "$INPUT" --app WeChat                       # read `verified` + `verify_advice`
+cu type  "你好，这是来自 cu 的消息" --app WeChat       # see `paste_reason` in output
+cu key   enter --app WeChat                          # send (some chat apps want cmd+enter — try enter first)
 ```
 
-**If the click response has `verified: false`:** the target app may have dropped the event, or your click coordinates missed. Read `verify_advice` for the structured recovery list. Typical order: re-snapshot to inspect the post-action tree → switch to ref-based or `--ax-path` click (uses AX action chain, which sandboxes don't drop the way they drop coord clicks) → if AX is too sparse for refs, `osascript -e 'tell application "WeChat" to activate'` then retry the same `cu click ... --app WeChat`. Stay on `--app`-targeted cu; do not fall back to global-tap delivery — bash-interval focus drift will route the next click to your terminal.
+**Recovery when `verified: false`:** stay on `--app`-targeted cu primitives. Try ref-based `--ax-path` click → `cu perform <ref> AXPress` → if AX is too sparse, single `osascript -e 'tell application "X" to activate'` then retry the **same** `cu click ... --app X`. **Never** drop to `--allow-global` — bash-interval focus drift will route the next click to your terminal.
 
-**If `cu state WeChat` returns `screenshot_error: "...capture-protected..."`:** that's expected. WeChat (and a few other privacy-conscious apps) opt out of screen capture at the OS level — both `CGWindowListCreateImage` and `ScreenCaptureKit` honor `kCGWindowSharingState=0`. cu cannot bypass it; this is the OS, not a bug. Drive the task with AX (snapshot/find/click) and accept that there's no visual verification.
-
-## Key Rules
-
-- **Always use `--app`** to target a specific app. Without it, keys go to the frontmost app which may have changed.
-- **Refs are ephemeral** — they change after every UI mutation. Always re-snapshot.
-- **Observe before acting** — don't guess refs from memory. Run `cu snapshot` first.
-- **Verify after acting** — `cu snapshot` again to confirm the action worked.
-- **JSON output** (when piped) auto-includes a fresh snapshot after click/key/type. Use `--no-snapshot` to disable.
+**Recovery when `screenshot_error` appears:** that's the OS, not a cu bug. Drive the task with AX (`snapshot` / `find` / `click`); accept there's no visual verification path.
 
 ## Focus Model (why `--app` matters)
 
-`cu` is engineered to operate without disrupting the user. The mechanism is per-process event delivery: when `--app <Name>` is given, every CGEvent is posted to the target app's pid via `CGEventPostToPid` instead of the global HID tap.
+With `--app`: events go to the target app via `CGEventPostToPid` — cursor stays, frontmost stays, IME bypassed. Without `--app`: events flow through the global HID tap and hit whatever is frontmost (which can drift between bash invocations).
 
-**With `--app`:** the cursor stays where it is, the frontmost app stays frontmost, the clipboard is untouched, IME state is bypassed. `click`, `type`, `key`, `scroll`, `hover`, `drag`, `set-value`, `perform` all support this routing.
+Every action response carries a `method` field documenting routing — `ax-action` / `ax-set-value` / `ax-perform` are best (no cursor move), `*-pid` are pid-targeted (non-disruptive), `*-global` are global tap (disruptive — usually means `--app` was missing).
 
-**Without `--app`:** events go through the global HID tap — the cursor warps, focus may shift, and the user notices.
+Full method-value table and known limitations (drag/hover always move cursor; some MAS sandbox builds drop PID-targeted events): see `references/method_field.md`.
 
-The response includes a `method` field that documents which path was taken:
+## Output Format (digest)
 
-| method | meaning |
-|--------|---------|
-| `ax-action` | AX native action (no cursor move at all) — best |
-| `ax-set-value` / `ax-perform` | direct AX attribute write / action call |
-| `cgevent-pid`, `unicode-pid`, `key-pid`, `ocr-text-pid` | pid-targeted (non-disruptive) |
-| `cgevent-global`, `unicode-global`, `key-global`, `ocr-text-global` | global HID tap (disruptive) |
+When piped, every command returns JSON; pass `--human` to force readable output. Snapshot elements carry both `ref` (ephemeral) and `axPath` (stable selector — pass via `--ax-path`). Action responses auto-attach a fresh `snapshot` (skip with `--no-snapshot`) plus a `method` routing field.
 
-If you see a `*-global` method in a response, it means `--app` was missing. Add it.
+**Always read these advisory strings when present** — they mean the result is degraded or auto-corrected, and the agent must react:
 
-**Known limitations of pid-targeted delivery:**
-- `drag` and `hover` move the cursor by design — pid-targeting suppresses focus theft but the cursor still moves to the target coordinates.
-- A small set of sandboxed apps (some Mac App Store builds) ignore PID-targeted events. Symptom: action returns `ok:true` but the UI doesn't update. Workaround: focus the app first, then use `cu type` / `cu key` without `--app`.
+| field | command | what it means |
+|---|---|---|
+| `verify_advice` | click | action ran but AX tree didn't change → follow the recovery steps |
+| `truncation_hint` | snapshot | `--limit` was hit → re-run with larger limit |
+| `confidence_hint` | ocr | a match is below 0.5 → Vision may have hallucinated; verify visually |
+| `paste_reason` | type | text was auto-routed via clipboard (CJK or chat app) |
+| `screenshot_error` | state, screenshot | capture refused (usually `kCGWindowSharingState=0`) — AX tree still works |
 
-## Output Format
+Boolean flags like `verified`, `truncated`, `ok` matter too, but they're easy to skim past — these advisory strings exist precisely so you don't.
 
-When piped (default for agents), output is JSON:
-```json
-{"ok":true,"app":"Finder","window":"Downloads","elements":[{"ref":1,"role":"button","title":"Back","axPath":"window[Downloads]/toolbar/button[Back]","x":10,"y":40,"width":30,"height":24}],"displays":[{"id":1,"main":true,"x":0,"y":0,"width":1512,"height":982}]}
-```
-
-Each element carries both `ref` (cheap, ephemeral, refreshes per snapshot) and `axPath` (stable selector that survives UI churn — pass to action commands via `--ax-path` for multi-step flows).
-
-Errors include context:
-```json
-{"ok":false,"error":"element [99] not found in AX tree (scanned 50 elements)"}
-```
-
-Action responses also carry these post-action fields:
-- `method` — routing (`ax-action`, `cgevent-pid`, etc.)
-- `confidence` — `high` / `medium` / `low`; check before relying on a coord-based or global-tap action
-- `advice` — only present when not best-case (e.g. "pass --app to keep cursor put")
-- `settle_ms` — actual ms waited via single-shot AXObserver (capped at 500ms)
-- `snapshot` — fresh AX tree (skip with `--no-snapshot`)
-- `verified` (`cu click` default-on) — pre/post AX diff; `false` means the click ran but the tree didn't change → `verify_advice` tells you what to do
-- `verify_diff` — `{added, changed, removed}` element counts when verify ran
-- `paste_reason` (`cu type`) — set when text was auto-routed through clipboard (CJK content or chat-app target)
-
-Reliability advisories — when present, **read them**. They mean the result is degraded or auto-corrected:
-- `truncation_hint` (snapshot) — `--limit` was hit; element you want may be past this batch. Re-run with bigger limit.
-- `confidence_hint` (ocr) — at least one match is below 0.5 confidence. Vision returns plausible-looking hallucinations in this range.
-- `screenshot_error` (`cu state`, screenshot path) — capture was refused, almost always `kCGWindowSharingState=0`. AX tree (`elements`) still works.
-- `verify_advice` (click) — the action ran but didn't move the tree. Has concrete next-step instructions.
+For the full per-field catalog (every field on every command), see `references/commands.md`.
 
 ## Tips
 
