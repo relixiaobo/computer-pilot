@@ -467,12 +467,19 @@ enum Cmd {
     #[command(after_help = "\
         Examples:\n  \
         cu ocr Finder\n  \
-        cu ocr 'Google Chrome'\n\n\
+        cu ocr 'Google Chrome'\n  \
+        cu ocr Telegram --region '192,130 286x692'\n\n\
         Returns text with screen coordinates and confidence scores.\n\
+        Use --region to restrict results to a pane/list/dialog when duplicate\n\
+        text appears in multiple places on screen.\n\
         Use for apps with poor AX support (games, Qt, Java apps).")]
     Ocr {
         /// Application name (default: frontmost)
         app: Option<String>,
+        /// Restrict OCR results to text whose center is inside this screen rectangle:
+        /// "x,y WxH" or "x,y,w,h" (in points).
+        #[arg(long)]
+        region: Option<String>,
     },
 
     /// Click by ref, coordinates, or on-screen text (OCR)
@@ -485,7 +492,9 @@ enum Cmd {
         cu click 3 --app Finder --no-verify    # opt out of verify when speed matters\n\n\
         Text mode (--text) uses OCR to find the text, then clicks its center.\n\
         Works for UI elements not in the AX tree (Notification Center, system panels).\n\
-        Use --index N to click the Nth match (default: first).\n\n\
+        Use --index N to click the Nth match (default: first).\n\
+        Use --region 'x,y WxH' to constrain text matching to a pane/list/dialog\n\
+        when the same label appears elsewhere in the window.\n\n\
         Ref mode tries AX actions first, falls back to CGEvent.\n\
         Always use --app for reliability. Refs come from 'cu snapshot'.\n\n\
         Verify (default ON): takes a pre-action AX snapshot and diffs after the click.\n\
@@ -506,6 +515,10 @@ enum Cmd {
         /// Which match to click when using --text (default: 1 = first)
         #[arg(long, default_value = "1")]
         index: usize,
+        /// Restrict --text matching to OCR text whose center is inside this screen rectangle:
+        /// "x,y WxH" or "x,y,w,h" (in points).
+        #[arg(long)]
+        region: Option<String>,
         /// Target application
         #[arg(long)]
         app: Option<String>,
@@ -957,7 +970,7 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
             timeout,
             limit,
         ),
-        Cmd::Ocr { app } => cmd_ocr(json, app),
+        Cmd::Ocr { app, region } => cmd_ocr(json, app, region),
         Cmd::Type {
             text,
             app,
@@ -994,6 +1007,7 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
             text,
             ax_path,
             index,
+            region,
             app,
             limit,
             right,
@@ -1023,6 +1037,7 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
                 text,
                 ax_path,
                 index,
+                region,
                 app,
                 limit,
                 right,
@@ -1742,12 +1757,36 @@ fn cmd_wait(
     Ok(())
 }
 
-fn cmd_ocr(json: bool, app: Option<String>) -> Result<(), CuError> {
+fn cmd_ocr(json: bool, app: Option<String>, region: Option<String>) -> Result<(), CuError> {
     let (pid, _name) = system::resolve_target_app(&app)?;
-    let result = ocr::recognize(pid);
+    let mut result = ocr::recognize(pid);
 
     if !result.ok {
         return Err(result.error.unwrap_or_else(|| "OCR failed".into()).into());
+    }
+
+    let parsed_region = match region.as_deref() {
+        Some(spec) => Some(parse_region(spec)?),
+        None => None,
+    };
+    if let Some((rx, ry, rw, rh)) = parsed_region {
+        let before = result.texts.len();
+        result
+            .texts
+            .retain(|t| ocr_text_center_in_region(t, rx, ry, rw, rh));
+        result.recompute_confidence_stats();
+        result.region = Some(ocr::OcrRegion {
+            x: rx,
+            y: ry,
+            width: rw,
+            height: rh,
+        });
+        result.filtered_from = Some(before);
+        if result.texts.is_empty() && before > 0 {
+            result.region_hint = Some(format!(
+                "OCR found {before} text regions before --region filtering, but none had centers inside the requested region."
+            ));
+        }
     }
 
     if json {
@@ -1907,6 +1946,9 @@ fn cmd_set_value(
         "app": name,
         "value": value,
         "method": "ax-set-value",
+        "ax_value_written": true,
+        "ui_effect_verified": serde_json::Value::Null,
+        "effect_advice": "AXValue write succeeded, but this only proves the accessibility value changed. Some apps do not run their normal UI/search/input handlers for AXValue changes; verify with snapshot/OCR/wait when the business effect matters.",
     });
     maybe_attach_snapshot(&mut result, json, no_snapshot, &app, limit);
     if json {
@@ -2018,6 +2060,7 @@ struct ClickOptions {
     text: Option<String>,
     ax_path: Option<String>,
     index: usize,
+    region: Option<String>,
     app: Option<String>,
     limit: usize,
     right: bool,
@@ -2035,6 +2078,7 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
         text,
         ax_path,
         index,
+        region,
         app,
         limit,
         right,
@@ -2106,6 +2150,10 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
 
     // Mode 1: --text "Submit" → OCR-based click
     if let Some(ref search_text) = text {
+        let parsed_region = match region.as_deref() {
+            Some(spec) => Some(parse_region(spec)?),
+            None => None,
+        };
         let (pid, _) = if app.is_some() {
             system::resolve_target_app(&app)?
         } else {
@@ -2128,16 +2176,26 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
         let matches: Vec<&ocr::OcrText> = result
             .texts
             .iter()
-            .filter(|t| t.text.to_lowercase().contains(&lower_search))
+            .filter(|t| {
+                t.text.to_lowercase().contains(&lower_search)
+                    && parsed_region
+                        .map(|(rx, ry, rw, rh)| ocr_text_center_in_region(t, rx, ry, rw, rh))
+                        .unwrap_or(true)
+            })
             .collect();
 
         if matches.is_empty() {
-            return Err(format!(
-                "text \"{}\" not found on screen (OCR found {} regions)",
+            let region_suffix = parsed_region
+                .map(|(rx, ry, rw, rh)| format!(" inside region {rx},{ry} {rw}x{rh}"))
+                .unwrap_or_default();
+            return Err(CuError::msg(format!(
+                "text \"{}\" not found{} (OCR found {} regions)",
                 search_text,
+                region_suffix,
                 result.texts.len()
-            )
-            .into());
+            ))
+            .with_hint("if the same text appears in multiple panes, pass --region around the intended pane")
+            .with_next("cu ocr <App> --region 'x,y WxH'"));
         }
         if index == 0 || index > matches.len() {
             return Err(format!(
@@ -2171,6 +2229,12 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
             "ok": true, "method": method, "text": matched.text,
             "x": cx, "y": cy, "matches": matches.len()
         });
+        if let Some((rx, ry, rw, rh)) = parsed_region {
+            result["region"] = serde_json::json!({"x": rx, "y": ry, "width": rw, "height": rh});
+            result["region_hint"] = serde_json::Value::String(
+                "OCR text matching was restricted to text centers inside --region".into(),
+            );
+        }
         maybe_attach_snapshot(&mut result, json, no_snapshot, &app, limit);
         if let Some((_, _, ref prev)) = pre_state {
             attach_verification(&mut result, prev, method);
@@ -3112,7 +3176,19 @@ fn parse_region(spec: &str) -> Result<(f64, f64, f64, f64), CuError> {
         CuError::msg("--region contains a non-numeric component")
             .with_hint("each of x/y/width/height must be a finite number")
     })?;
+    if !nums.iter().all(|n| n.is_finite()) {
+        return Err(CuError::msg("--region coordinates must be finite numbers"));
+    }
+    if nums[2] <= 0.0 || nums[3] <= 0.0 {
+        return Err(CuError::msg("--region width and height must be > 0"));
+    }
     Ok((nums[0], nums[1], nums[2], nums[3]))
+}
+
+fn ocr_text_center_in_region(t: &ocr::OcrText, rx: f64, ry: f64, rw: f64, rh: f64) -> bool {
+    let cx = t.x + t.width / 2.0;
+    let cy = t.y + t.height / 2.0;
+    cx >= rx && cx <= rx + rw && cy >= ry && cy <= ry + rh
 }
 
 fn ok(value: serde_json::Value) -> Result<(), CuError> {

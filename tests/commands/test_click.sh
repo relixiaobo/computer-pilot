@@ -104,6 +104,9 @@ assert_ok "click --text finds visible text"
 assert_json_field "method is ocr-text-pid" ".method" "ocr-text-pid"
 assert_json_field_exists "matched text" ".text"
 
+cu_json click --text "Applications" --app Finder --region "99999,99999 10x10" --no-snapshot
+assert_fail "click --text respects --region filter"
+
 cu_json click --text "ZZZZNONEXISTENT99" --app Finder --no-snapshot
 assert_fail "click --text with non-existent text fails"
 

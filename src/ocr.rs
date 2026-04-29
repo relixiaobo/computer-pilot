@@ -24,6 +24,13 @@ unsafe extern "C" {
 pub struct OcrResult {
     pub ok: bool,
     pub texts: Vec<OcrText>,
+    /// Region filter applied by the CLI after recognition. Coordinates are in
+    /// screen points, matching snapshot/click coordinate space.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub region: Option<OcrRegion>,
+    /// Number of recognized text regions before the region filter was applied.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub filtered_from: Option<usize>,
     /// Aggregate confidence stats so the agent doesn't have to walk the
     /// array to know "is this OCR result trustworthy". Populated only on
     /// success and only when at least one text was recognized.
@@ -41,7 +48,17 @@ pub struct OcrResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub confidence_hint: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub region_hint: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct OcrRegion {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
 }
 
 #[derive(Serialize)]
@@ -52,6 +69,16 @@ pub struct OcrText {
     pub y: f64,
     pub width: f64,
     pub height: f64,
+}
+
+impl OcrResult {
+    pub fn recompute_confidence_stats(&mut self) {
+        let (min_conf, mean_conf, low_count) = confidence_stats(&self.texts);
+        self.min_confidence = min_conf;
+        self.mean_confidence = mean_conf;
+        self.low_confidence_count = low_count;
+        self.confidence_hint = confidence_hint(low_count, self.texts.len());
+    }
 }
 
 pub fn recognize(pid: i32) -> OcrResult {
@@ -128,40 +155,48 @@ unsafe fn run_ocr(cg_image: CFTypeRef, win: &screenshot::WindowInfo) -> OcrResul
         }
     }
 
-    let (min_conf, mean_conf, low_count) = if texts.is_empty() {
-        (None, None, None)
-    } else {
-        let mut min = f64::INFINITY;
-        let mut sum = 0.0;
-        let mut low = 0usize;
-        for t in &texts {
-            if t.confidence < min {
-                min = t.confidence;
-            }
-            sum += t.confidence;
-            if t.confidence < 0.5 {
-                low += 1;
-            }
-        }
-        (Some(min), Some(sum / texts.len() as f64), Some(low))
-    };
-
-    let confidence_hint = match low_count {
-        Some(n) if n > 0 => Some(format!(
-            "{n} of {total} recognitions are below 0.5 confidence — Vision returns plausible-looking hallucinations in this range. Verify visually before acting on these results.",
-            total = texts.len()
-        )),
-        _ => None,
-    };
+    let (min_conf, mean_conf, low_count) = confidence_stats(&texts);
+    let confidence_hint = confidence_hint(low_count, texts.len());
 
     OcrResult {
         ok: true,
         texts,
+        region: None,
+        filtered_from: None,
         min_confidence: min_conf,
         mean_confidence: mean_conf,
         low_confidence_count: low_count,
         confidence_hint,
+        region_hint: None,
         error: None,
+    }
+}
+
+fn confidence_stats(texts: &[OcrText]) -> (Option<f64>, Option<f64>, Option<usize>) {
+    if texts.is_empty() {
+        return (None, None, None);
+    }
+    let mut min = f64::INFINITY;
+    let mut sum = 0.0;
+    let mut low = 0usize;
+    for t in texts {
+        if t.confidence < min {
+            min = t.confidence;
+        }
+        sum += t.confidence;
+        if t.confidence < 0.5 {
+            low += 1;
+        }
+    }
+    (Some(min), Some(sum / texts.len() as f64), Some(low))
+}
+
+fn confidence_hint(low_count: Option<usize>, total: usize) -> Option<String> {
+    match low_count {
+        Some(n) if n > 0 => Some(format!(
+            "{n} of {total} recognitions are below 0.5 confidence — Vision returns plausible-looking hallucinations in this range. Verify visually before acting on these results."
+        )),
+        _ => None,
     }
 }
 
@@ -169,10 +204,13 @@ fn err(msg: &str) -> OcrResult {
     OcrResult {
         ok: false,
         texts: vec![],
+        region: None,
+        filtered_from: None,
         min_confidence: None,
         mean_confidence: None,
         low_confidence_count: None,
         confidence_hint: None,
+        region_hint: None,
         error: Some(msg.to_string()),
     }
 }

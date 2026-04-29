@@ -38,6 +38,8 @@ cu_json set-value 1 "hello via AXValue" --app TextEdit --no-snapshot
 assert_ok "set-value ref 1"
 assert_json_field "method is ax-set-value" ".method" "ax-set-value"
 assert_json_field "value echoed" ".value" "hello via AXValue"
+assert_json_field "ax_value_written true" ".ax_value_written" "true"
+assert_json_field_exists "effect_advice present" ".effect_advice"
 verify_doc "TextEdit document contains the value" "hello via AXValue"
 
 section "set-value — Unicode (Chinese)"

@@ -67,6 +67,47 @@ else
   _skip "OCR text content" "no text found in Finder window"
 fi
 
+section "ocr — region filter"
+
+REGION=$(echo "$OUT" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+texts = d.get('texts', [])
+if not texts:
+    print('')
+    sys.exit()
+t = texts[0]
+x = max(0, t['x'] - 10)
+y = max(0, t['y'] - 10)
+w = max(20, t['width'] + 20)
+h = max(20, t['height'] + 20)
+print(f'{x},{y} {w}x{h}')
+" 2>/dev/null || true)
+
+if [[ -n "$REGION" ]]; then
+  cu_json ocr Finder --region "$REGION"
+  assert_ok "ocr --region ok"
+  assert_json_field_exists "region echoed" ".region.x"
+  assert_json_field_exists "filtered_from present" ".filtered_from"
+  REGION_OK=$(echo "$OUT" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+r = d.get('region') or {}
+texts = d.get('texts', [])
+rx, ry, rw, rh = r.get('x'), r.get('y'), r.get('width'), r.get('height')
+bad = []
+for t in texts:
+    cx = t['x'] + t['width'] / 2
+    cy = t['y'] + t['height'] / 2
+    if not (rx <= cx <= rx + rw and ry <= cy <= ry + rh):
+        bad.append(t['text'])
+print('ok' if not bad else 'bad:' + bad[0])
+" 2>/dev/null || echo "error")
+  [[ "$REGION_OK" == "ok" ]] && _pass "ocr --region keeps centers inside rect" || _fail "ocr --region center filter" "$REGION_OK"
+else
+  _skip "ocr --region" "no text recognized to anchor a region"
+fi
+
 section "ocr — error: non-existent app"
 
 cu_json "ocr NonExistentApp98765"
