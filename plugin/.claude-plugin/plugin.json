@@ -1,7 +1,7 @@
 {
   "name": "computer-pilot",
   "description": "Control the macOS desktop via CLI. Three-tier control: AppleScript scripting (cu tell/sdef), AX tree + CGEvent (cu snapshot/menu/click/window), OCR fallback. 27 commands.",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "author": {
     "name": "computer-pilot"
   },
