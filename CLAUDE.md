@@ -9,7 +9,7 @@ Three-tier control: **AppleScript** (scriptable apps) → **AX tree + CGEvent** 
 
 ```
 cargo build --release                         # Build
-bash tests/commands/run_all.sh                # Run 470+ command tests
+bash tests/commands/run_all.sh                # Run 700+ command-test assertions
 ./target/release/cu --human <command>         # Run in dev
 bash scripts/release.sh <version>                          # Release: bump → tag → push → GitHub
 bash scripts/release.sh <version> --dry-run                # Dry run first
@@ -96,7 +96,7 @@ After `click`, `type`, `key`, the CLI automatically returns a fresh snapshot in 
 
 When clicking, prefer **AX native actions** (AXPress, AXConfirm, AXOpen) over CGEvent coordinate clicks. AX actions are more reliable — they work even if the element is partially obscured. Only fall back to CGEvent mouse click when AX actions fail.
 
-Current state: click only uses CGEvent. **TODO**: Implement the AX action chain before CGEvent fallback.
+Implemented: `cu click <ref>` runs the 15-step AX action chain in `src/ax.rs` (AXPress → AXConfirm → AXOpen → ancestor walks → coord-derived ref → CGEvent fallback) and reports which step succeeded via the `method` field. CGEvent is only reached when every AX path is rejected.
 
 ### 5. Script-first for scriptable apps
 
@@ -141,9 +141,10 @@ the user", grep for `*-global` in logs.
 
 **Known limitation:** a small set of sandboxed apps (some Mac App Store
 builds) ignore PID-targeted events. Symptom: `ok:true` returned but the UI
-doesn't change. Workaround: focus the app first, then send keys without
-`--app`. Detecting this automatically (D4 in `docs/ROADMAP.md`) is deferred
-to Sprint 2 because it requires the diff-snapshot machinery (C1).
+doesn't change. `cu click` catches this via the verify-by-default AX diff
+(R2) — the response carries `verified:false` + `verify_advice` so the
+agent can react. For a manual workaround: focus the app first, then retry
+the same `cu click ... --app <Name>` (do NOT drop to global tap).
 
 ### 7. Screenshot rules
 
@@ -226,7 +227,7 @@ Examples already wired:
 - `confidence_hint` on `cu ocr` when any recognition is below 0.5 (R6)
 - `paste_reason` on `cu type` when auto-routed via clipboard (R7)
 - `verify_advice` on `cu click` when verified=false (R2)
-- `screenshot_error` on `cu state` when capture refused (A from earlier batch)
+- `screenshot_error` on `cu state` and `cu screenshot` when capture refused (A from earlier batch)
 
 Whenever a command returns degraded or auto-corrected output, follow the
 same pattern: a string field whose name ends with `_hint` / `_reason` /
@@ -303,4 +304,4 @@ fast-feedback protocol guard.
 - Don't add commands for things the agent can achieve with existing commands (scroll = key down, hover = not needed in v1, double-click = two clicks).
 - Don't add verbose success messages. `Clicked [3] button "OK"` is enough.
 - Don't try to maintain stable refs across actions. Refs are cheap to regenerate.
-- Don't use `screencapture` CLI. Use Rust-native `CGWindowListCreateImage` instead (screenshot.rs).
+- Don't use `screencapture` CLI. Use Rust-native ScreenCaptureKit (`sck.rs`, primary path) with `CGWindowListCreateImage` as fallback (`screenshot.rs`).

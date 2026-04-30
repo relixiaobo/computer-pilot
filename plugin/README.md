@@ -7,14 +7,13 @@ Agent plugin for [computer-pilot](https://github.com/relixiaobo/computer-pilot) 
 ### Step 1: Install cu binary
 
 ```bash
-# Option A: Build from source
+# Option A: Download prebuilt (macOS Apple Silicon)
+sudo curl -Lo /usr/local/bin/cu https://github.com/relixiaobo/computer-pilot/releases/latest/download/cu-arm64 && sudo chmod +x /usr/local/bin/cu
+
+# Option B: Build from source
 git clone https://github.com/relixiaobo/computer-pilot.git
 cd computer-pilot && cargo build --release
 sudo cp target/release/cu /usr/local/bin/
-
-# Option B: Download prebuilt (macOS Apple Silicon)
-curl -L https://github.com/relixiaobo/computer-pilot/releases/latest/download/cu-arm64 -o /usr/local/bin/cu
-chmod +x /usr/local/bin/cu
 ```
 
 ### Step 2: Grant permissions
@@ -27,15 +26,25 @@ cu setup
 
 ```
 /plugin marketplace add relixiaobo/computer-pilot
-/plugin install computer-pilot@relixiaobo-computer-pilot
+/plugin install computer-pilot@computer-pilot-marketplace
 ```
+
+### Updating the plugin
+
+```
+/plugin marketplace update computer-pilot-marketplace
+/plugin update computer-pilot@computer-pilot-marketplace
+```
+
+The `cu` binary is separate — re-run the curl command above to upgrade it.
 
 ## What it does
 
 Adds a skill that teaches Claude Code how to use `cu` to:
 - **Observe**: snapshot UI elements (AX tree), OCR, screenshots
-- **Act**: click, type, keyboard shortcuts, scroll, drag
-- **Automate**: open apps, navigate menus, handle dialogs, file operations
+- **Act**: click, type, keyboard shortcuts, scroll, drag (cursor stays put with `--app`)
+- **Script**: AppleScript directly via `cu tell` for scriptable apps
+- **Automate**: launch apps, navigate menus, fill forms, manage windows, change system preferences
 
 ## Usage
 
@@ -53,24 +62,18 @@ Or use the `/desktop` command:
 /desktop open Finder and create a new folder called "test"
 ```
 
-## Commands (12)
+## Commands (27)
 
-| Command | What it does |
-|---------|-------------|
-| `cu setup` | Check permissions |
-| `cu apps` | List running apps |
-| `cu snapshot` | AX tree with [ref] numbers |
-| `cu click` | Click by ref or coordinates |
-| `cu key` | Keyboard shortcut |
-| `cu type` | Type text |
-| `cu scroll` | Scroll |
-| `cu hover` | Move mouse |
-| `cu drag` | Drag |
-| `cu screenshot` | Window capture |
-| `cu ocr` | Vision OCR |
-| `cu wait` | Wait for condition |
+| Category | Commands |
+|---|---|
+| **Discover** | `setup`, `apps`, `menu`, `sdef`, `examples` |
+| **Observe** | `state`, `snapshot`, `find`, `nearest`, `observe-region`, `screenshot`, `ocr`, `wait` |
+| **Act** | `click`, `type`, `key`, `set-value`, `perform`, `scroll`, `hover`, `drag` |
+| **Script & System** | `tell`, `defaults`, `window`, `launch`, `warm`, `why` |
+
+Run `cu <command> --help` for full per-flag reference, or `cu examples` for copy-paste recipes.
 
 ## Links
 
 - [GitHub](https://github.com/relixiaobo/computer-pilot)
-- [cu --help](https://github.com/relixiaobo/computer-pilot#commands-12)
+- [Full README](https://github.com/relixiaobo/computer-pilot#readme)

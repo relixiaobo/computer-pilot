@@ -1,20 +1,18 @@
 # Archive Docs
 
-本目录存放研究、探索、过程记录和已废弃的设计草案。
+Frozen research, exploration, and historical design notes.
 
-## 使用规则
+## Rules
 
-- 这些文档可以帮助理解背景和历史讨论
-- 这些文档 **不是** 当前项目的决策基线
-- 如果归档文档和主计划冲突，以 [implementation-plan.md](/Users/lixiaobo/Documents/Coding/computer-pilot/docs/implementation-plan.md) 为准
+- These docs are kept for background and historical context.
+- They are **not** the current decision baseline.
+- If an archive doc conflicts with the active plan, [`docs/ROADMAP.md`](../ROADMAP.md) is the source of truth.
 
-## 当前归档内容
+## Contents
 
-| 文档 | 说明 |
+| Document | Notes |
 |------|------|
-| [research.md](/Users/lixiaobo/Documents/Coding/computer-pilot/docs/archive/research.md) | 早期 research & design 文档 |
-| [deep-research.md](/Users/lixiaobo/Documents/Coding/computer-pilot/docs/archive/deep-research.md) | 深度调研与方向探索 |
-| [implementation-principles.md](/Users/lixiaobo/Documents/Coding/computer-pilot/docs/archive/implementation-principles.md) | 早期原理拆解与扩展设计 |
-| [macos-control-bible.md](/Users/lixiaobo/Documents/Coding/computer-pilot/docs/archive/macos-control-bible.md) | macOS 能力盘点参考 |
-| [cross-platform-strategy.md](/Users/lixiaobo/Documents/Coding/computer-pilot/docs/archive/cross-platform-strategy.md) | 跨平台探索 |
-| [market-landscape-2026.md](/Users/lixiaobo/Documents/Coding/computer-pilot/docs/archive/market-landscape-2026.md) | 市场与竞品研究 |
+| [research.md](research.md) | Early research & design notes |
+| [deep-research.md](deep-research.md) | Deep-dive investigation and direction exploration |
+| [macos-control-bible.md](macos-control-bible.md) | macOS automation capability survey |
+| [cross-platform-strategy.md](cross-platform-strategy.md) | Cross-platform exploration (not pursued) |

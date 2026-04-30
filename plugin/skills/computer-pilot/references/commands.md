@@ -30,12 +30,19 @@ Built-in recipe library. `cu examples` lists topics; `cu examples launch-app` (e
 
 ## Observation
 
-### `cu state <app> [--no-screenshot]`
+### `cu state <app> [--limit N] [--no-screenshot] [--output P]`
 **Canonical "start a task" call.** Returns snapshot + windows + screenshot path + frontmost in one call — replaces four separate round-trips (`cu apps` + `cu window list` + `cu snapshot` + `cu screenshot`).
 
+Flags:
+- `--limit N` — AX tree depth limit (default 50)
+- `--no-screenshot` — skip the screenshot capture (faster, tree+windows only)
+- `--output P` — output path for the window screenshot (default `/tmp/cu-state-<ts>.png`)
+
 Output fields:
-- `app`, `pid`, `frontmost`, `windows[]`, `elements[]`
-- `screenshot_path` — PNG path (omitted with `--no-screenshot`)
+- `app`, `pid`, `frontmost`, `windows[]`, `displays[]`, `elements[]`
+- `snapshot_size`, `tree_truncated`
+- `screenshot` — PNG path (omitted with `--no-screenshot`)
+- `image_scale` — pixel/point ratio (typically 2.0 on Retina)
 - `screenshot_error` — string when capture refused (`kCGWindowSharingState=0`); AX tree still works, drive task without visual verification
 - `truncation_hint` — when snapshot was clipped
 
@@ -81,14 +88,14 @@ Best for apps with poor AX support (games, Qt, Java, custom-drawn UIs).
 Window capture, silent (no activation). Cross-Space capable via ScreenCaptureKit. Region capture uses point coords (same space as snapshot `x`/`y`).
 
 Output:
-- `path` — PNG location
+- `path` — PNG location (default `/tmp/cu-screenshot-<ts>.png`)
 - `offset_x`, `offset_y`, `width`, `height` — for mapping back from pixel to window/screen coords (`screen = pixel/scale + offset`)
 - `image_scale` — pixel/point ratio (typically 2.0 on Retina)
 - Capture-protected windows (`kCGWindowSharingState=0`) refuse upfront with a structured error — the OS-level opt-out cannot be bypassed.
 
 Flags:
 - `--full` — entire screen (all monitors) instead of single window
-- `--region "x,y WxH"` — only that screen rectangle (cheap visual verification: ~150 tokens vs ~1500 for full window)
+- `--region "x,y WxH"` — only that screen rectangle (cheap visual verification: ~150 tokens vs ~1500 for full window). **Overrides `--full` and the app argument.**
 
 ### `cu wait <condition> [--app X] [--timeout 10] [--limit N]`
 Poll the AX tree until a condition is met. Returns `elapsed_ms` and `matched`.
@@ -112,23 +119,24 @@ All action commands accept `--app <Name>` for PID-targeted delivery (cursor stay
 
 All action commands auto-attach a fresh `snapshot` to the response; suppress with `--no-snapshot`. They also report `method`, `confidence`, and `settle_ms` (capped at 500ms via single-shot AXObserver).
 
-### `cu click <ref|x y> [--app X] [--ax-path P] [--text "..." [--index N]] [--right|--double-click] [--shift|--cmd|--alt] [--no-verify] [--no-snapshot] [--allow-global]`
+### `cu click <ref|x y> [--app X] [--ax-path P] [--text "..." [--index N] [--region "x,y WxH"]] [--right|--double-click] [--shift|--cmd|--alt] [--no-verify] [--no-snapshot] [--allow-global]`
 Click by ref, screen coordinates, on-screen text (OCR), or stable `--ax-path` selector.
 
 Verify is **on by default** — the response includes `verified` (bool), `verify_diff` (`{added, changed, removed}` element counts), and `verify_advice` (string with concrete recovery steps when `verified:false`).
 
 Flags:
-- `<ref>` — click by ref from snapshot. Tries AX actions (AXPress / AXConfirm / AXOpen) first, falls back to CGEvent.
+- `<ref>` — click by ref from snapshot. Runs the 15-step AX action chain (AXPress / AXConfirm / AXOpen / ancestor walks / coord-derived ref) before falling back to CGEvent.
 - `<x> <y>` — click screen coordinates (CGEvent path).
 - `--ax-path "<path>"` — stable selector that survives ref renumbering. Use for multi-step flows.
 - `--text "Submit" [--index 2]` — find text via OCR and click it. Useful when AX is sparse.
+- `--region "x,y WxH"` — restrict `--text` matching to OCR text whose center is inside this screen rectangle (in points). Disambiguates same-label-multi-pane (e.g. sidebar vs main pane).
 - `--right` — right-click. Always CGEvent (skips AX action chain).
 - `--double-click` — open files, select words.
 - `--shift` / `--cmd` / `--alt` — modifiers.
 - `--no-verify` — skip the AX-diff check (~50–150ms faster). Use only on known-reliable targets in bulk.
 - `--allow-global` — last-resort flag to allow global-tap delivery when `--app` resolution fails. Avoid; bash-interval focus drift will land the click on the wrong window.
 
-### `cu type <text> [--app X] [--paste|--no-paste] [--no-snapshot]`
+### `cu type <text> [--app X] [--paste|--no-paste] [--allow-global] [--no-snapshot]`
 Type text into the focused element. Default routing is unicode CGEvent (`CGEventKeyboardSetUnicodeString`) — IME-bypass, no clipboard touch.
 
 Auto-routes through clipboard paste when:
@@ -139,6 +147,9 @@ When auto-routed, response carries `paste_reason` (e.g. `"contains CJK"` / `"cha
 
 - `--paste` — force paste mode regardless of detection.
 - `--no-paste` — force unicode-event delivery even when auto-paste would trigger.
+- `--allow-global` — skip the terminal/IDE safety check (see below).
+
+**Refused (without `--app`) when frontmost is a terminal/IDE** — same safety check as `cu key`: a stray keystroke would land in the agent's own shell. Always pass `--app` for normal use.
 
 ### `cu key <combo> [--app X] [--allow-global] [--no-snapshot]`
 Send a keyboard shortcut. Modifiers: `cmd`, `shift`, `ctrl`, `alt` (option). Keys: `a-z`, `0-9`, `enter`, `tab`, `space`, `escape`, `delete`, `up/down/left/right`, `f1`–`f12`, `minus`, `equal`, etc.
@@ -192,7 +203,7 @@ Read or write macOS preferences via the `defaults` system. Bypasses System Setti
 - `cu window list [--app X]` — every visible window or filter by app. Returns `app`, `index`, `title`, `x`, `y`, `width`, `height`, `minimized`, `focused`.
 - `cu window move <x> <y> --app X [--window N]` — N defaults to 1 (frontmost).
 - `cu window resize <w> <h> --app X [--window N]`
-- `cu window focus --app X` — bring app/window to front. The one place where `cu` deliberately does take focus.
+- `cu window focus --app X` — bring app/window to front. The one place where `cu` deliberately does take focus. `method` is `ax-raise` when AX `AXRaise` succeeds (preferred — no app-level activation), else `applescript-frontmost` fallback.
 - `cu window minimize/unminimize/close --app X [--window N]`
 
 ### `cu launch <name|bundleId> [--no-wait] [--timeout 10]`

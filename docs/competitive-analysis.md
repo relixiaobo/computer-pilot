@@ -1,54 +1,56 @@
 # Computer Pilot — Competitive Analysis
 
-> 每完成一项能力就更新此表。✅ = 已实现，❌ = 未实现，⭕ = 本轮新增。
+> ⚠️ **Stale snapshot — frozen at 2026-04-03.** Predates Sprint 2, the R1–R7 reliability batch, the ScreenCaptureKit migration, capture-protected detection (`screenshot_error`), `cu state` / `cu find` / `cu launch` / `cu warm` / `cu why` / `cu set-value` / `cu perform` / `cu nearest` / `cu observe-region` / `cu menu` / `cu defaults`, the verify-by-default click pipeline, and the `*-pid` method audit field. For current state see [`ROADMAP.md`](./ROADMAP.md). Kept for historical context only.
+>
+> Update legend: ✅ = shipped, ❌ = not implemented, ⭕ = added this round.
 
-## 感知（Perception）
+## Perception
 
-| 能力 | cu (ours) | Anthropic Computer Use | Ghost OS | agent-desktop | usecomputer | axcli |
+| Capability | cu (ours) | Anthropic Computer Use | Ghost OS | agent-desktop | usecomputer | axcli |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|
-| AX Tree 快照 | ✅ | ❌ | ✅ | ✅ | ❌ | ✅ |
-| 批量 AX 属性读取 | ⭕ | — | ✅ | ✅ | — | ✅ |
-| Per-element 超时 | ⭕ 3s | — | ✅ 3s | ✅ 2s | — | ✅ |
+| AX tree snapshot | ✅ | ❌ | ✅ | ✅ | ❌ | ✅ |
+| Batch AX attribute reads | ⭕ | — | ✅ | ✅ | — | ✅ |
+| Per-element timeout | ⭕ 3s | — | ✅ 3s | ✅ 2s | — | ✅ |
 | Numbered refs | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ |
-| Ref 持久化 | ❌ | — | ❌ | ✅ | — | — |
-| 截图 | ✅ CGWindowList | ✅ | ✅ | ❌ | ✅ | ✅ |
-| 无需激活截图 | ✅ | ✅ | ✅ | — | ✅ | ✅ |
+| Persistent refs | ❌ | — | ❌ | ✅ | — | — |
+| Screenshot | ✅ ScreenCaptureKit (cross-Space) + CGWindowList fallback | ✅ | ✅ | ❌ | ✅ | ✅ |
+| Capture without activation | ✅ | ✅ | ✅ | — | ✅ | ✅ |
 | OCR | ⭕ Vision (objc2) | ❌ | ❌ | ❌ | ❌ | ✅ |
-| 视觉模型 fallback | N/A (agent自带) | ✅ 内置 | ✅ ShowUI-2B | ❌ | ❌ | ❌ |
+| VLM fallback | N/A (agent-supplied) | ✅ built-in | ✅ ShowUI-2B | ❌ | ❌ | ❌ |
 | Chrome CDP | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ |
-| 坐标偏移量 | ✅ | — | ❌ | ❌ | ✅ | ❌ |
-| Auto-snapshot | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Coordinate offsets | ✅ | — | ❌ | ❌ | ✅ | ❌ |
+| Auto-snapshot after action | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
 
-## 操作（Action）
+## Action
 
-| 能力 | cu (ours) | Anthropic Computer Use | Ghost OS | agent-desktop | usecomputer | axcli |
+| Capability | cu (ours) | Anthropic Computer Use | Ghost OS | agent-desktop | usecomputer | axcli |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|
-| 左键点击 | ✅ AX优先 | ✅ | ✅ | ✅ 15步 | ✅ | ✅ |
-| 右键点击 | ✅ | ✅ | ❓ | ✅ | ✅ | ❌ |
-| 双击 | ⭕ | ✅ | ❓ | ✅ | ✅ | ✅ |
-| AX 点击链 | ⭕ 14步 | — | 基础 | **15步** | — | 基础 |
-| 键盘快捷键 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 布局安全 | ✅ --app | ✅ | ✅ | ❓ | ✅ | ❓ |
-| 文字输入 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 滚动 | ⭕ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 拖拽 | ⭕ | ✅ | ❓ | ✅ | ✅ | ❌ |
+| Left click | ✅ AX-first | ✅ | ✅ | ✅ 15-step | ✅ | ✅ |
+| Right click | ✅ | ✅ | ❓ | ✅ | ✅ | ❌ |
+| Double click | ⭕ | ✅ | ❓ | ✅ | ✅ | ✅ |
+| AX click chain | ⭕ 14-step | — | basic | **15-step** | — | basic |
+| Keyboard shortcuts | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Layout safety | ✅ `--app` | ✅ | ✅ | ❓ | ✅ | ❓ |
+| Text input | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Scroll | ⭕ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Drag | ⭕ | ✅ | ❓ | ✅ | ✅ | ❌ |
 | Hover | ⭕ | ✅ | ❓ | ✅ | ✅ | ✅ |
-| Hold key / 修饰键 | ⭕ --shift/--cmd/--alt | ✅ | ❌ | ❌ | ✅ | ❌ |
-| Wait 条件 | ⭕ --text/--ref/--gone | ✅ | ❌ | ✅ | ❌ | ✅ |
-| 剪贴板 | ✅ pbcopy/pbpaste | ❌ | ❌ | ✅ | ❌ | ❌ |
+| Hold key / modifiers | ⭕ `--shift`/`--cmd`/`--alt` | ✅ | ❌ | ❌ | ✅ | ❌ |
+| Wait conditions | ⭕ `--text`/`--ref`/`--gone` | ✅ | ❌ | ✅ | ❌ | ✅ |
+| Clipboard | ✅ pbcopy/pbpaste | ❌ | ❌ | ✅ | ❌ | ❌ |
 
-## 工程
+## Engineering
 
-| 能力 | cu (ours) | Anthropic Computer Use | Ghost OS | agent-desktop | usecomputer | axcli |
+| Capability | cu (ours) | Anthropic Computer Use | Ghost OS | agent-desktop | usecomputer | axcli |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|
-| 架构 | CLI 单二进制 | API tool | MCP daemon | CLI 多crate | CLI N-API | CLI |
-| 语言 | Rust | Python | Swift | Rust | Zig+TS | Rust |
-| 二进制 | 1.2MB | — | ~50MB+3GB | <15MB | ~5MB | ~3MB |
-| 依赖 | 零 | Python | macOS | 零 | Node.js | 零 |
-| 延迟 | <10ms | 3-8s | <100ms | ~200ms | ~100ms | ~100ms |
-| JSON/Human | ✅ auto | JSON | JSON | JSON | JSON | 混合 |
-| 权限引导 | ✅ 双检查 | ❌ | 文档 | ❌ | ❌ | ❌ |
-| Token 效率 | ✅ 文本优先 | ❌ ~1400/截图 | ✅ | ✅ | ❌ | ✅ |
+| Architecture | Single-binary CLI | API tool | MCP daemon | Multi-crate CLI | N-API CLI | CLI |
+| Language | Rust | Python | Swift | Rust | Zig + TS | Rust |
+| Binary size | 1.2 MB | — | ~50 MB + 3 GB | <15 MB | ~5 MB | ~3 MB |
+| Dependencies | zero | Python | macOS | zero | Node.js | zero |
+| Latency | <10 ms | 3–8 s | <100 ms | ~200 ms | ~100 ms | ~100 ms |
+| JSON / human output | ✅ auto | JSON | JSON | JSON | JSON | mixed |
+| Permission onboarding | ✅ dual check | ❌ | docs only | ❌ | ❌ | ❌ |
+| Token efficiency | ✅ text-first | ❌ ~1400/screenshot | ✅ | ✅ | ❌ | ✅ |
 
 ---
 

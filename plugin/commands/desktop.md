@@ -7,23 +7,23 @@ user-invocable: true
 Use the `cu` CLI tool to control the macOS desktop for $ARGUMENTS.
 
 Steps:
-1. Run `cu setup` to check permissions. If not ready, guide the user.
-2. Run `cu apps` to see what's running. Apps marked `S` are scriptable.
-3. **For scriptable apps** (marked `S`): prefer the scripting workflow:
+1. **Start with `cu state <app>`.** One call returns snapshot + windows + screenshot + frontmost — replaces three separate round-trips. Reserve `cu setup` for when permissions are actually broken; reserve `cu apps` for when you don't know what's running.
+2. **App not yet running?** `cu launch <name|bundleId>` waits until the first AX-ready window (avoids the empty-tree problem on cold starts). Don't open apps via `cu key cmd+space` — `cu key`/`cu type` are refused when frontmost is a terminal/IDE, and the agent runs from a terminal.
+3. **Scriptable apps** (marked `S` in `cu apps`): prefer the scripting workflow:
    - `cu sdef <app>` to discover available commands and classes
-   - `cu tell <app> '<AppleScript>'` to execute actions directly
-   - Scripting is faster, more reliable, and cheaper than UI automation
-4. **For non-scriptable apps**: discover capabilities first, then act:
-   - `cu menu <app>` to enumerate the menu bar (Edit, View, Tools, etc.)
-   - `cu snapshot [app] --limit 30` for clickable UI elements
-   - `cu click <ref>`, `cu key`, `cu type` to interact
-   - `cu click --text "Label"` when AX tree is sparse (uses OCR)
-5. **For system settings**: skip the System Settings UI:
-   - `cu defaults read/write <domain> <key> [value]` for any preference
-   - `cu tell "System Events" '...'` for things like dark mode, volume
-6. **For window operations**: use `cu window list/move/resize/focus/minimize/close`.
-7. Fall back to `cu ocr` or `cu screenshot` if the AX tree is sparse.
+   - `cu tell <app> '<AppleScript>'` to read/write app data directly
+   - Faster, more reliable, and cheaper than UI automation
+4. **Non-scriptable apps**: walk the AX tree:
+   - `cu menu <app>` to enumerate the menu bar (works for ANY app)
+   - `cu find --app X --role R --title-contains S --first --raw` for a known target — faster than `snapshot + grep`
+   - `cu set-value <ref> "..."` for textfields (no focus, no IME)
+   - `cu click <ref> --app X` — verify is on by default; read `verified` + `verify_advice`
+   - `cu click --text "Label" --app X` (OCR) when AX is sparse
+5. **Multi-step flows**: capture `axPath` from the first snapshot and pass `--ax-path` to subsequent calls. Refs renumber across snapshots; axPaths survive.
+6. **System settings**: `cu defaults read/write <domain> <key>` skips the System Settings UI entirely.
+7. **Window operations**: `cu window list/move/resize/focus/minimize/close`.
+8. **Diagnose failures**: when `verified=false` or an action fails, run `cu why <ref> --app X` for a structured "what's wrong with this ref" report.
 
-To open an app: `cu key cmd+space`, then `cu type "AppName"`, then `cu key enter`.
+Always pass `--app "AppName"` on every action command. Without `--app`, events go through the global HID tap and may land on whatever shifted focus.
 
-Always use `--app "AppName"` to target a specific app for reliable key/type delivery.
+Read every `*_hint` / `*_reason` / `*_advice` / `*_error` string in the response — when present, the result is degraded or auto-corrected and the agent must react.

@@ -300,7 +300,7 @@ Use the `[ref]` number with `cu click <ref>` to interact.
 
 ## Commands cheat sheet
 
-The 15 commands you'll reach for most. **Full per-flag reference (every command, every flag, every output field):** `references/commands.md`.
+The 17 commands you'll reach for most (out of 27 total). **Full per-flag reference (every command, every flag, every output field):** `references/commands.md`.
 
 | Command | One-line purpose |
 |---|---|

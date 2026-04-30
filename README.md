@@ -24,7 +24,7 @@ cu click 4 --app Finder
 | Dependencies | **zero** | Python | zero |
 | Perception | AX tree + OCR + screenshot | screenshot only | AX tree only |
 | Token cost | **~50 tokens/element** | ~1400 tokens/screenshot | ~50 tokens/element |
-| Commands | **24** | 7 | ~50 |
+| Commands | **27** | 7 | ~50 |
 
 ## Why cu doesn't disrupt your workflow
 
@@ -255,18 +255,23 @@ Action commands auto-include a fresh snapshot in JSON mode. Use `--no-snapshot` 
 
 ## Architecture
 
-Single Rust binary. 9 source files, ~3000 lines.
+Single Rust binary. Zero runtime dependencies.
 
 ```
 src/main.rs        CLI (clap) + output formatting
-src/ax.rs          AX tree: batch reads, 14-step click chain, 3s timeout
-src/mouse.rs       CGEvent: click, scroll, hover, drag, modifiers
-src/key.rs         CGEvent keyboard + keycode mapping
-src/screenshot.rs  CGWindowListCreateImage + ImageIO
+src/ax.rs          AX tree: batch reads, 15-step click chain, 3s timeout
+src/mouse.rs       CGEvent: click, scroll, hover, drag, modifiers (PID-targeted)
+src/key.rs         CGEvent keyboard, Unicode + keycode mapping (PID-targeted)
+src/screenshot.rs  Window capture (ScreenCaptureKit primary, CGWindowList fallback)
+src/sck.rs         ScreenCaptureKit sync wrapper (cross-Space, macOS 13+)
 src/ocr.rs         Vision OCR via objc2
 src/system.rs      App resolution, permissions, System Events, AppleScript tell
 src/sdef.rs        Scripting dictionary extraction
-src/wait.rs        Condition polling
+src/wait.rs        Condition polling (--text/--ref/--gone/--new-window/--modal/--focused-changed)
+src/diff.rs        Snapshot diff cache (cu snapshot --diff)
+src/observer.rs    Single-shot AXObserver post-action settle wait
+src/display.rs     CGGetActiveDisplayList + CGDisplayBounds
+src/error.rs       Structured CuError type for actionable hints
 ```
 
 ## Permissions
