@@ -42,22 +42,22 @@ assert_ok "type with spaces and punctuation"
 
 section "type — non-BMP emoji (UTF-16 surrogate pairs)"
 
-# Clear any prior content via select-all + delete (PID-targeted, no focus theft).
-"$CU" key cmd+a --app TextEdit --no-snapshot >/dev/null 2>&1 || true
-"$CU" key delete --app TextEdit --no-snapshot >/dev/null 2>&1 || true
+# Clear and focus the textarea deterministically before testing unicode events.
+cu_json set-value 1 "" --app TextEdit --no-snapshot
+assert_ok "emoji fixture cleared through AX"
+cu_json click 1 --app TextEdit --no-snapshot --no-verify
+assert_ok "emoji fixture textarea focused"
 sleep 0.2
 
 # 😀 (U+1F600) and 🎉 (U+1F389) are non-BMP — each encodes to a UTF-16
 # surrogate pair, which the previous "one code unit per event" loop would
 # have split. Both must round-trip whole.
-cu_json type "ab 😀 🎉 cd" --app TextEdit --no-snapshot
+cu_json type "ab 😀 🎉 cd" --app TextEdit
 assert_ok "type emoji + ASCII"
 
-sleep 0.5
-"$CU" snapshot TextEdit --limit 30 > /tmp/cu-emoji-snap.json 2>/dev/null
-EMOJI_FOUND=$(python3 -c "
-import json
-d = json.load(open('/tmp/cu-emoji-snap.json'))
+EMOJI_FOUND=$(echo "$OUT" | python3 -c "
+import json, sys
+d = json.load(sys.stdin).get('snapshot', {})
 for e in d.get('elements', []):
     v = (e.get('value') or '').strip()
     if '😀' in v and '🎉' in v:
@@ -80,25 +80,31 @@ echo -n "cu-test-saved-clipboard-$$" | pbcopy
 sleep 0.1
 ORIGINAL_CLIP=$(pbpaste)
 
-# Clear through AX instead of relying on a pre-existing keyboard selection,
-# then explicitly focus the textarea that will receive the paste shortcut.
+# Clear through AX instead of relying on a pre-existing keyboard selection.
 cu_json set-value 1 "" --app TextEdit --no-snapshot
 assert_ok "paste fixture cleared through AX"
-osascript -e 'tell application "TextEdit" to activate' >/dev/null 2>&1
-sleep 0.2
-cu_json click 1 --app TextEdit --no-snapshot --no-verify
-assert_ok "paste fixture textarea focused"
-sleep 0.2
 
-# Paste a string that contains CJK + emoji + ASCII. Method must report paste-pid.
-cu_json type "你好世界 hi 🎉" --app TextEdit --paste --no-snapshot
+# Run the global paste while TextEdit remains frontmost for the whole
+# AppleScript transaction. TextEdit does not reliably dispatch background
+# PID-targeted menu shortcuts; that routing is covered in test_paste_auto.sh.
+EXIT=0
+OUT=$(osascript \
+  -e 'on run argv' \
+  -e 'set toolPath to item 1 of argv' \
+  -e 'set inputText to item 2 of argv' \
+  -e 'tell application "TextEdit" to activate' \
+  -e 'delay 0.5' \
+  -e 'return do shell script (quoted form of toolPath & " type " & quoted form of inputText & " --paste --no-snapshot --allow-global")' \
+  -e 'end run' \
+  "$CU" "你好世界 hi 🎉" 2>/tmp/cu-test-stderr) || EXIT=$?
+ERR=$(cat /tmp/cu-test-stderr 2>/dev/null || true)
 assert_ok "type --paste returns ok"
 
 METHOD=$(echo "$OUT" | python3 -c "import sys,json;print(json.load(sys.stdin).get('method',''))" 2>/dev/null || echo "")
-if [[ "$METHOD" == "paste-pid" ]]; then
-  _pass "method=paste-pid"
+if [[ "$METHOD" == "paste-global" ]]; then
+  _pass "method=paste-global"
 else
-  _fail "method=paste-pid" "got: $METHOD"
+  _fail "method=paste-global" "got: $METHOD"
 fi
 
 # Verify the AX-visible document contains all characters, including the first
