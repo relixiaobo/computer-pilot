@@ -42,5 +42,11 @@ section "menu — non-running app error"
 
 cu_json menu NonExistentApp99999
 assert_fail "non-existent app fails"
+APP_ERROR_CODE=$(echo "$ERR" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("code", ""))' 2>/dev/null || true)
+if [[ "$APP_ERROR_CODE" == "app_not_found" ]]; then
+  _pass "non-existent app has stable code"
+else
+  _fail "non-existent app stable code" "got '$APP_ERROR_CODE'"
+fi
 
 summary

@@ -20,7 +20,7 @@ for ARGS in "" "-h" "--help"; do
     _fail "$LABEL category block" "missing COMMANDS BY CATEGORY"
   fi
 
-  for CAT in "Discover" "Observe" "Act" "Script & System"; do
+  for CAT in "Discover" "Observe" "Act" "Script & System" "Recover"; do
     if echo "$OUT_TXT" | grep -qF "$CAT"; then
       _pass "$LABEL has '$CAT' category"
     else
@@ -47,8 +47,8 @@ else
   _fail "flat Commands section" "missing"
 fi
 
-# All 28 subcommands listed (27 automation commands plus bridge)
-EXPECTED_CMDS="bridge setup apps snapshot state type perform set-value key wait find nearest observe-region ocr click scroll hover drag screenshot window launch warm why menu defaults sdef tell examples"
+# 27 automation commands plus four command-recovery commands.
+EXPECTED_CMDS="status commands command cancel setup apps snapshot state type perform set-value key wait find nearest observe-region ocr click scroll hover drag screenshot window launch warm why menu defaults sdef tell examples"
 ALL_FOUND=yes
 for cmd in $EXPECTED_CMDS; do
   if ! echo "$OUT_TXT" | grep -qE "^  $cmd  "; then
@@ -57,15 +57,21 @@ for cmd in $EXPECTED_CMDS; do
   fi
 done
 if [[ "$ALL_FOUND" == "yes" ]]; then
-  _pass "all 28 commands appear in flat listing"
+  _pass "all 31 commands appear in flat listing"
 else
   _fail "flat listing complete" "$ALL_FOUND"
 fi
 
-if echo "$OUT_TXT" | grep -qE "COMMANDS BY CATEGORY \(28 total\)"; then
-  _pass "category header reports 28 total"
+if echo "$OUT_TXT" | grep -qE "COMMANDS BY CATEGORY \(31 total\)"; then
+  _pass "category header reports 31 total"
 else
-  _fail "category header total" "expected 28"
+  _fail "category header total" "expected 31"
+fi
+
+if echo "$OUT_TXT" | grep -q "__broker"; then
+  _fail "private Broker command is hidden" "__broker leaked into public help"
+else
+  _pass "private Broker command is hidden"
 fi
 
 section "help — long_about narrative present in --help"

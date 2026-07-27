@@ -2,8 +2,6 @@
 # Test: cu snapshot --diff (C1)
 source "$(dirname "$0")/helpers.sh"
 
-CACHE_DIR=/tmp/cu-snapshot-cache
-
 # Resolve a stable target: open one TextEdit doc, lock its position so
 # identity-by-position stays stable across calls.
 osascript -e 'tell application "TextEdit" to close every document saving no' >/dev/null 2>&1 || true
@@ -22,7 +20,7 @@ sleep 0.3
 "$CU" window resize 800 600 --app TextEdit >/dev/null 2>&1 || true
 sleep 0.3
 
-# Get the TextEdit pid for cache-path inspection (cu apps outputs JSON when piped)
+# Confirm TextEdit is available before running the behavior checks.
 PID=$("$CU" apps 2>/dev/null | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
@@ -38,8 +36,9 @@ if [[ -z "$PID" ]]; then
   exit 0
 fi
 
-# Wipe any stale cache for this pid
-rm -f "$CACHE_DIR/$PID.json"
+# Start the diff assertions in a fresh client namespace. Warm-up calls above
+# deliberately used the default test client and cannot populate this cache.
+export COMPUTER_PILOT_CLIENT_KEY="test.snapshot-diff.$$"
 
 section "snapshot --diff — first call (no cache)"
 
@@ -53,12 +52,6 @@ else
 fi
 # First call returns full elements (snapshot shape), not diff
 assert_json_field_exists "elements present on first call" ".elements"
-
-if [[ -f "$CACHE_DIR/$PID.json" ]]; then
-  _pass "cache file written at $CACHE_DIR/$PID.json"
-else
-  _fail "cache file written" "missing $CACHE_DIR/$PID.json"
-fi
 
 section "snapshot --diff — no UI change → empty diff"
 

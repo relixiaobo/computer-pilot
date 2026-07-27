@@ -1,0 +1,63 @@
+# Embedding In Agent Products
+
+Use this reference when bundling Computer Pilot into Codex, Tenon, OpenClaw,
+or any other shell-capable Agent runtime.
+
+## Required Architecture
+
+```text
+Agent -> Computer Pilot skill -> existing shell -> short-lived cu CLI
+      -> private per-user Broker -> macOS frameworks
+```
+
+Expose only the skill and ordinary `cu` commands. Do not register
+`computer.*` native tools and do not expose the Broker socket or request
+schema. Do not add MCP, stdio JSON-RPC, a native SDK, or a runtime-specific
+adapter.
+
+## Host Responsibilities
+
+1. Install the complete skill directory unchanged.
+2. Put a supported official `cu` binary on the Agent shell `PATH`.
+3. Assign one stable `COMPUTER_PILOT_CLIENT_KEY` per logical Agent.
+4. Assign an absolute, task-owned `COMPUTER_PILOT_OUTPUT_DIR`.
+5. Let the Agent use its existing shell execution and file/image reading tools.
+6. Preserve stdout, stderr, exit status, and JSON fields.
+7. Keep the private Broker internal to Computer Pilot.
+
+Do not generate a second tool catalog from `cu --help`; the skill plus runtime
+help is the public contract.
+
+## Compatibility
+
+Read `../compatibility.json` before selecting a bundled artifact. Match:
+
+- supported platform and architecture;
+- CLI version range;
+- machine schema version;
+- skill/plugin version;
+- required public integration model.
+
+Reject unsupported Intel Macs explicitly. Do not silently use an older raw
+binary with a newer skill.
+
+## Files
+
+Create one output directory per task with permissions appropriate for the
+current user. Pass it through the environment on every CLI invocation. The
+private Broker transports the current request's directory to the worker; it
+must not reuse another Agent's directory.
+
+Read returned absolute paths with the host's normal file or vision feature.
+
+## Acceptance
+
+Test at least:
+
+- two Agents with different client keys and isolated refs/commands;
+- parallel reads and serialized same-target mutations;
+- user UI changes producing `stale_observation` before action dispatch;
+- request replay, conflict, cancellation, expiration, and `unknown_outcome`;
+- independent task output directories with no overwrite or symlink traversal;
+- permission continuity across an official version upgrade;
+- self-installed and bundled copies following identical skill/shell/CLI flow.

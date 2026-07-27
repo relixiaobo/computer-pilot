@@ -29,7 +29,7 @@ fi
 
 section "capture-protection — cu screenshot refuses with structured error"
 
-OUT=$("$CU" screenshot "$PROTECTED_APP" --path /tmp/cu-protected-test.png 2>&1) || true
+OUT=$("$CU" screenshot "$PROTECTED_APP" --path /private/tmp/cu-protected-test.png 2>&1) || true
 if echo "$OUT" | grep -q "capture-protected"; then
   _pass "screenshot of '$PROTECTED_APP' refused with capture-protected error"
 else
@@ -49,9 +49,9 @@ else
 fi
 
 # Make sure we didn't write a blank PNG
-if [[ -f /tmp/cu-protected-test.png ]]; then
-  _fail "no blank PNG left behind" "/tmp/cu-protected-test.png exists"
-  rm -f /tmp/cu-protected-test.png
+if [[ -f /private/tmp/cu-protected-test.png ]]; then
+  _fail "no blank PNG left behind" "/private/tmp/cu-protected-test.png exists"
+  rm -f /private/tmp/cu-protected-test.png
 else
   _pass "no blank PNG left behind on refusal"
 fi
@@ -80,14 +80,14 @@ print('|'.join([
 section "capture-protection — sharing=ReadOnly/ReadWrite apps still capture normally"
 
 # Finder is a baseline: layer-0, sharing=1
-cu_json screenshot Finder --path /tmp/cu-shareable-test.png
+cu_json screenshot Finder --path /private/tmp/cu-shareable-test.png
 assert_ok "screenshot of normal app (Finder) still ok"
-if [[ -f /tmp/cu-shareable-test.png ]]; then
-  MAGIC=$(head -c 4 /tmp/cu-shareable-test.png | xxd -p)
+if [[ -f /private/tmp/cu-shareable-test.png ]]; then
+  MAGIC=$(head -c 4 /private/tmp/cu-shareable-test.png | xxd -p)
   [[ "$MAGIC" == "89504e47" ]] && _pass "PNG file produced for shareable app" || _fail "PNG produced" "magic=$MAGIC"
-  rm -f /tmp/cu-shareable-test.png
+  rm -f /private/tmp/cu-shareable-test.png
 else
-  _fail "PNG written" "/tmp/cu-shareable-test.png missing"
+  _fail "PNG written" "/private/tmp/cu-shareable-test.png missing"
 fi
 
 summary

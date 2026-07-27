@@ -24,7 +24,7 @@ cu click 4 --app Finder
 | Dependencies | **zero** | Python | zero |
 | Perception | AX tree + OCR + screenshot | screenshot only | AX tree only |
 | Token cost | **~50 tokens/element** | ~1400 tokens/screenshot | ~50 tokens/element |
-| Commands | **27** | 7 | ~50 |
+| Commands | **31** | 7 | ~50 |
 
 ## Why cu doesn't disrupt your workflow
 
@@ -37,7 +37,7 @@ while you keep typing in your terminal.
 |---|---|---|---|---|
 | Cursor stays put | **✓ with `--app`** | ✓ | ✗ (warps) | ✗ (warps) |
 | Frontmost app preserved | **✓ with `--app`** | ✓ | ✗ | ✗ |
-| Clipboard untouched | **✓ always** | ✓ | n/a | ✗ (paste-based) |
+| Clipboard untouched | **✓ except explicit/automatic paste** | ✓ | n/a | ✗ (paste-based) |
 | IME bypassed | **✓ Unicode CGEvent** | ✓ | ✗ | ✗ |
 | Perception | AX tree + OCR + screenshot | screenshot | screenshot | AX tree |
 | AX action chain | **15-step fallback** | proprietary | n/a | basic AXPress |
@@ -63,16 +63,26 @@ A `*-global` method in the response is the audit signal that the agent
 forgot `--app` and disrupted the user. Always pass `--app <Name>`.
 
 **Known limitation:** `drag` and `hover` move the cursor by design. A small
-set of sandboxed Mac App Store apps ignores PID-targeted events (symptom:
-`ok:true` returned but the UI doesn't change) — focus the app first and
-re-send without `--app` as the workaround.
+set of sandboxed Mac App Store apps ignores PID-targeted events. `cu click`
+surfaces this as `verified:false`; observe again and try another targeted AX
+primitive. Do not drop `--app` as a workaround.
 
 ## Install
 
 ### Option A: Download binary (Apple Silicon)
 
+Only Apple Silicon is supported. Download the signed/notarized binary and
+verify its published SHA-256 checksum:
+
 ```bash
-sudo curl -Lo /usr/local/bin/cu https://github.com/relixiaobo/computer-pilot/releases/latest/download/cu-arm64 && sudo chmod +x /usr/local/bin/cu && cu setup
+test "$(uname -m)" = "arm64"
+workdir="$(mktemp -d)"
+curl -fL -o "$workdir/cu-arm64" https://github.com/relixiaobo/computer-pilot/releases/latest/download/cu-arm64
+curl -fL -o "$workdir/cu-arm64.sha256" https://github.com/relixiaobo/computer-pilot/releases/latest/download/cu-arm64.sha256
+(cd "$workdir" && shasum -a 256 -c cu-arm64.sha256)
+chmod +x "$workdir/cu-arm64"
+sudo install -m 0755 "$workdir/cu-arm64" /usr/local/bin/cu
+cu setup
 ```
 
 ### Option B: Build from source
@@ -105,52 +115,33 @@ When a new version is released, update with:
 /plugin update computer-pilot@computer-pilot-marketplace
 ```
 
-The `cu` binary is separate — re-run the install curl command to upgrade it:
+The `cu` binary is separate; repeat the verified binary install to upgrade it.
+Every release also includes a signed/notarized archive, skill archive, plugin
+archive, checksums, and `release-index.json`.
 
-```bash
-sudo curl -Lo /usr/local/bin/cu https://github.com/relixiaobo/computer-pilot/releases/latest/download/cu-arm64 && sudo chmod +x /usr/local/bin/cu
-```
+### Agent Products
 
-### Embedded Agent Hosts
-
-Agent products can bundle an exact `cu` binary and launch the official machine
-bridge directly, without a shell or an Agent-specific SDK:
+Computer Pilot has one public Agent integration: install the Computer Pilot
+skill, provide the Agent's existing shell tool, and make `cu` available on
+`PATH`. This is the same path used by self-installed, globally installed, and
+product-bundled copies:
 
 ```text
-/absolute/path/to/cu bridge --stdio
+Agent -> Computer Pilot skill -> existing shell tool -> cu CLI
+      -> private per-user Broker -> macOS frameworks
 ```
 
-The bridge speaks newline-delimited JSON-RPC 2.0 on stdin/stdout. Hosts call
-`initialize`, discover capability-filtered tools with `tools/list`, execute
-structured calls with `tools/call`, and finish with `shutdown`. The runtime
-manifest is generated from the same Clap definitions used by the one-shot CLI,
-so accepted tool arguments cannot drift from accepted command arguments.
-
-Launch-time capability removal is explicit and repeatable:
-
-```bash
-cu bridge --stdio --deny desktop.script --deny desktop.defaults
-```
-
-Protocol contract and host rules: [Universal Agent Integration](docs/universal-agent-integration.md).
-Standard-library Python reference host:
-[examples/stdio-host](examples/stdio-host/README.md).
-Test an exact bundled executable as a black box:
-
-```bash
-python3 scripts/run-stdio-conformance.py -- /absolute/path/to/cu
-```
-
-Run the passive reference-host example:
-
-```bash
-python3 examples/stdio-host/host.py --cu /absolute/path/to/cu
-```
+Do not map commands to native Agent tools and do not add MCP, JSON-RPC, a
+Native SDK, or an Agent-specific adapter. A product may bundle a pinned `cu`
+binary, but it must invoke the normal CLI and use the same skill. See
+[Universal Agent Integration](docs/universal-agent-integration.md).
 
 ## Quick Start
 
 ```bash
 # What's running?
+export COMPUTER_PILOT_CLIENT_KEY="example-agent"
+export COMPUTER_PILOT_OUTPUT_DIR="/absolute/task-output"
 cu apps
 #  *S Finder (pid 572)
 #     Google Chrome (pid 1551)
@@ -175,7 +166,7 @@ cu key enter --app "Google Chrome"
 cu wait --text "Example Domain" --app "Google Chrome" --timeout 10
 
 # Screenshot (no activation needed — captures behind other windows)
-cu screenshot "Google Chrome" --path /tmp/page.png
+cu screenshot "Google Chrome"
 
 # OCR (for apps without good AX support)
 cu ocr "Google Chrome"
@@ -183,7 +174,7 @@ cu ocr "Google Chrome"
 # [100,240 500x16] "This domain is for use in..." (100%)
 ```
 
-## Commands (27)
+## Automation Commands (31)
 
 ### Discover
 
@@ -234,6 +225,15 @@ cu ocr "Google Chrome"
 | `cu warm <app>` | Warm the AX bridge for a manually-opened app (avoids the 200–500ms first-snapshot cost) |
 | `cu why <ref> --app <name>` | Diagnose why a click/perform/set-value failed — returns enabled/in-bounds/supported-actions/advice |
 | `cu setup` | Check permissions and version |
+
+### Recover
+
+| Command | Description |
+|---------|-------------|
+| `cu status` | Broker health and command counts for this client |
+| `cu commands` | List this client's command records |
+| `cu command <id>` | Inspect one recoverable command |
+| `cu cancel <id>` | Request cancellation; dispatched mutations may become uncertain |
 
 Click supports: `--right`, `--double-click`, `--shift`, `--cmd`, `--alt`, `--text`, `--index`.
 
@@ -295,6 +295,7 @@ Single Rust binary. Zero runtime dependencies.
 
 ```
 src/main.rs        CLI (clap) + output formatting
+src/broker.rs      Private per-user coordination, Observations, recovery, locks
 src/ax.rs          AX tree: batch reads, 15-step click chain, 3s timeout
 src/mouse.rs       CGEvent: click, scroll, hover, drag, modifiers (PID-targeted)
 src/key.rs         CGEvent keyboard, Unicode + keycode mapping (PID-targeted)
@@ -308,6 +309,7 @@ src/diff.rs        Snapshot diff cache (cu snapshot --diff)
 src/observer.rs    Single-shot AXObserver post-action settle wait
 src/display.rs     CGGetActiveDisplayList + CGDisplayBounds
 src/error.rs       Structured CuError type for actionable hints
+src/file_result.rs Atomic 0600 file outputs, metadata, no-overwrite checks
 ```
 
 ## Permissions
@@ -316,6 +318,9 @@ Run `cu setup` to check and grant:
 
 1. **Accessibility** — required for snapshot, click, key, type
 2. **Screen Recording** — required for screenshot, OCR
+
+Automation permission is requested only by Apple Events operations and is
+granted separately for each target app; it is not one global readiness flag.
 
 ## License
 

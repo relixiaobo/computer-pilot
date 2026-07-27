@@ -7,8 +7,7 @@ Agent plugin for [computer-pilot](https://github.com/relixiaobo/computer-pilot) 
 ### Step 1: Install cu binary
 
 ```bash
-# Option A: Download prebuilt (macOS Apple Silicon)
-sudo curl -Lo /usr/local/bin/cu https://github.com/relixiaobo/computer-pilot/releases/latest/download/cu-arm64 && sudo chmod +x /usr/local/bin/cu
+# Option A: follow the checksum-verified Apple Silicon install in the main README
 
 # Option B: Build from source
 git clone https://github.com/relixiaobo/computer-pilot.git
@@ -56,13 +55,10 @@ Once installed, Claude Code automatically uses `cu` when you ask it to interact 
 "Open System Settings and enable Dark Mode"
 ```
 
-Or use the `/desktop` command:
+Every Agent product uses this same skill plus its existing shell. The plugin
+does not install a separate slash-command adapter or native tool catalog.
 
-```
-/desktop open Finder and create a new folder called "test"
-```
-
-## Commands (27)
+## Commands (31)
 
 | Category | Commands |
 |---|---|
@@ -70,6 +66,7 @@ Or use the `/desktop` command:
 | **Observe** | `state`, `snapshot`, `find`, `nearest`, `observe-region`, `screenshot`, `ocr`, `wait` |
 | **Act** | `click`, `type`, `key`, `set-value`, `perform`, `scroll`, `hover`, `drag` |
 | **Script & System** | `tell`, `defaults`, `window`, `launch`, `warm`, `why` |
+| **Recover** | `status`, `commands`, `command`, `cancel` |
 
 Run `cu <command> --help` for full per-flag reference, or `cu examples` for copy-paste recipes.
 

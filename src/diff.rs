@@ -1,9 +1,14 @@
 use crate::ax::Element;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fs::{self, OpenOptions};
+use std::hash::{DefaultHasher, Hash, Hasher};
+use std::io::Write;
+use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::PathBuf;
+use std::time::{Duration, SystemTime};
 
-const CACHE_DIR: &str = "/tmp/cu-snapshot-cache";
+const CACHE_TTL: Duration = Duration::from_secs(5 * 60);
 
 /// Identity of a UI element for diffing across snapshots.
 /// (role, round(x), round(y)) — robust to ref re-numbering, sensitive to re-layout.
@@ -19,25 +24,52 @@ struct CacheEntry {
 }
 
 fn cache_path(pid: i32) -> PathBuf {
-    let mut p = PathBuf::from(CACHE_DIR);
+    let client_key = std::env::var("COMPUTER_PILOT_INTERNAL_CLIENT_KEY")
+        .or_else(|_| std::env::var("COMPUTER_PILOT_CLIENT_KEY"))
+        .unwrap_or_else(|_| "computer-pilot-cli".into());
+    let mut hasher = DefaultHasher::new();
+    client_key.hash(&mut hasher);
+    let root = crate::broker::runtime_home();
+    let mut p = root
+        .join("snapshot-cache")
+        .join(format!("{:016x}", hasher.finish()));
     p.push(format!("{pid}.json"));
     p
 }
 
 pub fn load_previous(pid: i32) -> Option<Vec<Element>> {
     let path = cache_path(pid);
-    let data = std::fs::read(&path).ok()?;
+    let metadata = fs::metadata(&path).ok()?;
+    let modified = metadata.modified().ok()?;
+    if SystemTime::now().duration_since(modified).ok()? > CACHE_TTL {
+        let _ = fs::remove_file(path);
+        return None;
+    }
+    let data = fs::read(&path).ok()?;
     let entry: CacheEntry = serde_json::from_slice(&data).ok()?;
     Some(entry.elements)
 }
 
 pub fn save_current(pid: i32, elements: &[Element]) -> std::io::Result<()> {
-    std::fs::create_dir_all(CACHE_DIR)?;
+    let path = cache_path(pid);
+    let parent = path
+        .parent()
+        .ok_or_else(|| std::io::Error::other("snapshot cache path has no parent"))?;
+    fs::create_dir_all(parent)?;
+    fs::set_permissions(parent, fs::Permissions::from_mode(0o700))?;
     let entry = CacheEntry {
         elements: elements.to_vec(),
     };
     let json = serde_json::to_vec(&entry)?;
-    std::fs::write(cache_path(pid), json)
+    let temp = path.with_extension(format!("{}.tmp", std::process::id()));
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(&temp)?;
+    file.write_all(&json)?;
+    file.sync_all()?;
+    fs::rename(temp, path)
 }
 
 #[derive(Serialize)]
@@ -93,36 +125,4 @@ fn content_changed(a: &Element, b: &Element) -> bool {
         || a.value != b.value
         || (a.width - b.width).abs() > 0.5
         || (a.height - b.height).abs() > 0.5
-}
-
-/// Compare what was at `ref_id` in the previous snapshot against what is at
-/// `ref_id` in the current AX walk. Returns an advice string when the identity
-/// has changed, indicating the UI shifted between snapshots and the agent's
-/// ref likely points to a different element than it expected. Soft signal —
-/// the action still runs; the agent reads the advice and chooses to recover.
-pub fn detect_ref_drift(
-    prev: &[Element],
-    curr: &[Element],
-    ref_id: usize,
-) -> Option<String> {
-    let prev_el = prev.iter().find(|e| e.ref_id == ref_id)?;
-    let curr_el = curr.iter().find(|e| e.ref_id == ref_id)?;
-    if id_of(prev_el) == id_of(curr_el) {
-        return None;
-    }
-    let prev_label = prev_el
-        .title
-        .as_deref()
-        .or(prev_el.value.as_deref())
-        .unwrap_or("");
-    let curr_label = curr_el
-        .title
-        .as_deref()
-        .or(curr_el.value.as_deref())
-        .unwrap_or("");
-    Some(format!(
-        "ref [{ref_id}] now points to a different element than the previous snapshot — was {} \"{}\" at ({:.0},{:.0}), now {} \"{}\" at ({:.0},{:.0}). UI shifted between snapshots; re-snapshot before relying on this ref.",
-        prev_el.role, prev_label, prev_el.x, prev_el.y,
-        curr_el.role, curr_label, curr_el.x, curr_el.y,
-    ))
 }

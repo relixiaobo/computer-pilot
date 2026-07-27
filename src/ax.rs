@@ -60,6 +60,7 @@ unsafe extern "C" {
         value: *mut CFTypeRef,
     ) -> AXError;
     fn AXValueGetValue(value: CFTypeRef, the_type: u32, value_ptr: *mut c_void) -> Boolean;
+    fn AXValueCreate(the_type: u32, value_ptr: *const c_void) -> CFTypeRef;
     fn AXUIElementPerformAction(element: CFTypeRef, action: CFStringRef) -> AXError;
     fn AXUIElementSetAttributeValue(
         element: CFTypeRef,
@@ -171,6 +172,26 @@ pub struct WindowFrame {
     pub y: f64,
     pub width: f64,
     pub height: f64,
+}
+
+#[derive(Serialize)]
+pub struct WindowInfo {
+    pub app: String,
+    pub index: usize,
+    pub title: String,
+    pub x: i64,
+    pub y: i64,
+    pub width: i64,
+    pub height: i64,
+    pub minimized: bool,
+    pub focused: bool,
+}
+
+#[derive(Serialize)]
+pub struct MenuItem {
+    pub menu: String,
+    pub item: String,
+    pub enabled: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -340,6 +361,34 @@ unsafe fn ax_size(element: CFTypeRef) -> Option<CGSize> {
     if ok != 0 { Some(size) } else { None }
 }
 
+unsafe fn ax_bool(element: CFTypeRef, name: &str) -> Option<bool> {
+    let value = ax_attr(element, name)?;
+    let result =
+        (CFGetTypeID(value) == CFBooleanGetTypeID()).then(|| std::ptr::eq(value, kCFBooleanTrue));
+    CFRelease(value);
+    result
+}
+
+unsafe fn try_set_point(element: CFTypeRef, point: CGPoint) -> bool {
+    let value = AXValueCreate(AX_VALUE_CG_POINT, &point as *const CGPoint as *const c_void);
+    if value.is_null() {
+        return false;
+    }
+    let result = try_set_value(element, "AXPosition", value);
+    CFRelease(value);
+    result
+}
+
+unsafe fn try_set_size(element: CFTypeRef, size: CGSize) -> bool {
+    let value = AXValueCreate(AX_VALUE_CG_SIZE, &size as *const CGSize as *const c_void);
+    if value.is_null() {
+        return false;
+    }
+    let result = try_set_value(element, "AXSize", value);
+    CFRelease(value);
+    result
+}
+
 // ── Public window discovery (single source of truth for "which window") ────
 
 /// Geometry of an app's authoritative window, as AX sees it. Used by
@@ -393,6 +442,234 @@ pub fn focused_window_geom(pid: i32) -> Option<AxWindowGeom> {
             width: size.width,
             height: size.height,
         })
+    }
+}
+
+fn rounded_i64(value: f64) -> i64 {
+    if value.is_finite() {
+        value.round() as i64
+    } else {
+        0
+    }
+}
+
+/// Enumerate one process's windows directly through Accessibility.
+pub fn list_windows(pid: i32, app_name: &str) -> Result<Vec<WindowInfo>, String> {
+    unsafe {
+        let app = create_app_element(pid);
+        if app.is_null() {
+            return Err("failed to create AX element for application".into());
+        }
+        let Some(windows) = ax_attr(app, "AXWindows") else {
+            CFRelease(app);
+            return Ok(Vec::new());
+        };
+        if CFGetTypeID(windows) != CFArrayGetTypeID() {
+            CFRelease(windows);
+            CFRelease(app);
+            return Ok(Vec::new());
+        }
+
+        let mut result = Vec::new();
+        for index in 0..CFArrayGetCount(windows) {
+            let window = CFArrayGetValueAtIndex(windows, index);
+            if window.is_null() {
+                continue;
+            }
+            set_element_timeout(window);
+            let position = ax_position(window).unwrap_or_default();
+            let size = ax_size(window).unwrap_or_default();
+            result.push(WindowInfo {
+                app: app_name.to_string(),
+                index: index as usize + 1,
+                title: ax_string(window, "AXTitle").unwrap_or_default(),
+                x: rounded_i64(position.x),
+                y: rounded_i64(position.y),
+                width: rounded_i64(size.width),
+                height: rounded_i64(size.height),
+                minimized: ax_bool(window, "AXMinimized").unwrap_or(false),
+                focused: ax_bool(window, "AXMain")
+                    .or_else(|| ax_bool(window, "AXFocused"))
+                    .unwrap_or(false),
+            });
+        }
+        CFRelease(windows);
+        CFRelease(app);
+        Ok(result)
+    }
+}
+
+/// Mutate one process's indexed window directly through Accessibility.
+pub fn window_action(
+    pid: i32,
+    action: &str,
+    window_index: usize,
+    arg1: Option<i64>,
+    arg2: Option<i64>,
+) -> Result<&'static str, String> {
+    if window_index == 0 {
+        return Err("window index must be at least 1".into());
+    }
+    match action {
+        "move" if arg1.is_none() || arg2.is_none() => return Err("move requires x y".into()),
+        "resize" if arg1.is_none() || arg2.is_none() => {
+            return Err("resize requires width height".into());
+        }
+        "resize" if arg1.unwrap_or(0) <= 0 || arg2.unwrap_or(0) <= 0 => {
+            return Err("resize requires positive width and height".into());
+        }
+        _ => {}
+    }
+    unsafe {
+        let app = create_app_element(pid);
+        if app.is_null() {
+            return Err("failed to create AX element for application".into());
+        }
+        let Some(windows) = ax_attr(app, "AXWindows") else {
+            CFRelease(app);
+            return Err(format!("window not found: index {window_index}"));
+        };
+        let count = if CFGetTypeID(windows) == CFArrayGetTypeID() {
+            CFArrayGetCount(windows)
+        } else {
+            0
+        };
+        if window_index > count as usize {
+            CFRelease(windows);
+            CFRelease(app);
+            return Err(format!(
+                "window not found: index {window_index} (app has {count})"
+            ));
+        }
+        let window = CFArrayGetValueAtIndex(windows, window_index as CFIndex - 1);
+        set_element_timeout(window);
+        let changed = match action {
+            "move" => {
+                let x = arg1.unwrap_or_default();
+                let y = arg2.unwrap_or_default();
+                try_set_point(
+                    window,
+                    CGPoint {
+                        x: x as f64,
+                        y: y as f64,
+                    },
+                )
+            }
+            "resize" => {
+                let width = arg1.unwrap_or_default();
+                let height = arg2.unwrap_or_default();
+                try_set_size(
+                    window,
+                    CGSize {
+                        width: width as f64,
+                        height: height as f64,
+                    },
+                )
+            }
+            "focus" => {
+                let frontmost = try_set_bool(app, "AXFrontmost", true);
+                let main = try_set_bool(window, "AXMain", true);
+                let raised = try_action(window, "AXRaise");
+                frontmost || main || raised
+            }
+            "minimize" => try_set_bool(window, "AXMinimized", true),
+            "unminimize" => try_set_bool(window, "AXMinimized", false),
+            "close" => {
+                let close_button = ax_attr(window, "AXCloseButton");
+                let pressed = close_button
+                    .map(|button| {
+                        let result = try_action(button, "AXPress");
+                        CFRelease(button);
+                        result
+                    })
+                    .unwrap_or(false);
+                pressed || try_action(window, "AXClose")
+            }
+            other => {
+                CFRelease(windows);
+                CFRelease(app);
+                return Err(format!(
+                    "unknown window action: {other} (use: list, move, resize, focus, minimize, unminimize, close)"
+                ));
+            }
+        };
+        CFRelease(windows);
+        CFRelease(app);
+        if changed {
+            Ok(if action == "focus" {
+                "ax-raise"
+            } else {
+                "ax-window"
+            })
+        } else {
+            Err(format!("AX {action} was rejected by window {window_index}"))
+        }
+    }
+}
+
+/// Enumerate the top-level items in an app's menu bar through Accessibility.
+pub fn list_menu(pid: i32) -> Result<Vec<MenuItem>, String> {
+    unsafe {
+        let app = create_app_element(pid);
+        if app.is_null() {
+            return Err("failed to create AX element for application".into());
+        }
+        let Some(menu_bar) = ax_attr(app, "AXMenuBar") else {
+            CFRelease(app);
+            return Ok(Vec::new());
+        };
+        let Some(menu_bar_items) = ax_attr(menu_bar, "AXChildren") else {
+            CFRelease(menu_bar);
+            CFRelease(app);
+            return Ok(Vec::new());
+        };
+        let mut result = Vec::new();
+        if CFGetTypeID(menu_bar_items) == CFArrayGetTypeID() {
+            for menu_index in 0..CFArrayGetCount(menu_bar_items) {
+                let menu_bar_item = CFArrayGetValueAtIndex(menu_bar_items, menu_index);
+                if menu_bar_item.is_null() {
+                    continue;
+                }
+                let menu_name = ax_string(menu_bar_item, "AXTitle").unwrap_or_default();
+                let Some(menus) = ax_attr(menu_bar_item, "AXChildren") else {
+                    continue;
+                };
+                if CFGetTypeID(menus) == CFArrayGetTypeID() {
+                    for child_index in 0..CFArrayGetCount(menus) {
+                        let menu = CFArrayGetValueAtIndex(menus, child_index);
+                        if menu.is_null() {
+                            continue;
+                        }
+                        let Some(items) = ax_attr(menu, "AXChildren") else {
+                            continue;
+                        };
+                        if CFGetTypeID(items) == CFArrayGetTypeID() {
+                            for item_index in 0..CFArrayGetCount(items) {
+                                let item = CFArrayGetValueAtIndex(items, item_index);
+                                if item.is_null() {
+                                    continue;
+                                }
+                                let title = ax_string(item, "AXTitle").unwrap_or_default();
+                                if title.is_empty() {
+                                    continue;
+                                }
+                                result.push(MenuItem {
+                                    menu: menu_name.clone(),
+                                    item: title,
+                                    enabled: ax_bool(item, "AXEnabled").unwrap_or(true),
+                                });
+                            }
+                        }
+                        CFRelease(items);
+                    }
+                }
+                CFRelease(menus);
+            }
+        }
+        CFRelease(menu_bar_items);
+        CFRelease(menu_bar);
+        CFRelease(app);
+        Ok(result)
     }
 }
 
@@ -1679,33 +1956,6 @@ pub fn window_count(pid: i32) -> usize {
         };
         CFRelease(app_el);
         count
-    }
-}
-
-/// Raise (focus) the app's main window via direct AX, no AppleScript.
-///
-/// Sets `AXMain=true` and performs `AXRaise` on the main/focused window.
-/// Returns `true` on success. This is the non-disruptive equivalent of
-/// `tell application "X" to activate` — it brings the window forward without
-/// going through the global activation path. (B6)
-pub fn raise_window(pid: i32) -> bool {
-    unsafe {
-        let app_el = create_app_element(pid);
-        if app_el.is_null() {
-            return false;
-        }
-        let window = ax_attr(app_el, "AXMainWindow").or_else(|| ax_attr(app_el, "AXFocusedWindow"));
-        let mut ok = false;
-        if let Some(w) = window {
-            set_element_timeout(w);
-            // AXMain=true marks this window as the app's main; AXRaise brings it forward.
-            let set_main = try_set_bool(w, "AXMain", true);
-            let raised = try_action(w, "AXRaise");
-            ok = set_main || raised;
-            CFRelease(w);
-        }
-        CFRelease(app_el);
-        ok
     }
 }
 
