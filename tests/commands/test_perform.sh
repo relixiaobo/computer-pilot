@@ -5,6 +5,7 @@ source "$(dirname "$0")/helpers.sh"
 # Finder is always running; ref 1 is typically AXApplication / AXWindow.
 section "perform — successful action"
 
+"$CU" snapshot Finder --limit 50 >/dev/null
 cu_json perform 1 AXShowDefaultUI --app Finder --no-snapshot
 assert_ok "perform AXShowDefaultUI on Finder ref 1"
 assert_json_field "method is ax-perform" ".method" "ax-perform"
@@ -23,6 +24,7 @@ fi
 section "perform — failure carries structured hint + suggested_next"
 
 # Use an action the element does not support — should fail with diagnostics
+"$CU" snapshot Finder --limit 50 >/dev/null
 cu_json perform 1 AXBogusActionName --app Finder --no-snapshot
 JSON_OUT="${OUT:-$ERR}"
 PARSED=$(echo "$JSON_OUT" | python3 -c "
@@ -48,6 +50,7 @@ echo "  parsed: $PARSED"
 
 section "perform — auto-snapshot"
 
+"$CU" snapshot Finder --limit 50 >/dev/null
 cu_json perform 1 AXShowDefaultUI --app Finder
 assert_ok "perform with snapshot"
 HAS_SNAP=$(echo "$OUT" | python3 -c "
@@ -71,16 +74,17 @@ JSON_OUT="${OUT:-$ERR}"
 NOT_FOUND=$(echo "$JSON_OUT" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
-print('yes' if 'not found' in d.get('error', '') else 'no')
+print('yes' if d.get('code') == 'stale_observation' else 'no')
 " 2>/dev/null || echo "no")
 if [[ "$NOT_FOUND" == "yes" ]]; then
-  _pass "ref 9999 → not found error"
+  _pass "ref 9999 rejected as stale Observation"
 else
-  _fail "ref 9999 → not found error" "got: $JSON_OUT"
+  _fail "ref 9999 rejected as stale Observation" "got: $JSON_OUT"
 fi
 
 section "perform — human mode"
 
+"$CU" snapshot Finder --limit 50 >/dev/null
 cu_human perform 1 AXShowDefaultUI --app Finder
 assert_exit_zero "perform human exits 0"
 assert_contains "shows performed action" "Performed"

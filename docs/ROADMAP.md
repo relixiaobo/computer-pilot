@@ -7,7 +7,11 @@
 > - [`competitive-analysis.md`](./competitive-analysis.md) — feature grid across projects (factual snapshot)
 > - This doc — execution plan + progress log (live)
 
-Last updated: 2026-04-28 (**Sprint 1 + Sprint 2 complete · v0.5.x released**; Sprint 3 in progress — A2 axPath / D8 AX warmup / B7 cu why done; the four root-cause fixes from the E3 WeChat task gap analysis are done (cu key terminal safety check / cu state combined command / cu type --paste / cu click --verify); A5 dropped; A capture-protected / B SCK / R1–R7 reliability batch landed in v0.5.2 — see "Reliability batch" below; E1 / E2 pending; **27 commands, 700+ test assertions**)
+Last updated: 2026-07-27. The sprint history below is retained for provenance.
+Current architecture adds four recovery commands, client-isolated Observations,
+a private per-user Broker, safe file results, and the CLI-only public Agent
+boundary documented in `universal-agent-integration.md` (**31 commands, 700+
+test assertions**).
 
 ---
 
@@ -202,7 +206,7 @@ Acceptance: every action command leaves the user's real cursor alone, doesn't st
   - **Verified**:
     1. ✅ Live Finder snapshot of 30 elements → 1800×1200 PNG, red boxes + numbers clearly readable
     2. ✅ Retina scale=2.0 detected automatically (image_w 1800 / window.width 900 = 2.0)
-    3. ✅ Default output path `/tmp/cu-annotated-<ts>.png`, `--output` overrides
+    3. ✅ Historical default was `/tmp`; current output uses `COMPUTER_PILOT_OUTPUT_DIR` or the private runtime directory
     4. ✅ Coexists with plain snapshot (plain doesn't write image, doesn't add fields)
     5. ✅ Orthogonal to `--diff` / `--limit` / other flags
     6. ✅ Human mode also prints `Annotated screenshot: <path>`
@@ -242,7 +246,7 @@ Acceptance: every action command leaves the user's real cursor alone, doesn't st
   - **Value**: tree and image are captured at the **same UI instant** — no race between two `cu` calls causing ref mismatches. Combined with `--diff`, VLMs get "what changed + the current image" in one call.
   - **Verified**:
     1. ✅ plain `--with-screenshot` returns `screenshot` + `image_scale`, no `annotated_screenshot`
-    2. ✅ Default output `/tmp/cu-snapshot-<ts>.png`, `--output` overrides
+    2. ✅ Historical default was `/tmp`; current output uses `COMPUTER_PILOT_OUTPUT_DIR` or the private runtime directory
     3. ✅ Plain snapshot without flag has no image fields
     4. ✅ `--annotated` + `--with-screenshot` → annotated wins
     5. ✅ `--diff` + `--with-screenshot` works on first-call and warm paths
@@ -359,14 +363,14 @@ Acceptance: every action command leaves the user's real cursor alone, doesn't st
   - **Tests**: 320/320 (296 existing + 24 new)
 
 - [x] **C1** Diff snapshot (0.5d) — **done 2026-04-27**
-  - **Approach**: new `cu snapshot --diff`, standalone (not injected into action commands — keep change small + composable). New `src/diff.rs` — cache path `/tmp/cu-snapshot-cache/<pid>.json`; element identity = `(role, round(x), round(y))`, robust to ref renumbering, sensitive to window movement. `content_changed` = title / value / size changed (width/height tolerance 0.5px). First call has no cache → returns full snapshot + `first_snapshot:true`, agent knows diffs start working from the next call. `Element` gets `Deserialize + Clone` for round-trip.
+  - **Current approach**: `cu snapshot --diff` uses a private runtime cache isolated by client key and PID, mode `0600`, with bounded TTL. Element identity remains `(role, round(x), round(y))`. First call returns the full snapshot with `first_snapshot:true`.
   - **Files changed**: `src/diff.rs` (new, 92 lines), `src/ax.rs` (Element derives), `src/main.rs` (`Cmd::Snapshot` adds `--diff` flag, `cmd_snapshot` branches, `print_diff_human` uses `+ ~ -`), `tests/commands/test_snapshot_diff.sh` (new, 21 assertions), SKILL.md / README.md (usage section)
   - **References landed**: own design — no open-source peer does this; another industry-first for cu
   - **Verified**:
     1. ✅ First call: `first_snapshot:true` + full elements
     2. ✅ Second call no-change: `+0 ~0 -0`, unchanged_count = total elements
     3. ✅ After set-value: precisely captures the textarea as `~`, other 19 untouched
-    4. ✅ Cache file written to `/tmp/cu-snapshot-cache/<pid>.json`
+    4. ✅ Cache is client-isolated under the private Computer Pilot runtime home
     5. ✅ Human mode uses `+ [ref] role`, `~ [ref] role`, `- [ref] (removed)` + Summary line
     6. ✅ `--diff` coexists with plain snapshot (plain doesn't break cache consistency)
   - **Tests**: 293/295 (2 skipped are A6 modal-trigger suppressed by macOS iCloud auto-save — switched to _skip rather than fail; unrelated to C1)
@@ -467,7 +471,7 @@ Acceptance: every action command leaves the user's real cursor alone, doesn't st
 | MCP server mode | ❌ (not MCP) | violates CLAUDE.md's explicit "CLI only, no MCP" rule |
 | ghost-os style record/replay self-learning recipes | ❌ | beyond current product scope, needs a separate product decision |
 | Built-in VLM fallback (cu calling a VLM directly) | 🟡 GPT-5.4 ships with one | our agents have their own vision (Claude / GPT); cu is the reusable "hand", shouldn't redundantly call a remote VLM |
-| Long-lived daemon + AXObserver push | ✅ internal architecture | violates the "single-binary CLI" philosophy; D7 (single-shot AXObserver wait) takes 80% of the value, the remaining daemon win isn't worth the complexity |
+| Public daemon / push API | ✅ private Broker only | Agent hosts see only skill + shell + CLI; Broker transport remains internal |
 | Co-trained model + tool integration | ✅ Codex CU's core moat | we're a model-agnostic tool, deliberately not bound to a specific model — this is cu's only moat against Codex CU |
 | Chrome CDP bridge (DevTools Protocol path for Chrome/Edge/Electron) | 🟡 ghost-os has it | users would have to manually set `--remote-debugging-port=9222` — the UX is already degraded; cu's unified abstraction is "any macOS app", and a Chrome side door dilutes that consistency. AX tree + cu tell already cover 95% of browser ops; the remaining 5% isn't worth 3 days |
 
@@ -492,5 +496,5 @@ Acceptance: every action command leaves the user's real cursor alone, doesn't st
 | Sprint | Status | Start / End | Notes |
 |---|---|---|---|
 | Sprint 1 — non-disruptive UX + tool surface | **complete** | 2026-04-27 | 10/10 tasks (incl. F2 closed; F2a + F2b + E3 equivalent done) |
-| Sprint 2 — VLM bridge + CLI craft + closed-loop precision | ✅ complete | 2026-04-27 | 18/18: A series (5) + A1/C1 + G1–G4 + B6/C3/C4/D1/D6/D7/F3; **27 commands, 700+ test assertions** |
+| Sprint 2 — VLM bridge + CLI craft + closed-loop precision | ✅ complete | 2026-04-27 | Historical 27-command milestone; current public CLI has 31 commands including recovery |
 | Sprint 3 — long-term capabilities | in progress | 2026-04-27 — | A2 axPath + D8 AX warmup + B7 cu why done (v0.4.0 release); A5 dropped (CDP); R1–R7 reliability batch + A SCK + capture-protected (v0.5.2); E1 / E2 pending |

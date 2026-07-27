@@ -19,6 +19,22 @@ use serde_json::Value;
 pub enum ErrorCode {
     CommandFailed,
     InvalidArgument,
+    ObservationRequired,
+    ObservationNotFound,
+    StaleObservation,
+    RequestIdConflict,
+    CommandInProgress,
+    CommandNotFound,
+    CommandCancelled,
+    CommandExpired,
+    UnknownOutcome,
+    TargetBusy,
+    PermissionDenied,
+    AppNotFound,
+    WindowNotFound,
+    CaptureProtected,
+    VerificationFailed,
+    InternalError,
 }
 
 impl ErrorCode {
@@ -26,6 +42,55 @@ impl ErrorCode {
         match self {
             Self::CommandFailed => "command_failed",
             Self::InvalidArgument => "invalid_argument",
+            Self::ObservationRequired => "observation_required",
+            Self::ObservationNotFound => "observation_not_found",
+            Self::StaleObservation => "stale_observation",
+            Self::RequestIdConflict => "request_id_conflict",
+            Self::CommandInProgress => "command_in_progress",
+            Self::CommandNotFound => "command_not_found",
+            Self::CommandCancelled => "command_cancelled",
+            Self::CommandExpired => "command_expired",
+            Self::UnknownOutcome => "unknown_outcome",
+            Self::TargetBusy => "target_busy",
+            Self::PermissionDenied => "permission_denied",
+            Self::AppNotFound => "app_not_found",
+            Self::WindowNotFound => "window_not_found",
+            Self::CaptureProtected => "capture_protected",
+            Self::VerificationFailed => "verification_failed",
+            Self::InternalError => "internal_error",
+        }
+    }
+
+    fn classify(error: &str) -> Self {
+        let error = error.to_ascii_lowercase();
+        if error.contains("capture-protected") || error.contains("capture protected") {
+            Self::CaptureProtected
+        } else if error.contains("permission denied")
+            || error.contains("permission is required")
+            || error.contains("not authorized")
+            || error.contains("not authorised")
+            || error.contains("not permitted")
+            || error.contains("(-1743)")
+        {
+            Self::PermissionDenied
+        } else if error.contains("app not running")
+            || error.contains("app not found")
+            || error.contains("application not running")
+            || error.contains("application isn't running")
+        {
+            Self::AppNotFound
+        } else if error.contains("window not found")
+            || error.contains("no on-screen window")
+            || error.contains("no window found")
+            || error.contains("waiting for window")
+        {
+            Self::WindowNotFound
+        } else if error.contains("verification failed") || error.contains("could not verify") {
+            Self::VerificationFailed
+        } else if error.contains("timed out") || error.contains("timeout expired") {
+            Self::CommandExpired
+        } else {
+            Self::CommandFailed
         }
     }
 }
@@ -83,7 +148,7 @@ impl CuError {
     /// that were populated.
     pub fn to_json(&self) -> Value {
         let mut obj = serde_json::json!({
-            "schema_version": crate::protocol::MACHINE_SCHEMA_VERSION,
+            "schema_version": crate::MACHINE_SCHEMA_VERSION,
             "ok": false,
             "code": self.code.as_str(),
             "error": self.error,
@@ -104,12 +169,13 @@ impl CuError {
 
 impl From<String> for CuError {
     fn from(s: String) -> Self {
-        Self::msg(s)
+        let code = ErrorCode::classify(&s);
+        Self::msg(s).with_code(code)
     }
 }
 
 impl From<&str> for CuError {
     fn from(s: &str) -> Self {
-        Self::msg(s.to_string())
+        s.to_string().into()
     }
 }

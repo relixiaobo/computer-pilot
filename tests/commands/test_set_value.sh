@@ -44,18 +44,21 @@ verify_doc "TextEdit document contains the value" "hello via AXValue"
 
 section "set-value — Unicode (Chinese)"
 
+"$CU" snapshot TextEdit --limit 5 >/dev/null
 cu_json set-value 1 "你好世界" --app TextEdit --no-snapshot
 assert_ok "set-value Chinese text"
 verify_doc "TextEdit document contains Chinese text" "你好世界"
 
 section "set-value — replaces previous value"
 
+"$CU" snapshot TextEdit --limit 5 >/dev/null
 cu_json set-value 1 "overwrite" --app TextEdit --no-snapshot
 assert_ok "set-value overwrite"
 verify_doc "AXValue write replaces, not appends" "overwrite"
 
 section "set-value — auto-snapshot"
 
+"$CU" snapshot TextEdit --limit 5 >/dev/null
 cu_json set-value 1 "with snap" --app TextEdit
 assert_ok "set-value with snapshot"
 HAS_SNAP=$(echo "$OUT" | python3 -c "
@@ -80,6 +83,7 @@ assert_fail "ref 9999 not found"
 section "set-value — failure carries structured hint + suggested_next"
 
 # Finder ref 1 is typically a non-settable container; failure JSON goes to stderr.
+"$CU" snapshot Finder --limit 50 >/dev/null
 cu_json set-value 1 "x" --app Finder --no-snapshot
 JSON_OUT="${OUT:-$ERR}"
 PARSED=$(echo "$JSON_OUT" | python3 -c "
@@ -100,6 +104,7 @@ print('|'.join([
 
 section "set-value — human mode"
 
+"$CU" snapshot TextEdit --limit 5 >/dev/null
 cu_human set-value 1 "testing" --app TextEdit
 assert_exit_zero "set-value human exits 0"
 assert_contains "shows write confirmation" "Set"

@@ -16,6 +16,20 @@ assert_fail "ocr: bad app"
 cu_json "click 1 --app NonExistentApp98765 --no-snapshot"
 assert_fail "click ref: bad app"
 
+for command in \
+  "snapshot NonExistentApp98765" \
+  "screenshot NonExistentApp98765" \
+  "ocr NonExistentApp98765" \
+  "click 10 10 --app NonExistentApp98765 --no-snapshot"; do
+  cu_json "$command"
+  CODE=$(echo "$ERR" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("code", ""))' 2>/dev/null || true)
+  if [[ "$CODE" == "app_not_found" ]]; then
+    _pass "$command: stable app_not_found code"
+  else
+    _fail "$command: stable app_not_found code" "got '$CODE': ${ERR:0:160}"
+  fi
+done
+
 section "errors — invalid click targets"
 
 cu_json "click 0 --app Finder --no-snapshot"

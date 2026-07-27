@@ -1,13 +1,13 @@
 mod ax;
-mod bridge;
+mod broker;
 mod diff;
 mod display;
 mod error;
+mod file_result;
 mod key;
 mod mouse;
 mod observer;
 mod ocr;
-mod protocol;
 mod sck;
 mod screenshot;
 mod sdef;
@@ -16,9 +16,10 @@ mod wait;
 
 use clap::{Parser, Subcommand};
 use error::{CuError, ErrorCode};
-use std::io::IsTerminal;
+use std::io::{IsTerminal, Write};
 
 pub(crate) const VERSION: &str = env!("CARGO_PKG_VERSION");
+pub(crate) const MACHINE_SCHEMA_VERSION: &str = "1.0";
 const POST_ACTION_DELAY_MS: u64 = 500;
 
 /// Maps an action `method` string to a (confidence, advice) pair.
@@ -80,12 +81,12 @@ fn annotate_method(result: &mut serde_json::Value) {
     name = "cu",
     version = VERSION,
     about = "macOS desktop automation CLI for AI agents",
-    before_help = "COMMANDS BY CATEGORY (28 total):\n  \
+    before_help = "COMMANDS BY CATEGORY (31 total):\n  \
         Discover         setup · apps · menu · sdef · examples\n  \
         Observe          snapshot · state · find · nearest · observe-region · ocr · screenshot · wait\n  \
         Act              click · type · key · set-value · perform · scroll · hover · drag\n  \
         Script & System  tell · defaults · window · launch · warm · why\n  \
-        Integrate        bridge\n\n\
+        Recover          status · commands · command · cancel\n\n\
         Run `cu <command> --help` for any command's full reference + examples.\n\
         Stuck? Try `cu examples` for a built-in recipe list.",
     long_about = "macOS desktop automation CLI for AI agents.\n\n\
@@ -127,23 +128,46 @@ pub(crate) struct Cli {
     #[arg(long, conflicts_with = "human")]
     json: bool,
 
+    /// Stable namespace for this logical Agent's observations and commands
+    #[arg(long, value_name = "KEY")]
+    client_key: Option<String>,
+
+    /// Stable request identity for idempotent mutation recovery
+    #[arg(long, value_name = "ID")]
+    request_id: Option<String>,
+
+    /// Broker command deadline in milliseconds (place before the subcommand)
+    #[arg(long, default_value_t = broker::default_timeout_ms(), value_name = "MS")]
+    timeout: u64,
+
     #[command(subcommand)]
     command: Cmd,
 }
 
 #[derive(Subcommand)]
 enum Cmd {
-    /// Run the Agent-neutral JSON-RPC bridge over stdin/stdout
-    #[command(after_help = "Embedded hosts launch: cu bridge --stdio\n\
-        Protocol messages are newline-delimited JSON-RPC 2.0. Stdout is protocol-only.")]
-    Bridge {
-        /// Use stdin/stdout for the versioned machine protocol
-        #[arg(long, required = true)]
-        stdio: bool,
-        /// Remove a capability for the lifetime of this bridge (repeatable)
-        #[arg(long = "deny")]
-        denied_capabilities: Vec<String>,
+    /// Show private service and command-recovery status for this Agent
+    Status,
+
+    /// List recent commands for this Agent
+    Commands {
+        /// Maximum records to return
+        #[arg(long, default_value = "20")]
+        limit: usize,
+        /// Comma-separated statuses to include
+        #[arg(long, value_delimiter = ',')]
+        status: Vec<String>,
     },
+
+    /// Inspect one command by ID
+    Command { command_id: String },
+
+    /// Request cancellation of one command
+    Cancel { command_id: String },
+
+    /// Internal per-user Broker service
+    #[command(name = "__broker", hide = true)]
+    BrokerServe,
 
     /// Check permissions, status, and version
     #[command(after_help = "Run this first on a new machine. Both permissions are required.")]
@@ -176,7 +200,7 @@ enum Cmd {
         diff: bool,
         /// Save a window screenshot with each ref's bounding box + number drawn on it.
         /// VLM agent flow: look at the PNG, identify element visually, then `cu click <ref>`.
-        /// Path defaults to /tmp/cu-annotated-<ts>.png; override with --output.
+        /// Defaults to COMPUTER_PILOT_OUTPUT_DIR or the private runtime output directory.
         #[arg(long)]
         annotated: bool,
         /// Attach a plain (un-annotated) window screenshot to the snapshot output.
@@ -263,6 +287,9 @@ enum Cmd {
         /// Stable element selector (axPath). Survives across snapshots.
         #[arg(long = "ax-path")]
         ax_path: Option<String>,
+        /// Observation that owns the ref (defaults to this client's latest for --app)
+        #[arg(long)]
+        observation: Option<String>,
         /// Skip auto-snapshot in JSON output
         #[arg(long)]
         no_snapshot: bool,
@@ -296,6 +323,9 @@ enum Cmd {
         /// Stable element selector (axPath). Survives across snapshots.
         #[arg(long = "ax-path")]
         ax_path: Option<String>,
+        /// Observation that owns the ref (defaults to this client's latest for --app)
+        #[arg(long)]
+        observation: Option<String>,
         /// Skip auto-snapshot in JSON output
         #[arg(long)]
         no_snapshot: bool,
@@ -316,7 +346,7 @@ enum Cmd {
     Key {
         /// Key combination (e.g., cmd+c, enter, cmd+shift+s)
         combo: String,
-        /// Target app (activates it, sends via System Events for reliability)
+        /// Target app (events are delivered directly to its process)
         #[arg(long)]
         app: Option<String>,
         /// Skip auto-snapshot in JSON output
@@ -531,6 +561,9 @@ enum Cmd {
         /// Stable element selector (axPath). Survives across snapshots.
         #[arg(long = "ax-path")]
         ax_path: Option<String>,
+        /// Observation that owns the ref (defaults to this client's latest for --app)
+        #[arg(long)]
+        observation: Option<String>,
         /// Which match to click when using --text (default: 1 = first)
         #[arg(long, default_value = "1")]
         index: usize,
@@ -668,7 +701,7 @@ enum Cmd {
         /// command. Conflicts with the positional form.
         #[arg(long = "app", conflicts_with = "app_positional")]
         app_flag: Option<String>,
-        /// Output file path (default: /tmp/cu-screenshot-<ts>.png).
+        /// Absolute output path. Defaults to COMPUTER_PILOT_OUTPUT_DIR.
         /// `--output` is accepted as an alias.
         #[arg(long, alias = "output")]
         path: Option<String>,
@@ -683,7 +716,7 @@ enum Cmd {
 
     /// Manage windows (list, move, resize, focus, minimize, close)
     #[command(after_help = "\
-        Window management via System Events. Works for ALL apps.\n\n\
+        Window management via the native macOS Accessibility API.\n\n\
         Examples:\n  \
         cu window list                        # list all windows\n  \
         cu window list --app Safari           # list Safari windows only\n  \
@@ -776,7 +809,7 @@ enum Cmd {
         vs `cu snapshot` + `cu window list` + `cu screenshot`. The screenshot gives\n  \
         a VLM agent visual context; the snapshot gives ref-based interaction targets.\n\n\
         Examples:\n  \
-        cu state Safari                # full state, screenshot to /tmp/cu-state-<ts>.png\n  \
+        cu state Safari                # full state + task-directory screenshot\n  \
         cu state Mail --no-screenshot  # tree + windows only (faster)\n  \
         cu state TextEdit --limit 100  # deeper tree walk\n\n\
         Returns: { ok, app, pid, frontmost, windows[], displays[], elements[],\n\
@@ -795,10 +828,10 @@ enum Cmd {
         output: Option<String>,
     },
 
-    /// List an app's menu bar items (works for ALL apps via System Events)
+    /// List an app's menu bar items through native macOS Accessibility
     #[command(after_help = "\
         Enumerates every menu and menu item in the app's menu bar.\n\
-        Works for ANY app — scriptable or not. Uses System Events.\n\n\
+        Works for any app that exposes a standard Accessibility menu bar.\n\n\
         Examples:\n  \
         cu menu Calculator     # see View > Scientific, View > Programmer\n  \
         cu menu Safari         # see File > New Window, View > Show Reader\n  \
@@ -897,19 +930,217 @@ enum Cmd {
     },
 }
 
+impl Cmd {
+    fn name(&self) -> &'static str {
+        match self {
+            Self::Status => "status",
+            Self::Commands { .. } => "commands",
+            Self::Command { .. } => "command",
+            Self::Cancel { .. } => "cancel",
+            Self::BrokerServe => "__broker",
+            Self::Setup => "setup",
+            Self::Apps => "apps",
+            Self::Snapshot { .. } => "snapshot",
+            Self::Type { .. } => "type",
+            Self::Perform { .. } => "perform",
+            Self::SetValue { .. } => "set-value",
+            Self::Key { .. } => "key",
+            Self::ObserveRegion { .. } => "observe-region",
+            Self::Nearest { .. } => "nearest",
+            Self::Find { .. } => "find",
+            Self::Wait { .. } => "wait",
+            Self::Ocr { .. } => "ocr",
+            Self::Click { .. } => "click",
+            Self::Scroll { .. } => "scroll",
+            Self::Hover { .. } => "hover",
+            Self::Drag { .. } => "drag",
+            Self::Screenshot { .. } => "screenshot",
+            Self::Window { .. } => "window",
+            Self::Launch { .. } => "launch",
+            Self::Why { .. } => "why",
+            Self::Warm { .. } => "warm",
+            Self::State { .. } => "state",
+            Self::Menu { .. } => "menu",
+            Self::Defaults { .. } => "defaults",
+            Self::Sdef { .. } => "sdef",
+            Self::Examples { .. } => "examples",
+            Self::Tell { .. } => "tell",
+        }
+    }
+
+    fn mutating(&self) -> bool {
+        match self {
+            Self::Setup
+            | Self::Type { .. }
+            | Self::Perform { .. }
+            | Self::SetValue { .. }
+            | Self::Key { .. }
+            | Self::Click { .. }
+            | Self::Scroll { .. }
+            | Self::Hover { .. }
+            | Self::Drag { .. }
+            | Self::Launch { .. }
+            | Self::Tell { .. } => true,
+            Self::Window { action, .. } => action != "list",
+            Self::Defaults { action, .. } => action == "write",
+            _ => false,
+        }
+    }
+
+    fn resource(&self) -> Result<Option<String>, CuError> {
+        if let Self::Screenshot { full, region, .. } = self
+            && (*full || region.is_some())
+        {
+            return Ok(None);
+        }
+        let app = match self {
+            Self::Snapshot { app, .. }
+            | Self::Type { app, .. }
+            | Self::Perform { app, .. }
+            | Self::SetValue { app, .. }
+            | Self::Key { app, .. }
+            | Self::ObserveRegion { app, .. }
+            | Self::Nearest { app, .. }
+            | Self::Find { app, .. }
+            | Self::Wait { app, .. }
+            | Self::Ocr { app, .. }
+            | Self::Click { app, .. }
+            | Self::Scroll { app, .. }
+            | Self::Hover { app, .. }
+            | Self::Drag { app, .. }
+            | Self::Window { app, .. }
+            | Self::Why { app, .. } => app.as_deref().map(|app| (app, true)),
+            Self::Screenshot {
+                app_positional,
+                app_flag,
+                ..
+            } => app_flag
+                .as_deref()
+                .or(app_positional.as_deref())
+                .map(|app| (app, true)),
+            Self::State { app, .. } | Self::Menu { app } | Self::Warm { app } => {
+                Some((app.as_str(), true))
+            }
+            Self::Sdef { app } | Self::Tell { app, .. } => Some((app.as_str(), false)),
+            Self::Launch { id, .. } => Some((id.as_str(), false)),
+            _ => None,
+        };
+        if let Some((app, require_running)) = app {
+            let resolved = system::resolve_target_app(&Some(app.to_string()));
+            return match resolved {
+                Ok((pid, _)) => {
+                    let identity = system::bundle_id_for_pid(pid)
+                        .filter(|bundle_id| !bundle_id.is_empty())
+                        .map(|bundle_id| bundle_id.to_lowercase())
+                        .unwrap_or_else(|| format!("pid:{pid}"));
+                    Ok(Some(format!("app:{identity}")))
+                }
+                Err(error) if require_running => {
+                    Err(CuError::msg(error).with_code(ErrorCode::AppNotFound))
+                }
+                Err(_) => Ok(Some(format!("app:raw:{}", app.to_lowercase()))),
+            };
+        }
+        Ok(match self {
+            Self::Defaults { domain, .. } => Some(format!("defaults:{}", domain.to_lowercase())),
+            command if command.mutating() => Some("desktop:frontmost".into()),
+            _ => None,
+        })
+    }
+
+    fn desktop_lock(&self) -> bool {
+        match self {
+            Self::Hover { .. } | Self::Drag { .. } | Self::Setup | Self::Launch { .. } => true,
+            Self::Click { app, .. } | Self::Key { app, .. } | Self::Scroll { app, .. } => {
+                app.is_none()
+            }
+            Self::Type {
+                text,
+                app,
+                paste,
+                no_paste,
+                ..
+            } => {
+                app.is_none()
+                    || *paste
+                    || (!*no_paste
+                        && (contains_cjk(text)
+                            || app.as_ref().is_some_and(|name| {
+                                PASTE_APPS.iter().any(|known| {
+                                    name.eq_ignore_ascii_case(known) || name.contains(*known)
+                                })
+                            })))
+            }
+            Self::Window { action, .. } => action == "focus",
+            Self::Tell { app, .. } => app.eq_ignore_ascii_case("System Events"),
+            _ => false,
+        }
+    }
+
+    fn is_recovery(&self) -> bool {
+        matches!(
+            self,
+            Self::Status | Self::Commands { .. } | Self::Command { .. } | Self::Cancel { .. }
+        )
+    }
+
+    fn validate_client_preflight(&self) -> Result<(), CuError> {
+        match self {
+            Self::Type {
+                app, allow_global, ..
+            } if app.is_none() && !allow_global => system::check_global_frontmost_safety("type")?,
+            Self::Key {
+                app, allow_global, ..
+            } if app.is_none() && !allow_global => {
+                system::check_global_frontmost_safety("send keys")?
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn ref_action(&self) -> Option<(usize, Option<String>)> {
+        match self {
+            Self::SetValue {
+                ref_id,
+                ax_path,
+                observation,
+                ..
+            }
+            | Self::Perform {
+                ref_id,
+                ax_path,
+                observation,
+                ..
+            } if ax_path.is_none() => ref_id.map(|ref_id| (ref_id, observation.clone())),
+            Self::Click {
+                target,
+                y,
+                text,
+                ax_path,
+                observation,
+                ..
+            } if y.is_none() && text.is_none() && ax_path.is_none() => target
+                .as_deref()
+                .and_then(|target| target.parse::<usize>().ok())
+                .map(|ref_id| (ref_id, observation.clone())),
+            _ => None,
+        }
+    }
+}
+
 // ── Main ────────────────────────────────────────────────────────────────────
 
 fn main() {
-    let machine_requested = std::env::args_os().any(|arg| arg == "--json")
-        || !std::io::stdout().is_terminal();
+    let machine_requested =
+        std::env::args_os().any(|arg| arg == "--json") || !std::io::stdout().is_terminal();
     let cli = match Cli::try_parse() {
         Ok(cli) => cli,
         Err(error)
             if machine_requested
                 && !matches!(
                     error.kind(),
-                    clap::error::ErrorKind::DisplayHelp
-                        | clap::error::ErrorKind::DisplayVersion
+                    clap::error::ErrorKind::DisplayHelp | clap::error::ErrorKind::DisplayVersion
                 ) =>
         {
             eprintln!(
@@ -923,20 +1154,84 @@ fn main() {
         Err(error) => error.exit(),
     };
     let json = cli.json || (!cli.human && !std::io::stdout().is_terminal());
-
-    if let Cmd::Bridge {
-        stdio: _,
-        denied_capabilities,
-    } = cli.command
+    let client_key = cli
+        .client_key
+        .or_else(|| std::env::var("COMPUTER_PILOT_CLIENT_KEY").ok())
+        .unwrap_or_else(|| "computer-pilot-cli".into());
+    if let Err(error) = broker::validate_client_key(&client_key) {
+        fail_main(
+            CuError::msg(error).with_code(ErrorCode::InvalidArgument),
+            json,
+        );
+    }
+    if let Some(request_id) = cli.request_id.as_deref()
+        && let Err(error) = broker::validate_request_id(request_id)
     {
-        if let Err(error) = bridge::run_stdio(denied_capabilities) {
-            eprintln!("Bridge error: {error}");
+        fail_main(
+            CuError::msg(error).with_code(ErrorCode::InvalidArgument),
+            json,
+        );
+    }
+
+    if matches!(cli.command, Cmd::BrokerServe) {
+        if let Err(error) = broker::serve() {
+            eprintln!("{error}");
             std::process::exit(1);
         }
         return;
     }
 
+    if cli.command.is_recovery() {
+        if let Err(error) = dispatch_recovery(cli.command, json, client_key) {
+            fail_main(error, json);
+        }
+        return;
+    }
+
+    if !broker::is_child() {
+        if let Err(error) = cli.command.validate_client_preflight() {
+            fail_main(error, json);
+        }
+        let ref_action = cli.command.ref_action();
+        let resource = match cli.command.resource() {
+            Ok(resource) => resource,
+            Err(error) => fail_main(error, json),
+        };
+        let options = broker::RunOptions {
+            client_key,
+            request_id: cli.request_id,
+            timeout_ms: cli.timeout,
+            command: cli.command.name().into(),
+            argv: broker_child_argv(json),
+            mutating: cli.command.mutating(),
+            resource,
+            desktop_lock: cli.command.desktop_lock(),
+            ref_id: ref_action.as_ref().map(|(ref_id, _)| *ref_id),
+            observation_id: ref_action.and_then(|(_, observation_id)| observation_id),
+            output_dir: std::env::var("COMPUTER_PILOT_OUTPUT_DIR").ok(),
+            test_frontmost_override: std::env::var("CU_TEST_FRONTMOST_OVERRIDE").ok(),
+        };
+        match broker::run(options) {
+            Ok(result) => replay_broker_result(result, json),
+            Err(error) => fail_main(error.into_cu_error(), json),
+        }
+        return;
+    }
+
+    if let Ok(delay) = std::env::var("CU_TEST_BROKER_CHILD_DELAY_MS")
+        && let Ok(delay) = delay.parse::<u64>()
+        && delay <= 10_000
+    {
+        std::thread::sleep(std::time::Duration::from_millis(delay));
+    }
+
     if let Err(e) = dispatch(cli.command, json) {
+        fail_main(e, json);
+    }
+}
+
+fn fail_main(e: CuError, json: bool) -> ! {
+    {
         if json {
             eprintln!("{}", e.to_json());
         } else {
@@ -948,14 +1243,153 @@ fn main() {
                 eprintln!("Try : {s}");
             }
         }
-        std::process::exit(1);
+    }
+    std::process::exit(1);
+}
+
+fn broker_child_argv(json: bool) -> Vec<String> {
+    let raw: Vec<String> = std::env::args().skip(1).collect();
+    let mut argv = Vec::with_capacity(raw.len() + 1);
+    let mut root = true;
+    let mut index = 0;
+    while index < raw.len() {
+        let arg = &raw[index];
+        if root && matches!(arg.as_str(), "--client-key" | "--request-id" | "--timeout") {
+            index += 2;
+            continue;
+        }
+        if root
+            && (arg.starts_with("--client-key=")
+                || arg.starts_with("--request-id=")
+                || arg.starts_with("--timeout="))
+        {
+            index += 1;
+            continue;
+        }
+        if root && !arg.starts_with('-') {
+            root = false;
+        }
+        argv.push(arg.clone());
+        index += 1;
+    }
+    if !argv.iter().any(|arg| arg == "--json" || arg == "--human") {
+        argv.insert(0, if json { "--json" } else { "--human" }.into());
+    }
+    argv
+}
+
+fn replay_broker_result(result: broker::RunResult, json: bool) {
+    let mut stdout = result.stdout.clone();
+    let mut stderr = result.stderr.clone();
+    if json {
+        stdout = attach_command_metadata(&stdout, &result);
+        stderr = attach_command_metadata(&stderr, &result);
+    }
+    if !stdout.is_empty() {
+        let _ = std::io::stdout().write_all(stdout.as_bytes());
+        if !stdout.ends_with('\n') {
+            println!();
+        }
+    }
+    if !stderr.is_empty() {
+        let _ = std::io::stderr().write_all(stderr.as_bytes());
+        if !stderr.ends_with('\n') {
+            eprintln!();
+        }
+    }
+    if result.exit_code != 0 {
+        std::process::exit(result.exit_code);
+    }
+}
+
+fn attach_command_metadata(output: &str, result: &broker::RunResult) -> String {
+    let Ok(mut value) = serde_json::from_str::<serde_json::Value>(output.trim()) else {
+        return output.into();
+    };
+    let Some(object) = value.as_object_mut() else {
+        return output.into();
+    };
+    object.insert("command_id".into(), result.command.id.clone().into());
+    object.insert(
+        "command_status".into(),
+        result.command.status.clone().into(),
+    );
+    if result.replayed {
+        object.insert("replayed".into(), true.into());
+    }
+    serde_json::to_string(&value).unwrap_or_else(|_| output.into())
+}
+
+fn dispatch_recovery(cmd: Cmd, json: bool, client_key: String) -> Result<(), CuError> {
+    match cmd {
+        Cmd::Status => {
+            let status = broker::status(client_key).map_err(broker::BrokerError::into_cu_error)?;
+            if json {
+                ok(serde_json::to_value(status).map_err(|error| error.to_string())?)
+            } else {
+                println!(
+                    "Broker running (pid {}) — {} commands, {} active, {} uncertain",
+                    status.pid, status.command_count, status.active_count, status.uncertain_count
+                );
+                Ok(())
+            }
+        }
+        Cmd::Commands { limit, status } => {
+            if limit == 0 || limit > 100 {
+                return Err(CuError::msg("--limit must be from 1 through 100")
+                    .with_code(ErrorCode::InvalidArgument));
+            }
+            let commands = broker::commands(client_key, limit, status)
+                .map_err(broker::BrokerError::into_cu_error)?;
+            if json {
+                ok(serde_json::json!({"commands": commands}))
+            } else {
+                for command in commands {
+                    println!(
+                        "{} {} {} {}",
+                        command.id, command.status, command.command, command.accepted_at_ms
+                    );
+                }
+                Ok(())
+            }
+        }
+        Cmd::Command { command_id } => {
+            let command = broker::command(client_key, command_id)
+                .map_err(broker::BrokerError::into_cu_error)?;
+            if json {
+                ok(serde_json::to_value(command).map_err(|error| error.to_string())?)
+            } else {
+                println!("{} {} {}", command.id, command.status, command.command);
+                Ok(())
+            }
+        }
+        Cmd::Cancel { command_id } => {
+            let command = broker::cancel(client_key, command_id)
+                .map_err(broker::BrokerError::into_cu_error)?;
+            if json {
+                ok(serde_json::to_value(command).map_err(|error| error.to_string())?)
+            } else {
+                println!(
+                    "Cancellation requested for {} ({})",
+                    command.id, command.status
+                );
+                Ok(())
+            }
+        }
+        _ => {
+            Err(CuError::msg("not a command recovery operation")
+                .with_code(ErrorCode::InvalidArgument))
+        }
     }
 }
 
 fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
     match cmd {
-        Cmd::Bridge { .. } => Err(CuError::msg("bridge must be run through the stdio entrypoint")
-            .with_code(ErrorCode::InvalidArgument)),
+        Cmd::Status
+        | Cmd::Commands { .. }
+        | Cmd::Command { .. }
+        | Cmd::Cancel { .. }
+        | Cmd::BrokerServe => Err(CuError::msg("internal command routing error")),
         Cmd::Setup => cmd_setup(json),
         Cmd::Apps => cmd_apps(json),
         Cmd::Snapshot {
@@ -1039,6 +1473,7 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
             app,
             limit,
             ax_path,
+            observation: _observation,
             no_snapshot,
         } => cmd_set_value(json, ref_id, value, app, limit, ax_path, no_snapshot),
         Cmd::Perform {
@@ -1047,6 +1482,7 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
             app,
             limit,
             ax_path,
+            observation: _observation,
             no_snapshot,
         } => cmd_perform(json, ref_id, action, app, limit, ax_path, no_snapshot),
         Cmd::Key {
@@ -1060,6 +1496,7 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
             y,
             text,
             ax_path,
+            observation: _observation,
             index,
             region,
             app,
@@ -1179,9 +1616,7 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
 fn cmd_setup(json: bool) -> Result<(), CuError> {
     let ax = system::check_accessibility();
     let sr = system::check_screen_recording();
-    let auto = system::check_automation();
     let ready = ax && sr; // core: snapshot, click, key, type, screenshot, ocr
-    let scripting_ready = ready && auto; // scripting: cu tell
     // Currently-running apps with kCGWindowSharingState=0 — `cu screenshot`
     // refuses upfront for these. Exposed here so agents see the constraint
     // before they hit it. Skip when AX is missing (the AX walks underneath
@@ -1195,8 +1630,15 @@ fn cmd_setup(json: bool) -> Result<(), CuError> {
     if json {
         return ok(serde_json::json!({
             "ok": true, "version": VERSION, "platform": "macos",
-            "accessibility": ax, "screen_recording": sr, "automation": auto,
-            "ready": ready, "scripting_ready": scripting_ready,
+            "accessibility": ax, "screen_recording": sr,
+            "automation": {
+                "scope": "per_target_app",
+                "status": "not_checked",
+                "required_for": ["tell"]
+            },
+            "ready": ready,
+            "scripting_ready": null,
+            "scripting_readiness_reason": "Automation permission is granted separately for each target app and is requested only by cu tell",
             "capture_protected_apps": protected_apps,
         }));
     }
@@ -1210,10 +1652,7 @@ fn cmd_setup(json: bool) -> Result<(), CuError> {
         "Screen Recording: {}",
         if sr { "granted" } else { "NOT GRANTED" }
     );
-    println!(
-        "Automation:       {}",
-        if auto { "granted" } else { "NOT GRANTED" }
-    );
+    println!("Automation:       per target app (checked on cu tell)");
     if !protected_apps.is_empty() {
         println!(
             "Capture-protected running apps: {} (cu screenshot will refuse — use blind operation + manual confirmation)",
@@ -1222,8 +1661,9 @@ fn cmd_setup(json: bool) -> Result<(), CuError> {
     }
     println!();
 
-    if scripting_ready {
-        println!("All permissions OK. Ready to use.");
+    if ready {
+        println!("Core permissions OK. Ready to use.");
+        println!("cu tell will request Automation access separately for each target app.");
     } else {
         if !ax {
             println!(
@@ -1233,11 +1673,6 @@ fn cmd_setup(json: bool) -> Result<(), CuError> {
         if !sr {
             println!(
                 "Screen Recording is required for screenshot and OCR.\n→ System Settings → Privacy & Security → Screen Recording\n"
-            );
-        }
-        if !auto {
-            println!(
-                "Automation is needed for cu tell (scripting). Granted per-app on first use.\n→ System Settings → Privacy & Security → Automation\n"
             );
         }
         println!("Add your terminal app, then re-run: cu setup");
@@ -1262,8 +1697,8 @@ fn cmd_setup(json: bool) -> Result<(), CuError> {
 fn cmd_apps(json: bool) -> Result<(), CuError> {
     let payload = system::list_apps()?;
     if json {
-        let value: serde_json::Value = serde_json::from_str(&payload)
-            .map_err(|e| format!("failed to parse apps: {e}"))?;
+        let value: serde_json::Value =
+            serde_json::from_str(&payload).map_err(|e| format!("failed to parse apps: {e}"))?;
         emit(&value);
         return Ok(());
     }
@@ -1314,6 +1749,7 @@ fn cmd_snapshot(
             .unwrap_or_else(|| "snapshot failed".into())
             .into());
     }
+    broker::publish_observation(pid, &result);
 
     // Capture the previous cache before overwriting — `--diff` reads it below.
     // Cache is updated unconditionally so the stale-state guard in action
@@ -1323,33 +1759,21 @@ fn cmd_snapshot(
 
     // --with-screenshot (skipped when --annotated is set since annotated already
     // bakes a screenshot into the response).
-    let plain_screenshot: Option<(String, f64)> = if with_screenshot && !annotated {
+    let plain_screenshot: Option<file_result::FileResult> = if with_screenshot && !annotated {
         let win =
             screenshot::find_window(pid).ok_or("no on-screen window found for the target app")?;
-        let path = output.clone().unwrap_or_else(|| {
-            let ts = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_millis())
-                .unwrap_or(0);
-            format!("/tmp/cu-snapshot-{ts}.png")
-        });
-        let scale = screenshot::capture_window_with_scale(&win, &path)?;
-        Some((path, scale))
+        let (_, file) = file_result::write_png(output.clone(), "cu-snapshot", |path| {
+            screenshot::capture_window_with_scale(&win, path).map(|scale| ((), scale))
+        })?;
+        Some(file)
     } else {
         None
     };
 
     // --annotated: capture window + draw ref boxes/labels, attach path to JSON output.
-    let annotated_info: Option<(String, f64)> = if annotated {
+    let annotated_info: Option<file_result::FileResult> = if annotated {
         let win =
             screenshot::find_window(pid).ok_or("no on-screen window found for the target app")?;
-        let path = output.clone().unwrap_or_else(|| {
-            let ts = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_millis())
-                .unwrap_or(0);
-            format!("/tmp/cu-annotated-{ts}.png")
-        });
         let anns: Vec<screenshot::Annotation> = result
             .elements
             .iter()
@@ -1361,8 +1785,10 @@ fn cmd_snapshot(
                 height: e.height,
             })
             .collect();
-        let scale = screenshot::annotate_window(&win, &anns, &path)?;
-        Some((path, scale))
+        let (_, file) = file_result::write_png(output.clone(), "cu-annotated", |path| {
+            screenshot::annotate_window(&win, &anns, path).map(|scale| ((), scale))
+        })?;
+        Some(file)
     } else {
         None
     };
@@ -1373,20 +1799,14 @@ fn cmd_snapshot(
             // (x,y) → screen for any element in the snapshot.
             let mut full = serde_json::to_value(&result).unwrap_or_default();
             full["displays"] = serde_json::to_value(display::list()).unwrap_or_default();
-            if let Some((path, scale)) = &annotated_info {
-                full["annotated_screenshot"] = serde_json::json!(path);
-                full["image_scale"] = serde_json::json!(scale);
-            } else if let Some((path, scale)) = &plain_screenshot {
-                full["screenshot"] = serde_json::json!(path);
-                full["image_scale"] = serde_json::json!(scale);
-            }
+            attach_snapshot_file(&mut full, &annotated_info, &plain_screenshot);
             emit(&full);
         } else {
             print_snapshot_human(&result);
-            if let Some((path, _)) = &annotated_info {
-                println!("Annotated screenshot: {path}");
-            } else if let Some((path, _)) = &plain_screenshot {
-                println!("Screenshot: {path}");
+            if let Some(file) = &annotated_info {
+                println!("Annotated screenshot: {}", file.path);
+            } else if let Some(file) = &plain_screenshot {
+                println!("Screenshot: {}", file.path);
             }
         }
         return Ok(());
@@ -1402,21 +1822,15 @@ fn cmd_snapshot(
                 let mut full = serde_json::to_value(&result).unwrap_or_default();
                 full["first_snapshot"] = serde_json::Value::Bool(true);
                 full["displays"] = serde_json::to_value(display::list()).unwrap_or_default();
-                if let Some((path, scale)) = &annotated_info {
-                    full["annotated_screenshot"] = serde_json::json!(path);
-                    full["image_scale"] = serde_json::json!(scale);
-                } else if let Some((path, scale)) = &plain_screenshot {
-                    full["screenshot"] = serde_json::json!(path);
-                    full["image_scale"] = serde_json::json!(scale);
-                }
+                attach_snapshot_file(&mut full, &annotated_info, &plain_screenshot);
                 emit(&full);
             } else {
                 println!("(first snapshot for pid {pid} — no diff yet)");
                 print_snapshot_human(&result);
-                if let Some((path, _)) = &annotated_info {
-                    println!("Annotated screenshot: {path}");
-                } else if let Some((path, _)) = &plain_screenshot {
-                    println!("Screenshot: {path}");
+                if let Some(file) = &annotated_info {
+                    println!("Annotated screenshot: {}", file.path);
+                } else if let Some(file) = &plain_screenshot {
+                    println!("Screenshot: {}", file.path);
                 }
             }
             Ok(())
@@ -1436,24 +1850,34 @@ fn cmd_snapshot(
                     "truncated": result.truncated,
                     "displays": display::list(),
                 });
-                if let Some((path, scale)) = &annotated_info {
-                    body["annotated_screenshot"] = serde_json::json!(path);
-                    body["image_scale"] = serde_json::json!(scale);
-                } else if let Some((path, scale)) = &plain_screenshot {
-                    body["screenshot"] = serde_json::json!(path);
-                    body["image_scale"] = serde_json::json!(scale);
-                }
+                attach_snapshot_file(&mut body, &annotated_info, &plain_screenshot);
                 emit(&body);
             } else {
                 print_diff_human(&result, &d);
-                if let Some((path, _)) = &annotated_info {
-                    println!("Annotated screenshot: {path}");
-                } else if let Some((path, _)) = &plain_screenshot {
-                    println!("Screenshot: {path}");
+                if let Some(file) = &annotated_info {
+                    println!("Annotated screenshot: {}", file.path);
+                } else if let Some(file) = &plain_screenshot {
+                    println!("Screenshot: {}", file.path);
                 }
             }
             Ok(())
         }
+    }
+}
+
+fn attach_snapshot_file(
+    output: &mut serde_json::Value,
+    annotated: &Option<file_result::FileResult>,
+    plain: &Option<file_result::FileResult>,
+) {
+    if let Some(file) = annotated {
+        output["annotated_screenshot"] = serde_json::json!(file.path);
+        output["annotated_screenshot_file"] = serde_json::json!(file);
+        output["image_scale"] = serde_json::json!(file.scale);
+    } else if let Some(file) = plain {
+        output["screenshot"] = serde_json::json!(file.path);
+        output["screenshot_file"] = serde_json::json!(file);
+        output["image_scale"] = serde_json::json!(file.scale);
     }
 }
 
@@ -1489,6 +1913,7 @@ fn cmd_observe_region(
             .unwrap_or_else(|| "snapshot failed".into())
             .into());
     }
+    broker::publish_observation(pid, &snap);
 
     let rx0 = x;
     let ry0 = y;
@@ -1568,6 +1993,7 @@ fn cmd_nearest(
             .unwrap_or_else(|| "snapshot failed".into())
             .into());
     }
+    broker::publish_observation(pid, &snap);
 
     // Distance from (x, y) to each element's bounding box (0 if point is inside).
     let mut best: Option<(f64, &ax::Element)> = None;
@@ -1678,6 +2104,7 @@ fn cmd_find(
             .unwrap_or_else(|| "snapshot failed".into())
             .into());
     }
+    broker::publish_observation(pid, &snap);
 
     let role_filter = role.as_deref().map(|r| r.to_lowercase());
     let title_contains_lc = title_contains.as_deref().map(|s| s.to_lowercase());
@@ -1893,15 +2320,8 @@ fn cmd_ocr(json: bool, app: Option<String>, region: Option<String>) -> Result<()
 /// pre-init JS layer. Hardcoded list is conservative — adding a false
 /// positive only forces clipboard paste, which still works.
 const PASTE_APPS: &[&str] = &[
-    "WeChat", "微信",
-    "Slack",
-    "Discord",
-    "Telegram",
-    "QQ", "TIM",
-    "Lark", "飞书", "Feishu",
-    "DingTalk", "钉钉",
-    "WhatsApp",
-    "Signal",
+    "WeChat", "微信", "Slack", "Discord", "Telegram", "QQ", "TIM", "Lark", "飞书", "Feishu",
+    "DingTalk", "钉钉", "WhatsApp", "Signal",
 ];
 
 fn contains_cjk(text: &str) -> bool {
@@ -1925,12 +2345,18 @@ fn contains_cjk(text: &str) -> bool {
 /// `reason` is surfaced in the JSON output so the agent can see why.
 fn should_auto_paste(text: &str, app: &Option<String>) -> Option<String> {
     if contains_cjk(text) {
-        return Some("text contains CJK characters (unicode events drop first char in CEF/Electron)".into());
+        return Some(
+            "text contains CJK characters (unicode events drop first char in CEF/Electron)".into(),
+        );
     }
     if let Some(name) = app
-        && PASTE_APPS.iter().any(|known| name.eq_ignore_ascii_case(known) || name.contains(*known))
+        && PASTE_APPS
+            .iter()
+            .any(|known| name.eq_ignore_ascii_case(known) || name.contains(*known))
     {
-        return Some(format!("target app '{name}' is in the paste list (CEF chat apps drop unicode events)"));
+        return Some(format!(
+            "target app '{name}' is in the paste list (CEF chat apps drop unicode events)"
+        ));
     }
     None
 }
@@ -1970,10 +2396,18 @@ fn cmd_type(
 
     let method = if use_paste {
         key::type_via_paste(&text, target_pid)?;
-        if target_pid.is_some() { "paste-pid" } else { "paste-global" }
+        if target_pid.is_some() {
+            "paste-pid"
+        } else {
+            "paste-global"
+        }
     } else {
         key::type_text(&text, target_pid)?;
-        if target_pid.is_some() { "unicode-pid" } else { "unicode-global" }
+        if target_pid.is_some() {
+            "unicode-pid"
+        } else {
+            "unicode-global"
+        }
     };
     let mut result = serde_json::json!({"ok": true, "text": text, "method": method});
     if let Some(reason) = paste_reason {
@@ -2007,8 +2441,9 @@ fn cmd_set_value(
         return Err("ref must be >= 1".into());
     }
     let (pid, name) = system::resolve_target_app(&app)?;
-
-    let stale_advice = ref_id.and_then(|r| stale_advice_for_ref(pid, r, limit, None));
+    if let Some(ref_id) = ref_id {
+        broker::enforce_expected_observation(pid, &name, ref_id)?;
+    }
 
     let (selector_kind, selector_value) = if let Some(p) = ax_path.as_deref() {
         ax::ax_set_value_by_path(pid, p, &value)?;
@@ -2029,14 +2464,6 @@ fn cmd_set_value(
         "ui_effect_verified": serde_json::Value::Null,
         "effect_advice": "AXValue write succeeded, but this only proves the accessibility value changed. Some apps do not run their normal UI/search/input handlers for AXValue changes; verify with snapshot/OCR/wait when the business effect matters.",
     });
-    if let Some(advice) = stale_advice
-        && let Some(obj) = result.as_object_mut()
-    {
-        obj.insert(
-            "stale_state_advice".to_string(),
-            serde_json::Value::String(advice),
-        );
-    }
     maybe_attach_snapshot(&mut result, json, no_snapshot, &app, limit);
     if json {
         ok(result)
@@ -2068,8 +2495,9 @@ fn cmd_perform(
         return Err("ref must be >= 1".into());
     }
     let (pid, name) = system::resolve_target_app(&app)?;
-
-    let stale_advice = ref_id.and_then(|r| stale_advice_for_ref(pid, r, limit, None));
+    if let Some(ref_id) = ref_id {
+        broker::enforce_expected_observation(pid, &name, ref_id)?;
+    }
 
     let (selector_kind, selector_value, available) = if let Some(p) = ax_path.as_deref() {
         // Resolve via axPath, fire AXAction directly. We piggyback on
@@ -2098,14 +2526,6 @@ fn cmd_perform(
         "method": "ax-perform",
         "available_actions": available,
     });
-    if let Some(advice) = stale_advice
-        && let Some(obj) = result.as_object_mut()
-    {
-        obj.insert(
-            "stale_state_advice".to_string(),
-            serde_json::Value::String(advice),
-        );
-    }
     maybe_attach_snapshot(&mut result, json, no_snapshot, &app, limit);
     if json {
         ok(result)
@@ -2396,15 +2816,7 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
     }
 
     let (pid, name) = system::resolve_target_app(&app)?;
-
-    // Stale-state guard: when --verify is on (default) we already walked a fresh
-    // AX tree into pre_state. Compare against the cached previous snapshot —
-    // if ref_id resolves to a different element now than it did the last time
-    // cu observed this app, the agent's mental model has drifted (user activity
-    // or async UI update). Soft signal: action still runs, advice surfaces.
-    let stale_advice: Option<String> = pre_state
-        .as_ref()
-        .and_then(|(_, _, fresh)| stale_advice_for_ref(pid, ref_id, limit, Some(fresh)));
+    broker::enforce_expected_observation(pid, &name, ref_id)?;
 
     // Mode 3 always knows the target pid, so all CGEvent fallbacks are PID-targeted —
     // no cursor warp, no focus theft.
@@ -2429,14 +2841,6 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
     };
 
     let mut result = serde_json::json!({"ok": true, "ref": ref_id, "app": name, "method": method, "x": cx, "y": cy});
-    if let Some(advice) = stale_advice
-        && let Some(obj) = result.as_object_mut()
-    {
-        obj.insert(
-            "stale_state_advice".to_string(),
-            serde_json::Value::String(advice),
-        );
-    }
     maybe_attach_snapshot(&mut result, json, no_snapshot, &app, limit);
     if let Some((_, _, ref prev)) = pre_state {
         attach_verification(&mut result, prev, method);
@@ -2564,50 +2968,52 @@ fn cmd_screenshot(
     full: bool,
     region: Option<String>,
 ) -> Result<(), CuError> {
-    let output_path = path.unwrap_or_else(|| {
-        let ts = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_millis())
-            .unwrap_or(0);
-        format!("/tmp/cu-screenshot-{ts}.png")
-    });
-
     if let Some(spec) = region {
         let (rx, ry, rw, rh) = parse_region(&spec)?;
-        screenshot::capture_region(rx, ry, rw, rh, &output_path)?;
+        let (_, mut file) = file_result::write_png(path, "cu-screenshot", |output_path| {
+            screenshot::capture_region(rx, ry, rw, rh, output_path).map(|_| ((), 1.0))
+        })?;
+        file.scale = f64::from(file.width) / rw;
         return if json {
             ok(serde_json::json!({
-                "ok": true, "path": output_path, "mode": "region",
-                "offset_x": rx, "offset_y": ry, "width": rw, "height": rh
+                "ok": true, "path": file.path, "file": file, "mode": "region",
+                "offset_x": rx, "offset_y": ry, "width": rw, "height": rh,
             }))
         } else {
-            println!("Screenshot saved: {output_path} (region {rw}×{rh} at {rx},{ry})");
+            println!(
+                "Screenshot saved: {} (region {rw}×{rh} at {rx},{ry})",
+                file.path
+            );
             Ok(())
         };
     }
 
     if full {
-        screenshot::capture_full_screen(&output_path)?;
+        let (_, file) = file_result::write_png(path, "cu-screenshot", |output_path| {
+            screenshot::capture_full_screen(output_path).map(|_| ((), 1.0))
+        })?;
         return if json {
-            ok(serde_json::json!({"ok": true, "path": output_path, "mode": "full"}))
+            ok(serde_json::json!({"ok": true, "path": file.path, "file": file, "mode": "full"}))
         } else {
-            println!("Screenshot saved: {output_path} (full screen)");
+            println!("Screenshot saved: {} (full screen)", file.path);
             Ok(())
         };
     }
 
     let (pid, name) = system::resolve_target_app(&app)?;
     let win = screenshot::find_window(pid).ok_or("no on-screen window found for the target app")?;
-    screenshot::capture_window(&win, &output_path)?;
+    let (_, file) = file_result::write_png(path, "cu-screenshot", |output_path| {
+        screenshot::capture_window_with_scale(&win, output_path).map(|scale| ((), scale))
+    })?;
 
     if json {
         ok(
-            serde_json::json!({"ok": true, "app": name, "path": output_path, "mode": "window", "offset_x": win.x, "offset_y": win.y}),
+            serde_json::json!({"ok": true, "app": name, "path": file.path, "file": file, "mode": "window", "offset_x": win.x, "offset_y": win.y}),
         )
     } else {
         println!(
-            "Screenshot saved: {output_path} (window offset: {},{})",
-            win.x, win.y
+            "Screenshot saved: {} (window offset: {},{})",
+            file.path, win.x, win.y
         );
         Ok(())
     }
@@ -2622,7 +3028,15 @@ fn cmd_window(
     window_idx: usize,
 ) -> Result<(), CuError> {
     if action == "list" {
-        let windows = system::list_windows(app.as_deref())?;
+        let windows = if let Some(app_name) = app.as_deref() {
+            let (pid, resolved_name) = system::resolve_target_app(&Some(app_name.to_string()))?;
+            ax::list_windows(pid, &resolved_name)?
+        } else {
+            system::running_app_processes()
+                .into_iter()
+                .flat_map(|(pid, name)| ax::list_windows(pid, &name).unwrap_or_default())
+                .collect()
+        };
         if json {
             ok(serde_json::json!({"ok": true, "windows": windows}))
         } else {
@@ -2648,20 +3062,8 @@ fn cmd_window(
     } else {
         // All other actions require --app
         let app_name = app.ok_or("--app is required for this action")?;
-        // B6: prefer direct AX raise for focus — non-disruptive, no global activate.
-        let method = if action == "focus" {
-            let (pid, _) = system::resolve_target_app(&Some(app_name.clone()))?;
-            if ax::raise_window(pid) {
-                "ax-raise"
-            } else {
-                // Fall back to System Events bridge if AX path failed.
-                system::window_action(&action, &app_name, window_idx, arg1, arg2)?;
-                "applescript-frontmost"
-            }
-        } else {
-            system::window_action(&action, &app_name, window_idx, arg1, arg2)?;
-            "applescript"
-        };
+        let (pid, _) = system::resolve_target_app(&Some(app_name.clone()))?;
+        let method = ax::window_action(pid, &action, window_idx, arg1, arg2)?;
         if json {
             ok(
                 serde_json::json!({"ok": true, "action": action, "app": app_name, "window": window_idx, "method": method}),
@@ -2689,7 +3091,7 @@ fn cmd_launch(json: bool, id: String, no_wait: bool, timeout: u64) -> Result<(),
     }
 
     // Poll for app to register + report a window via AX. App name resolution
-    // can fail until the process appears in System Events, so we tolerate
+    // can fail until the process appears in NSWorkspace, so we tolerate
     // resolve errors during the polling window.
     let is_bundle_id = id.contains('.') && !id.contains(' ');
     let deadline = started + Duration::from_secs(timeout);
@@ -2752,6 +3154,7 @@ fn cmd_why(json: bool, ref_id: usize, app: Option<String>, limit: usize) -> Resu
             .unwrap_or_else(|| "snapshot failed".into())
             .into());
     }
+    broker::publish_observation(pid, &snap);
 
     let snapshot_size = snap.elements.len();
     let element = snap.elements.iter().find(|e| e.ref_id == ref_id);
@@ -2931,11 +3334,12 @@ fn cmd_state(
             .unwrap_or_else(|| "AX snapshot failed".into())
             .into());
     }
+    broker::publish_observation(pid, &snap);
 
     // Window list (best-effort — empty list is allowed if app has no windows yet)
-    let windows = system::list_windows(Some(&name)).unwrap_or_default();
+    let windows = ax::list_windows(pid, &name).unwrap_or_default();
 
-    // Frontmost flag — soft-fail (don't block on a flaky System Events)
+    // Frontmost flag — soft-fail if app discovery races with a launch/quit.
     let frontmost = system::frontmost_app_name()
         .map(|f| f.eq_ignore_ascii_case(&name))
         .unwrap_or(false);
@@ -2943,26 +3347,25 @@ fn cmd_state(
     // Optional screenshot of the front window. Soft-fails on capture errors but
     // surfaces the reason in `screenshot_error` so the agent knows whether the
     // image was skipped (e.g. capture-protected app like WeChat) versus available.
-    let (screenshot_info, screenshot_err): (Option<(String, f64)>, Option<String>) = if no_screenshot {
-        (None, None)
-    } else {
-        match screenshot::find_window(pid) {
-            Some(win) => {
-                let path = output.unwrap_or_else(|| {
-                    let ts = std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .map(|d| d.as_millis())
-                        .unwrap_or(0);
-                    format!("/tmp/cu-state-{ts}.png")
-                });
-                match screenshot::capture_window_with_scale(&win, &path) {
-                    Ok(scale) => (Some((path, scale)), None),
-                    Err(e) => (None, Some(e)),
+    let (screenshot_info, screenshot_err): (Option<file_result::FileResult>, Option<String>) =
+        if no_screenshot {
+            (None, None)
+        } else {
+            match screenshot::find_window(pid) {
+                Some(win) => {
+                    match file_result::write_png(output, "cu-state", |path| {
+                        screenshot::capture_window_with_scale(&win, path).map(|scale| ((), scale))
+                    }) {
+                        Ok((_, file)) => (Some(file), None),
+                        Err(e) => (None, Some(e)),
+                    }
                 }
+                None => (
+                    None,
+                    Some("no on-screen window found for the target app".into()),
+                ),
             }
-            None => (None, Some("no on-screen window found for the target app".into())),
-        }
-    };
+        };
 
     if json {
         let mut full = serde_json::json!({
@@ -2982,9 +3385,10 @@ fn cmd_state(
                 "width": frame.width, "height": frame.height,
             });
         }
-        if let Some((path, scale)) = screenshot_info {
-            full["screenshot"] = serde_json::json!(path);
-            full["image_scale"] = serde_json::json!(scale);
+        if let Some(file) = screenshot_info {
+            full["screenshot"] = serde_json::json!(file.path);
+            full["screenshot_file"] = serde_json::json!(file);
+            full["image_scale"] = serde_json::json!(file.scale);
         } else if let Some(err) = screenshot_err {
             full["screenshot_error"] = serde_json::json!(err);
         }
@@ -2997,8 +3401,8 @@ fn cmd_state(
             snap.elements.len(),
             if snap.truncated { " (truncated)" } else { "" },
         );
-        if let Some((path, _)) = &screenshot_info {
-            println!("Screenshot: {path}");
+        if let Some(file) = &screenshot_info {
+            println!("Screenshot: {}", file.path);
         } else if let Some(err) = &screenshot_err {
             println!("Screenshot skipped: {err}");
         }
@@ -3007,10 +3411,11 @@ fn cmd_state(
 }
 
 fn cmd_menu(json: bool, app: String) -> Result<(), CuError> {
-    let items = system::list_menu(&app)?;
+    let (pid, name) = system::resolve_target_app(&Some(app.clone()))?;
+    let items = ax::list_menu(pid)?;
 
     if items.is_empty() {
-        return Err(format!("no menu items found for {app} (is it running?)").into());
+        return Err(format!("no menu items found for {name}").into());
     }
 
     if json {
@@ -3313,7 +3718,7 @@ fn ok(value: serde_json::Value) -> Result<(), CuError> {
 fn emit(value: &impl serde::Serialize) {
     let mut value = serde_json::to_value(value).unwrap_or_else(|_| {
         serde_json::json!({
-            "schema_version": protocol::MACHINE_SCHEMA_VERSION,
+            "schema_version": MACHINE_SCHEMA_VERSION,
             "ok": false,
             "code": "serialization_failed",
             "error": "failed to serialize command result",
@@ -3323,7 +3728,7 @@ fn emit(value: &impl serde::Serialize) {
     if let Some(object) = value.as_object_mut() {
         object
             .entry("schema_version")
-            .or_insert_with(|| protocol::MACHINE_SCHEMA_VERSION.into());
+            .or_insert_with(|| MACHINE_SCHEMA_VERSION.into());
         object.entry("ok").or_insert(serde_json::Value::Bool(true));
         if object.get("ok").and_then(serde_json::Value::as_bool) == Some(false) {
             object
@@ -3337,7 +3742,7 @@ fn emit(value: &impl serde::Serialize) {
     println!("{}", serde_json::to_string(&value).unwrap_or_else(|_| {
         format!(
             r#"{{"schema_version":"{}","ok":false,"code":"serialization_failed","error":"failed to serialize command result","retryable":false}}"#,
-            protocol::MACHINE_SCHEMA_VERSION
+            MACHINE_SCHEMA_VERSION
         )
     }));
 }
@@ -3463,33 +3868,6 @@ fn print_diff_human(snap: &ax::SnapshotResult, d: &diff::Diff) {
     );
 }
 
-/// Stale-state guard helper: returns drift advice when ref_id maps to a
-/// different element now than it did in the cached previous snapshot.
-/// `fresh` lets callers piggyback on a pre-existing AX walk (cu click does
-/// this via `pre_state` from --verify); if None, takes its own walk sized
-/// to `limit` so the target ref is reachable. Returns None when no previous
-/// cache exists, the fresh walk fails, or the ref's identity is unchanged.
-fn stale_advice_for_ref(
-    pid: i32,
-    ref_id: usize,
-    limit: usize,
-    fresh: Option<&[ax::Element]>,
-) -> Option<String> {
-    let prev = diff::load_previous(pid)?;
-    match fresh {
-        Some(curr) => diff::detect_ref_drift(&prev, curr, ref_id),
-        None => {
-            // Walk at least far enough to reach this ref, with headroom.
-            let walk_limit = limit.max(ref_id + 50).max(100);
-            let snap = ax::snapshot(pid, "", walk_limit);
-            if !snap.ok {
-                return None;
-            }
-            diff::detect_ref_drift(&prev, &snap.elements, ref_id)
-        }
-    }
-}
-
 /// Compares the pre-action AX state against the snapshot already attached to
 /// `result` by `maybe_attach_snapshot`, then enriches the response with a
 /// `verified` flag and per-action diff stats. Used by `cu click --verify`.
@@ -3499,11 +3877,7 @@ fn stale_advice_for_ref(
 /// We don't auto-retry: focus stealing is disruptive and AX-empty diffs have
 /// false positives (network roundtrips, animations not yet started). The
 /// agent reads the advice and chooses whether to recover.
-fn attach_verification(
-    result: &mut serde_json::Value,
-    pre: &[ax::Element],
-    method: &str,
-) {
+fn attach_verification(result: &mut serde_json::Value, pre: &[ax::Element], method: &str) {
     // Pull post-action elements from the snapshot maybe_attach_snapshot already
     // attached. If there's no snapshot (e.g. --no-snapshot), verification is
     // still meaningful — fall back to {"verified": null} with an explanation.
@@ -3529,10 +3903,7 @@ fn attach_verification(
     let verified = !(d.added.is_empty() && d.changed.is_empty() && d.removed.is_empty());
 
     if let Some(obj) = result.as_object_mut() {
-        obj.insert(
-            "verified".to_string(),
-            serde_json::Value::Bool(verified),
-        );
+        obj.insert("verified".to_string(), serde_json::Value::Bool(verified));
         obj.insert(
             "verify_diff".to_string(),
             serde_json::json!({
@@ -3593,10 +3964,7 @@ fn maybe_attach_snapshot(
         // (typical: ~50ms) or after POST_ACTION_DELAY_MS at most.
         let waited = observer::wait_for_settle(pid, POST_ACTION_DELAY_MS);
         let snap = ax::snapshot(pid, &name, limit);
-        // Keep the diff cache in sync with the latest tree cu observed, so the
-        // next action's stale-state guard compares against post-action state
-        // rather than the long-stale pre-action cache.
-        let _ = diff::save_current(pid, &snap.elements);
+        broker::publish_observation(pid, &snap);
         // D1: agents read the auto-attached snapshot far more often than they
         // call `cu snapshot` directly, so the displays array must be reachable
         // here too — otherwise multi-display info silently drops out of the

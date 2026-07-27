@@ -11,6 +11,7 @@ section "verify — clicking ref 1 in Finder (no-op) reports verified=false"
 
 # Finder ref [1] is typically a static row that doesn't expand on AXPress.
 # That's a textbook silent-failure scenario for verification.
+"$CU" snapshot Finder --limit 50 >/dev/null
 cu_json click 1 --app Finder --verify
 assert_ok "click --verify ok"
 

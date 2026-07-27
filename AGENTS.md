@@ -6,9 +6,10 @@
 
 ## Project Overview
 
-macOS desktop automation CLI and embeddable Agent tool (`cu`). Single Rust
-binary, zero runtime dependencies. Human/one-shot callers use the CLI; embedded
-Agent hosts use the versioned `bridge --stdio` machine protocol.
+macOS desktop automation CLI (`cu`). Single Rust binary, zero runtime
+dependencies. Every Agent uses the same public integration: the Computer Pilot
+skill plus its existing shell plus the `cu` CLI. Internal Broker transport is
+private and must not become an Agent API.
 Three-tier control: **AppleScript** (scriptable apps) → **AX tree + CGEvent** (non-scriptable) → **OCR + screenshot** (fallback).
 
 ## Quick Reference
@@ -16,35 +17,36 @@ Three-tier control: **AppleScript** (scriptable apps) → **AX tree + CGEvent** 
 ```
 cargo build --release                         # Build
 bash tests/commands/run_all.sh                # Run 700+ command-test assertions
-python3 scripts/run-stdio-conformance.py -- ./target/release/cu # Embedded protocol gate
-python3 examples/stdio-host/host.py --cu ./target/release/cu    # Reference embedded host
 ./target/release/cu --human <command>         # Run in dev
-bash scripts/release.sh <version>                          # Release: bump → tag → push → GitHub
-bash scripts/release.sh <version> --dry-run                # Dry run first
-bash scripts/release.sh <version> --skip-tests             # Skip test re-run (use only when run_all.sh just passed manually)
+bash scripts/release.sh <version>              # Prepare a draft release PR
+bash scripts/release.sh <version> --dry-run    # Preview release-PR preparation
+bash scripts/check-version-sync.sh             # Verify all version surfaces
 ```
 
 ## Release Flow
 
-`scripts/release.sh` automates the full release pipeline:
+`scripts/release.sh` prepares a draft release PR:
 
-1. **Pre-flight**: clean tree, on `main`, in sync with `origin`, tag/release don't exist, `gh` authenticated
-2. **Version bump**: updates `Cargo.toml`
-3. **Build & test**: `cargo build --release` + `bash tests/commands/run_all.sh` (must pass)
-4. **Commit**: `Bump version to X.Y.Z`
-5. **Push**: commit + `vX.Y.Z` tag to `origin/main`
-6. **GitHub release**: upload `cu-arm64` binary, generate notes from commits since last tag
+1. **Pre-flight**: clean, current `main` matches `origin/main`, version/tag/branch are new
+2. **Version bump**: update every CLI, skill, plugin, marketplace, and compatibility surface
+3. **Build & test**: build plus L1/L2 checks unless explicitly skipped
+4. **PR**: commit on `release/vX.Y.Z`, push that branch, and open a draft PR
+5. **CI**: hosted static checks plus the TCC-enabled Apple Silicon command suite must pass
+6. **Tag**: after merge, the protected Tag Release workflow tags the merged `main`
+7. **Publish**: the tag workflow signs, notarizes, packages, checksums, and publishes assets
 
 Manual rules:
-- **Never push directly to main without a release if there are user-visible changes.** Bump the version and run `release.sh` so the published binary stays in sync with `README.md` install instructions.
+- **Never push a release commit or tag directly to main.** Use a release PR and protected workflows.
 - **README points to `/releases/latest/` URL** — auto-resolves to the newest release tag, so updating the release is enough.
 
-The release script bumps **three** version numbers in one commit:
+The release script bumps **five** version surfaces in one commit:
 1. `Cargo.toml` — drives `cu --version`
 2. `plugin/.claude-plugin/plugin.json` — Claude Code plugin manifest
-3. `.claude-plugin/marketplace.json` — marketplace entry (what users see in `/plugin marketplace`)
+3. `plugin/package.json` — packaged skill/plugin version
+4. `.claude-plugin/marketplace.json` — marketplace entry (what users see in `/plugin marketplace`)
+5. `plugin/skills/computer-pilot/compatibility.json` — CLI, skill, platform, and Broker compatibility
 
-All three must move together. Claude Code only detects a plugin update if `marketplace.json` version changes.
+All five must move together. `scripts/check-version-sync.sh` enforces this.
 
 Users update the plugin with:
 ```
@@ -54,32 +56,33 @@ Users update the plugin with:
 
 ## Architecture
 
-Single Rust binary (`cu`). No TypeScript, no Node.js, no MCP server. The only
-public process integration is the Agent-neutral NDJSON protocol exposed by
-`cu bridge --stdio`; host-specific concepts and SDK imports stay outside the
-binary.
+Single Rust binary (`cu`). No TypeScript, Node.js, MCP server, public bridge,
+Native SDK, or Agent-specific adapter. Agent products install the same skill
+and invoke ordinary CLI commands through their existing shell. A private
+per-user Broker may coordinate state and macOS permissions, but its transport
+is never a public embedding surface.
 
 ```
 src/main.rs        → CLI entry (clap), command routing, output formatting
-src/protocol.rs    → Agent-neutral tool manifest, schemas, capabilities, argv conversion
-src/bridge.rs      → NDJSON JSON-RPC stdio lifecycle, deadlines, command cache
+src/broker.rs      → Private per-user Broker: commands, Observations, locks
 src/ax.rs          → AX tree walker + AX actions (macOS Accessibility FFI)
 src/mouse.rs       → Mouse operations (CGEvent FFI): click, scroll, hover, drag
 src/key.rs         → Keyboard events (CGEvent FFI)
 src/screenshot.rs  → Window capture (ScreenCaptureKit primary, CGWindowListCreateImage fallback)
 src/sck.rs         → ScreenCaptureKit sync wrapper (cross-Space capable, macOS 13+)
 src/ocr.rs         → OCR (macOS Vision framework via objc2)
-src/system.rs      → App resolution, permissions, System Events bridges:
-                     tell, menu, defaults, window mgmt, type/key, launch
+src/system.rs      → NSWorkspace app identity, permissions, remaining System
+                     Events bridges, tell, defaults, window mgmt, launch
 src/sdef.rs        → Scripting dictionary parser (Rust native, quick-xml)
 src/wait.rs        → UI condition polling (--text/--ref/--gone/--new-window/--modal/--focused-changed)
-src/diff.rs        → Snapshot diff cache (cu snapshot --diff)
+src/diff.rs        → Client-isolated private snapshot diff cache
+src/file_result.rs → Atomic 0600 file outputs, metadata, no-overwrite safety
 src/observer.rs    → Single-shot AXObserver post-action settle wait (D7)
 src/display.rs     → CGGetActiveDisplayList + CGDisplayBounds (D1)
 ```
 
-**27 automation commands** across discovery, observation, action, scripting,
-and system control, plus the `bridge` integration command.
+**31 public CLI commands**: 27 automation commands plus `status`, `commands`,
+`command`, and `cancel` for recovery.
 
 ## Design Rules
 

@@ -64,6 +64,7 @@ section "window move + verify"
 
 cu_json window move 250 150 --app Finder
 assert_ok "window move ok"
+assert_json_field "window move uses native AX" ".method" "ax-window"
 sleep 0.3
 
 # Verify new position
@@ -118,6 +119,24 @@ assert_fail "move without --app fails"
 
 cu_json window badaction --app Finder
 assert_fail "unknown action fails"
+
+cu_json window list --app NonExistentApp99999
+assert_fail "list for non-existent app fails"
+APP_ERROR_CODE=$(echo "$ERR" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("code", ""))' 2>/dev/null || true)
+if [[ "$APP_ERROR_CODE" == "app_not_found" ]]; then
+  _pass "non-existent app has stable code"
+else
+  _fail "non-existent app stable code" "got '$APP_ERROR_CODE'"
+fi
+
+cu_json window focus --window 999 --app Finder
+assert_fail "missing window index fails"
+WINDOW_ERROR_CODE=$(echo "$ERR" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("code", ""))' 2>/dev/null || true)
+if [[ "$WINDOW_ERROR_CODE" == "window_not_found" ]]; then
+  _pass "missing window has stable code"
+else
+  _fail "missing window stable code" "got '$WINDOW_ERROR_CODE'"
+fi
 
 section "window — human mode"
 

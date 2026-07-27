@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "version": "0.6.0",
+  "integration_model": "skill-shell-cli",
+  "cli": {
+    "name": "cu",
+    "version": "0.6.0",
+    "machine_schema_version": "1.0"
+  },
+  "private_broker_protocol": 2,
+  "platforms": [
+    "macos-arm64"
+  ],
+  "unsupported_platforms": [
+    "macos-x86_64"
+  ],
+  "requires": {
+    "shell": true,
+    "mcp": false,
+    "stdio_bridge": false,
+    "native_sdk": false
+  }
+}

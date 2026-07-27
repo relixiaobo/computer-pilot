@@ -1,0 +1,36 @@
+name: Tag Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Semver already merged to main
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Verify merged version
+        run: bash scripts/check-version-sync.sh "${{ inputs.version }}"
+      - name: Create tag
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "Tag v$VERSION already exists" >&2
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v$VERSION" -m "v$VERSION"
+          git push origin "v$VERSION"

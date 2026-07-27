@@ -1,6 +1,6 @@
 {
   "name": "computer-pilot",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "description": "Agent plugin for computer-pilot — teach AI coding agents to control the macOS desktop via CLI",
   "keywords": [
     "computer-pilot",
@@ -21,7 +21,6 @@
   "files": [
     ".claude-plugin/",
     "skills/",
-    "commands/",
     "README.md"
   ],
   "agents": {

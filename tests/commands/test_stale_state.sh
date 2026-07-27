@@ -1,151 +1,76 @@
 #!/bin/bash
-# Behavior test: stale_state_advice fires when a ref-based click sees a
-# different element at that ref than the previous snapshot saw.
-#
-# Why: ref [N] is a DFS index into the AX tree. When the tree shifts between
-# the agent's snapshot and the agent's next click (user activity, async UI
-# update), [N] now points to a different element. cu's stale-state guard
-# compares the cached previous snapshot with the fresh pre-action AX walk
-# and surfaces an advisory the agent can read and react to.
-#
-# Per CLAUDE.md Rule 1: this test constructs the actual drift scenario by
-# mutating the cache between snapshot and click, not just asserting that
-# the field name appears in the schema. It also exercises the no-drift
-# case to confirm the advisory is silent when state is consistent.
+# Behavior test: refs are bound to client-scoped Observations and stale refs
+# fail before action dispatch.
 source "$(dirname "$0")/helpers.sh"
 
-CACHE_DIR="/tmp/cu-snapshot-cache"
+section "observation — snapshot returns bound identity"
 
-section "stale-state guard — drift detected fires advisory"
-
-# Open Finder home so we have a stable, snapshot-able UI to work with.
-osascript -e 'tell application "Finder" to open home' >/dev/null 2>&1
-sleep 1
-
-cu_json snapshot Finder --limit 30
+cu_json --client-key stale.agent snapshot Finder --limit 30
 if ! is_json; then
-  _skip "drift detected" "snapshot Finder did not return JSON: ${OUT:0:120}"
+  _skip "Observation identity" "snapshot Finder did not return JSON: ${OUT:0:120}"
   summary
   exit 0
 fi
+assert_json_field_exists "observation_id present" ".observation_id"
+assert_json_field "client key bound" ".client_key" "stale.agent"
+assert_json_field_exists "pid present" ".pid"
+assert_json_field_exists "bundle_id present" ".bundle_id"
+assert_json_field_exists "window_id present" ".window_id"
+assert_json_field_exists "AX generation present" ".ax_generation"
 
-# Resolve Finder's pid the same way cu does so we mutate the right cache file.
-PID=$(pgrep -x Finder | head -1)
-if [[ -z "$PID" ]]; then
-  _skip "drift detected" "no Finder pid found"
-  summary
-  exit 0
-fi
+OBSERVATION_ID=$(json_get '.observation_id')
+OLD_X=$(echo "$OUT" | python3 -c 'import json,sys; print(round(json.load(sys.stdin)["window_frame"]["x"]))')
+OLD_Y=$(echo "$OUT" | python3 -c 'import json,sys; print(round(json.load(sys.stdin)["window_frame"]["y"]))')
 
-CACHE_FILE="$CACHE_DIR/${PID}.json"
-if [[ ! -f "$CACHE_FILE" ]]; then
-  _fail "drift detected" "expected cache file at $CACHE_FILE after snapshot, but it does not exist"
-  summary
-  exit 1
-fi
+section "observation — another client cannot use the ref"
 
-# Pick a ref that lives in the snapshot, then rewrite the cached entry's role
-# so the fresh AX walk at click time will see a different identity at that
-# ref. (id_of() in diff.rs uses (role, round(x), round(y)) — flipping role
-# alone is enough to trigger drift detection.)
-TARGET_REF=$(python3 -c "
-import json, sys
-with open('$CACHE_FILE') as f:
-    d = json.load(f)
-els = d.get('elements', [])
-if not els:
-    print('NONE')
-    sys.exit()
-# Prefer a ref past the first 5 — sidebar items tend to be stable; main-pane
-# refs are more representative of the staleness scenario.
-target = els[min(len(els)-1, 10)] if len(els) > 5 else els[-1]
-print(target['ref'])
-")
-
-if [[ "$TARGET_REF" == "NONE" || -z "$TARGET_REF" ]]; then
-  _skip "drift detected" "Finder snapshot returned no elements"
-  summary
-  exit 0
-fi
-
-# Mutate the cache: tag the chosen ref with a sentinel role that cannot match
-# any real AX role. This guarantees id_of() differs at click time.
-python3 -c "
-import json
-with open('$CACHE_FILE') as f:
-    d = json.load(f)
-for e in d['elements']:
-    if e['ref'] == $TARGET_REF:
-        e['role'] = 'STALE_SENTINEL_ROLE'
-        e['title'] = 'stale-test-marker'
-        break
-with open('$CACHE_FILE', 'w') as f:
-    json.dump(d, f)
-"
-
-cu_json click "$TARGET_REF" --app Finder
-if ! is_json; then
-  _fail "drift detected" "click did not return JSON: ${OUT:0:200}"
-  summary
-  exit 1
-fi
-
-assert_json_field_exists "stale_state_advice present" ".stale_state_advice"
-
-ADVICE=$(json_get '.stale_state_advice' 2>/dev/null || echo "")
-if [[ "$ADVICE" == *"STALE_SENTINEL_ROLE"* ]]; then
-  _pass "advice quotes the previous (mutated) role"
+EXIT=0
+OUT=$("$CU" --json --client-key other.agent click 1 --app Finder --observation "$OBSERVATION_ID" --no-snapshot 2>/tmp/cu-test-stderr) || EXIT=$?
+ERR=$(cat /tmp/cu-test-stderr 2>/dev/null || true)
+assert_exit_nonzero "cross-client ref action rejected"
+CROSS_CODE=$(echo "$ERR" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("code", ""))' 2>/dev/null || true)
+if [[ "$CROSS_CODE" == "observation_not_found" ]]; then
+  _pass "cross-client rejection has stable code"
 else
-  _fail "advice quotes the previous (mutated) role" "expected 'STALE_SENTINEL_ROLE' in advice, got: ${ADVICE:0:200}"
+  _fail "cross-client rejection code" "got: $CROSS_CODE"
 fi
 
-if [[ "$ADVICE" == *"re-snapshot"* ]]; then
-  _pass "advice tells agent to re-snapshot"
+section "observation — real UI drift fails before dispatch"
+
+NEW_X=$((OLD_X + 30))
+NEW_Y=$((OLD_Y + 30))
+cu_json --client-key stale.agent window move "$NEW_X" "$NEW_Y" --app Finder
+assert_ok "fixture moved Finder window"
+
+EXIT=0
+OUT=$("$CU" --json --client-key stale.agent click 1 --app Finder --observation "$OBSERVATION_ID" --no-snapshot 2>/tmp/cu-test-stderr) || EXIT=$?
+ERR=$(cat /tmp/cu-test-stderr 2>/dev/null || true)
+assert_exit_nonzero "stale ref action rejected"
+STALE_CODE=$(echo "$ERR" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("code", ""))' 2>/dev/null || true)
+if [[ "$STALE_CODE" == "stale_observation" ]]; then
+  _pass "stale action has stable stale_observation code"
 else
-  _fail "advice tells agent to re-snapshot" "expected 're-snapshot' in advice, got: ${ADVICE:0:200}"
+  _fail "stale action code" "got: $STALE_CODE stderr=${ERR:0:160}"
 fi
 
-section "stale-state guard — no drift stays silent"
-
-# Take a fresh snapshot so the cache matches reality, then click. The
-# advice must be absent — false positives would train agents to ignore it.
-cu_json snapshot Finder --limit 30
-sleep 0.2
-
-# Use a small ref that's almost certainly stable (top of DFS = sidebar/header).
-cu_json click 1 --app Finder --no-verify
-if ! is_json; then
-  _skip "no-drift silence" "click did not return JSON (Finder may have closed): ${OUT:0:120}"
-  summary
-  exit 0
-fi
-
-# With --no-verify, pre_state is None, so stale_state_advice is intentionally
-# not computed — but it also must not appear. This guards against future
-# refactors that wire the advice in independent of pre_state.
-ADVICE_NO_DRIFT=$(json_get '.stale_state_advice' 2>/dev/null || echo "")
-if [[ -z "$ADVICE_NO_DRIFT" || "$ADVICE_NO_DRIFT" == "__MISSING__" ]]; then
-  _pass "no advice when --no-verify (drift check piggybacks on pre_state)"
+if echo "$ERR" | python3 -c 'import json,sys; assert json.load(sys.stdin).get("ok") is False' 2>/dev/null; then
+  _pass "stale action returned failure rather than advisory success"
 else
-  _fail "no advice when --no-verify" "expected no stale_state_advice, got: ${ADVICE_NO_DRIFT:0:200}"
+  _fail "stale action failure envelope" "stderr=${ERR:0:160}"
 fi
 
-# Now repeat with verify on, immediately after a fresh snapshot — drift
-# should be absent because the cache matches the fresh AX walk.
-cu_json snapshot Finder --limit 30
-sleep 0.2
-cu_json click 1 --app Finder
-if ! is_json; then
-  _skip "no-drift silence with verify" "click did not return JSON: ${OUT:0:120}"
-  summary
-  exit 0
-fi
+# Restore the user's Finder window.
+cu_json --client-key stale.agent window move "$OLD_X" "$OLD_Y" --app Finder
+assert_ok "Finder window restored"
 
-ADVICE_FRESH=$(json_get '.stale_state_advice' 2>/dev/null || echo "")
-if [[ -z "$ADVICE_FRESH" || "$ADVICE_FRESH" == "__MISSING__" ]]; then
-  _pass "no advice when cache matches fresh AX walk"
-else
-  _fail "no advice when fresh" "expected silent advice for matching cache, got: ${ADVICE_FRESH:0:200}"
-fi
+section "observation — fresh ref action succeeds"
+
+cu_json --client-key stale.agent snapshot Finder --limit 30
+assert_ok "fresh snapshot succeeds"
+FRESH_OBSERVATION=$(json_get '.observation_id')
+
+cu_json --client-key stale.agent click 1 --app Finder --observation "$FRESH_OBSERVATION" --no-snapshot
+assert_ok "fresh Observation ref dispatched"
+assert_json_field "fresh ref preserved" ".ref" "1"
 
 summary

@@ -68,7 +68,7 @@ print('has_screenshot=' + str('screenshot' in d) + '|has_scale=' + str('image_sc
 
 section "state — --output sets screenshot path"
 
-OUT_PATH="/tmp/cu-state-test-$$.png"
+OUT_PATH="/private/tmp/cu-state-test-$$.png"
 cu_json state Finder --output "$OUT_PATH"
 assert_ok "state --output returns ok"
 

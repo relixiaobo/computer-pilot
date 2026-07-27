@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy,rustfmt
+      - name: Check release versions
+        run: bash scripts/check-version-sync.sh
+      - name: Validate skill metadata
+        run: |
+          head -1 plugin/skills/computer-pilot/SKILL.md | grep -qx -- '---'
+          grep -qx 'name: computer-pilot' plugin/skills/computer-pilot/SKILL.md
+          python3 -m json.tool plugin/skills/computer-pilot/compatibility.json >/dev/null
+      - run: cargo fmt -- --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test
+      - run: cargo build --release
+
+  command-contract:
+    runs-on: [self-hosted, macOS, ARM64, computer-pilot-tcc]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release --locked
+      - name: TCC-enabled command contract tests
+        run: bash tests/commands/run_all.sh

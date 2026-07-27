@@ -2,7 +2,7 @@
 # Test: cu snapshot --annotated (A3) — annotated screenshot for VLM agents
 source "$(dirname "$0")/helpers.sh"
 
-OUT_PATH="/tmp/cu-test-annotated-$$.png"
+OUT_PATH="/private/tmp/cu-test-annotated-$$.png"
 trap 'rm -f "$OUT_PATH"' EXIT
 
 section "snapshot --annotated — basic JSON output"
@@ -56,12 +56,12 @@ fi
 
 section "snapshot --annotated — default output path"
 
-# Without --output, should default to /tmp/cu-annotated-<ts>.png
+# Without --output, the private runtime output directory supplies an absolute path.
 cu_json snapshot Finder --limit 5 --annotated
 assert_ok "default-path --annotated ok"
 DEFAULT_PATH=$(json_get '.annotated_screenshot' || echo "")
-if [[ "$DEFAULT_PATH" == /tmp/cu-annotated-*.png ]]; then
-  _pass "default path matches /tmp/cu-annotated-*.png ($DEFAULT_PATH)"
+if [[ "$DEFAULT_PATH" == /*/cu-annotated-*.png ]]; then
+  _pass "default path is absolute and generated ($DEFAULT_PATH)"
 else
   _fail "default path pattern" "got: $DEFAULT_PATH"
 fi
@@ -88,7 +88,9 @@ fi
 
 section "snapshot --annotated — human mode"
 
-cu_human snapshot Finder --limit 5 --annotated --output "$OUT_PATH"
+HUMAN_PATH="/private/tmp/cu-test-annotated-human-$$.png"
+cleanup_register "$HUMAN_PATH"
+cu_human snapshot Finder --limit 5 --annotated --output "$HUMAN_PATH"
 assert_exit_zero "human --annotated exits 0"
 if echo "$OUT" | grep -q "Annotated screenshot:"; then
   _pass "human mode prints 'Annotated screenshot:' line"

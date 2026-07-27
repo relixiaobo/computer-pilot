@@ -11,7 +11,9 @@ assert_json_field "platform is macos" ".platform" "macos"
 assert_json_field_exists "accessibility field" ".accessibility"
 assert_json_field_exists "screen_recording field" ".screen_recording"
 assert_json_field_exists "ready field" ".ready"
-assert_json_field_exists "automation field" ".automation"
+assert_json_field "automation is per target app" ".automation.scope" "per_target_app"
+assert_json_field "automation is not probed by setup" ".automation.status" "not_checked"
+assert_json_field "scripting readiness is target-dependent" ".scripting_ready" "None"
 assert_json_field_exists "scripting_ready field" ".scripting_ready"
 
 section "setup — human mode"
@@ -61,7 +63,8 @@ d = json.load(sys.stdin)
 print(','.join(d.get('capture_protected_apps', [])))
 ")
 
-  PROBE_DIR=$(mktemp -d /tmp/cu-setup-protection.XXXXXX)
+  PROBE_DIR="/private/tmp/cu-setup-protection-$$"
+  mkdir -m 700 "$PROBE_DIR"
   PROBE_PATH="$PROBE_DIR/wechat.png"
   cu_json screenshot WeChat --path "$PROBE_PATH"
   PROBE_EXIT=$EXIT

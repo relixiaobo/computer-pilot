@@ -1,7 +1,145 @@
-//! macOS system integration — app resolution, System Events, permissions.
+//! macOS system integration — app resolution, permissions, launch, and scripting.
 //! All scripting uses AppleScript (no JXA). Sdef parsing is in sdef.rs (Rust native).
 
+use std::ffi::{CStr, c_char, c_void};
 use std::process::{Command, Stdio};
+
+#[link(name = "AppKit", kind = "framework")]
+unsafe extern "C" {}
+
+unsafe extern "C" {
+    fn objc_getClass(name: *const c_char) -> *mut c_void;
+    fn sel_registerName(name: *const c_char) -> *mut c_void;
+    fn objc_msgSend();
+    fn objc_autoreleasePoolPush() -> *mut c_void;
+    fn objc_autoreleasePoolPop(pool: *mut c_void);
+}
+
+#[derive(Clone, Debug)]
+struct NativeApp {
+    name: String,
+    pid: i32,
+    bundle_id: String,
+    bundle_path: String,
+    active: bool,
+    activation_policy: i64,
+}
+
+fn nsstring(
+    receiver: *mut c_void,
+    send_cstr: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *const c_char,
+) -> String {
+    if receiver.is_null() {
+        return String::new();
+    }
+    let utf8 = unsafe { send_cstr(receiver, sel_registerName(c"UTF8String".as_ptr())) };
+    if utf8.is_null() {
+        String::new()
+    } else {
+        unsafe { CStr::from_ptr(utf8) }
+            .to_string_lossy()
+            .into_owned()
+    }
+}
+
+fn running_apps_native() -> Vec<NativeApp> {
+    unsafe {
+        let pool = objc_autoreleasePoolPush();
+        let send_id: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
+            std::mem::transmute(objc_msgSend as *const ());
+        let send_index: unsafe extern "C" fn(*mut c_void, *mut c_void, usize) -> *mut c_void =
+            std::mem::transmute(objc_msgSend as *const ());
+        let send_usize: unsafe extern "C" fn(*mut c_void, *mut c_void) -> usize =
+            std::mem::transmute(objc_msgSend as *const ());
+        let send_i32: unsafe extern "C" fn(*mut c_void, *mut c_void) -> i32 =
+            std::mem::transmute(objc_msgSend as *const ());
+        let send_i64: unsafe extern "C" fn(*mut c_void, *mut c_void) -> i64 =
+            std::mem::transmute(objc_msgSend as *const ());
+        let send_bool: unsafe extern "C" fn(*mut c_void, *mut c_void) -> bool =
+            std::mem::transmute(objc_msgSend as *const ());
+        let send_cstr: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *const c_char =
+            std::mem::transmute(objc_msgSend as *const ());
+
+        let workspace_class = objc_getClass(c"NSWorkspace".as_ptr());
+        let workspace = send_id(
+            workspace_class,
+            sel_registerName(c"sharedWorkspace".as_ptr()),
+        );
+        let array = send_id(workspace, sel_registerName(c"runningApplications".as_ptr()));
+        let count = if array.is_null() {
+            0
+        } else {
+            send_usize(array, sel_registerName(c"count".as_ptr()))
+        };
+        let mut apps = Vec::with_capacity(count);
+        for index in 0..count {
+            let app = send_index(array, sel_registerName(c"objectAtIndex:".as_ptr()), index);
+            if app.is_null() {
+                continue;
+            }
+            let policy = send_i64(app, sel_registerName(c"activationPolicy".as_ptr()));
+            if policy == 2 {
+                continue;
+            }
+            let name_obj = send_id(app, sel_registerName(c"localizedName".as_ptr()));
+            let bundle_obj = send_id(app, sel_registerName(c"bundleIdentifier".as_ptr()));
+            let url = send_id(app, sel_registerName(c"bundleURL".as_ptr()));
+            let path_obj = if url.is_null() {
+                std::ptr::null_mut()
+            } else {
+                send_id(url, sel_registerName(c"path".as_ptr()))
+            };
+            let name = nsstring(name_obj, send_cstr);
+            let pid = send_i32(app, sel_registerName(c"processIdentifier".as_ptr()));
+            if name.is_empty() || pid <= 0 {
+                continue;
+            }
+            apps.push(NativeApp {
+                name,
+                pid,
+                bundle_id: nsstring(bundle_obj, send_cstr),
+                bundle_path: nsstring(path_obj, send_cstr),
+                active: send_bool(app, sel_registerName(c"isActive".as_ptr())),
+                activation_policy: policy,
+            });
+        }
+        objc_autoreleasePoolPop(pool);
+        apps
+    }
+}
+
+/// Resolve a running application's bundle identifier without Apple Events.
+pub fn bundle_id_for_pid(pid: i32) -> Option<String> {
+    unsafe {
+        let send_id: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
+            std::mem::transmute(objc_msgSend as *const ());
+        let send_pid: unsafe extern "C" fn(*mut c_void, *mut c_void, i32) -> *mut c_void =
+            std::mem::transmute(objc_msgSend as *const ());
+        let send_cstr: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *const c_char =
+            std::mem::transmute(objc_msgSend as *const ());
+        let class = objc_getClass(c"NSRunningApplication".as_ptr());
+        if class.is_null() {
+            return None;
+        }
+        let app = send_pid(
+            class,
+            sel_registerName(c"runningApplicationWithProcessIdentifier:".as_ptr()),
+            pid,
+        );
+        if app.is_null() {
+            return None;
+        }
+        let bundle = send_id(app, sel_registerName(c"bundleIdentifier".as_ptr()));
+        if bundle.is_null() {
+            return None;
+        }
+        let utf8 = send_cstr(bundle, sel_registerName(c"UTF8String".as_ptr()));
+        if utf8.is_null() {
+            return None;
+        }
+        Some(CStr::from_ptr(utf8).to_string_lossy().into_owned())
+    }
+}
 
 // ── Permissions ─────────────────────────────────────────────────────────────
 
@@ -23,44 +161,33 @@ pub fn check_screen_recording() -> bool {
     unsafe { CGPreflightScreenCaptureAccess() != 0 }
 }
 
-pub fn check_automation() -> bool {
-    // Probe: try a benign System Events query (short timeout)
-    run_applescript_capture(r#"tell application "System Events" to get name"#, 5, false).is_ok()
-}
-
 // ── App resolution ──────────────────────────────────────────────────────────
 
 pub fn resolve_target_app(name: &Option<String>) -> Result<(i32, String), String> {
-    // Use tab as delimiter — no app name contains a tab character
-    let script = match name {
-        Some(n) => {
-            let escaped = applescript_escape(n);
-            format!(
-                "tell application \"System Events\"\n\
-                    set p to first process whose name is \"{escaped}\"\n\
-                    return ((unix id of p) as text) & tab & (name of p)\n\
-                end tell"
-            )
-        }
-        None => "tell application \"System Events\"\n\
-                set p to first process whose frontmost is true\n\
-                return ((unix id of p) as text) & tab & (name of p)\n\
-            end tell"
-            .to_string(),
+    let apps = running_apps_native();
+    let found = match name {
+        Some(name) => apps
+            .iter()
+            .filter(|app| {
+                app.name.eq_ignore_ascii_case(name) || app.bundle_id.eq_ignore_ascii_case(name)
+            })
+            .max_by_key(|app| app.active),
+        None => apps.iter().find(|app| app.active),
     };
+    found
+        .map(|app| (app.pid, app.name.clone()))
+        .ok_or_else(|| match name {
+            Some(name) => format!("app not running: {name}"),
+            None => "no frontmost application found".into(),
+        })
+}
 
-    let stdout = run_applescript_capture(&script, 10, false)?;
-    // Output format: "PID\tName"
-    let parts: Vec<&str> = stdout.splitn(2, '\t').collect();
-    if parts.len() != 2 {
-        return Err(format!("unexpected output from app resolution: {stdout}"));
-    }
-    let pid: i32 = parts[0]
-        .trim()
-        .parse()
-        .map_err(|_| format!("invalid pid: {}", parts[0]))?;
-    let app_name = parts[1].trim().to_string();
-    Ok((pid, app_name))
+/// Return running foreground-capable processes for native AX enumeration.
+pub fn running_app_processes() -> Vec<(i32, String)> {
+    running_apps_native()
+        .into_iter()
+        .map(|app| (app.pid, app.name))
+        .collect()
 }
 
 /// Apps where stray keystrokes are most damaging — terminals execute every line as a
@@ -70,14 +197,38 @@ pub fn resolve_target_app(name: &Option<String>) -> Result<(i32, String), String
 /// silently types into the wrong window. Refuse early with a clear error instead.
 pub const DANGEROUS_FRONTMOST: &[&str] = &[
     // Terminal emulators
-    "Terminal", "iTerm", "iTerm2", "Ghostty", "Alacritty", "kitty",
-    "WezTerm", "Tabby", "Hyper", "Warp",
+    "Terminal",
+    "iTerm",
+    "iTerm2",
+    "Ghostty",
+    "Alacritty",
+    "kitty",
+    "WezTerm",
+    "Tabby",
+    "Hyper",
+    "Warp",
     // Editors / IDEs
-    "Code", "Visual Studio Code", "Code - Insiders", "Cursor", "Windsurf",
-    "Xcode", "Sublime Text", "Nova", "Zed",
-    "IntelliJ IDEA", "IntelliJ IDEA CE", "PyCharm", "PyCharm CE",
-    "WebStorm", "RustRover", "GoLand", "CLion", "RubyMine", "PhpStorm",
-    "Android Studio", "DataGrip",
+    "Code",
+    "Visual Studio Code",
+    "Code - Insiders",
+    "Cursor",
+    "Windsurf",
+    "Xcode",
+    "Sublime Text",
+    "Nova",
+    "Zed",
+    "IntelliJ IDEA",
+    "IntelliJ IDEA CE",
+    "PyCharm",
+    "PyCharm CE",
+    "WebStorm",
+    "RustRover",
+    "GoLand",
+    "CLion",
+    "RubyMine",
+    "PhpStorm",
+    "Android Studio",
+    "DataGrip",
 ];
 
 /// Cheap query: name of the frontmost GUI process.
@@ -92,19 +243,25 @@ pub fn frontmost_app_name() -> Result<String, String> {
     {
         return Ok(name);
     }
-    let script = r#"tell application "System Events" to get name of first process whose frontmost is true"#;
-    run_applescript_capture(script, 5, false).map(|s| s.trim().to_string())
+    running_apps_native()
+        .into_iter()
+        .find(|app| app.active)
+        .map(|app| app.name)
+        .ok_or_else(|| "no frontmost application found".into())
 }
 
 /// Returns Err with a structured message when the frontmost app is one of
 /// `DANGEROUS_FRONTMOST`. Soft-fails (returns Ok) if the frontmost lookup itself
-/// fails — we don't want to block legitimate use because System Events hung.
+/// fails — we don't want to block legitimate use because app discovery raced.
 pub fn check_global_frontmost_safety(verb: &str) -> Result<(), String> {
     let front = match frontmost_app_name() {
         Ok(name) if !name.is_empty() => name,
         _ => return Ok(()),
     };
-    if DANGEROUS_FRONTMOST.iter().any(|d| d.eq_ignore_ascii_case(&front)) {
+    if DANGEROUS_FRONTMOST
+        .iter()
+        .any(|d| d.eq_ignore_ascii_case(&front))
+    {
         return Err(format!(
             "refusing to {verb} without --app: frontmost is \"{front}\" \
              (terminal/IDE — stray keys would execute commands or destructive shortcuts). \
@@ -117,74 +274,24 @@ pub fn check_global_frontmost_safety(verb: &str) -> Result<(), String> {
 // ── List apps ──────────────────────────────────────────────────────────────
 
 pub fn list_apps() -> Result<String, String> {
-    // Get running GUI apps via System Events (name, pid, frontmost, bundle path)
-    let script = r#"
-tell application "System Events"
-    set appList to ""
-    set frontName to ""
-    try
-        set frontName to name of first process whose frontmost is true
-    end try
-    set processList to every process whose background only is false
-    repeat with p in processList
-        try
-            set appFile to ""
-            try
-                set appFile to POSIX path of (file of p as alias)
-            end try
-        set appList to appList & (name of p) & "	" & (unix id of p) & "	" & ((name of p) is frontName) & "	" & appFile & "
-"
-        end try
-    end repeat
-    return appList
-end tell
-"#;
-
-    // 60s timeout: enumerating + resolving bundle paths via System Events scales
-    // with the number of running GUI apps. Machines with 20+ apps can hit ~30s
-    // under load; 60s gives reliable headroom without masking real hangs.
-    let raw = match run_applescript_capture(script, 60, false) {
-        Ok(raw) => raw,
-        Err(error) if error.contains("(-1719)") || error.contains("Invalid index") => {
-            // System Events exposes a live process collection. An app exiting
-            // while that collection is materialized can invalidate an index;
-            // one fresh enumeration is enough to recover from that race.
-            std::thread::sleep(std::time::Duration::from_millis(100));
-            run_applescript_capture(script, 60, false)?
-        }
-        Err(error) => return Err(error),
-    };
-
-    // Parse tab-separated output, then use Rust sdef::count_classes for scriptable detection
     let mut apps: Vec<serde_json::Value> = Vec::new();
-    for line in raw.lines() {
-        let parts: Vec<&str> = line.split('\t').collect();
-        if parts.len() < 4 {
-            continue;
-        }
-        let name = parts[0].trim();
-        let pid: i64 = parts[1].trim().parse().unwrap_or(0);
-        let active = parts[2].trim() == "true";
-        let bundle_path = parts[3].trim();
-
-        if name.is_empty() {
-            continue;
-        }
-
-        // Sdef detection in Rust (no shell, no python)
-        let bundle = if bundle_path.ends_with('/') {
-            bundle_path.to_string()
+    for app in running_apps_native() {
+        let bundle = if app.bundle_path.ends_with('/') {
+            app.bundle_path.clone()
         } else {
-            format!("{bundle_path}/")
+            format!("{}/", app.bundle_path)
         };
-        let sdef_classes = if !bundle_path.is_empty() {
+        let sdef_classes = if !app.bundle_path.is_empty() {
             crate::sdef::count_classes(&bundle)
         } else {
             None
         };
-
         let mut entry = serde_json::json!({
-            "name": name, "pid": pid, "active": active,
+            "name": app.name,
+            "pid": app.pid,
+            "bundle_id": app.bundle_id,
+            "active": app.active,
+            "activation_policy": app.activation_policy,
             "scriptable": sdef_classes.is_some()
         });
         if let Some(n) = sdef_classes {
@@ -206,16 +313,16 @@ end tell
 
 /// Resolve app bundle path — running apps first, then filesystem search.
 pub fn resolve_app_bundle_path(app: &str) -> Result<String, String> {
-    // First try running apps via System Events
-    let escaped = applescript_escape(app);
-    let script = format!(
-        "tell application \"System Events\"\n\
-            set p to first process whose name is \"{escaped}\"\n\
-            return POSIX path of (file of p as alias)\n\
-        end tell"
-    );
-    if let Ok(path) = run_applescript_capture(&script, 10, false)
-        && !path.is_empty()
+    // Running application metadata comes from NSWorkspace and does not require
+    // Apple Events Automation permission.
+    if let Some(path) = running_apps_native()
+        .into_iter()
+        .find(|candidate| {
+            candidate.name.eq_ignore_ascii_case(app)
+                || candidate.bundle_id.eq_ignore_ascii_case(app)
+        })
+        .map(|candidate| candidate.bundle_path)
+        .filter(|path| !path.is_empty())
     {
         return Ok(if path.ends_with('/') {
             path
@@ -266,191 +373,6 @@ fn applescript_escape(s: &str) -> String {
     out
 }
 
-// ── Window management (via System Events) ──────────────────────────────────
-
-#[derive(serde::Serialize)]
-pub struct WindowInfo {
-    pub app: String,
-    pub index: usize,
-    pub title: String,
-    pub x: i64,
-    pub y: i64,
-    pub width: i64,
-    pub height: i64,
-    pub minimized: bool,
-    pub focused: bool,
-}
-
-pub fn list_windows(app: Option<&str>) -> Result<Vec<WindowInfo>, String> {
-    // Build process scope. Use a list (single-element when app is given)
-    // so the same `repeat with p in procList` body works for both cases.
-    let process_setup = match app {
-        Some(name) => {
-            let escaped = applescript_escape(name);
-            format!("set procList to {{process \"{escaped}\"}}")
-        }
-        None => "set procList to (every process whose background only is false)".to_string(),
-    };
-
-    // Use ASCII control chars as delimiters: US (unit, 0x1f) for fields, RS (record, 0x1e) for rows.
-    // These cannot appear in macOS UI text — they're designed exactly for this purpose.
-    let script = format!(
-        r#"set US to character id 31
-set RS to character id 30
-tell application "System Events"
-    {process_setup}
-    set output to ""
-    repeat with p in procList
-        try
-            set procName to name of p
-            set winIdx to 0
-            repeat with w in windows of p
-                set winIdx to winIdx + 1
-                try
-                    set winTitle to name of w
-                    if winTitle is missing value then set winTitle to ""
-                    set winPos to position of w
-                    set winSize to size of w
-                    set isMin to false
-                    try
-                        set isMin to value of attribute "AXMinimized" of w
-                    end try
-                    set isFoc to false
-                    try
-                        set isFoc to value of attribute "AXMain" of w
-                    end try
-                    set output to output & procName & US & winIdx & US & winTitle & US & (item 1 of winPos) & US & (item 2 of winPos) & US & (item 1 of winSize) & US & (item 2 of winSize) & US & isMin & US & isFoc & RS
-                end try
-            end repeat
-        end try
-    end repeat
-    return output
-end tell"#
-    );
-
-    let raw = run_applescript_capture(&script, 15, false)?;
-    let mut windows = Vec::new();
-    for record in raw.split('\u{1e}') {
-        let parts: Vec<&str> = record.split('\u{1f}').collect();
-        if parts.len() < 9 {
-            continue;
-        }
-        windows.push(WindowInfo {
-            app: parts[0].trim().to_string(),
-            index: parts[1].trim().parse().unwrap_or(0),
-            title: parts[2].to_string(), // don't trim — title may have leading/trailing spaces
-            x: parts[3].trim().parse().unwrap_or(0),
-            y: parts[4].trim().parse().unwrap_or(0),
-            width: parts[5].trim().parse().unwrap_or(0),
-            height: parts[6].trim().parse().unwrap_or(0),
-            minimized: parts[7].trim() == "true",
-            focused: parts[8].trim() == "true",
-        });
-    }
-    Ok(windows)
-}
-
-pub fn window_action(
-    action: &str,
-    app: &str,
-    window_idx: usize,
-    arg1: Option<i64>,
-    arg2: Option<i64>,
-) -> Result<(), String> {
-    let escaped = applescript_escape(app);
-    let target = format!("window {window_idx}");
-
-    let inner = match action {
-        "move" => {
-            let x = arg1.ok_or("move requires x y")?;
-            let y = arg2.ok_or("move requires x y")?;
-            format!("set position of {target} to {{{x}, {y}}}")
-        }
-        "resize" => {
-            let w = arg1.ok_or("resize requires width height")?;
-            let h = arg2.ok_or("resize requires width height")?;
-            format!("set size of {target} to {{{w}, {h}}}")
-        }
-        "focus" => {
-            format!("set frontmost to true\nperform action \"AXRaise\" of {target}")
-        }
-        "minimize" => {
-            format!("set value of attribute \"AXMinimized\" of {target} to true")
-        }
-        "unminimize" => {
-            format!("set value of attribute \"AXMinimized\" of {target} to false")
-        }
-        "close" => {
-            format!("click (first button of {target} whose subrole is \"AXCloseButton\")")
-        }
-        other => {
-            return Err(format!(
-                "unknown window action: {other} (use: list, move, resize, focus, minimize, unminimize, close)"
-            ));
-        }
-    };
-
-    let script = format!(
-        "tell application \"System Events\"
-    tell process \"{escaped}\"
-        {inner}
-    end tell
-end tell"
-    );
-    run_applescript_capture(&script, 10, false)?;
-    Ok(())
-}
-
-// ── Menu (enumerate app menu bar via System Events) ─────────────────────────
-
-#[derive(serde::Serialize)]
-pub struct MenuItem {
-    pub menu: String,
-    pub item: String,
-    pub enabled: bool,
-}
-
-pub fn list_menu(app: &str) -> Result<Vec<MenuItem>, String> {
-    let escaped = applescript_escape(app);
-    // Use ASCII control chars (US/RS) as delimiters — cannot appear in UI text.
-    let script = format!(
-        "set US to character id 31
-set RS to character id 30
-tell application \"System Events\"
-    tell process \"{escaped}\"
-        set output to \"\"
-        repeat with menuBarItem in menu bar items of menu bar 1
-            set menuName to name of menuBarItem
-            try
-                repeat with mi in menu items of menu 1 of menuBarItem
-                    set itemName to name of mi
-                    if itemName is not missing value then
-                        set isEnabled to enabled of mi
-                        set output to output & menuName & US & itemName & US & isEnabled & RS
-                    end if
-                end repeat
-            end try
-        end repeat
-        return output
-    end tell
-end tell"
-    );
-    let raw = run_applescript_capture(&script, 10, false)?;
-    let mut items = Vec::new();
-    for record in raw.split('\u{1e}') {
-        let parts: Vec<&str> = record.split('\u{1f}').collect();
-        if parts.len() < 3 {
-            continue;
-        }
-        items.push(MenuItem {
-            menu: parts[0].to_string(),
-            item: parts[1].to_string(),
-            enabled: parts[2].trim() == "true",
-        });
-    }
-    Ok(items)
-}
-
 // ── Defaults (read/write macOS preferences) ─────────────────────────────────
 
 pub fn defaults_read(domain: &str, key: Option<&str>) -> Result<String, String> {
@@ -493,26 +415,14 @@ pub fn defaults_write(domain: &str, key: &str, value_args: &[String]) -> Result<
 
 // ── Launch (D6) ─────────────────────────────────────────────────────────────
 
-/// Resolve a process by bundle identifier (System Events lookup).
+/// Resolve a process by bundle identifier through NSWorkspace.
 /// Returns `(pid, app_name)` once the process exists, error otherwise.
 pub fn resolve_by_bundle_id(bundle_id: &str) -> Result<(i32, String), String> {
-    let escaped = applescript_escape(bundle_id);
-    let script = format!(
-        "tell application \"System Events\"\n\
-            set p to first process whose bundle identifier is \"{escaped}\"\n\
-            return ((unix id of p) as text) & tab & (name of p)\n\
-        end tell"
-    );
-    let stdout = run_applescript_capture(&script, 5, false)?;
-    let parts: Vec<&str> = stdout.splitn(2, '\t').collect();
-    if parts.len() != 2 {
-        return Err(format!("unexpected output: {stdout}"));
-    }
-    let pid: i32 = parts[0]
-        .trim()
-        .parse()
-        .map_err(|_| format!("invalid pid: {}", parts[0]))?;
-    Ok((pid, parts[1].trim().to_string()))
+    running_apps_native()
+        .into_iter()
+        .find(|app| app.bundle_id.eq_ignore_ascii_case(bundle_id))
+        .map(|app| (app.pid, app.name))
+        .ok_or_else(|| format!("app not running: {bundle_id}"))
 }
 
 /// Launch an app by name or bundle identifier via Launch Services.

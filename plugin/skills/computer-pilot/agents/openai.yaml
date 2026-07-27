@@ -1,0 +1,4 @@
+interface:
+  display_name: "Computer Pilot"
+  short_description: "Control native macOS apps through the cu CLI"
+  default_prompt: "Use $computer-pilot to inspect and operate a macOS desktop app through cu."

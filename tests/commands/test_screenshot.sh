@@ -10,7 +10,7 @@ osascript -e 'tell application "Finder"
 end tell' 2>/dev/null
 sleep 0.3
 
-SHOT_DIR="/tmp/cu-test-screenshots"
+SHOT_DIR="/private/tmp/cu-test-screenshots-$$"
 mkdir -p "$SHOT_DIR"
 
 section "screenshot — window mode (Finder)"
@@ -25,8 +25,15 @@ assert_json_field "app is Finder" ".app" "Finder"
 assert_json_field "path correct" ".path" "$SHOT1"
 assert_json_field_exists "offset_x" ".offset_x"
 assert_json_field_exists "offset_y" ".offset_y"
+assert_json_field "file MIME" ".file.mime" "image/png"
+assert_json_field "file path matches legacy path" ".file.path" "$SHOT1"
+assert_json_field_gte "file byte count" ".file.bytes" 1
+assert_json_field_gte "file pixel width" ".file.width" 1
+assert_json_field_gte "file pixel height" ".file.height" 1
 assert_file_exists "screenshot file created" "$SHOT1"
 assert_file_png "file is valid PNG" "$SHOT1"
+MODE=$(stat -f '%Lp' "$SHOT1" 2>/dev/null || echo "")
+[[ "$MODE" == "600" ]] && _pass "screenshot mode is 0600" || _fail "screenshot mode is 0600" "got $MODE"
 
 # Offsets should be non-negative numbers
 OFFSET_X=$(json_get '.offset_x' || echo "err")
@@ -36,6 +43,9 @@ if echo "$OFFSET_X" | grep -qE '^-?[0-9]+\.?[0-9]*$'; then
 else
   _fail "offset_x numeric" "got: $OFFSET_X"
 fi
+
+cu_json "screenshot Finder --path $SHOT1"
+assert_fail "existing output is not overwritten"
 
 section "screenshot — full screen"
 
@@ -67,6 +77,32 @@ if [[ -n "$DEFAULT_PATH" && -f "$DEFAULT_PATH" ]]; then
 else
   _fail "default path file" "path=$DEFAULT_PATH"
 fi
+
+section "screenshot — task output directory"
+
+ENV_DIR="/private/tmp/cu-output-env-$$"
+mkdir -m 700 "$ENV_DIR"
+EXIT=0
+OUT=$(_run_with_timeout "$CU_TIMEOUT_SECS" env COMPUTER_PILOT_OUTPUT_DIR="$ENV_DIR" "$CU" --json --client-key output-dir-test screenshot Finder 2>/private/tmp/cu-output-env-stderr-$$) || EXIT=$?
+ERR=$(cat /private/tmp/cu-output-env-stderr-$$ 2>/dev/null || true)
+assert_exit_zero "COMPUTER_PILOT_OUTPUT_DIR request succeeds"
+ENV_PATH=$(echo "$OUT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("path", ""))' 2>/dev/null || true)
+if [[ "$ENV_PATH" == "$ENV_DIR"/*.png && -f "$ENV_PATH" ]]; then
+  _pass "Broker writes into the current request output directory"
+  cleanup_register "$ENV_PATH"
+else
+  _fail "Broker request output directory" "path=$ENV_PATH stderr=${ERR:0:120}"
+fi
+
+section "screenshot — unsafe output paths"
+
+cu_json screenshot Finder --path "relative.png"
+assert_fail "relative output path rejected"
+
+LINK_DIR="/private/tmp/cu-output-link-$$"
+ln -s "$SHOT_DIR" "$LINK_DIR"
+cu_json screenshot Finder --path "$LINK_DIR/through-link.png"
+assert_fail "symlink traversal rejected"
 
 section "screenshot — region mode"
 
@@ -149,5 +185,7 @@ assert_contains "shows filename" "$SHOT3"
 
 # Cleanup shot dir
 rm -rf "$SHOT_DIR" 2>/dev/null || true
+rm -f "/private/tmp/cu-output-env-stderr-$$" "$LINK_DIR" 2>/dev/null || true
+rmdir "$ENV_DIR" 2>/dev/null || true
 
 summary

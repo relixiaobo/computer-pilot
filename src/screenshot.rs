@@ -344,9 +344,10 @@ pub fn find_window(pid: i32) -> Option<WindowInfo> {
         });
     }
 
-    if let Some(w) =
-        find_window_with_options(pid, CG_WINDOW_LIST_ON_SCREEN_ONLY | CG_WINDOW_LIST_EXCLUDE_DESKTOP)
-    {
+    if let Some(w) = find_window_with_options(
+        pid,
+        CG_WINDOW_LIST_ON_SCREEN_ONLY | CG_WINDOW_LIST_EXCLUDE_DESKTOP,
+    ) {
         return Some(w);
     }
     find_window_with_options(pid, CG_WINDOW_LIST_EXCLUDE_DESKTOP)
@@ -525,7 +526,11 @@ pub fn capture_window_with_scale(window: &WindowInfo, path: &str) -> Result<f64,
     // returns blank for windows on a non-active Space on macOS 14+).
     match crate::sck::capture_window_to_png(window.window_id, window.width, window.height, path) {
         Ok(px_w) => {
-            let scale = if window.width > 0.0 { px_w as f64 / window.width } else { 1.0 };
+            let scale = if window.width > 0.0 {
+                px_w as f64 / window.width
+            } else {
+                1.0
+            };
             return Ok(scale);
         }
         Err(_sck_err) => {
@@ -556,12 +561,6 @@ pub fn capture_window_with_scale(window: &WindowInfo, path: &str) -> Result<f64,
         CFRelease(image);
         result.map(|_| scale)
     }
-}
-
-/// Capture a specific window to a PNG file. No activation needed. Refuses
-/// when the target opted out of capture (`sharing_state=0`).
-pub fn capture_window(window: &WindowInfo, path: &str) -> Result<(), String> {
-    capture_window_with_scale(window, path).map(|_| ())
 }
 
 /// One element to annotate. Coordinates are in screen space (same as snapshot output).
