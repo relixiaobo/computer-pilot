@@ -572,14 +572,16 @@ fn ping(token: &str) -> Option<(u32, String, u32)> {
     }
 }
 
-fn ensure_running() -> Result<String, String> {
-    prepare_home()?;
-    let token = create_token_if_missing().or_else(|_| read_token())?;
-    if let Some((protocol, version, _pid)) = ping(&token) {
-        if protocol == INTERNAL_PROTOCOL && version == crate::VERSION {
-            return Ok(token);
-        }
-        stop_incompatible_broker(&token, protocol, &version)?;
+fn ensure_running() -> Result<String, BrokerError> {
+    prepare_home().map_err(BrokerError::internal)?;
+    let token = create_token_if_missing()
+        .or_else(|_| read_token())
+        .map_err(BrokerError::internal)?;
+    if let Some((protocol, version, _pid)) = ping(&token)
+        && protocol == INTERNAL_PROTOCOL
+        && version == crate::VERSION
+    {
+        return Ok(token);
     }
 
     let lock = OpenOptions::new()
@@ -587,10 +589,22 @@ fn ensure_running() -> Result<String, String> {
         .create_new(true)
         .mode(0o600)
         .open(start_lock_path());
-    if lock.is_ok() {
+    let owns_start_lock = lock.is_ok();
+    if owns_start_lock {
+        if let Some((protocol, version, pid)) = ping(&token) {
+            if protocol == INTERNAL_PROTOCOL && version == crate::VERSION {
+                let _ = fs::remove_file(start_lock_path());
+                return Ok(token);
+            }
+            if let Err(error) = stop_incompatible_broker(&token, protocol, &version, pid) {
+                let _ = fs::remove_file(start_lock_path());
+                return Err(error);
+            }
+        }
         let _ = fs::remove_file(socket_path());
-        let executable = std::env::current_exe()
-            .map_err(|error| format!("failed to locate cu executable: {error}"))?;
+        let executable = std::env::current_exe().map_err(|error| {
+            BrokerError::internal(format!("failed to locate cu executable: {error}"))
+        })?;
         let mut command = Command::new(executable);
         command
             .arg("__broker")
@@ -605,9 +619,9 @@ fn ensure_running() -> Result<String, String> {
                 Ok(())
             });
         }
-        command
-            .spawn()
-            .map_err(|error| format!("failed to start private Broker: {error}"))?;
+        command.spawn().map_err(|error| {
+            BrokerError::internal(format!("failed to start private Broker: {error}"))
+        })?;
     }
 
     let deadline = now_ms().saturating_add(START_WAIT_MS);
@@ -615,16 +629,25 @@ fn ensure_running() -> Result<String, String> {
         if ping(&token).is_some_and(|(protocol, version, _)| {
             protocol == INTERNAL_PROTOCOL && version == crate::VERSION
         }) {
-            let _ = fs::remove_file(start_lock_path());
+            if owns_start_lock {
+                let _ = fs::remove_file(start_lock_path());
+            }
             return Ok(token);
         }
         thread::sleep(Duration::from_millis(25));
     }
-    let _ = fs::remove_file(start_lock_path());
-    Err("private Broker did not become ready".into())
+    if owns_start_lock {
+        let _ = fs::remove_file(start_lock_path());
+    }
+    Err(BrokerError::internal("private Broker did not become ready"))
 }
 
-fn stop_incompatible_broker(token: &str, protocol: u32, version: &str) -> Result<(), String> {
+fn stop_incompatible_broker(
+    token: &str,
+    protocol: u32,
+    version: &str,
+    pid: u32,
+) -> Result<(), BrokerError> {
     match send_request(
         &Request::StopIfIdle {
             token: token.into(),
@@ -632,15 +655,32 @@ fn stop_incompatible_broker(token: &str, protocol: u32, version: &str) -> Result
         1_000,
     ) {
         Ok(Response::Stopping) => {}
-        Ok(Response::Error { error, .. }) => {
-            return Err(format!(
-                "private Broker {version} (protocol {protocol}) cannot upgrade now: {error}"
-            ));
+        Ok(Response::Error { code, error, .. })
+            if code == "invalid_argument"
+                && error.contains("unknown variant")
+                && error.contains("stop_if_idle") =>
+        {
+            return stop_legacy_idle_broker(pid, protocol, version);
+        }
+        Ok(Response::Error {
+            code,
+            error,
+            retryable,
+            command_id,
+        }) => {
+            return Err(BrokerError {
+                code,
+                error: format!(
+                    "private Broker {version} (protocol {protocol}) cannot upgrade now: {error}"
+                ),
+                retryable,
+                command_id,
+            });
         }
         Ok(_) | Err(_) => {
-            return Err(format!(
+            return Err(BrokerError::internal(format!(
                 "private Broker {version} (protocol {protocol}) does not support safe in-place upgrade; stop it after active commands finish"
-            ));
+            )));
         }
     }
     let deadline = now_ms().saturating_add(START_WAIT_MS);
@@ -650,7 +690,120 @@ fn stop_incompatible_broker(token: &str, protocol: u32, version: &str) -> Result
         }
         thread::sleep(Duration::from_millis(25));
     }
-    Err("incompatible private Broker did not stop".into())
+    Err(BrokerError::internal(
+        "incompatible private Broker did not stop",
+    ))
+}
+
+fn stop_legacy_idle_broker(pid: u32, protocol: u32, version: &str) -> Result<(), BrokerError> {
+    let pid = i32::try_from(pid)
+        .ok()
+        .filter(|pid| *pid > 1)
+        .ok_or_else(|| {
+            BrokerError::internal(format!("private Broker {version} returned an invalid PID"))
+        })?;
+    let isolated_socket = runtime_home().join(format!(
+        ".broker-upgrade-{pid}-{}.sock",
+        NEXT_ID.fetch_add(1, Ordering::Relaxed)
+    ));
+    fs::rename(socket_path(), &isolated_socket).map_err(|error| {
+        BrokerError::internal(format!(
+            "failed to isolate private Broker {version} for upgrade: {error}"
+        ))
+    })?;
+
+    // Existing accepted requests persist their record before dispatch. Once the
+    // public socket is isolated, no new request can enter the legacy Broker.
+    thread::sleep(Duration::from_millis(100));
+    let active_count = match persisted_active_count() {
+        Ok(count) => count,
+        Err(error) => {
+            restore_isolated_socket(&isolated_socket).map_err(BrokerError::internal)?;
+            return Err(BrokerError::internal(error));
+        }
+    };
+    if active_count > 0 {
+        restore_isolated_socket(&isolated_socket).map_err(BrokerError::internal)?;
+        return Err(BrokerError {
+            code: "target_busy".into(),
+            error: format!(
+                "private Broker {version} (protocol {protocol}) cannot upgrade now: {active_count} persisted command(s) are still active"
+            ),
+            retryable: true,
+            command_id: None,
+        });
+    }
+
+    if unsafe { kill(pid, 15) } != 0 {
+        let signal_error = std::io::Error::last_os_error();
+        if signal_error.raw_os_error() == Some(3) {
+            let _ = fs::remove_file(&isolated_socket);
+            return Ok(());
+        }
+        restore_isolated_socket(&isolated_socket).map_err(BrokerError::internal)?;
+        return Err(BrokerError::internal(format!(
+            "failed to stop idle private Broker {version}: {}",
+            signal_error
+        )));
+    }
+    let deadline = now_ms().saturating_add(START_WAIT_MS);
+    while now_ms() < deadline {
+        if UnixStream::connect(&isolated_socket).is_err() {
+            let _ = fs::remove_file(&isolated_socket);
+            return Ok(());
+        }
+        thread::sleep(Duration::from_millis(25));
+    }
+    restore_isolated_socket(&isolated_socket).map_err(BrokerError::internal)?;
+    Err(BrokerError::internal(format!(
+        "idle private Broker {version} did not stop"
+    )))
+}
+
+fn restore_isolated_socket(isolated_socket: &Path) -> Result<(), String> {
+    if socket_path().exists() {
+        return Err("cannot restore legacy Broker socket because its path is occupied".into());
+    }
+    fs::rename(isolated_socket, socket_path())
+        .map_err(|error| format!("failed to restore legacy Broker socket: {error}"))
+}
+
+fn persisted_active_count() -> Result<usize, String> {
+    let mut active_count = 0;
+    for entry in fs::read_dir(commands_dir())
+        .map_err(|error| format!("failed to inspect legacy Broker commands: {error}"))?
+    {
+        let entry = entry.map_err(|error| format!("failed to inspect Broker command: {error}"))?;
+        let path = entry.path();
+        if path.extension().and_then(|value| value.to_str()) != Some("json") {
+            continue;
+        }
+        let metadata = fs::symlink_metadata(&path)
+            .map_err(|error| format!("failed to inspect Broker command record: {error}"))?;
+        if !metadata.file_type().is_file() {
+            return Err("legacy Broker command record must be a regular file".into());
+        }
+        if metadata.len()
+            > (MAX_OUTPUT_BYTES as u64)
+                .saturating_mul(2)
+                .saturating_add(1_048_576)
+        {
+            return Err("legacy Broker command record is too large to validate safely".into());
+        }
+        let value: serde_json::Value = serde_json::from_slice(
+            &fs::read(&path)
+                .map_err(|error| format!("failed to read Broker command record: {error}"))?,
+        )
+        .map_err(|error| format!("failed to validate Broker command record: {error}"))?;
+        let status = value
+            .pointer("/descriptor/status")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| "legacy Broker command record has no status".to_string())?;
+        if !is_terminal(status) {
+            active_count += 1;
+        }
+    }
+    Ok(active_count)
 }
 
 fn unwrap_response(response: Response) -> Result<Response, BrokerError> {
@@ -709,7 +862,7 @@ pub fn publish_observation(pid: i32, snapshot: &crate::ax::SnapshotResult) {
 }
 
 pub fn run(options: RunOptions) -> Result<RunResult, BrokerError> {
-    let token = ensure_running().map_err(BrokerError::internal)?;
+    let token = ensure_running()?;
     let executable = std::env::current_exe().map_err(|error| {
         BrokerError::internal(format!("failed to locate cu executable: {error}"))
     })?;
@@ -742,7 +895,7 @@ pub fn run(options: RunOptions) -> Result<RunResult, BrokerError> {
 }
 
 pub fn status(client_key: String) -> Result<BrokerStatus, BrokerError> {
-    let token = ensure_running().map_err(BrokerError::internal)?;
+    let token = ensure_running()?;
     match unwrap_response(
         send_request(&Request::Status { token, client_key }, 5_000)
             .map_err(BrokerError::internal)?,
@@ -759,7 +912,7 @@ pub fn commands(
     limit: usize,
     statuses: Vec<String>,
 ) -> Result<Vec<CommandRecord>, BrokerError> {
-    let token = ensure_running().map_err(BrokerError::internal)?;
+    let token = ensure_running()?;
     match unwrap_response(
         send_request(
             &Request::Commands {
@@ -780,7 +933,7 @@ pub fn commands(
 }
 
 pub fn command(client_key: String, command_id: String) -> Result<CommandRecord, BrokerError> {
-    let token = ensure_running().map_err(BrokerError::internal)?;
+    let token = ensure_running()?;
     match unwrap_response(
         send_request(
             &Request::Command {
@@ -800,7 +953,7 @@ pub fn command(client_key: String, command_id: String) -> Result<CommandRecord, 
 }
 
 pub fn cancel(client_key: String, command_id: String) -> Result<CommandRecord, BrokerError> {
-    let token = ensure_running().map_err(BrokerError::internal)?;
+    let token = ensure_running()?;
     match unwrap_response(
         send_request(
             &Request::Cancel {
