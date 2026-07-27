@@ -2053,10 +2053,10 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
             let pos = ax_position(w)?;
             let size = ax_size(w)?;
             Some(WindowFrame {
-                x: pos.x as f64,
-                y: pos.y as f64,
-                width: size.width as f64,
-                height: size.height as f64,
+                x: pos.x,
+                y: pos.y,
+                width: size.width,
+                height: size.height,
             })
         });
 
