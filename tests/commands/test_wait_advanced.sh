@@ -41,14 +41,15 @@ fi
 
 section "wait --new-window — succeeds when one is opened during the wait"
 
-# Open a new Finder window 800ms in
-(sleep 0.8 && osascript -e 'tell application "Finder" to make new Finder window' >/dev/null 2>&1) &
+# Open a new Finder window after target resolution and the initial AX baseline.
+# Finder snapshots can take more than a second on a loaded release-test run.
+(sleep 4 && osascript -e 'tell application "Finder" to make new Finder window' >/dev/null 2>&1) &
 HELPER=$!
 
-cu_json wait --new-window --app Finder --timeout 5
+cu_json wait --new-window --app Finder --timeout 10
 assert_ok "new-window detected → ok"
 ELAPSED_MS=$(json_get '.elapsed_ms' || echo "9999")
-if [[ "$ELAPSED_MS" -ge 500 && "$ELAPSED_MS" -le 4500 ]]; then
+if [[ "$ELAPSED_MS" -ge 3000 && "$ELAPSED_MS" -le 9000 ]]; then
   _pass "new-window detected within window (${ELAPSED_MS}ms)"
 else
   _fail "new-window timing" "elapsed_ms=$ELAPSED_MS"

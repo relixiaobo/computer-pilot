@@ -51,10 +51,15 @@ pub fn wait_for(
         _ => limit,
     };
 
-    // Baselines captured on the first iteration for relative conditions.
     // Window count uses AX directly (not the elements list, which only walks
-    // the focused window).
-    let mut baseline_window_count: Option<usize> = None;
+    // the focused window). Capture it before the first full snapshot so a
+    // window opened during that potentially expensive walk is not mistaken
+    // for part of the baseline.
+    let baseline_window_count = if matches!(condition, &Condition::NewWindow) {
+        Some(ax::window_count(pid))
+    } else {
+        None
+    };
     let mut baseline_focused: Option<Option<usize>> = None;
 
     loop {
@@ -64,10 +69,8 @@ pub fn wait_for(
             return Err(snap.error.unwrap_or_else(|| "snapshot failed".into()));
         }
 
-        // Capture baselines once so the first poll defines "before".
-        if baseline_window_count.is_none() {
-            baseline_window_count = Some(ax::window_count(pid));
-        }
+        // Focus baseline requires the first snapshot; window baseline was
+        // captured before entering the loop above.
         if baseline_focused.is_none() {
             baseline_focused = Some(focused_ref(&snap));
         }
