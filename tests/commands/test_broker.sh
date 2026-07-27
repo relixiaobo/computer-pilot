@@ -86,6 +86,70 @@ if [[ "$UPGRADED_PID" =~ ^[0-9]+$ ]]; then
 fi
 wait "$FAKE_BROKER_PID" || true
 
+section "broker — legacy upgrade preserves active work"
+
+LEGACY_HOME="$BROKER_TEST_HOME/legacy-upgrade-home"
+python3 - "$LEGACY_HOME" <<'PY' &
+import json, os, signal, socket, sys
+home = sys.argv[1]
+signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+os.makedirs(home + "/commands", mode=0o700, exist_ok=True)
+token = "fake-legacy-token"
+with open(home + "/broker.token", "w", encoding="utf-8") as handle:
+    handle.write(token)
+os.chmod(home + "/broker.token", 0o600)
+path = home + "/broker.sock"
+server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+server.bind(path)
+server.listen()
+while True:
+    connection, _ = server.accept()
+    request = json.loads(connection.makefile("rb").readline())
+    if request.get("type") == "ping":
+        response = {"type": "pong", "protocol": 2, "version": "0.5.9", "pid": os.getpid()}
+    else:
+        response = {
+            "type": "error",
+            "code": "invalid_argument",
+            "error": "invalid private request: unknown variant `stop_if_idle`",
+            "retryable": False,
+        }
+    connection.sendall((json.dumps(response) + "\n").encode())
+    connection.close()
+PY
+LEGACY_BROKER_PID=$!
+for _ in {1..100}; do
+  [[ -S "$LEGACY_HOME/broker.sock" ]] && break
+  sleep 0.01
+done
+cat >"$LEGACY_HOME/commands/active.json" <<'JSON'
+{"descriptor":{"status":"dispatched"}}
+JSON
+EXIT=0
+OUT=$(COMPUTER_PILOT_HOME="$LEGACY_HOME" "$CU" --json --client-key agent.upgrade status 2>/tmp/cu-test-stderr) || EXIT=$?
+ERR=$(cat /tmp/cu-test-stderr 2>/dev/null || true)
+LEGACY_BUSY_CODE=$(echo "$ERR" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("code", ""))' 2>/dev/null || true)
+if [[ "$EXIT" -ne 0 && "$LEGACY_BUSY_CODE" == "target_busy" ]] && kill -0 "$LEGACY_BROKER_PID" 2>/dev/null && [[ -S "$LEGACY_HOME/broker.sock" ]]; then
+  _pass "legacy Broker stays available while a command is active"
+else
+  _fail "legacy active upgrade guard" "exit=$EXIT code=$LEGACY_BUSY_CODE alive=$(kill -0 "$LEGACY_BROKER_PID" 2>/dev/null; echo $?) stderr=${ERR:0:200}"
+fi
+rm "$LEGACY_HOME/commands/active.json"
+EXIT=0
+OUT=$(COMPUTER_PILOT_HOME="$LEGACY_HOME" "$CU" --json --client-key agent.upgrade status 2>/tmp/cu-test-stderr) || EXIT=$?
+ERR=$(cat /tmp/cu-test-stderr 2>/dev/null || true)
+if [[ "$EXIT" -eq 0 ]] && echo "$OUT" | python3 -c 'import json,sys; assert json.load(sys.stdin)["running"] is True' 2>/dev/null; then
+  _pass "idle legacy Broker is replaced without manual cleanup"
+else
+  _fail "legacy idle upgrade" "exit=$EXIT stderr=${ERR:0:200}"
+fi
+LEGACY_UPGRADED_PID=$(echo "$OUT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("pid", ""))' 2>/dev/null || true)
+if [[ "$LEGACY_UPGRADED_PID" =~ ^[0-9]+$ ]]; then
+  kill "$LEGACY_UPGRADED_PID" 2>/dev/null || true
+fi
+kill "$LEGACY_BROKER_PID" 2>/dev/null || true
+wait "$LEGACY_BROKER_PID" || true
+
 section "broker — command identity and replay"
 
 EXIT=0
