@@ -74,22 +74,20 @@ fi
 
 section "type — --paste path (clipboard ⌘V, the proven CEF/chat-app path)"
 
-# ⌘V routes to whichever app currently owns key focus. In a backgrounded
-# TextEdit the text view often hasn't claimed key focus, so cmd+v is a no-op.
-# `osascript activate` is heavier-handed than `cu window focus`, but here we
-# need the textview to actually receive keystrokes.
-osascript -e 'tell application "TextEdit" to activate' 2>/dev/null
-sleep 0.5
-
 # Snapshot the current clipboard so we can verify cu's restore step.
 SAVED_CLIP=$(pbpaste 2>/dev/null || echo "")
 echo -n "cu-test-saved-clipboard-$$" | pbcopy
 sleep 0.1
 ORIGINAL_CLIP=$(pbpaste)
 
-# Clear TextEdit document.
-"$CU" key cmd+a --app TextEdit --no-snapshot >/dev/null 2>&1 || true
-"$CU" key delete --app TextEdit --no-snapshot >/dev/null 2>&1 || true
+# Clear through AX instead of relying on a pre-existing keyboard selection,
+# then explicitly focus the textarea that will receive the paste shortcut.
+cu_json set-value 1 "" --app TextEdit --no-snapshot
+assert_ok "paste fixture cleared through AX"
+osascript -e 'tell application "TextEdit" to activate' >/dev/null 2>&1
+sleep 0.2
+cu_json click 1 --app TextEdit --no-snapshot --no-verify
+assert_ok "paste fixture textarea focused"
 sleep 0.2
 
 # Paste a string that contains CJK + emoji + ASCII. Method must report paste-pid.
@@ -103,9 +101,14 @@ else
   _fail "method=paste-pid" "got: $METHOD"
 fi
 
-# Verify the doc actually contains all the characters (including CJK first char).
+# Verify the AX-visible document contains all characters, including the first
+# CJK character. This avoids an unrelated TextEdit AppleScript response race.
 sleep 0.4
-DOC=$(osascript -e 'tell application "TextEdit" to get text of front document' 2>/dev/null || echo "")
+DOC=$("$CU" snapshot TextEdit --limit 5 2>/dev/null | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+print(next((e.get('value', '') for e in d.get('elements', []) if e.get('role') == 'textarea'), ''))
+" 2>/dev/null || true)
 if [[ "$DOC" == *"你好世界 hi 🎉"* ]]; then
   _pass "paste delivered full string (CJK + emoji + ASCII)"
 else
