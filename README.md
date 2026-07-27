@@ -111,6 +111,42 @@ The `cu` binary is separate — re-run the install curl command to upgrade it:
 sudo curl -Lo /usr/local/bin/cu https://github.com/relixiaobo/computer-pilot/releases/latest/download/cu-arm64 && sudo chmod +x /usr/local/bin/cu
 ```
 
+### Embedded Agent Hosts
+
+Agent products can bundle an exact `cu` binary and launch the official machine
+bridge directly, without a shell or an Agent-specific SDK:
+
+```text
+/absolute/path/to/cu bridge --stdio
+```
+
+The bridge speaks newline-delimited JSON-RPC 2.0 on stdin/stdout. Hosts call
+`initialize`, discover capability-filtered tools with `tools/list`, execute
+structured calls with `tools/call`, and finish with `shutdown`. The runtime
+manifest is generated from the same Clap definitions used by the one-shot CLI,
+so accepted tool arguments cannot drift from accepted command arguments.
+
+Launch-time capability removal is explicit and repeatable:
+
+```bash
+cu bridge --stdio --deny desktop.script --deny desktop.defaults
+```
+
+Protocol contract and host rules: [Universal Agent Integration](docs/universal-agent-integration.md).
+Standard-library Python reference host:
+[examples/stdio-host](examples/stdio-host/README.md).
+Test an exact bundled executable as a black box:
+
+```bash
+python3 scripts/run-stdio-conformance.py -- /absolute/path/to/cu
+```
+
+Run the passive reference-host example:
+
+```bash
+python3 examples/stdio-host/host.py --cu /absolute/path/to/cu
+```
+
 ## Quick Start
 
 ```bash
@@ -246,9 +282,9 @@ Three-tier control model — agent picks the cheapest layer for each task:
 [2] statictext "Favorites" (10,100 80x16)
 ```
 
-**JSON** (piped — default for AI agents):
+**JSON** (piped by default, or explicit with `--json`):
 ```json
-{"ok":true,"app":"Finder","elements":[{"ref":1,"role":"button","title":"Back","x":10,"y":40,"width":30,"height":24}]}
+{"schema_version":"1.0","ok":true,"app":"Finder","elements":[{"ref":1,"role":"button","title":"Back","x":10,"y":40,"width":30,"height":24}]}
 ```
 
 Action commands auto-include a fresh snapshot in JSON mode. Use `--no-snapshot` to disable.

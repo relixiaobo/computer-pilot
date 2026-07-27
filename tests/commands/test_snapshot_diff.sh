@@ -6,12 +6,13 @@ CACHE_DIR=/tmp/cu-snapshot-cache
 
 # Resolve a stable target: open one TextEdit doc, lock its position so
 # identity-by-position stays stable across calls.
-osascript -e 'tell application "TextEdit" to quit' 2>/dev/null || true
-sleep 0.5
-osascript -e 'tell application "TextEdit" to activate' 2>/dev/null
-sleep 0.5
-osascript -e 'tell application "TextEdit" to make new document' 2>/dev/null
-sleep 0.5
+osascript -e 'tell application "TextEdit" to close every document saving no' >/dev/null 2>&1 || true
+osascript -e 'tell application "TextEdit" to quit saving no' >/dev/null 2>&1 || true
+sleep 1
+osascript -e 'tell application "TextEdit" to activate' >/dev/null 2>&1
+sleep 1
+osascript -e 'tell application "TextEdit" to make new document' >/dev/null 2>&1
+sleep 1
 "$CU" wait --ref 1 --app TextEdit --timeout 5 >/dev/null 2>&1 || true
 "$CU" snapshot TextEdit --limit 5 >/dev/null 2>&1 || true   # warm AX bridge
 sleep 0.3
@@ -94,8 +95,15 @@ fi
 
 section "snapshot --diff — content change → ~ on textarea"
 
-# Write into the textarea — content of the focused element changes
-"$CU" set-value 1 "diff sentinel value" --app TextEdit --no-snapshot >/dev/null 2>&1
+# Mutate the front document independently of the AX snapshot implementation,
+# then verify the fixture state before asking snapshot --diff to observe it.
+osascript -e 'tell application "TextEdit" to set text of front document to "diff sentinel value"' >/dev/null 2>&1
+DOC_TEXT=$(osascript -e 'tell application "TextEdit" to get text of front document' 2>/dev/null || true)
+if [[ "$DOC_TEXT" == "diff sentinel value" ]]; then
+  _pass "TextEdit fixture content changed"
+else
+  _fail "TextEdit fixture content changed" "got: ${DOC_TEXT:0:100}"
+fi
 sleep 0.5
 
 cu_json snapshot TextEdit --limit 30 --diff

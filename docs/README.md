@@ -10,9 +10,10 @@ cargo build --release
 ./target/release/cu --human type "hello" --app TextEdit
 ./target/release/cu --human key cmd+s --app TextEdit
 ./target/release/cu --human screenshot "Google Chrome"
+python3 scripts/run-stdio-conformance.py -- ./target/release/cu
 ```
 
-## Commands (27)
+## Automation Commands (27)
 
 | Category | Commands |
 |---|---|
@@ -20,6 +21,9 @@ cargo build --release
 | **Observe** | `state`, `snapshot`, `find`, `nearest`, `observe-region`, `screenshot`, `ocr`, `wait` |
 | **Act** | `click`, `type`, `key`, `set-value`, `perform`, `scroll`, `hover`, `drag` |
 | **Script & System** | `tell`, `defaults`, `window`, `launch`, `warm`, `why` |
+
+Embedded hosts use the additional `bridge --stdio` integration command. See
+the [reference Python host](../examples/stdio-host/README.md).
 
 Headline calls:
 - **`cu state <app>`** — canonical first call: snapshot + windows + screenshot + frontmost in one round-trip
@@ -37,5 +41,7 @@ Per-flag reference: run `cu <command> --help`, or read [`plugin/skills/computer-
 |----------|---------|
 | [CLAUDE.md](../CLAUDE.md) | Design rules, agent reliability principles, testing rules |
 | [ROADMAP.md](ROADMAP.md) | Sprint progress + reliability work — current source of truth |
+| [universal-agent-integration.md](universal-agent-integration.md) | Agent-neutral stdio protocol, capability, and embedding contract |
+| [examples/stdio-host](../examples/stdio-host/README.md) | Standard-library reference host for embedding `cu bridge --stdio` |
 | [competitive-analysis.md](competitive-analysis.md) | Feature comparison snapshot (frozen 2026-04-03 — see ROADMAP for current state) |
 | [archive/](archive/) | Research and historical design docs (frozen) |

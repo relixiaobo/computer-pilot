@@ -63,7 +63,9 @@ summary() {
 
 # Per-call timeout. A stuck `cu` (permission dialog, AX/System Events hang, …)
 # would otherwise pin the suite indefinitely. Tunable via env: CU_TIMEOUT_SECS.
-CU_TIMEOUT_SECS="${CU_TIMEOUT_SECS:-30}"
+# `cu apps` intentionally allows System Events up to 60s on machines with many
+# running apps, so the outer harness must leave enough room for that contract.
+CU_TIMEOUT_SECS="${CU_TIMEOUT_SECS:-75}"
 
 # Run a command with a hard wall-clock deadline. Uses GNU `timeout`/`gtimeout`
 # when available, otherwise falls back to perl's alarm() (preinstalled on

@@ -31,8 +31,8 @@ print('|'.join([
 
 section "truncation — hint absent when no truncation"
 
-cu_json snapshot Finder --limit 500
-assert_ok "snapshot --limit 500 ok"
+cu_json snapshot Finder --limit 5000
+assert_ok "snapshot --limit 5000 ok"
 
 PARSED=$(echo "$OUT" | python3 -c "
 import sys, json

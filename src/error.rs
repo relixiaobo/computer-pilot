@@ -15,9 +15,26 @@
 
 use serde_json::Value;
 
+#[derive(Clone, Copy, Debug)]
+pub enum ErrorCode {
+    CommandFailed,
+    InvalidArgument,
+}
+
+impl ErrorCode {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::CommandFailed => "command_failed",
+            Self::InvalidArgument => "invalid_argument",
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct CuError {
+    pub code: ErrorCode,
     pub error: String,
+    pub retryable: bool,
     pub hint: Option<String>,
     pub suggested_next: Vec<String>,
     pub diagnostics: Option<Value>,
@@ -26,11 +43,24 @@ pub struct CuError {
 impl CuError {
     pub fn msg(error: impl Into<String>) -> Self {
         Self {
+            code: ErrorCode::CommandFailed,
             error: error.into(),
+            retryable: false,
             hint: None,
             suggested_next: Vec::new(),
             diagnostics: None,
         }
+    }
+
+    pub fn with_code(mut self, code: ErrorCode) -> Self {
+        self.code = code;
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn retryable(mut self, retryable: bool) -> Self {
+        self.retryable = retryable;
+        self
     }
 
     pub fn with_hint(mut self, hint: impl Into<String>) -> Self {
@@ -53,8 +83,11 @@ impl CuError {
     /// that were populated.
     pub fn to_json(&self) -> Value {
         let mut obj = serde_json::json!({
+            "schema_version": crate::protocol::MACHINE_SCHEMA_VERSION,
             "ok": false,
+            "code": self.code.as_str(),
             "error": self.error,
+            "retryable": self.retryable,
         });
         if let Some(h) = &self.hint {
             obj["hint"] = Value::String(h.clone());

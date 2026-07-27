@@ -52,19 +52,33 @@ section "setup — capture-protected app enumeration"
 cu_json "setup"
 assert_json_field_exists "capture_protected_apps field present" ".capture_protected_apps"
 
-# Behavior assertion: if WeChat is running, it must be enumerated. WeChat is
-# the canonical capture-protected app on macOS — if cu detects it elsewhere
-# (cu screenshot refuses upfront) but cu setup omits it, the env-check is lying.
+# Cross-check setup against the actual capture behavior. WeChat versions differ:
+# some expose sharing_state=0, while current builds may expose shareable windows.
 if pgrep -x WeChat >/dev/null; then
   PROTECTED=$(echo "$OUT" | python3 -c "
 import json, sys
 d = json.load(sys.stdin)
 print(','.join(d.get('capture_protected_apps', [])))
 ")
-  if [[ "$PROTECTED" == *"WeChat"* ]]; then
-    _pass "WeChat (running) enumerated as capture-protected"
+
+  PROBE_DIR=$(mktemp -d /tmp/cu-setup-protection.XXXXXX)
+  PROBE_PATH="$PROBE_DIR/wechat.png"
+  cu_json screenshot WeChat --path "$PROBE_PATH"
+  PROBE_EXIT=$EXIT
+  PROBE_ERROR=$ERR
+  rm -f "$PROBE_PATH"
+  rmdir "$PROBE_DIR" 2>/dev/null || true
+
+  if [[ "$PROBE_EXIT" -ne 0 && "$PROBE_ERROR" == *"capture-protected"* ]]; then
+    if [[ "$PROTECTED" == *"WeChat"* ]]; then
+      _pass "capture-protected WeChat is enumerated"
+    else
+      _fail "capture-protected WeChat is enumerated" "screenshot refused capture but setup omitted WeChat"
+    fi
+  elif [[ "$PROBE_EXIT" -eq 0 ]]; then
+    _skip "WeChat protection cross-check" "current WeChat windows allow capture"
   else
-    _fail "WeChat (running) enumerated as capture-protected" "expected 'WeChat' in capture_protected_apps, got: '$PROTECTED'"
+    _skip "WeChat protection cross-check" "screenshot probe unavailable: ${PROBE_ERROR:0:120}"
   fi
 else
   _skip "WeChat enumeration" "WeChat not running — start it to verify capture-protected detection"

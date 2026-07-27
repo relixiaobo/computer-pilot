@@ -121,14 +121,20 @@ pub fn list_apps() -> Result<String, String> {
     let script = r#"
 tell application "System Events"
     set appList to ""
-    set frontName to name of first process whose frontmost is true
-    repeat with p in (every process whose background only is false)
-        set appFile to ""
+    set frontName to ""
+    try
+        set frontName to name of first process whose frontmost is true
+    end try
+    set processList to every process whose background only is false
+    repeat with p in processList
         try
-            set appFile to POSIX path of (file of p as alias)
-        end try
+            set appFile to ""
+            try
+                set appFile to POSIX path of (file of p as alias)
+            end try
         set appList to appList & (name of p) & "	" & (unix id of p) & "	" & ((name of p) is frontName) & "	" & appFile & "
 "
+        end try
     end repeat
     return appList
 end tell
@@ -137,7 +143,17 @@ end tell
     // 60s timeout: enumerating + resolving bundle paths via System Events scales
     // with the number of running GUI apps. Machines with 20+ apps can hit ~30s
     // under load; 60s gives reliable headroom without masking real hangs.
-    let raw = run_applescript_capture(script, 60, false)?;
+    let raw = match run_applescript_capture(script, 60, false) {
+        Ok(raw) => raw,
+        Err(error) if error.contains("(-1719)") || error.contains("Invalid index") => {
+            // System Events exposes a live process collection. An app exiting
+            // while that collection is materialized can invalidate an index;
+            // one fresh enumeration is enough to recover from that race.
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            run_applescript_capture(script, 60, false)?
+        }
+        Err(error) => return Err(error),
+    };
 
     // Parse tab-separated output, then use Rust sdef::count_classes for scriptable detection
     let mut apps: Vec<serde_json::Value> = Vec::new();
@@ -509,20 +525,32 @@ pub fn launch_app(id: &str) -> Result<(), String> {
     } else {
         "-a"
     };
-    let status = Command::new("open")
-        .args([flag, id])
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped())
-        .output()
-        .map_err(|e| format!("failed to spawn `open`: {e}"))?;
-    if !status.status.success() {
+    let mut last_detail = String::new();
+    for attempt in 0..=10 {
+        let status = Command::new("open")
+            .args([flag, id])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .output()
+            .map_err(|e| format!("failed to spawn `open`: {e}"))?;
+        if status.status.success() {
+            return Ok(());
+        }
         let stderr = String::from_utf8_lossy(&status.stderr);
         let msg = stderr.trim();
-        let detail = if msg.is_empty() { "not found" } else { msg };
-        return Err(format!("open {flag} {id} failed: {detail}"));
+        last_detail = if msg.is_empty() {
+            "not found".into()
+        } else {
+            msg.into()
+        };
+        if !last_detail.contains("-600") || attempt == 10 {
+            break;
+        }
+        // Launch Services returns -600 while an app is still terminating.
+        std::thread::sleep(std::time::Duration::from_millis(200));
     }
-    Ok(())
+    Err(format!("open {flag} {id} failed: {last_detail}"))
 }
 
 // ── Tell (AppleScript execution against an app) ─────────────────────────────

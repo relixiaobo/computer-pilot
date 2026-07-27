@@ -2,7 +2,9 @@
 
 ## Project Overview
 
-macOS desktop automation CLI (`cu`). Single Rust binary, zero runtime dependencies.
+macOS desktop automation CLI and embeddable Agent tool (`cu`). Single Rust
+binary, zero runtime dependencies. Human/one-shot callers use the CLI; embedded
+Agent hosts use the versioned `bridge --stdio` machine protocol.
 Three-tier control: **AppleScript** (scriptable apps) → **AX tree + CGEvent** (non-scriptable) → **OCR + screenshot** (fallback).
 
 ## Quick Reference
@@ -10,6 +12,8 @@ Three-tier control: **AppleScript** (scriptable apps) → **AX tree + CGEvent** 
 ```
 cargo build --release                         # Build
 bash tests/commands/run_all.sh                # Run 700+ command-test assertions
+python3 scripts/run-stdio-conformance.py -- ./target/release/cu # Embedded protocol gate
+python3 examples/stdio-host/host.py --cu ./target/release/cu    # Reference embedded host
 ./target/release/cu --human <command>         # Run in dev
 bash scripts/release.sh <version>                          # Release: bump → tag → push → GitHub
 bash scripts/release.sh <version> --dry-run                # Dry run first
@@ -46,10 +50,15 @@ Users update the plugin with:
 
 ## Architecture
 
-Single Rust binary (`cu`). No TypeScript, no Node.js, no IPC.
+Single Rust binary (`cu`). No TypeScript, no Node.js, no MCP server. The only
+public process integration is the Agent-neutral NDJSON protocol exposed by
+`cu bridge --stdio`; host-specific concepts and SDK imports stay outside the
+binary.
 
 ```
 src/main.rs        → CLI entry (clap), command routing, output formatting
+src/protocol.rs    → Agent-neutral tool manifest, schemas, capabilities, argv conversion
+src/bridge.rs      → NDJSON JSON-RPC stdio lifecycle, deadlines, command cache
 src/ax.rs          → AX tree walker + AX actions (macOS Accessibility FFI)
 src/mouse.rs       → Mouse operations (CGEvent FFI): click, scroll, hover, drag
 src/key.rs         → Keyboard events (CGEvent FFI)
@@ -65,7 +74,8 @@ src/observer.rs    → Single-shot AXObserver post-action settle wait (D7)
 src/display.rs     → CGGetActiveDisplayList + CGDisplayBounds (D1)
 ```
 
-**27 commands** across discovery, observation, action, scripting, system control.
+**27 automation commands** across discovery, observation, action, scripting,
+and system control, plus the `bridge` integration command.
 
 ## Design Rules
 

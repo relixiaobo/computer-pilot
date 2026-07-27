@@ -41,6 +41,9 @@ unsafe extern "C" {
 struct SafeContent(Retained<SCShareableContent>);
 unsafe impl Send for SafeContent {}
 
+type ShareableContentWait = Arc<(Mutex<Option<Result<SafeContent, String>>>, Condvar)>;
+type CaptureImageWait = Arc<(Mutex<Option<Result<usize, String>>>, Condvar)>;
+
 /// Capture a window via SCK and return a +1 retained CGImageRef plus its
 /// pixel width. Caller must `CFRelease` the returned pointer (or hand it
 /// off to `screenshot::save_image_ptr`, which does the release).
@@ -102,28 +105,29 @@ pub fn capture_window_to_png(
 }
 
 fn get_shareable_content() -> Result<Retained<SCShareableContent>, String> {
-    let pair: Arc<(Mutex<Option<Result<SafeContent, String>>>, Condvar)> =
-        Arc::new((Mutex::new(None), Condvar::new()));
+    let pair: ShareableContentWait = Arc::new((Mutex::new(None), Condvar::new()));
     let pair_cb = Arc::clone(&pair);
 
-    let block = RcBlock::new(move |content: *mut SCShareableContent, error: *mut NSError| {
-        let result: Result<SafeContent, String> = unsafe {
-            if !error.is_null() {
-                let err_ref = &*error;
-                Err(format!(
-                    "SCShareableContent error: {}",
-                    err_ref.localizedDescription()
-                ))
-            } else if let Some(retained) = Retained::retain(content) {
-                Ok(SafeContent(retained))
-            } else {
-                Err("SCShareableContent returned null".into())
-            }
-        };
-        let (lock, cvar) = &*pair_cb;
-        *lock.lock().unwrap() = Some(result);
-        cvar.notify_one();
-    });
+    let block = RcBlock::new(
+        move |content: *mut SCShareableContent, error: *mut NSError| {
+            let result: Result<SafeContent, String> = unsafe {
+                if !error.is_null() {
+                    let err_ref = &*error;
+                    Err(format!(
+                        "SCShareableContent error: {}",
+                        err_ref.localizedDescription()
+                    ))
+                } else if let Some(retained) = Retained::retain(content) {
+                    Ok(SafeContent(retained))
+                } else {
+                    Err("SCShareableContent returned null".into())
+                }
+            };
+            let (lock, cvar) = &*pair_cb;
+            *lock.lock().unwrap() = Some(result);
+            cvar.notify_one();
+        },
+    );
 
     unsafe {
         SCShareableContent::getShareableContentWithCompletionHandler(&block);
@@ -147,8 +151,7 @@ fn capture_image(
     filter: &SCContentFilter,
     config: &SCStreamConfiguration,
 ) -> Result<usize, String> {
-    let pair: Arc<(Mutex<Option<Result<usize, String>>>, Condvar)> =
-        Arc::new((Mutex::new(None), Condvar::new()));
+    let pair: CaptureImageWait = Arc::new((Mutex::new(None), Condvar::new()));
     let pair_cb = Arc::clone(&pair);
 
     let block = RcBlock::new(move |image: *mut CGImage, error: *mut NSError| {

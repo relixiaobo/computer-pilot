@@ -1,4 +1,5 @@
 mod ax;
+mod bridge;
 mod diff;
 mod display;
 mod error;
@@ -6,6 +7,7 @@ mod key;
 mod mouse;
 mod observer;
 mod ocr;
+mod protocol;
 mod sck;
 mod screenshot;
 mod sdef;
@@ -13,10 +15,10 @@ mod system;
 mod wait;
 
 use clap::{Parser, Subcommand};
-use error::CuError;
+use error::{CuError, ErrorCode};
 use std::io::IsTerminal;
 
-const VERSION: &str = env!("CARGO_PKG_VERSION");
+pub(crate) const VERSION: &str = env!("CARGO_PKG_VERSION");
 const POST_ACTION_DELAY_MS: u64 = 500;
 
 /// Maps an action `method` string to a (confidence, advice) pair.
@@ -78,11 +80,12 @@ fn annotate_method(result: &mut serde_json::Value) {
     name = "cu",
     version = VERSION,
     about = "macOS desktop automation CLI for AI agents",
-    before_help = "COMMANDS BY CATEGORY (27 total):\n  \
+    before_help = "COMMANDS BY CATEGORY (28 total):\n  \
         Discover         setup · apps · menu · sdef · examples\n  \
         Observe          snapshot · state · find · nearest · observe-region · ocr · screenshot · wait\n  \
         Act              click · type · key · set-value · perform · scroll · hover · drag\n  \
-        Script & System  tell · defaults · window · launch · warm · why\n\n\
+        Script & System  tell · defaults · window · launch · warm · why\n  \
+        Integrate        bridge\n\n\
         Run `cu <command> --help` for any command's full reference + examples.\n\
         Stuck? Try `cu examples` for a built-in recipe list.",
     long_about = "macOS desktop automation CLI for AI agents.\n\n\
@@ -115,10 +118,14 @@ fn annotate_method(result: &mut serde_json::Value) {
         • Always use --app to target a specific app (avoids focus issues)\n\
         • Refs are ephemeral — they change after every action, always re-snapshot"
 )]
-struct Cli {
+pub(crate) struct Cli {
     /// Force human-readable output (default: JSON when piped, human when TTY)
-    #[arg(long)]
+    #[arg(long, conflicts_with = "json")]
     human: bool,
+
+    /// Force the stable JSON machine envelope even when stdout is a TTY
+    #[arg(long, conflicts_with = "human")]
+    json: bool,
 
     #[command(subcommand)]
     command: Cmd,
@@ -126,6 +133,18 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Cmd {
+    /// Run the Agent-neutral JSON-RPC bridge over stdin/stdout
+    #[command(after_help = "Embedded hosts launch: cu bridge --stdio\n\
+        Protocol messages are newline-delimited JSON-RPC 2.0. Stdout is protocol-only.")]
+    Bridge {
+        /// Use stdin/stdout for the versioned machine protocol
+        #[arg(long, required = true)]
+        stdio: bool,
+        /// Remove a capability for the lifetime of this bridge (repeatable)
+        #[arg(long = "deny")]
+        denied_capabilities: Vec<String>,
+    },
+
     /// Check permissions, status, and version
     #[command(after_help = "Run this first on a new machine. Both permissions are required.")]
     Setup,
@@ -881,8 +900,41 @@ enum Cmd {
 // ── Main ────────────────────────────────────────────────────────────────────
 
 fn main() {
-    let cli = Cli::parse();
-    let json = !cli.human && !std::io::stdout().is_terminal();
+    let machine_requested = std::env::args_os().any(|arg| arg == "--json")
+        || !std::io::stdout().is_terminal();
+    let cli = match Cli::try_parse() {
+        Ok(cli) => cli,
+        Err(error)
+            if machine_requested
+                && !matches!(
+                    error.kind(),
+                    clap::error::ErrorKind::DisplayHelp
+                        | clap::error::ErrorKind::DisplayVersion
+                ) =>
+        {
+            eprintln!(
+                "{}",
+                CuError::msg(error.to_string())
+                    .with_code(ErrorCode::InvalidArgument)
+                    .to_json()
+            );
+            std::process::exit(2);
+        }
+        Err(error) => error.exit(),
+    };
+    let json = cli.json || (!cli.human && !std::io::stdout().is_terminal());
+
+    if let Cmd::Bridge {
+        stdio: _,
+        denied_capabilities,
+    } = cli.command
+    {
+        if let Err(error) = bridge::run_stdio(denied_capabilities) {
+            eprintln!("Bridge error: {error}");
+            std::process::exit(1);
+        }
+        return;
+    }
 
     if let Err(e) = dispatch(cli.command, json) {
         if json {
@@ -902,6 +954,8 @@ fn main() {
 
 fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
     match cmd {
+        Cmd::Bridge { .. } => Err(CuError::msg("bridge must be run through the stdio entrypoint")
+            .with_code(ErrorCode::InvalidArgument)),
         Cmd::Setup => cmd_setup(json),
         Cmd::Apps => cmd_apps(json),
         Cmd::Snapshot {
@@ -1208,7 +1262,9 @@ fn cmd_setup(json: bool) -> Result<(), CuError> {
 fn cmd_apps(json: bool) -> Result<(), CuError> {
     let payload = system::list_apps()?;
     if json {
-        println!("{payload}");
+        let value: serde_json::Value = serde_json::from_str(&payload)
+            .map_err(|e| format!("failed to parse apps: {e}"))?;
+        emit(&value);
         return Ok(());
     }
 
@@ -1973,13 +2029,13 @@ fn cmd_set_value(
         "ui_effect_verified": serde_json::Value::Null,
         "effect_advice": "AXValue write succeeded, but this only proves the accessibility value changed. Some apps do not run their normal UI/search/input handlers for AXValue changes; verify with snapshot/OCR/wait when the business effect matters.",
     });
-    if let Some(advice) = stale_advice {
-        if let Some(obj) = result.as_object_mut() {
-            obj.insert(
-                "stale_state_advice".to_string(),
-                serde_json::Value::String(advice),
-            );
-        }
+    if let Some(advice) = stale_advice
+        && let Some(obj) = result.as_object_mut()
+    {
+        obj.insert(
+            "stale_state_advice".to_string(),
+            serde_json::Value::String(advice),
+        );
     }
     maybe_attach_snapshot(&mut result, json, no_snapshot, &app, limit);
     if json {
@@ -2042,13 +2098,13 @@ fn cmd_perform(
         "method": "ax-perform",
         "available_actions": available,
     });
-    if let Some(advice) = stale_advice {
-        if let Some(obj) = result.as_object_mut() {
-            obj.insert(
-                "stale_state_advice".to_string(),
-                serde_json::Value::String(advice),
-            );
-        }
+    if let Some(advice) = stale_advice
+        && let Some(obj) = result.as_object_mut()
+    {
+        obj.insert(
+            "stale_state_advice".to_string(),
+            serde_json::Value::String(advice),
+        );
     }
     maybe_attach_snapshot(&mut result, json, no_snapshot, &app, limit);
     if json {
@@ -2373,13 +2429,13 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
     };
 
     let mut result = serde_json::json!({"ok": true, "ref": ref_id, "app": name, "method": method, "x": cx, "y": cy});
-    if let Some(advice) = stale_advice {
-        if let Some(obj) = result.as_object_mut() {
-            obj.insert(
-                "stale_state_advice".to_string(),
-                serde_json::Value::String(advice),
-            );
-        }
+    if let Some(advice) = stale_advice
+        && let Some(obj) = result.as_object_mut()
+    {
+        obj.insert(
+            "stale_state_advice".to_string(),
+            serde_json::Value::String(advice),
+        );
     }
     maybe_attach_snapshot(&mut result, json, no_snapshot, &app, limit);
     if let Some((_, _, ref prev)) = pre_state {
@@ -3255,10 +3311,35 @@ fn ok(value: serde_json::Value) -> Result<(), CuError> {
 }
 
 fn emit(value: &impl serde::Serialize) {
-    println!(
-        "{}",
-        serde_json::to_string(value).unwrap_or_else(|_| r#"{"ok":false}"#.into())
-    );
+    let mut value = serde_json::to_value(value).unwrap_or_else(|_| {
+        serde_json::json!({
+            "schema_version": protocol::MACHINE_SCHEMA_VERSION,
+            "ok": false,
+            "code": "serialization_failed",
+            "error": "failed to serialize command result",
+            "retryable": false,
+        })
+    });
+    if let Some(object) = value.as_object_mut() {
+        object
+            .entry("schema_version")
+            .or_insert_with(|| protocol::MACHINE_SCHEMA_VERSION.into());
+        object.entry("ok").or_insert(serde_json::Value::Bool(true));
+        if object.get("ok").and_then(serde_json::Value::as_bool) == Some(false) {
+            object
+                .entry("code")
+                .or_insert_with(|| "command_failed".into());
+            object
+                .entry("retryable")
+                .or_insert(serde_json::Value::Bool(false));
+        }
+    }
+    println!("{}", serde_json::to_string(&value).unwrap_or_else(|_| {
+        format!(
+            r#"{{"schema_version":"{}","ok":false,"code":"serialization_failed","error":"failed to serialize command result","retryable":false}}"#,
+            protocol::MACHINE_SCHEMA_VERSION
+        )
+    }));
 }
 
 fn print_snapshot_human(snap: &ax::SnapshotResult) {

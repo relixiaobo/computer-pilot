@@ -3,9 +3,11 @@
 # Opens TextEdit, types text, verifies
 source "$(dirname "$0")/helpers.sh"
 
-# Make sure TextEdit has a document. We do NOT activate — `cu type --app
+# Remove documents leaked by interrupted/manual test runs, then create exactly
+# one target document. We do NOT activate — `cu type --app
 # TextEdit` is PID-targeted, so TextEdit doesn't need to be frontmost as long
 # as the document's textarea is its focused element.
+osascript -e 'tell application "TextEdit" to close every document saving no' 2>/dev/null || true
 osascript -e 'tell application "TextEdit" to make new document' 2>/dev/null
 sleep 0.5
 

@@ -4,7 +4,7 @@
 # Usage:
 #   bash scripts/release.sh <version>                      # full release
 #   bash scripts/release.sh <version> --dry-run            # walk through, run nothing
-#   bash scripts/release.sh <version> --skip-tests         # skip the L1 test run
+#   bash scripts/release.sh <version> --skip-tests         # skip L1 + stdio conformance
 #                                                          # (use only when you JUST ran
 #                                                          #  run_all.sh manually and got 0 failures)
 #   bash scripts/release.sh <version> --skip-agent         # skip the L2 agent E2E run
@@ -18,11 +18,12 @@
 #   2. Updates Cargo.toml version
 #   3. Runs cargo build --release
 #   4. Runs L1 command tests (must pass) — skipped with --skip-tests
-#   5. Runs L2 agent E2E (must pass) — skipped with --skip-agent or when no API key
-#   6. Commits the version bump
-#   7. Pushes the commit to origin
-#   8. Creates and pushes the v<version> tag
-#   9. Builds binary, creates GitHub release with cu-arm64 asset
+#   5. Runs the black-box stdio protocol conformance gate — skipped with --skip-tests
+#   6. Runs L2 agent E2E (must pass) — skipped with --skip-agent or when no API key
+#   7. Commits the version bump
+#   8. Pushes the commit to origin
+#   9. Creates and pushes the v<version> tag
+#  10. Builds binary, creates GitHub release with cu-arm64 asset
 #
 # Prerequisites:
 #   - gh CLI authenticated (gh auth status)
@@ -159,11 +160,15 @@ run "cargo build --release"
 if [[ -n "$SKIP_TESTS" ]]; then
   echo ""
   echo "→ Skipping test suite (--skip-tests)"
-  echo "  Caller is responsible for having run \`bash tests/commands/run_all.sh\` recently."
+  echo "  Caller is responsible for having run the L1 suite and stdio conformance recently."
 else
   echo ""
   echo "→ Running test suite"
   run "bash tests/commands/run_all.sh"
+
+  echo ""
+  echo "→ Running stdio protocol conformance"
+  run "python3 scripts/run-stdio-conformance.py --timeout-ms 30000 -- ./target/release/cu"
 fi
 
 # Verify binary version matches

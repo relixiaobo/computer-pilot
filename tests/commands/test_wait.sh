@@ -53,7 +53,9 @@ fi
 
 section "wait --gone — non-existent ref (immediate success)"
 
-cu_json "wait --gone 9999 --app Finder --timeout 3"
+osascript -e 'tell application "TextEdit" to make new document' 2>/dev/null || true
+sleep 0.5
+cu_json "wait --gone 9999 --app TextEdit --timeout 3"
 assert_ok "wait --gone 9999 (already absent)"
 ELAPSED=$(json_get '.elapsed_ms' || echo "9999")
 if [[ "$ELAPSED" -lt 2000 ]] 2>/dev/null; then
@@ -61,6 +63,8 @@ if [[ "$ELAPSED" -lt 2000 ]] 2>/dev/null; then
 else
   _fail "gone immediate" "took ${ELAPSED}ms"
 fi
+osascript -e 'tell application "TextEdit" to close every document saving no' >/dev/null 2>&1 || true
+osascript -e 'tell application "TextEdit" to quit' >/dev/null 2>&1 || true
 
 section "wait — error: no condition specified"
 
