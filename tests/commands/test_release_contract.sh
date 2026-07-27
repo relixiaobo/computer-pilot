@@ -3,6 +3,7 @@
 source "$(dirname "$0")/helpers.sh"
 
 WORKFLOW="$ROOT_DIR/.github/workflows/release.yml"
+TAG_WORKFLOW="$ROOT_DIR/.github/workflows/tag-release.yml"
 
 section "release contract — tag ancestry"
 
@@ -22,6 +23,26 @@ if grep -Fq 'git merge-base --is-ancestor "$TAG_COMMIT" origin/main' "$WORKFLOW"
   _pass "release rejects tags outside main history"
 else
   _fail "release rejects tags outside main history" "missing main ancestry gate"
+fi
+
+section "release contract — workflow handoff"
+
+if grep -Fq 'workflow_call:' "$WORKFLOW"; then
+  _pass "publish workflow accepts a direct reusable call"
+else
+  _fail "reusable publish workflow" "release.yml has no workflow_call entry"
+fi
+
+if grep -Fq 'uses: ./.github/workflows/release.yml' "$TAG_WORKFLOW"; then
+  _pass "tag workflow invokes publication directly"
+else
+  _fail "tag-to-publish handoff" "tag workflow relies only on a token-created push event"
+fi
+
+if grep -Fq 'ref: ${{ inputs.tag || github.ref }}' "$WORKFLOW"; then
+  _pass "publication checks out the requested tag"
+else
+  _fail "release tag checkout" "publish workflow does not bind checkout to its tag input"
 fi
 
 section "permission contract — Apple Events are tell-only"
