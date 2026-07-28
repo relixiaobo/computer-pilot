@@ -34,3 +34,10 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "v$VERSION" -m "v$VERSION"
           git push origin "v$VERSION"
+
+  publish:
+    needs: tag
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ format('v{0}', inputs.version) }}
+    secrets: inherit

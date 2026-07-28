@@ -40,9 +40,10 @@ assert_ok "tell Finder selection (may be empty)"
 
 section "tell — write and cleanup"
 
-cu_json tell Notes 'make new note with properties {name:"cu-test-tell-sh", body:"test"}'
+NOTE_NAME="cu-test-tell-sh-$$"
+cu_json tell Notes "make new note with properties {name:\"$NOTE_NAME\", body:\"test\"}" --timeout 30
 assert_ok "create note"
-cu_json tell Notes 'delete note "cu-test-tell-sh"'
+cu_json tell Notes "delete note \"$NOTE_NAME\"" --timeout 30
 assert_ok "delete note"
 
 section "tell — full tell block passthrough"
