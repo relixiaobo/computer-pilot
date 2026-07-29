@@ -45,6 +45,7 @@ solely because the caller timed out.
 | `invalid_argument` | Invalid CLI or Broker input | Correct the request. |
 | `permission_denied` | TCC or private authentication denied | Fix the relevant permission. |
 | `app_not_found` | App missing or not running | Inspect `cu apps` or launch it. |
+| `ambiguous_target` | Name/bundle matched multiple processes | Choose `diagnostics.candidates[].selector` and reuse that PID selector. |
 | `window_not_found` | Target window unavailable | Observe/launch and wait for a window. |
 | `observation_required` | Ref has no current client Observation | Run `cu state` or `cu snapshot`. |
 | `observation_not_found` | Observation missing, foreign, or expired | Observe again. |

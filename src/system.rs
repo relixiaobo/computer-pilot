@@ -1,6 +1,7 @@
 //! macOS system integration — app resolution, permissions, launch, and scripting.
 //! All scripting uses AppleScript (no JXA). Sdef parsing is in sdef.rs (Rust native).
 
+use crate::error::{CuError, ErrorCode};
 use std::ffi::{CStr, c_char, c_void};
 use std::process::{Command, Stdio};
 
@@ -163,23 +164,121 @@ pub fn check_screen_recording() -> bool {
 
 // ── App resolution ──────────────────────────────────────────────────────────
 
-pub fn resolve_target_app(name: &Option<String>) -> Result<(i32, String), String> {
-    let apps = running_apps_native();
-    let found = match name {
-        Some(name) => apps
+fn parse_pid_selector(selector: &str) -> Result<Option<i32>, CuError> {
+    let selector = selector.trim();
+    if !selector
+        .get(..4)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("pid:"))
+    {
+        return Ok(None);
+    }
+
+    let raw = selector.get(4..).unwrap_or_default();
+    if raw.is_empty() || !raw.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err(CuError::msg(format!(
+            "invalid PID selector \"{selector}\": expected pid:<positive integer>"
+        ))
+        .with_code(ErrorCode::InvalidArgument)
+        .with_hint("run `cu apps` and copy the candidate's `selector` field"));
+    }
+    let pid = raw.parse::<i32>().map_err(|_| {
+        CuError::msg(format!(
+            "invalid PID selector \"{selector}\": PID is outside the supported range"
+        ))
+        .with_code(ErrorCode::InvalidArgument)
+    })?;
+    if pid <= 0 {
+        return Err(CuError::msg(format!(
+            "invalid PID selector \"{selector}\": PID must be positive"
+        ))
+        .with_code(ErrorCode::InvalidArgument));
+    }
+    Ok(Some(pid))
+}
+
+fn candidate_json(app: &NativeApp) -> serde_json::Value {
+    serde_json::json!({
+        "name": app.name,
+        "pid": app.pid,
+        "selector": format!("pid:{}", app.pid),
+        "bundle_id": app.bundle_id,
+        "bundle_path": app.bundle_path,
+        "active": app.active,
+    })
+}
+
+fn resolve_target_from_apps(
+    apps: &[NativeApp],
+    selector: &Option<String>,
+) -> Result<(i32, String), CuError> {
+    let Some(selector) = selector else {
+        return apps
             .iter()
-            .filter(|app| {
-                app.name.eq_ignore_ascii_case(name) || app.bundle_id.eq_ignore_ascii_case(name)
-            })
-            .max_by_key(|app| app.active),
-        None => apps.iter().find(|app| app.active),
+            .find(|app| app.active)
+            .map(|app| (app.pid, app.name.clone()))
+            .ok_or_else(|| {
+                CuError::msg("no frontmost application found")
+                    .with_code(ErrorCode::AppNotFound)
+                    .with_hint("run `cu apps` and pass an explicit app selector")
+            });
     };
-    found
-        .map(|app| (app.pid, app.name.clone()))
-        .ok_or_else(|| match name {
-            Some(name) => format!("app not running: {name}"),
-            None => "no frontmost application found".into(),
+
+    if let Some(pid) = parse_pid_selector(selector)? {
+        return apps
+            .iter()
+            .find(|app| app.pid == pid)
+            .map(|app| (app.pid, app.name.clone()))
+            .ok_or_else(|| {
+                CuError::msg(format!("app not running: pid:{pid}"))
+                    .with_code(ErrorCode::AppNotFound)
+                    .with_hint(
+                        "the process may have exited; run `cu apps` and refresh the selector",
+                    )
+            });
+    }
+
+    let mut matches: Vec<&NativeApp> = apps
+        .iter()
+        .filter(|app| {
+            app.name.eq_ignore_ascii_case(selector) || app.bundle_id.eq_ignore_ascii_case(selector)
         })
+        .collect();
+    matches.sort_by_key(|app| app.pid);
+
+    match matches.as_slice() {
+        [] => Err(CuError::msg(format!("app not running: {selector}"))
+            .with_code(ErrorCode::AppNotFound)
+            .with_hint("run `cu apps` to inspect running application selectors")),
+        [app] => Ok((app.pid, app.name.clone())),
+        _ => {
+            let summary = matches
+                .iter()
+                .map(|app| format!("{} (pid {})", app.name, app.pid))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let candidates = matches
+                .iter()
+                .map(|app| candidate_json(app))
+                .collect::<Vec<_>>();
+            Err(CuError::msg(format!(
+                "ambiguous target \"{selector}\": matched {} running processes: {summary}",
+                matches.len()
+            ))
+            .with_code(ErrorCode::AmbiguousTarget)
+            .with_hint(
+                "choose the intended process from diagnostics.candidates, then reuse its pid:<PID> selector for every state, action, and wait command",
+            )
+            .with_next("cu state \"pid:<PID>\"")
+            .with_diagnostics(serde_json::json!({
+                "selector": selector,
+                "candidates": candidates,
+            })))
+        }
+    }
+}
+
+pub fn resolve_target_app(name: &Option<String>) -> Result<(i32, String), CuError> {
+    resolve_target_from_apps(&running_apps_native(), name)
 }
 
 /// Return running foreground-capable processes for native AX enumeration.
@@ -250,6 +349,15 @@ pub fn frontmost_app_name() -> Result<String, String> {
         .ok_or_else(|| "no frontmost application found".into())
 }
 
+/// PID of the frontmost GUI process. Use this when duplicate app names exist.
+pub fn frontmost_app_pid() -> Result<i32, String> {
+    running_apps_native()
+        .into_iter()
+        .find(|app| app.active)
+        .map(|app| app.pid)
+        .ok_or_else(|| "no frontmost application found".into())
+}
+
 /// Returns Err with a structured message when the frontmost app is one of
 /// `DANGEROUS_FRONTMOST`. Soft-fails (returns Ok) if the frontmost lookup itself
 /// fails — we don't want to block legitimate use because app discovery raced.
@@ -289,7 +397,9 @@ pub fn list_apps() -> Result<String, String> {
         let mut entry = serde_json::json!({
             "name": app.name,
             "pid": app.pid,
+            "selector": format!("pid:{}", app.pid),
             "bundle_id": app.bundle_id,
+            "bundle_path": app.bundle_path,
             "active": app.active,
             "activation_policy": app.activation_policy,
             "scriptable": sdef_classes.is_some()
@@ -305,6 +415,7 @@ pub fn list_apps() -> Result<String, String> {
             .as_str()
             .unwrap_or("")
             .cmp(b["name"].as_str().unwrap_or(""))
+            .then_with(|| a["pid"].as_i64().cmp(&b["pid"].as_i64()))
     });
 
     Ok(serde_json::to_string(&serde_json::json!({"apps": apps}))
@@ -417,12 +528,8 @@ pub fn defaults_write(domain: &str, key: &str, value_args: &[String]) -> Result<
 
 /// Resolve a process by bundle identifier through NSWorkspace.
 /// Returns `(pid, app_name)` once the process exists, error otherwise.
-pub fn resolve_by_bundle_id(bundle_id: &str) -> Result<(i32, String), String> {
-    running_apps_native()
-        .into_iter()
-        .find(|app| app.bundle_id.eq_ignore_ascii_case(bundle_id))
-        .map(|app| (app.pid, app.name))
-        .ok_or_else(|| format!("app not running: {bundle_id}"))
+pub fn resolve_by_bundle_id(bundle_id: &str) -> Result<(i32, String), CuError> {
+    resolve_target_from_apps(&running_apps_native(), &Some(bundle_id.to_string()))
 }
 
 /// Launch an app by name or bundle identifier via Launch Services.
@@ -563,5 +670,72 @@ fn run_applescript_capture(
                 .status();
             Err(format!("osascript timed out after {timeout_secs}s"))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn app(name: &str, pid: i32, bundle_id: &str, bundle_path: &str, active: bool) -> NativeApp {
+        NativeApp {
+            name: name.into(),
+            pid,
+            bundle_id: bundle_id.into(),
+            bundle_path: bundle_path.into(),
+            active,
+            activation_policy: 0,
+        }
+    }
+
+    #[test]
+    fn duplicate_names_and_bundles_require_pid_selector() {
+        let apps = vec![
+            app(
+                "WorkBuddy",
+                45660,
+                "com.example.workbuddy",
+                "/Applications/WorkBuddy.app",
+                true,
+            ),
+            app(
+                "WorkBuddy",
+                89806,
+                "com.example.workbuddy",
+                "/workspace/WorkBuddy.app",
+                false,
+            ),
+        ];
+
+        for selector in ["WorkBuddy", "com.example.workbuddy"] {
+            let error = resolve_target_from_apps(&apps, &Some(selector.into())).unwrap_err();
+            assert_eq!(error.code, ErrorCode::AmbiguousTarget);
+            assert_eq!(error.to_json()["code"], "ambiguous_target");
+            assert_eq!(
+                error.to_json()["diagnostics"]["candidates"][0]["pid"],
+                45660
+            );
+            assert_eq!(
+                error.to_json()["diagnostics"]["candidates"][1]["pid"],
+                89806
+            );
+        }
+
+        assert_eq!(
+            resolve_target_from_apps(&apps, &Some("pid:89806".into())).unwrap(),
+            (89806, "WorkBuddy".into())
+        );
+    }
+
+    #[test]
+    fn pid_selector_is_strict_and_reports_exited_processes() {
+        let apps = vec![app("Finder", 101, "com.apple.finder", "/Finder.app", true)];
+
+        let invalid =
+            resolve_target_from_apps(&apps, &Some("pid:not-a-number".into())).unwrap_err();
+        assert_eq!(invalid.code, ErrorCode::InvalidArgument);
+
+        let missing = resolve_target_from_apps(&apps, &Some("pid:999".into())).unwrap_err();
+        assert_eq!(missing.code, ErrorCode::AppNotFound);
     }
 }

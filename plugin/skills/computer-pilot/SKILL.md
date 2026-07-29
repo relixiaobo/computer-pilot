@@ -62,8 +62,8 @@ It returns the AX elements, windows, displays, frontmost state, an
 `observation_id`, and normally a screenshot. Use `--no-screenshot` when the AX
 tree is sufficient.
 
-Inspect the returned state, then perform exactly one action with an explicit
-target app:
+Inspect the returned state, then perform exactly one action with the same
+explicit app selector:
 
 ```bash
 cu click 12 --app "Mail" --observation "<observation_id>"
@@ -88,6 +88,23 @@ cu wait --modal --app "Mail" --timeout 5
 Always pass `--app` to `click`, `type`, `key`, `scroll`, `hover`, `drag`,
 `set-value`, and `perform`. PID-targeted delivery avoids focus drift and keeps
 the user's frontmost app unchanged. Treat any `*-global` method as disruptive.
+
+An app selector may be a unique application name, a unique bundle identifier,
+or `pid:<PID>`. `cu apps` returns the exact `selector` and `bundle_path` for
+each running process. If a name or bundle identifier matches multiple
+instances, `cu` returns `ambiguous_target` and does not observe or act. Choose
+the intended process from `diagnostics.candidates`, then reuse its PID selector
+for the entire state-act-verify loop:
+
+```bash
+cu state "pid:89806"
+cu click 12 --app "pid:89806" --observation "<observation_id>"
+cu wait --text "Saved" --app "pid:89806" --timeout 10
+```
+
+Never select a duplicate instance by whichever copy is active. A PID expires
+when the process exits; after restart, run `cu apps`, obtain the new selector,
+and create a fresh Observation.
 
 Prefer targeting in this order:
 

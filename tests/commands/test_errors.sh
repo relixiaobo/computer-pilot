@@ -38,6 +38,26 @@ assert_fail "click ref=0"
 cu_json "click abc"
 assert_fail "click non-numeric ref"
 
+section "errors — PID selectors"
+
+cu_json snapshot "pid:not-a-number"
+assert_fail "malformed PID selector fails"
+CODE=$(echo "$ERR" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("code", ""))' 2>/dev/null || true)
+if [[ "$CODE" == "invalid_argument" ]]; then
+  _pass "malformed PID selector has invalid_argument code"
+else
+  _fail "malformed PID selector code" "got '$CODE': ${ERR:0:160}"
+fi
+
+cu_json snapshot "pid:2147483647"
+assert_fail "exited PID selector fails"
+CODE=$(echo "$ERR" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("code", ""))' 2>/dev/null || true)
+if [[ "$CODE" == "app_not_found" ]]; then
+  _pass "exited PID selector has app_not_found code"
+else
+  _fail "exited PID selector code" "got '$CODE': ${ERR:0:160}"
+fi
+
 section "errors — invalid scroll"
 
 cu_json "scroll diagonal 3 --x 100 --y 100"
