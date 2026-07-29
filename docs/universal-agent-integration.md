@@ -47,6 +47,8 @@ The Broker owns:
   `unknown_outcome` recovery;
 - Observation records binding refs to client, PID, bundle, window, and AX
   generation;
+- application selectors that reject duplicate names/bundle IDs and require
+  `pid:<PID>` when multiple running instances match;
 - mutation serialization per target application/resource and desktop-wide
   locking for global pointer, focus, and clipboard operations;
 - bounded, expiring Observation state plus secure output-directory propagation;
@@ -93,11 +95,11 @@ COMPUTER_PILOT_CLIENT_KEY=<stable logical Agent identity>
 COMPUTER_PILOT_OUTPUT_DIR=<absolute task-owned directory>
 ```
 
-Stable errors distinguish invalid input, permissions, missing apps/windows,
-stale observations, busy targets, protected capture, failed verification,
-cancellation, expiration, and uncertain mutation outcomes. Callers branch on
-`code`, not English text. `retryable:true` never means a mutation is safe to
-replay.
+Stable errors distinguish invalid input, ambiguous or missing app targets,
+permissions, missing windows, stale observations, busy targets, protected
+capture, failed verification, cancellation, expiration, and uncertain mutation
+outcomes. Callers branch on `code`, not English text. `retryable:true` never
+means a mutation is safe to replay.
 
 ## File Results
 

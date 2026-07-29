@@ -43,9 +43,14 @@ while you keep typing in your terminal.
 | AX action chain | **15-step fallback** | proprietary | n/a | basic AXPress |
 | Method audit field | **✓** in every response | ✗ | ✗ | ✗ |
 
-The mechanism is per-process event delivery: when `--app <Name>` is given,
+The mechanism is per-process event delivery: when `--app <selector>` is given,
 every CGEvent is posted via `CGEventPostToPid` to the resolved pid instead
 of through the global HID tap. The cursor and focus are not touched.
+
+Selectors accept a unique app name, unique bundle ID, or `pid:<PID>`. When
+development and production instances share a name or bundle ID, `cu` returns
+`ambiguous_target` instead of guessing. Copy the intended process's `selector`
+from `cu apps` and reuse it across state, action, and wait commands.
 
 `cu type` injects UTF-16 directly via `CGEventKeyboardSetUnicodeString` —
 no copy/paste, no clipboard pollution, works with any IME (Chinese, Japanese,
@@ -60,7 +65,7 @@ Every action response includes a `method` field documenting the routing:
 | `cgevent-global`, `unicode-global`, `key-global`, `ocr-text-global` | global HID tap (disruptive — `--app` was missing) |
 
 A `*-global` method in the response is the audit signal that the agent
-forgot `--app` and disrupted the user. Always pass `--app <Name>`.
+forgot `--app` and disrupted the user. Always pass `--app <selector>`.
 
 **Known limitation:** `drag` and `hover` move the cursor by design. A small
 set of sandboxed Mac App Store apps ignores PID-targeted events. `cu click`

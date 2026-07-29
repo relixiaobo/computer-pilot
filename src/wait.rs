@@ -5,6 +5,7 @@
 //! --text which matches by content rather than position.
 
 use crate::ax;
+use crate::error::CuError;
 use crate::system;
 use std::time::{Duration, Instant};
 
@@ -38,7 +39,7 @@ pub fn wait_for(
     app: &Option<String>,
     timeout_ms: u64,
     limit: usize,
-) -> Result<WaitResult, String> {
+) -> Result<WaitResult, CuError> {
     let start = Instant::now();
     let deadline = start + Duration::from_millis(timeout_ms);
 
@@ -66,7 +67,10 @@ pub fn wait_for(
         let snap = ax::snapshot(pid, &name, effective_limit);
 
         if !snap.ok {
-            return Err(snap.error.unwrap_or_else(|| "snapshot failed".into()));
+            return Err(snap
+                .error
+                .unwrap_or_else(|| "snapshot failed".into())
+                .into());
         }
 
         // Focus baseline requires the first snapshot; window baseline was

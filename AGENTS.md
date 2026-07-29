@@ -136,6 +136,12 @@ when `--app <Name>` is given, every event is posted via `CGEventPostToPid`
 to the resolved pid instead of through the global HID tap. The cursor stays
 put, the frontmost app stays frontmost, and the user is not interrupted.
 
+`--app` accepts a unique name, a unique bundle identifier, or `pid:<PID>`.
+Names and bundle identifiers are never resolved by an active/first-instance
+heuristic: if multiple GUI processes match, return `ambiguous_target` with
+candidate selectors and do not observe or act. Reuse the chosen PID selector
+through the state-act-verify loop, and refresh it after the process exits.
+
 This applies to every action command: `click`, `type`, `key`, `scroll`,
 `hover`, `drag`, `set-value`, `perform`. All of them resolve `--app` to a
 pid up front and pass it down to `mouse::*` / `key::*`.

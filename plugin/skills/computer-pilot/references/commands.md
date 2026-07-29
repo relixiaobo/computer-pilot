@@ -24,6 +24,12 @@ COMPUTER_PILOT_OUTPUT_DIR
 The output directory must be absolute. File commands refuse overwrite and
 symlink traversal.
 
+Every UI `<app>`/`--app <app>` value accepts a unique application name, a
+unique bundle identifier, or `pid:<PID>`. Name and bundle selectors fail with
+`ambiguous_target` when multiple processes match. Use the exact `selector`
+returned by `cu apps` for development/production copies or other duplicate
+instances.
+
 ## Discover
 
 ### `cu setup`
@@ -34,9 +40,9 @@ permission failure.
 
 ### `cu apps`
 
-List running applications with `name`, `pid`, `bundle_id`, `active`,
-`scriptable`, and optional `sdef_classes`. Application identity comes from
-NSWorkspace and does not request Automation permission.
+List running applications with `name`, `pid`, reusable `selector`, `bundle_id`,
+`bundle_path`, `active`, `scriptable`, and optional `sdef_classes`. Application
+identity comes from NSWorkspace and does not request Automation permission.
 
 ### `cu menu <app>`
 

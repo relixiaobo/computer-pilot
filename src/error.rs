@@ -15,7 +15,7 @@
 
 use serde_json::Value;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ErrorCode {
     CommandFailed,
     InvalidArgument,
@@ -29,6 +29,7 @@ pub enum ErrorCode {
     CommandExpired,
     UnknownOutcome,
     TargetBusy,
+    AmbiguousTarget,
     PermissionDenied,
     AppNotFound,
     WindowNotFound,
@@ -52,6 +53,7 @@ impl ErrorCode {
             Self::CommandExpired => "command_expired",
             Self::UnknownOutcome => "unknown_outcome",
             Self::TargetBusy => "target_busy",
+            Self::AmbiguousTarget => "ambiguous_target",
             Self::PermissionDenied => "permission_denied",
             Self::AppNotFound => "app_not_found",
             Self::WindowNotFound => "window_not_found",
@@ -63,7 +65,11 @@ impl ErrorCode {
 
     fn classify(error: &str) -> Self {
         let error = error.to_ascii_lowercase();
-        if error.contains("capture-protected") || error.contains("capture protected") {
+        if error.contains("ambiguous target") {
+            Self::AmbiguousTarget
+        } else if error.contains("invalid pid selector") {
+            Self::InvalidArgument
+        } else if error.contains("capture-protected") || error.contains("capture protected") {
             Self::CaptureProtected
         } else if error.contains("permission denied")
             || error.contains("permission is required")

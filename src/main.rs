@@ -43,7 +43,7 @@ fn method_meta(method: &str) -> (&'static str, &'static str) {
         // Global HID tap — disruptive (cursor warps, focus may steal).
         "cgevent-global" | "key-global" | "unicode-global" => (
             "low",
-            "global HID tap was used (disruptive) — pass --app <Name> to keep cursor/focus put",
+            "global HID tap was used (disruptive) — pass --app <selector> to keep cursor/focus put",
         ),
         "ocr-text-global" => (
             "low",
@@ -117,6 +117,7 @@ fn annotate_method(result: &mut serde_json::Value) {
         • Use cu defaults to change settings without navigating System Settings\n\
         • cu click --text \"label\" finds and clicks text via OCR\n\
         • Always use --app to target a specific app (avoids focus issues)\n\
+        • If names/bundle IDs repeat, use the pid:<PID> selector from cu apps\n\
         • Refs are ephemeral — they change after every action, always re-snapshot"
 )]
 pub(crate) struct Cli {
@@ -188,7 +189,7 @@ enum Cmd {
         Output: elements with ref, role, title, value, x, y, width, height.\n\
         Use ref numbers with 'cu click <ref>' to interact with elements.")]
     Snapshot {
-        /// Application name (default: frontmost app)
+        /// App selector: unique name, bundle ID, or pid:<PID> (default: frontmost)
         app: Option<String>,
         /// Max elements to return
         #[arg(long, default_value = "50")]
@@ -236,7 +237,7 @@ enum Cmd {
     Type {
         /// Text to type
         text: String,
-        /// Target app — events delivered directly to its pid (no focus theft)
+        /// Target app selector — unique name, bundle ID, or pid:<PID>
         #[arg(long)]
         app: Option<String>,
         /// Skip auto-snapshot in JSON output
@@ -346,7 +347,7 @@ enum Cmd {
     Key {
         /// Key combination (e.g., cmd+c, enter, cmd+shift+s)
         combo: String,
-        /// Target app (events are delivered directly to its process)
+        /// Target app selector — unique name, bundle ID, or pid:<PID>
         #[arg(long)]
         app: Option<String>,
         /// Skip auto-snapshot in JSON output
@@ -501,7 +502,7 @@ enum Cmd {
         /// Wait until the focused element changes from the baseline at start (C3)
         #[arg(long)]
         focused_changed: bool,
-        /// Target app (resolved once, prevents drift)
+        /// Target app selector, resolved once to a PID to prevent drift
         #[arg(long)]
         app: Option<String>,
         /// Timeout in seconds
@@ -523,7 +524,7 @@ enum Cmd {
         text appears in multiple places on screen.\n\
         Use for apps with poor AX support (games, Qt, Java apps).")]
     Ocr {
-        /// Application name (default: frontmost)
+        /// App selector: unique name, bundle ID, or pid:<PID> (default: frontmost)
         app: Option<String>,
         /// Restrict OCR results to text whose center is inside this screen rectangle:
         /// "x,y WxH" or "x,y,w,h" (in points).
@@ -695,9 +696,9 @@ enum Cmd {
         --output accepted as an alias for --path. This matches every other \
         cu command's flag layout — agents don't need to remember the exception.")]
     Screenshot {
-        /// Application name (positional). Equivalent to --app; either works.
+        /// App selector (positional): unique name, bundle ID, or pid:<PID>
         app_positional: Option<String>,
-        /// Application name (--app form). For consistency with every other cu
+        /// App selector (--app form). For consistency with every other cu
         /// command. Conflicts with the positional form.
         #[arg(long = "app", conflicts_with = "app_positional")]
         app_flag: Option<String>,
@@ -798,7 +799,7 @@ enum Cmd {
         cu warm TextEdit        # before a hot loop of clicks\n\n\
         Returns: { ok, app, pid, warmup_ms }")]
     Warm {
-        /// App name (must already be running)
+        /// App selector: unique name, bundle ID, or pid:<PID>
         app: String,
     },
 
@@ -815,7 +816,7 @@ enum Cmd {
         Returns: { ok, app, pid, frontmost, windows[], displays[], elements[],\n\
                    snapshot_size, tree_truncated, screenshot?, image_scale? }")]
     State {
-        /// Application name (must be running)
+        /// App selector: unique name, bundle ID, or pid:<PID>
         app: String,
         /// AX tree depth limit
         #[arg(long, default_value = "50")]
@@ -1028,16 +1029,16 @@ impl Cmd {
         if let Some((app, require_running)) = app {
             let resolved = system::resolve_target_app(&Some(app.to_string()));
             return match resolved {
-                Ok((pid, _)) => {
-                    let identity = system::bundle_id_for_pid(pid)
-                        .filter(|bundle_id| !bundle_id.is_empty())
-                        .map(|bundle_id| bundle_id.to_lowercase())
-                        .unwrap_or_else(|| format!("pid:{pid}"));
-                    Ok(Some(format!("app:{identity}")))
+                Ok((pid, _)) => Ok(Some(format!("app:pid:{pid}"))),
+                Err(error)
+                    if matches!(
+                        error.code,
+                        ErrorCode::AmbiguousTarget | ErrorCode::InvalidArgument
+                    ) =>
+                {
+                    Err(error)
                 }
-                Err(error) if require_running => {
-                    Err(CuError::msg(error).with_code(ErrorCode::AppNotFound))
-                }
+                Err(error) if require_running => Err(error),
                 Err(_) => Ok(Some(format!("app:raw:{}", app.to_lowercase()))),
             };
         }
@@ -1065,10 +1066,11 @@ impl Cmd {
                     || *paste
                     || (!*no_paste
                         && (contains_cjk(text)
-                            || app.as_ref().is_some_and(|name| {
-                                PASTE_APPS.iter().any(|known| {
-                                    name.eq_ignore_ascii_case(known) || name.contains(*known)
-                                })
+                            || app.as_ref().is_some_and(|selector| {
+                                let name = system::resolve_target_app(&Some(selector.clone()))
+                                    .map(|(_, name)| name)
+                                    .unwrap_or_else(|_| selector.clone());
+                                is_paste_app(&name)
                             })))
             }
             Self::Window { action, .. } => action == "focus",
@@ -2343,6 +2345,12 @@ fn contains_cjk(text: &str) -> bool {
 
 /// Returns Some(reason) when the type call should auto-route through paste.
 /// `reason` is surfaced in the JSON output so the agent can see why.
+fn is_paste_app(name: &str) -> bool {
+    PASTE_APPS
+        .iter()
+        .any(|known| name.eq_ignore_ascii_case(known) || name.contains(*known))
+}
+
 fn should_auto_paste(text: &str, app: &Option<String>) -> Option<String> {
     if contains_cjk(text) {
         return Some(
@@ -2350,9 +2358,7 @@ fn should_auto_paste(text: &str, app: &Option<String>) -> Option<String> {
         );
     }
     if let Some(name) = app
-        && PASTE_APPS
-            .iter()
-            .any(|known| name.eq_ignore_ascii_case(known) || name.contains(*known))
+        && is_paste_app(name)
     {
         return Some(format!(
             "target app '{name}' is in the paste list (CEF chat apps drop unicode events)"
@@ -2373,14 +2379,16 @@ fn cmd_type(
     // With --app: deliver Unicode events directly to the target pid (no focus
     // theft, no clipboard pollution, IME bypassed). Without --app: events go
     // to whatever app is frontmost via the global HID tap.
-    let target_pid = if app.is_some() {
-        Some(system::resolve_target_app(&app)?.0)
+    let resolved_target = if app.is_some() {
+        Some(system::resolve_target_app(&app)?)
     } else {
         if !allow_global {
             system::check_global_frontmost_safety("type")?;
         }
         None
     };
+    let target_pid = resolved_target.as_ref().map(|(pid, _)| *pid);
+    let resolved_app = resolved_target.map(|(_, name)| name);
 
     // R7: auto-route via paste when the text contains CJK or the target is
     // a chat app known to drop unicode events. --paste forces on, --no-paste
@@ -2390,7 +2398,7 @@ fn cmd_type(
     } else if no_paste {
         (false, None)
     } else {
-        let auto_reason = should_auto_paste(&text, &app);
+        let auto_reason = should_auto_paste(&text, &resolved_app);
         (auto_reason.is_some(), auto_reason)
     };
 
@@ -3129,7 +3137,15 @@ fn cmd_launch(json: bool, id: String, no_wait: bool, timeout: u64) -> Result<(),
                     return Ok(());
                 }
             }
-            Err(e) => last_err = Some(e),
+            Err(e)
+                if matches!(
+                    e.code,
+                    ErrorCode::AmbiguousTarget | ErrorCode::InvalidArgument
+                ) =>
+            {
+                return Err(e);
+            }
+            Err(e) => last_err = Some(e.error),
         }
         if Instant::now() >= deadline {
             break;
@@ -3340,8 +3356,8 @@ fn cmd_state(
     let windows = ax::list_windows(pid, &name).unwrap_or_default();
 
     // Frontmost flag — soft-fail if app discovery races with a launch/quit.
-    let frontmost = system::frontmost_app_name()
-        .map(|f| f.eq_ignore_ascii_case(&name))
+    let frontmost = system::frontmost_app_pid()
+        .map(|frontmost_pid| frontmost_pid == pid)
         .unwrap_or(false);
 
     // Optional screenshot of the front window. Soft-fails on capture errors but

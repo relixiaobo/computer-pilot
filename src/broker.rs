@@ -169,6 +169,7 @@ impl BrokerError {
             "command_expired" => ErrorCode::CommandExpired,
             "unknown_outcome" => ErrorCode::UnknownOutcome,
             "target_busy" => ErrorCode::TargetBusy,
+            "ambiguous_target" => ErrorCode::AmbiguousTarget,
             "permission_denied" => ErrorCode::PermissionDenied,
             "app_not_found" => ErrorCode::AppNotFound,
             "window_not_found" => ErrorCode::WindowNotFound,
