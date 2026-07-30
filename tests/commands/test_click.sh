@@ -116,4 +116,30 @@ cu_human "click 100 100 --app Finder"
 assert_exit_zero "click human exits 0"
 assert_contains "shows click info" "Clicked"
 
+section "click — frontmost-app safety check"
+
+# Coordinate and --text clicks without --app go through the global HID tap.
+# Inject a dangerous frontmost via the test seam: cu must refuse.
+OUT=$(CU_TEST_FRONTMOST_OVERRIDE=Terminal "$CU" click 100 100 --no-snapshot 2>&1) || true
+if echo "$OUT" | grep -q "refusing to click"; then
+  _pass "refuses coordinate click without --app when frontmost is dangerous"
+else
+  _fail "refuses coordinate click without --app" "expected refusal, got: ${OUT:0:120}"
+fi
+
+OUT=$(CU_TEST_FRONTMOST_OVERRIDE=Terminal "$CU" click --text "Submit" --no-snapshot 2>&1) || true
+if echo "$OUT" | grep -q "refusing to click"; then
+  _pass "refuses --text click without --app when frontmost is dangerous"
+else
+  _fail "refuses --text click without --app" "expected refusal, got: ${OUT:0:120}"
+fi
+
+# --app stays PID-targeted, so the same frontmost must NOT trigger a refusal.
+OUT=$(CU_TEST_FRONTMOST_OVERRIDE=Terminal "$CU" click 100 100 --app Finder --no-snapshot 2>&1) || true
+if echo "$OUT" | grep -q "refusing to click"; then
+  _fail "--app click bypasses safety check" "was refused: ${OUT:0:120}"
+else
+  _pass "--app click bypasses safety check"
+fi
+
 summary

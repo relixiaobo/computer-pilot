@@ -66,6 +66,7 @@ src/broker.rs      → Private per-user Broker: commands, Observations, locks
 src/ax.rs          → AX tree walker + AX actions (macOS Accessibility FFI)
 src/mouse.rs       → Mouse operations (CGEvent FFI): click, scroll, hover, drag
 src/key.rs         → Keyboard events (CGEvent FFI)
+src/pasteboard.rs  → NSPasteboard full-fidelity save/restore for the paste route
 src/screenshot.rs  → Window capture (ScreenCaptureKit primary, CGWindowListCreateImage fallback)
 src/sck.rs         → ScreenCaptureKit sync wrapper (cross-Space capable, macOS 13+)
 src/ocr.rs         → OCR (macOS Vision framework via objc2)
@@ -182,9 +183,15 @@ the same `cu click ... --app <Name>` (do NOT drop to global tap).
 - `cu window focus`, commands without `--app`, `*-global` methods, and
   visualization mode (`--full -R`) are disruptive. Use them only when the
   workflow explicitly requires foreground state.
-- Clipboard paste uses a desktop-level lock and restores the clipboard. Some
-  Electron/CEF editors only accept paste while frontmost; a bounded exact-PID
-  focus is visible to the user and must never happen as an unreported fallback.
+- Clipboard paste uses a desktop-level lock and restores the full pasteboard
+  (every item and type via NSPasteboard — `src/pasteboard.rs`). If the user
+  writes to the clipboard mid-paste (changeCount moved), the restore is
+  skipped and `clipboard_hint` says so. Some Electron/CEF editors only accept
+  paste while frontmost; a bounded exact-PID focus is visible to the user and
+  must never happen as an unreported fallback.
+- `cu launch` opens apps with `open -g` (background) — it never takes the
+  user's frontmost app. Foregrounding is only ever the explicit
+  `cu window focus`.
 
 ### 9. Error handling
 
@@ -253,6 +260,8 @@ Examples already wired:
 - `truncation_hint` on `cu snapshot` (R3)
 - `confidence_hint` on `cu ocr` when any recognition is below 0.5 (R6)
 - `paste_reason` on `cu type` when auto-routed via clipboard (R7)
+- `clipboard_hint` on `cu type` when the pre-paste clipboard was not restored
+  (user wrote to it mid-paste, or restore failed/partial)
 - `verify_advice` on `cu click` when verified=false (R2)
 - `screenshot_error` on `cu state` and `cu screenshot` when capture refused (A from earlier batch)
 
@@ -284,6 +293,17 @@ checklist exists so a future revert doesn't bring them back.
 - **"Use OnScreenOnly + first match heuristic"** — OnScreenOnly hides
   Mission Control windows, and "first match" depends on enumeration order.
   Both bite the moment conditions change.
+- **"`open` without `-g`"** — activates the launched app and steals the
+  user's frontmost. Every `open` call (launch, tell's -600 retry) passes `-g`;
+  foregrounding is only ever the explicit `cu window focus`.
+- **"Skip CGEventSetFlags when no modifiers were requested"** — events created
+  from a combined-session-state source inherit the modifiers the user is
+  physically holding; `cu key enter` while the user holds ⌘ would deliver
+  ⌘-Enter. Always set flags explicitly, including 0 (key.rs, mouse.rs).
+- **"Round-trip the clipboard through pbcopy/pbpaste"** — text-only: an
+  image/file/rich-text clipboard is silently destroyed. Use
+  `pasteboard::save/restore` (all items, all types) and skip the restore when
+  changeCount shows the user wrote mid-paste.
 
 ## Testing
 

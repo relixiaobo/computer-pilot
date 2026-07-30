@@ -24,9 +24,12 @@ print("\(Int(p.x))|\(Int(p.y))|\(app)")
 '
 }
 
-# park cursor at PARK_X, PARK_Y via the (currently global) hover path
+# park cursor at PARK_X, PARK_Y via the global hover path. --allow-global is
+# required: this script runs from a terminal, and global mouse input is
+# refused by default when the frontmost is a terminal/IDE. Deliberate here —
+# parking the real cursor is the whole point.
 park_cursor() {
-  "$CU" hover "$PARK_X" "$PARK_Y" >/dev/null 2>&1 || true
+  "$CU" hover "$PARK_X" "$PARK_Y" --allow-global >/dev/null 2>&1 || true
   sleep 0.15
 }
 
@@ -168,7 +171,8 @@ osascript -e 'tell application "TextEdit" to quit' 2>/dev/null
 echo ""
 echo "── Control: global click (no --app) — cursor SHOULD warp ──"
 park_cursor
-"$CU" click 7 7 >/dev/null 2>&1 || true
+# --allow-global: deliberate control group; refused by default from a terminal.
+"$CU" click 7 7 --allow-global >/dev/null 2>&1 || true
 # expected: cursor warps to approximately (7, screen_h - 7)
 assert_warped_near "click 7 7 (global)" 7 $((screen_h - 7))
 

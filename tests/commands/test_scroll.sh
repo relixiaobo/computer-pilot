@@ -83,4 +83,23 @@ else
   _fail "scroll --no-snapshot" "snapshot was present"
 fi
 
+section "scroll — frontmost-app safety check"
+
+# Without --app the scroll goes through the global HID tap. Inject a dangerous
+# frontmost via the test seam: cu must refuse instead of scrolling the user's
+# terminal.
+OUT=$(CU_TEST_FRONTMOST_OVERRIDE=Terminal "$CU" scroll down 3 --x 100 --y 100 --no-snapshot 2>&1) || true
+if echo "$OUT" | grep -q "refusing to scroll"; then
+  _pass "refuses scroll without --app when frontmost is dangerous"
+else
+  _fail "refuses scroll without --app" "expected refusal, got: ${OUT:0:120}"
+fi
+
+OUT=$(CU_TEST_FRONTMOST_OVERRIDE=Terminal "$CU" scroll down 1 --x 600 --y 400 --app Finder --no-snapshot 2>&1) || true
+if echo "$OUT" | grep -q "refusing to scroll"; then
+  _fail "--app scroll bypasses safety check" "was refused: ${OUT:0:120}"
+else
+  _pass "--app scroll bypasses safety check"
+fi
+
 summary

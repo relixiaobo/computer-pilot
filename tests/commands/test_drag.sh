@@ -63,4 +63,23 @@ else
   _fail "drag --no-snapshot" "snapshot was present"
 fi
 
+section "drag — frontmost-app safety check"
+
+# Without --app the drag goes through the global HID tap (warps the user's
+# real cursor across the whole gesture). Inject a dangerous frontmost via the
+# test seam: cu must refuse.
+OUT=$(CU_TEST_FRONTMOST_OVERRIDE=Terminal "$CU" drag 10 10 20 20 --no-snapshot 2>&1) || true
+if echo "$OUT" | grep -q "refusing to drag"; then
+  _pass "refuses drag without --app when frontmost is dangerous"
+else
+  _fail "refuses drag without --app" "expected refusal, got: ${OUT:0:120}"
+fi
+
+OUT=$(CU_TEST_FRONTMOST_OVERRIDE=Terminal "$CU" drag 100 200 400 200 --app Finder --no-snapshot 2>&1) || true
+if echo "$OUT" | grep -q "refusing to drag"; then
+  _fail "--app drag bypasses safety check" "was refused: ${OUT:0:120}"
+else
+  _pass "--app drag bypasses safety check"
+fi
+
 summary

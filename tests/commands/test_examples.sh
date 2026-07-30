@@ -51,8 +51,8 @@ section "examples — recipes contain real cu commands"
 
 cu_json examples launch-app
 RECIPE=$(json_get '.recipe' || echo "")
-if echo "$RECIPE" | grep -q "cu key cmd+space"; then
-  _pass "launch-app recipe references cu key cmd+space"
+if echo "$RECIPE" | grep -q "cu launch"; then
+  _pass "launch-app recipe references cu launch (background, no focus theft)"
 else
   _fail "launch-app recipe content" "${RECIPE:0:100}"
 fi

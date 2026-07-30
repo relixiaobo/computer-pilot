@@ -19,7 +19,8 @@ assert_ok "tell Finder every window name"
 # -ss output wraps lists in {}
 assert_contains "list format" "{"
 
-cu_json tell Reminders 'get name of every list'
+# 30s: Reminders can take >10s to cold-launch and answer its first Apple event.
+cu_json tell Reminders 'get name of every list' --timeout 30
 assert_ok "tell Reminders every list"
 
 section "tell — System Events"
@@ -71,5 +72,50 @@ if [[ -n "$OUT" ]]; then
 else
   _fail "human output" "empty output"
 fi
+
+section "tell — disruptive AppleScript refused"
+
+# `activate` steals the user's frontmost app. Must refuse before execution
+# (nothing is activated — safe to assert in the non-interactive suite).
+cu_json tell Finder 'activate'
+assert_fail "activate is refused"
+if echo "$ERR$OUT" | grep -q 'refusing to run AppleScript containing `activate`'; then
+  _pass "activate refusal names the construct"
+else
+  _fail "activate refusal message" "got: ${ERR:0:120}${OUT:0:120}"
+fi
+
+# System Events keystroke/key code send global keyboard input to whatever the
+# user has focused — refused even when nested in an inner tell block.
+cu_json tell "System Events" 'keystroke "a"'
+assert_fail "keystroke is refused"
+
+cu_json tell Finder 'tell application "System Events" to key code 36'
+assert_fail "nested key code is refused"
+
+# AppleScript tolerates flexible whitespace — the lint must too.
+cu_json tell "System Events" 'key    code 36'
+assert_fail "multi-space key code is refused"
+
+cu_json tell "System Events" 'key
+code 36'
+assert_fail "newline-split key code is refused"
+
+# key down / key up hold a key globally (worst case: stuck modifier).
+cu_json tell "System Events" 'key down command'
+assert_fail "key down is refused"
+
+cu_json tell "System Events" 'key up command'
+assert_fail "key up is refused"
+
+# Word-boundary matching: 'activate' inside a longer word / string literal
+# must not trigger the lint.
+cu_json tell Finder 'get "xactivatey"'
+assert_ok "word-boundary: embedded 'activate' substring is not refused"
+
+# --allow-disruptive bypasses the lint (benign expression — nothing is
+# actually activated in the non-interactive suite).
+cu_json tell Finder 'get version' --allow-disruptive
+assert_ok "--allow-disruptive flag is accepted"
 
 summary

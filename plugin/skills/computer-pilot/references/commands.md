@@ -202,7 +202,9 @@ returns `focus_failed` instead of silently accepting AXRaise-only success.
 
 ### `cu launch <name|bundle-id> [--no-wait] [--timeout seconds]`
 
-Launch through Launch Services and normally wait for an AX-ready window.
+Launch through Launch Services and normally wait for an AX-ready window. The
+launch is background (`open -g`): the user's frontmost app is never taken.
+Use `cu window focus` only when the workflow truly needs the app foregrounded.
 
 ### `cu warm <app>`
 

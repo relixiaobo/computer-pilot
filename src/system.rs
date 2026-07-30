@@ -473,7 +473,7 @@ pub fn check_global_frontmost_safety(verb: &str) -> Result<(), String> {
     {
         return Err(format!(
             "refusing to {verb} without --app: frontmost is \"{front}\" \
-             (terminal/IDE — stray keys would execute commands or destructive shortcuts). \
+             (terminal/IDE — stray input would execute commands or destructive shortcuts). \
              Pass --app <Name> to target a specific app, or --allow-global to override."
         ));
     }
@@ -637,6 +637,10 @@ pub fn resolve_by_bundle_id(bundle_id: &str) -> Result<(i32, String), CuError> {
 /// Heuristic: an `id` argument with a `.` is treated as a bundle id (`open -b`),
 /// otherwise as an app name (`open -a`). Returns immediately — the caller is
 /// responsible for waiting on readiness if needed.
+///
+/// Always passes `-g` (background): launching must not steal the user's
+/// frontmost app. Agents that need the app foregrounded use `cu window focus`
+/// explicitly, which reports the activation as user-visible.
 pub fn launch_app(id: &str) -> Result<(), String> {
     let flag = if id.contains('.') && !id.contains(' ') {
         "-b"
@@ -646,7 +650,7 @@ pub fn launch_app(id: &str) -> Result<(), String> {
     let mut last_detail = String::new();
     for attempt in 0..=10 {
         let status = Command::new("open")
-            .args([flag, id])
+            .args(["-g", flag, id])
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
@@ -687,9 +691,11 @@ pub fn tell_app(app: &str, expr: &str, timeout_secs: u64) -> Result<String, Stri
     match run_applescript_capture(&script, timeout_secs, true) {
         Ok(result) => Ok(result),
         Err(ref e) if e.contains("(-600)") || e.contains("not running") => {
-            // Launch the app via Launch Services (not AppleScript) and wait for it
+            // Launch the app via Launch Services (not AppleScript) and wait
+            // for it. -g keeps the launch in the background so the retry
+            // doesn't steal the user's frontmost app.
             let _ = std::process::Command::new("open")
-                .args(["-a", app])
+                .args(["-g", "-a", app])
                 .stdin(Stdio::null())
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())

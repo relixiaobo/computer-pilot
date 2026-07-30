@@ -46,4 +46,22 @@ else
   _fail "hover --no-snapshot" "snapshot was present"
 fi
 
+section "hover — frontmost-app safety check"
+
+# Without --app the move goes through the global HID tap (warps the user's
+# real cursor). Inject a dangerous frontmost via the test seam: cu must refuse.
+OUT=$(CU_TEST_FRONTMOST_OVERRIDE=Terminal "$CU" hover 100 100 --no-snapshot 2>&1) || true
+if echo "$OUT" | grep -q "refusing to hover"; then
+  _pass "refuses hover without --app when frontmost is dangerous"
+else
+  _fail "refuses hover without --app" "expected refusal, got: ${OUT:0:120}"
+fi
+
+OUT=$(CU_TEST_FRONTMOST_OVERRIDE=Terminal "$CU" hover 500 400 --app Finder --no-snapshot 2>&1) || true
+if echo "$OUT" | grep -q "refusing to hover"; then
+  _fail "--app hover bypasses safety check" "was refused: ${OUT:0:120}"
+else
+  _pass "--app hover bypasses safety check"
+fi
+
 summary

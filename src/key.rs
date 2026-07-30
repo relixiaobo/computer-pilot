@@ -107,10 +107,12 @@ pub fn send(combo: &str, target_pid: Option<i32>) -> Result<(), String> {
             return Err("failed to create key-up event".into());
         }
 
-        if flags != 0 {
-            CGEventSetFlags(down, flags);
-            CGEventSetFlags(up, flags);
-        }
+        // Always set flags explicitly — including 0. Events created from a
+        // combined-session-state source inherit whatever modifiers the user is
+        // physically holding; without this, `cu key enter` while the user
+        // holds ⌘ (e.g. mid ⌘-Tab) would deliver ⌘-Enter to the target.
+        CGEventSetFlags(down, flags);
+        CGEventSetFlags(up, flags);
 
         post(down, target_pid);
         post(up, target_pid);
@@ -133,40 +135,34 @@ pub fn send(combo: &str, target_pid: Option<i32>) -> Result<(), String> {
 /// `target_pid: Some(pid)` → delivered to that process (no focus theft, no
 /// clipboard pollution, no app activation).
 /// `target_pid: None` → goes to whatever app is frontmost (global HID tap).
-/// Type text via clipboard paste. Saves the current clipboard, sets it to
-/// `text`, sends ⌘V to the target, then restores the original clipboard.
+/// Type text via clipboard paste. Saves the full pasteboard (every item,
+/// every type — images, files, rich text included), sets it to `text`,
+/// sends ⌘V to the target, then restores the original pasteboard.
 ///
 /// This is the proven path for CEF / Electron chat apps (WeChat, Slack,
 /// Telegram desktop) where `CGEventKeyboardSetUnicodeString` can drop the
 /// first character — pasting is a single keyboard shortcut, not N unicode
 /// events, so the input listener can't lose any.
 ///
-/// Round-trip cost: two pbcopy/pbpaste subprocesses + one ⌘V key event,
-/// ~50-100ms total. Falls back to `type_text` on pbcopy/pbpaste failure.
-pub fn type_via_paste(text: &str, target_pid: Option<i32>) -> Result<(), String> {
-    use std::io::Write;
-    use std::process::{Command, Stdio};
+/// Returns `Ok(Some(advisory))` on a degraded path: the pre-paste clipboard
+/// could not be fully saved or restored, or the user wrote to the clipboard
+/// mid-paste (in which case we deliberately do NOT restore over their new
+/// content). Errors out before touching the pasteboard if the snapshot
+/// itself fails — never silently destroy the user's clipboard.
+pub fn type_via_paste(text: &str, target_pid: Option<i32>) -> Result<Option<String>, String> {
+    let saved = crate::pasteboard::save().map_err(|e| {
+        format!("refusing to paste: could not snapshot the clipboard for restore ({e})")
+    })?;
 
-    // Snapshot the existing clipboard so we can restore it after pasting.
-    let saved = Command::new("pbpaste")
-        .output()
-        .map_err(|e| format!("pbpaste failed: {e}"))?;
-    let saved_text = String::from_utf8_lossy(&saved.stdout).to_string();
-
-    // Replace clipboard contents with the text we want to paste.
-    let mut child = Command::new("pbcopy")
-        .stdin(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("pbcopy spawn failed: {e}"))?;
-    child
-        .stdin
-        .as_mut()
-        .ok_or("pbcopy stdin unavailable")?
-        .write_all(text.as_bytes())
-        .map_err(|e| format!("pbcopy write failed: {e}"))?;
-    child
-        .wait()
-        .map_err(|e| format!("pbcopy wait failed: {e}"))?;
+    // set_text clears the pasteboard before writing — if the write itself
+    // fails, put the snapshot back rather than leaving the clipboard empty.
+    let change_count_after_write = match crate::pasteboard::set_text(text) {
+        Ok(count) => count,
+        Err(e) => {
+            let _ = crate::pasteboard::restore(&saved);
+            return Err(e);
+        }
+    };
 
     // Give the pasteboard a moment to settle before the paste shortcut. Without
     // this, ⌘V can fire before the new clipboard contents are visible to the
@@ -178,25 +174,35 @@ pub fn type_via_paste(text: &str, target_pid: Option<i32>) -> Result<(), String>
 
     // Wait for the target app to actually consume the pasteboard before we
     // overwrite it with the restored value. Without this delay, cmd+v is
-    // asynchronous from our side: pbcopy-restore runs first, the target then
+    // asynchronous from our side: the restore runs first, the target then
     // reads "the clipboard" and gets the restored (wrong) text instead of
     // the text we wanted to paste. 150ms is enough on a busy machine.
     std::thread::sleep(std::time::Duration::from_millis(150));
 
-    // Best-effort restore of the original clipboard. We don't bubble pbcopy
-    // restore failures because the paste itself may have already succeeded.
-    let _ = (|| -> Result<(), std::io::Error> {
-        let mut restore = Command::new("pbcopy").stdin(Stdio::piped()).spawn()?;
-        restore
-            .stdin
-            .as_mut()
-            .ok_or_else(|| std::io::Error::other("stdin"))?
-            .write_all(saved_text.as_bytes())?;
-        restore.wait()?;
-        Ok(())
-    })();
+    // Restore — unless someone else (the user, another app) wrote to the
+    // pasteboard during the paste window. Overwriting their fresh content
+    // would be worse than leaving our pasted text on the clipboard.
+    let advisory = match crate::pasteboard::change_count() {
+        Ok(count) if count != change_count_after_write => Some(
+            "clipboard changed mid-paste (the user or another app wrote to it) — \
+             skipped restoring the pre-paste clipboard to avoid overwriting the new content"
+                .to_string(),
+        ),
+        _ => match crate::pasteboard::restore(&saved) {
+            Err(e) => Some(format!(
+                "failed to restore the pre-paste clipboard ({e}) — \
+                 the clipboard currently holds the pasted text, original had {} item(s)",
+                saved.item_count()
+            )),
+            Ok(()) if saved.skipped_types > 0 => Some(format!(
+                "clipboard restored, but {} pasteboard type(s) could not be read and were dropped",
+                saved.skipped_types
+            )),
+            Ok(()) => None,
+        },
+    };
 
-    paste_result
+    paste_result.map(|()| advisory)
 }
 
 pub fn type_text(text: &str, target_pid: Option<i32>) -> Result<(), String> {
@@ -231,6 +237,13 @@ pub fn type_text(text: &str, target_pid: Option<i32>) -> Result<(), String> {
 
             CGEventKeyboardSetUnicodeString(down, len, buf.as_mut_ptr());
             CGEventKeyboardSetUnicodeString(up, len, buf.as_mut_ptr());
+
+            // Clear inherited modifier state: if the user is physically
+            // holding ⌘/⌃ while we type into a background app, the unicode
+            // events would otherwise carry those flags and turn characters
+            // into shortcuts (⌘W closes the target's window).
+            CGEventSetFlags(down, 0);
+            CGEventSetFlags(up, 0);
 
             post(down, target_pid);
             post(up, target_pid);
