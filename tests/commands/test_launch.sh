@@ -86,6 +86,38 @@ else
   _fail "no-wait ms" "got $MS"
 fi
 
+section "launch — background: user's frontmost app is preserved"
+
+# cu launch uses `open -g`: the launched app must NOT become active. Capture
+# the active pid before and after a cold launch and require it unchanged.
+# (Both sides empty is fine — headless CI has no active GUI app.)
+osascript -e 'tell application "Calculator" to quit' 2>/dev/null || true
+sleep 0.5
+frontmost_pid() {
+  "$CU" apps 2>/dev/null | python3 -c "
+import sys, json
+apps = json.load(sys.stdin).get('apps', [])
+active = [a['pid'] for a in apps if a.get('active')]
+print(active[0] if active else '')
+" 2>/dev/null || echo ""
+}
+FRONT_BEFORE=$(frontmost_pid)
+cu_json launch Calculator --timeout 8
+assert_ok "background launch ok"
+sleep 0.5
+FRONT_AFTER=$(frontmost_pid)
+if [[ "$FRONT_BEFORE" == "$FRONT_AFTER" ]]; then
+  _pass "frontmost pid unchanged across launch (${FRONT_BEFORE:-none})"
+else
+  _fail "frontmost preserved" "before=$FRONT_BEFORE after=$FRONT_AFTER — launch stole focus"
+fi
+LAUNCHED_PID=$(json_get '.pid' || echo "")
+if [[ -n "$LAUNCHED_PID" && "$LAUNCHED_PID" == "$FRONT_AFTER" && "$FRONT_BEFORE" != "$FRONT_AFTER" ]]; then
+  _fail "launched app stayed in background" "Calculator (pid $LAUNCHED_PID) became frontmost"
+else
+  _pass "launched app stayed in background"
+fi
+
 section "launch — error: non-existent app"
 
 cu_json launch NonExistentApp987654 --timeout 1

@@ -45,6 +45,12 @@ cu --request-id "calendar-review-20260728" tell Calendar 'make new event at end 
 cu tell Calendar 'get summary of every event of first calendar'
 ```
 
+Expressions containing `activate` or System Events `keystroke`/`key code` are
+refused: they steal the user's frontmost app or type into whatever the user
+has focused. Use PID-targeted `cu key`/`cu type` with `--app` instead. Do not
+answer that refusal with `--allow-disruptive`; it exists only for workflows
+that genuinely require user-visible foreground activation.
+
 ## Automation Permission
 
 Automation is granted separately for every target app. `cu setup` cannot report

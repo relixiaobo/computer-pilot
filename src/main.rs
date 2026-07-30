@@ -8,6 +8,7 @@ mod key;
 mod mouse;
 mod observer;
 mod ocr;
+mod pasteboard;
 mod sck;
 mod screenshot;
 mod sdef;
@@ -553,6 +554,9 @@ enum Cmd {
         when the same label appears elsewhere in the window.\n\n\
         Ref mode tries AX actions first, falls back to CGEvent.\n\
         Always use --app for reliability. Refs come from 'cu snapshot'.\n\n\
+        Coordinate and --text clicks without --app go through the global HID\n\
+        tap (moves the real cursor). Refused by default when the frontmost is\n\
+        a terminal or IDE; pass --allow-global to override.\n\n\
         Verify (default ON): takes a pre-action AX snapshot and diffs after the click.\n\
         Returns `verified: bool` + `verify_diff` + remediation `verify_advice`.\n\
         Catches sandboxed apps that silently swallow PID-targeted CGEvents — the\n\
@@ -608,6 +612,11 @@ enum Cmd {
         /// know the target app is reliable.
         #[arg(long = "no-verify")]
         no_verify: bool,
+        /// Skip the frontmost-app safety check. Without --app, coordinate and
+        /// --text clicks go through the global HID tap; cu refuses by default
+        /// when the frontmost is a terminal or IDE — pass this to override.
+        #[arg(long = "allow-global")]
+        allow_global: bool,
 
         /// Deprecated: verify is now the default. Kept as a hidden no-op
         /// for backward compatibility with existing scripts.
@@ -641,6 +650,11 @@ enum Cmd {
         /// Skip auto-snapshot in JSON output
         #[arg(long)]
         no_snapshot: bool,
+        /// Skip the frontmost-app safety check. Without --app, the scroll goes
+        /// through the global HID tap; cu refuses by default when the frontmost
+        /// is a terminal or IDE — pass this to override.
+        #[arg(long = "allow-global")]
+        allow_global: bool,
     },
 
     /// Move mouse to coordinates (trigger tooltips, hover menus)
@@ -655,6 +669,11 @@ enum Cmd {
         /// Skip auto-snapshot in JSON output
         #[arg(long)]
         no_snapshot: bool,
+        /// Skip the frontmost-app safety check. Without --app, the move goes
+        /// through the global HID tap; cu refuses by default when the frontmost
+        /// is a terminal or IDE — pass this to override.
+        #[arg(long = "allow-global")]
+        allow_global: bool,
     },
 
     /// Drag from (x1,y1) to (x2,y2) with smooth interpolation
@@ -684,6 +703,11 @@ enum Cmd {
         /// Skip auto-snapshot in JSON output
         #[arg(long)]
         no_snapshot: bool,
+        /// Skip the frontmost-app safety check. Without --app, the drag goes
+        /// through the global HID tap; cu refuses by default when the frontmost
+        /// is a terminal or IDE — pass this to override.
+        #[arg(long = "allow-global")]
+        allow_global: bool,
     },
 
     /// Capture window screenshot (silent, no app activation needed)
@@ -755,6 +779,9 @@ enum Cmd {
         (e.g. \"TextEdit\") or a bundle id (e.g. \"com.apple.TextEdit\").\n\n\
         By default waits until the app reports a main/focused window via the\n\
         AX tree, polling every 100ms. Pass --no-wait to return immediately.\n\n\
+        Launches in the background (open -g): the user's frontmost app and\n\
+        focus are never taken. Use `cu window focus` if the workflow truly\n\
+        needs the app foregrounded (disruptive, user-visible).\n\n\
         Examples:\n  \
         cu launch TextEdit                    # launch + wait for window\n  \
         cu launch com.apple.TextEdit          # bundle id form\n  \
@@ -925,7 +952,12 @@ enum Cmd {
           with properties {summary:\"Meeting\", start date:date \"2026-04-06 14:00\"}'\n  \
         cu tell Notes 'make new note with properties {name:\"Test\", body:\"Hello\"}'\n\n\
         Tip: Use `cu apps` to see which apps are scriptable (S flag),\n\
-        then `cu sdef <app>` to discover what properties/commands are available.")]
+        then `cu sdef <app>` to discover what properties/commands are available.\n\n\
+        Disruptive AppleScript is refused by default: `activate` steals the\n\
+        user's frontmost app, and System Events `keystroke`/`key code` send\n\
+        global keyboard input to whatever the user has focused. Use cu's\n\
+        PID-targeted commands (click/type/key with --app) instead, or pass\n\
+        --allow-disruptive when foreground activation is genuinely required.")]
     Tell {
         /// Target application name
         app: String,
@@ -934,6 +966,11 @@ enum Cmd {
         /// Timeout in seconds
         #[arg(long, default_value = "10")]
         timeout: u64,
+        /// Run the expression even if it contains disruptive AppleScript
+        /// (`activate`, System Events `keystroke`/`key code`). Off by default
+        /// because those steal the user's focus or type into the wrong app.
+        #[arg(long = "allow-disruptive")]
+        allow_disruptive: bool,
     },
 }
 
@@ -1095,6 +1132,26 @@ impl Cmd {
             } if app.is_none() && !allow_global => {
                 system::check_global_frontmost_safety("send keys")?
             }
+            // Only coordinate (y) and OCR-text clicks can reach the global
+            // HID tap; ref/ax-path clicks stay PID-targeted even without --app.
+            Self::Click {
+                app,
+                allow_global,
+                y,
+                text,
+                ..
+            } if app.is_none() && !allow_global && (y.is_some() || text.is_some()) => {
+                system::check_global_frontmost_safety("click")?
+            }
+            Self::Scroll {
+                app, allow_global, ..
+            } if app.is_none() && !allow_global => system::check_global_frontmost_safety("scroll")?,
+            Self::Hover {
+                app, allow_global, ..
+            } if app.is_none() && !allow_global => system::check_global_frontmost_safety("hover")?,
+            Self::Drag {
+                app, allow_global, ..
+            } if app.is_none() && !allow_global => system::check_global_frontmost_safety("drag")?,
             _ => {}
         }
         Ok(())
@@ -1510,6 +1567,7 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
             no_snapshot,
             no_verify,
             verify: _legacy_verify,
+            allow_global,
         } => {
             let mods = mouse::Modifiers {
                 shift,
@@ -1537,6 +1595,7 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
                 mods,
                 no_snapshot,
                 verify,
+                allow_global,
             })
         }
         Cmd::Scroll {
@@ -1546,13 +1605,24 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
             y,
             app,
             no_snapshot,
-        } => cmd_scroll(json, direction, amount, x, y, app, no_snapshot),
+            allow_global,
+        } => cmd_scroll(
+            json,
+            direction,
+            amount,
+            x,
+            y,
+            app,
+            no_snapshot,
+            allow_global,
+        ),
         Cmd::Hover {
             x,
             y,
             app,
             no_snapshot,
-        } => cmd_hover(json, x, y, app, no_snapshot),
+            allow_global,
+        } => cmd_hover(json, x, y, app, no_snapshot, allow_global),
         Cmd::Drag {
             x1,
             y1,
@@ -1563,6 +1633,7 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
             alt,
             app,
             no_snapshot,
+            allow_global,
         } => {
             let mods = mouse::Modifiers {
                 shift,
@@ -1570,7 +1641,7 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
                 alt,
                 ctrl: false,
             };
-            cmd_drag(json, x1, y1, x2, y2, mods, app, no_snapshot)
+            cmd_drag(json, x1, y1, x2, y2, mods, app, no_snapshot, allow_global)
         }
         Cmd::Screenshot {
             app_positional,
@@ -1608,7 +1679,12 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
         } => cmd_defaults(json, action, domain, key, value),
         Cmd::Sdef { app } => cmd_sdef(json, app),
         Cmd::Examples { topic } => cmd_examples(json, topic),
-        Cmd::Tell { app, expr, timeout } => cmd_tell(json, app, expr, timeout),
+        Cmd::Tell {
+            app,
+            expr,
+            timeout,
+            allow_disruptive,
+        } => cmd_tell(json, app, expr, timeout, allow_disruptive),
     }
 }
 
@@ -2529,8 +2605,9 @@ fn cmd_type(
         (auto_reason.is_some(), auto_reason)
     };
 
+    let mut clipboard_hint: Option<String> = None;
     let method = if use_paste {
-        key::type_via_paste(&text, target_pid)?;
+        clipboard_hint = key::type_via_paste(&text, target_pid)?;
         if target_pid.is_some() {
             "paste-pid"
         } else {
@@ -2610,6 +2687,7 @@ fn cmd_type(
             "effect_verified": false,
             "webarea_input": webarea_input,
             "effect_stability_ms": webarea_input.then_some(WEB_INPUT_STABILITY_DELAY_MS),
+            "clipboard_hint": clipboard_hint,
             "focused_before": pre_input.as_ref().map(|(focused, _)| focused),
             "focused_after": post_input,
             "snapshot": snapshot,
@@ -2630,6 +2708,7 @@ fn cmd_type(
             "effect_verified": serde_json::Value::Null,
             "webarea_input": webarea_input,
             "paste_reason": paste_reason,
+            "clipboard_hint": clipboard_hint,
             "focused_before": pre_input.as_ref().map(|(focused, _)| focused),
             "focused_after": post_input,
             "snapshot": captured.as_ref().map(|(_, _, snapshot)| compact_action_snapshot(snapshot)),
@@ -2650,6 +2729,9 @@ fn cmd_type(
     }
     if let Some(reason) = paste_reason {
         result["paste_reason"] = serde_json::Value::String(reason);
+    }
+    if let Some(hint) = clipboard_hint {
+        result["clipboard_hint"] = serde_json::Value::String(hint);
     }
     annotate_method(&mut result);
     if effect_verified == Some(true) && !webarea_input {
@@ -2967,6 +3049,7 @@ struct ClickOptions {
     mods: mouse::Modifiers,
     no_snapshot: bool,
     verify: bool,
+    allow_global: bool,
 }
 
 fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
@@ -2985,7 +3068,16 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
         mods,
         no_snapshot,
         verify,
+        allow_global,
     } = opts;
+
+    // Coordinate and --text clicks without --app go through the global HID
+    // tap (moves the real cursor). Ref/ax-path clicks stay PID-targeted, so
+    // they are exempt. Re-check at execution time (frontmost can change while
+    // the command waits on the broker queue).
+    if app.is_none() && !allow_global && (y.is_some() || text.is_some()) {
+        system::check_global_frontmost_safety("click")?;
+    }
 
     // --verify: capture the AX state before any action so we can diff it
     // against the post-action snapshot. We resolve the app once here and stash
@@ -3130,6 +3222,12 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
         // Route to the target app's pid when --app was given; falls back to global
         // delivery for full-screen OCR (pid == 0 sentinel from resolve above).
         let target_pid = if pid != 0 { Some(pid) } else { None };
+        // OCR takes long enough for the user to switch apps: the entry check
+        // may have seen a safe frontmost while the click would now land in a
+        // terminal/IDE. Recheck immediately before posting the global event.
+        if target_pid.is_none() && !allow_global {
+            system::check_global_frontmost_safety("click")?;
+        }
         if double {
             mouse::double_click(cx, cy, mods, target_pid)?;
         } else {
@@ -3189,6 +3287,12 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
         } else {
             None
         };
+        // The pre-action verify snapshot above can take hundreds of ms — long
+        // enough for the frontmost to change since the entry check. Recheck
+        // immediately before posting the global event.
+        if target_pid.is_none() && !allow_global {
+            system::check_global_frontmost_safety("click")?;
+        }
         if double {
             mouse::double_click(x, y, mods, target_pid)?;
         } else {
@@ -3292,7 +3396,14 @@ fn cmd_scroll(
     y: Option<f64>,
     app: Option<String>,
     no_snapshot: bool,
+    allow_global: bool,
 ) -> Result<(), CuError> {
+    // Without --app the scroll goes through the global HID tap. Re-check at
+    // execution time (the client preflight ran earlier; frontmost can change
+    // while the command waits on the broker queue).
+    if app.is_none() && !allow_global {
+        system::check_global_frontmost_safety("scroll")?;
+    }
     let (dx, dy) = match direction.to_lowercase().as_str() {
         "up" => (0, amount),
         "down" => (0, -amount),
@@ -3334,7 +3445,13 @@ fn cmd_hover(
     y: f64,
     app: Option<String>,
     no_snapshot: bool,
+    allow_global: bool,
 ) -> Result<(), CuError> {
+    // Without --app the move goes through the global HID tap (warps the real
+    // cursor). Re-check at execution time.
+    if app.is_none() && !allow_global {
+        system::check_global_frontmost_safety("hover")?;
+    }
     let target_pid = if app.is_some() {
         Some(system::resolve_target_app(&app)?.0)
     } else {
@@ -3366,7 +3483,13 @@ fn cmd_drag(
     mods: mouse::Modifiers,
     app: Option<String>,
     no_snapshot: bool,
+    allow_global: bool,
 ) -> Result<(), CuError> {
+    // Without --app the drag goes through the global HID tap (warps the real
+    // cursor across the whole gesture). Re-check at execution time.
+    if app.is_none() && !allow_global {
+        system::check_global_frontmost_safety("drag")?;
+    }
     let target_pid = if app.is_some() {
         Some(system::resolve_target_app(&app)?.0)
     } else {
@@ -3972,11 +4095,13 @@ fn cmd_sdef(json: bool, app: String) -> Result<(), CuError> {
 const RECIPES: &[(&str, &str, &str)] = &[
     (
         "launch-app",
-        "Open any app via Spotlight",
-        "cu key cmd+space\n\
-         cu type \"Calculator\"\n\
-         cu key enter\n\
-         cu wait --text \"Calculator\" --app Calculator --timeout 5",
+        "Launch an app in the background (no focus theft)",
+        "# cu launch opens via Launch Services in the background — the user's\n\
+         # frontmost app and focus are never taken — and waits for the window.\n\
+         cu launch Calculator\n\
+         cu snapshot Calculator --limit 20\n\n\
+         # Only if the workflow truly needs the app frontmost (user-visible):\n\
+         cu window focus --app Calculator",
     ),
     (
         "fill-form",
@@ -4108,7 +4233,78 @@ fn cmd_examples(json: bool, topic: Option<String>) -> Result<(), CuError> {
     }
 }
 
-fn cmd_tell(json: bool, app: String, expr: String, timeout: u64) -> Result<(), CuError> {
+/// Scan an AppleScript expression for constructs that disrupt the user:
+/// `activate` steals the frontmost app; System Events `keystroke`,
+/// `key code`, `key down`, and `key up` send global keyboard input to
+/// whatever the user has focused. Returns the offending construct, or None
+/// when the expression is non-disruptive.
+///
+/// The expression is lowercased and every whitespace run (spaces, tabs,
+/// newlines) collapses to a single space before matching, so `key    code`
+/// and multi-line forms cannot slip past. Word-boundary match on the whole
+/// expression (covers nested `tell` blocks that re-target System Events).
+/// A quoted string literal containing one of these words is a false
+/// positive — that's what --allow-disruptive is for.
+fn find_disruptive_applescript(expr: &str) -> Option<&'static str> {
+    let normalized = expr
+        .to_lowercase()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    let word_at = |needle: &str| -> bool {
+        let mut start = 0;
+        while let Some(pos) = normalized[start..].find(needle) {
+            let at = start + pos;
+            let before_ok = at == 0
+                || !normalized[..at]
+                    .chars()
+                    .next_back()
+                    .is_some_and(|c| c.is_alphanumeric() || c == '_');
+            let end = at + needle.len();
+            let after_ok = end == normalized.len()
+                || !normalized[end..]
+                    .chars()
+                    .next()
+                    .is_some_and(|c| c.is_alphanumeric() || c == '_');
+            if before_ok && after_ok {
+                return true;
+            }
+            start = at + needle.len();
+        }
+        false
+    };
+    ["activate", "keystroke", "key code", "key down", "key up"]
+        .into_iter()
+        .find(|needle| word_at(needle))
+}
+
+fn cmd_tell(
+    json: bool,
+    app: String,
+    expr: String,
+    timeout: u64,
+    allow_disruptive: bool,
+) -> Result<(), CuError> {
+    if !allow_disruptive && let Some(construct) = find_disruptive_applescript(&expr) {
+        let (problem, alternative) = if construct == "activate" {
+            (
+                "`activate` steals the user's frontmost app and focus",
+                "cu commands are PID-targeted and work on background apps — use snapshot/click/type/key with --app instead of activating",
+            )
+        } else {
+            (
+                "System Events keystroke/key code/key down/key up sends global keyboard input to whatever app the user has focused",
+                "use `cu key`/`cu type` with --app for PID-targeted delivery that cannot hit the wrong app",
+            )
+        };
+        return Err(CuError::msg(format!(
+            "refusing to run AppleScript containing `{construct}`: {problem}"
+        ))
+        .with_hint(format!(
+            "{alternative}; pass --allow-disruptive only if the workflow genuinely requires it (user-visible)"
+        )));
+    }
+
     let raw = system::tell_app(&app, &expr, timeout)?;
 
     if json {

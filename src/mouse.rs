@@ -133,10 +133,12 @@ fn post(event: CFTypeRef, mods: Modifiers, target_pid: Option<i32>) -> Result<()
         return Err("failed to create CGEvent".into());
     }
     unsafe {
+        // Always set flags explicitly — including 0. Events created from a
+        // combined-session-state source inherit the user's physically-held
+        // modifiers; a plain agent click while the user holds ⌘ would
+        // otherwise become ⌘-click in the target app.
         let flags = mods.to_flags();
-        if flags != 0 {
-            CGEventSetFlags(event, flags);
-        }
+        CGEventSetFlags(event, flags);
         match target_pid {
             Some(pid) => CGEventPostToPid(pid, event),
             None => CGEventPost(CG_HID_EVENT_TAP, event),
