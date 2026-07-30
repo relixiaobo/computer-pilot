@@ -29,7 +29,9 @@ bash scripts/check-version-sync.sh             # Verify all version surfaces
 4. **PR**: commit on `release/vX.Y.Z`, push that branch, and open a draft PR
 5. **CI**: hosted static checks plus the TCC-enabled Apple Silicon command suite must pass
 6. **Tag**: after merge, the protected Tag Release workflow tags the merged `main`
-7. **Publish**: the tag workflow signs, notarizes, packages, checksums, and publishes assets
+7. **Publish**: the tag workflow packages, checksums, and publishes assets; it
+   signs/notarizes when Developer ID secrets exist, otherwise it emits a clearly
+   marked fixed-identifier ad-hoc artifact
 
 Manual rules:
 - **Never push a release commit or tag directly to main.** Use a release PR and protected workflows.
@@ -175,8 +177,14 @@ the same `cu click ... --app <Name>` (do NOT drop to global tap).
 
 ### 8. Agent operation etiquette
 
-- When the agent operates another app (click, key, type, screenshot), it takes focus away from the user's terminal. **Minimize disruption time.**
-- Screenshot is observation-only and runs without activation. Visualization-mode (`--full -R`) still requires raising the window.
+- Snapshot, screenshot, direct AX actions, and PID-targeted events preserve the
+  user's frontmost app and real pointer. Always pass `--app`.
+- `cu window focus`, commands without `--app`, `*-global` methods, and
+  visualization mode (`--full -R`) are disruptive. Use them only when the
+  workflow explicitly requires foreground state.
+- Clipboard paste uses a desktop-level lock and restores the clipboard. Some
+  Electron/CEF editors only accept paste while frontmost; a bounded exact-PID
+  focus is visible to the user and must never happen as an unreported fallback.
 
 ### 9. Error handling
 
@@ -281,7 +289,7 @@ checklist exists so a future revert doesn't bring them back.
 
 Three layers (defined in `tests/`):
 
-- **L1 Command tests** (`tests/commands/run_all.sh`) — 700+ assertions covering every CLI command in isolation. Run: `bash tests/commands/run_all.sh` or `bash tests/commands/run_all.sh snapshot key tell` for specific suites.
+- **L1 Command tests** (`tests/commands/run_all.sh`) — 700+ assertions covering every CLI command in isolation. The default run preserves the user's foreground app and pointer. Run `COMPUTER_PILOT_TEST_INTERACTIVE=1 bash tests/commands/run_all.sh` only on a dedicated desktop to include exact-PID focus, foreground Electron paste, and global HID compatibility tests. Specific suites: `bash tests/commands/run_all.sh snapshot key tell`.
 - **L2 Agent E2E** (`tests/agent/run.py`) — real LLM agent + cross-check verification. Loads `plugin/skills/computer-pilot/SKILL.md` as the system prompt so the test mirrors production. Needs `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in `.env`. Wired into `scripts/release.sh` — every release runs L2 unless `--skip-agent` or no API key.
 - **L3 macOSWorld** (`tests/macosworld/`) — 133 locally-runnable tasks classified in `local_test_set.json`. Run via `tests/macosworld/run_selected.py`. Manual / quarterly cadence — too slow + heavy for per-release.
 

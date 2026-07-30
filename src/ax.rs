@@ -146,7 +146,7 @@ pub struct SnapshotResult {
     pub error: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct FocusedSummary {
     #[serde(rename = "ref", skip_serializing_if = "Option::is_none")]
     pub ref_id: Option<usize>,
@@ -155,6 +155,8 @@ pub struct FocusedSummary {
     pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub value: Option<String>,
+    #[serde(rename = "axPath", skip_serializing_if = "Option::is_none")]
+    pub ax_path: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -1020,6 +1022,18 @@ unsafe fn compute_child_segment(
 ///  14:   Ancestor press/confirm (walk up)
 ///  15:   CGEvent mouse click (handled by caller)
 unsafe fn try_ax_actions(element: CFTypeRef) -> Option<&'static str> {
+    // Text inputs are focus targets, not buttons. Chromium exposes AXPress on
+    // contenteditable elements and returns AX_OK even when that action does
+    // not move AXFocusedUIElement. Prefer the semantic AXFocused write and
+    // stop once it succeeds; typing is only allowed after a fresh snapshot
+    // confirms the same element is focused.
+    let role = ax_string(element, "AXRole").unwrap_or_default();
+    if matches!(role.as_str(), "AXTextField" | "AXTextArea" | "AXComboBox")
+        && try_set_bool(element, "AXFocused", true)
+    {
+        return Some("ax-focus");
+    }
+
     // Steps 1-4: Direct actions
     for action in &["AXPress", "AXConfirm", "AXOpen", "AXPick"] {
         if try_action(element, action) {
@@ -1057,7 +1071,6 @@ unsafe fn try_ax_actions(element: CFTypeRef) -> Option<&'static str> {
     // type check guards against the rare cases where AXValue isn't a
     // CFBoolean — in that case we fall through to the CGEvent click
     // path so the toggle still happens, just via a real mouse event.
-    let role = ax_string(element, "AXRole").unwrap_or_default();
     if (role == "AXCheckBox" || role == "AXSwitch")
         && let Some(current) = ax_attr(element, "AXValue")
     {
@@ -1875,19 +1888,19 @@ unsafe fn detect_focused(app_el: CFTypeRef, elements: &[Element]) -> Option<Focu
     CFRelease(fel);
 
     let normalized = normalize_role(&role);
-    let ref_id = pos.and_then(|p| {
+    let matched = pos.and_then(|p| {
         let (px, py) = (p.x.round(), p.y.round());
         elements
             .iter()
             .find(|e| e.role == normalized && (e.x - px).abs() < 1.0 && (e.y - py).abs() < 1.0)
-            .map(|e| e.ref_id)
     });
 
     Some(FocusedSummary {
-        ref_id,
+        ref_id: matched.map(|element| element.ref_id),
         role: normalized,
         title,
         value,
+        ax_path: matched.and_then(|element| element.ax_path.clone()),
     })
 }
 

@@ -4,6 +4,7 @@
 use crate::error::{CuError, ErrorCode};
 use std::ffi::{CStr, c_char, c_void};
 use std::process::{Command, Stdio};
+use std::time::{Duration, Instant};
 
 #[link(name = "AppKit", kind = "framework")]
 unsafe extern "C" {}
@@ -139,6 +140,106 @@ pub fn bundle_id_for_pid(pid: i32) -> Option<String> {
             return None;
         }
         Some(CStr::from_ptr(utf8).to_string_lossy().into_owned())
+    }
+}
+
+/// Return the process identifier that AppKit currently considers frontmost.
+/// This is the authority used to verify focus changes; AXMain/AXRaise only
+/// describe a window inside an application and do not prove app activation.
+pub fn frontmost_pid() -> Option<i32> {
+    unsafe {
+        let pool = objc_autoreleasePoolPush();
+        let send_id: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
+            std::mem::transmute(objc_msgSend as *const ());
+        let send_i32: unsafe extern "C" fn(*mut c_void, *mut c_void) -> i32 =
+            std::mem::transmute(objc_msgSend as *const ());
+        let workspace_class = objc_getClass(c"NSWorkspace".as_ptr());
+        if workspace_class.is_null() {
+            objc_autoreleasePoolPop(pool);
+            return None;
+        }
+        let workspace = send_id(
+            workspace_class,
+            sel_registerName(c"sharedWorkspace".as_ptr()),
+        );
+        let app = if workspace.is_null() {
+            std::ptr::null_mut()
+        } else {
+            send_id(
+                workspace,
+                sel_registerName(c"frontmostApplication".as_ptr()),
+            )
+        };
+        let pid = if app.is_null() {
+            0
+        } else {
+            send_i32(app, sel_registerName(c"processIdentifier".as_ptr()))
+        };
+        objc_autoreleasePoolPop(pool);
+        (pid > 0).then_some(pid)
+    }
+}
+
+/// Activate one exact process and verify that AppKit made the same PID
+/// frontmost. Application names and bundle identifiers are deliberately not
+/// accepted here because development Electron instances commonly share both.
+pub fn activate_pid(pid: i32) -> Result<(), CuError> {
+    if frontmost_pid() == Some(pid) {
+        return Ok(());
+    }
+
+    let accepted = unsafe {
+        let pool = objc_autoreleasePoolPush();
+        let send_pid: unsafe extern "C" fn(*mut c_void, *mut c_void, i32) -> *mut c_void =
+            std::mem::transmute(objc_msgSend as *const ());
+        let send_bool_options: unsafe extern "C" fn(*mut c_void, *mut c_void, usize) -> bool =
+            std::mem::transmute(objc_msgSend as *const ());
+        let class = objc_getClass(c"NSRunningApplication".as_ptr());
+        let app = if class.is_null() {
+            std::ptr::null_mut()
+        } else {
+            send_pid(
+                class,
+                sel_registerName(c"runningApplicationWithProcessIdentifier:".as_ptr()),
+                pid,
+            )
+        };
+        // NSApplicationActivateAllWindows | NSApplicationActivateIgnoringOtherApps.
+        let accepted = !app.is_null()
+            && send_bool_options(app, sel_registerName(c"activateWithOptions:".as_ptr()), 3);
+        objc_autoreleasePoolPop(pool);
+        accepted
+    };
+
+    if !accepted {
+        return Err(CuError::msg(format!(
+            "focus failed: NSRunningApplication rejected activation for pid:{pid}"
+        ))
+        .with_code(ErrorCode::FocusFailed)
+        .with_hint("confirm the process still exists, then run `cu apps` and retry with its current pid selector"));
+    }
+
+    let deadline = Instant::now() + Duration::from_millis(1500);
+    loop {
+        if frontmost_pid() == Some(pid) {
+            return Ok(());
+        }
+        if Instant::now() >= deadline {
+            let actual = frontmost_pid();
+            return Err(CuError::msg(format!(
+                "focus failed: requested pid:{pid}, but the frontmost pid is {}",
+                actual
+                    .map(|value| value.to_string())
+                    .unwrap_or_else(|| "unknown".into())
+            ))
+            .with_code(ErrorCode::FocusFailed)
+            .with_hint("do not send global input; re-resolve the target with `cu apps` and inspect whether macOS denied activation")
+            .with_diagnostics(serde_json::json!({
+                "requested_pid": pid,
+                "frontmost_pid": actual,
+            })));
+        }
+        std::thread::sleep(Duration::from_millis(25));
     }
 }
 

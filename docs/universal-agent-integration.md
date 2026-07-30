@@ -52,7 +52,8 @@ The Broker owns:
 - mutation serialization per target application/resource and desktop-wide
   locking for global pointer, focus, and clipboard operations;
 - bounded, expiring Observation state plus secure output-directory propagation;
-- permission status and the fixed signed application identity used for TCC.
+- permission status and the fixed application identifier used for TCC (with
+  signed identity continuity only for Developer ID releases).
 
 The Broker must be discoverable only by the local user, authenticate local
 clients, bind its socket and state with user-only permissions, and negotiate
@@ -129,5 +130,6 @@ read them. No transport-specific image result is required.
 - User UI changes produce `stale_observation` before mutation dispatch.
 - Stable request IDs prevent duplicate mutation dispatch during recovery.
 - Broker upgrades preserve the fixed macOS permission identity.
-- Signed/notarized Apple Silicon artifacts, checksums, plugin/skill archives,
-  compatibility metadata, and a release index share one version.
+- Apple Silicon artifacts, checksums, plugin/skill archives, compatibility
+  metadata, and a release index share one version; the index truthfully marks
+  Developer ID/notarized versus ad-hoc/unsigned provenance.

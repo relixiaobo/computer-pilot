@@ -42,7 +42,7 @@ fi
 section "output mode — JSON structure consistency"
 
 # Commands with "ok" field
-for cmd in "setup" "hover 100 100" "scroll down 3 --x 100 --y 100"; do
+for cmd in "setup" "hover 100 100 --app Finder" "scroll down 3 --x 100 --y 100 --app Finder"; do
   cu_json "$cmd"
   OK_FIELD=$(json_get '.ok' 2>/dev/null || echo "missing")
   if [[ "$OK_FIELD" == "true" || "$OK_FIELD" == "false" ]]; then
@@ -58,11 +58,11 @@ assert_json "apps is valid JSON"
 
 section "output mode — action commands echo parameters"
 
-cu_json "hover 123 456"
+cu_json "hover 123 456 --app Finder"
 assert_json_field "hover echoes x" ".x" "123.0"
 assert_json_field "hover echoes y" ".y" "456.0"
 
-cu_json "scroll up 7 --x 100 --y 200"
+cu_json "scroll up 7 --x 100 --y 200 --app Finder"
 assert_json_field "scroll echoes direction" ".direction" "up"
 assert_json_field "scroll echoes amount" ".amount" "7"
 

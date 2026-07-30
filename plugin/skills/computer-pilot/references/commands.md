@@ -131,25 +131,38 @@ Always pass `--app`. Ref actions should also pass `--observation`.
 Targets a ref, coordinates, `--ax-path`, or OCR `--text`. Supports right,
 double-click, modifiers, OCR index/region, `--no-verify`, and `--no-snapshot`.
 Ref clicks try native AX actions before PID-targeted CGEvent fallback.
+Clicks targeting text inputs require the post-action focused element to match
+the intended ref/path and return `verification_failed` otherwise.
 
 ### `cu set-value <ref> <text> --app <app> [--observation <id>]`
 
 Set `AXValue` directly without focus, IME, or clipboard. An `--ax-path`
-selector may replace the ref where supported.
+selector may replace the ref where supported. When `controlled_editor_risk` is
+true, AXValue may not reach an Electron/React editor's application state; never
+use the write alone as proof that Submit/Send is enabled.
 
 ### `cu perform <ref> <AXAction> --app <app> [--observation <id>]`
 
 Invoke actions such as `AXPress`, `AXShowMenu`, `AXIncrement`,
-`AXDecrement`, `AXConfirm`, `AXCancel`, `AXOpen`, or `AXRaise`.
+`AXDecrement`, `AXConfirm`, `AXCancel`, `AXOpen`, or `AXRaise`. Read
+`dispatched` and `effect_verified`; mutation actions whose AX state stays
+unchanged return `verification_failed`.
 
 ### `cu type <text> --app <app> [--paste|--no-paste] [--no-snapshot]`
 
-Inject Unicode by PID. Automatically uses clipboard paste for CJK and known
-chat apps; read `paste_reason`.
+Inject Unicode by PID. Automatically uses PID-targeted clipboard paste for
+known chat apps and focused inputs below `AXWebArea`; native controls keep
+Unicode events, including CJK. Read `paste_reason`. Targeted typing requires a focused AX text input.
+`effect_verified:true` means the focused value changed;
+An unobservable targeted result fails with `unknown_outcome`. Inputs below
+`AXWebArea` get a second stability snapshot and remain medium confidence:
+stable text does not generically prove every controlled-editor side effect.
 
 ### `cu key <combo> --app <app> [--no-snapshot]`
 
-Send modifiers and keys through PID-targeted CGEvents.
+Send modifiers and keys through PID-targeted CGEvents. Event dispatch is
+reported separately from observable effect. Enter on a focused input returns
+`verification_failed` when neither the input nor surrounding AX state changes.
 
 ### `cu scroll <direction> [amount] --x <x> --y <y> --app <app>`
 
@@ -183,7 +196,9 @@ state.
 ### `cu window <action> [args] [--app <app>] [--window N]`
 
 Actions: `list`, `move`, `resize`, `focus`, `minimize`, `unminimize`, `close`.
-Focus prefers AX raise and may fall back to System Events.
+Focus selects the AX window, activates the exact PID through
+`NSRunningApplication`, and verifies the same PID through NSWorkspace. It
+returns `focus_failed` instead of silently accepting AXRaise-only success.
 
 ### `cu launch <name|bundle-id> [--no-wait] [--timeout seconds]`
 

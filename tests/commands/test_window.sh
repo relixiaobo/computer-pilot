@@ -102,14 +102,32 @@ fi
 
 section "window focus"
 
-cu_json window focus --app Finder
-assert_ok "window focus ok"
-# B6: focus should report method=ax-raise (direct AX, no global activate)
-METHOD=$(json_get '.method' || echo "")
-if [[ "$METHOD" == "ax-raise" ]]; then
-  _pass "focus uses method=ax-raise (B6)"
+if interactive_tests_enabled; then
+  cu_json window focus --app Finder
+  assert_ok "window focus ok"
+  # Focus selects through AX, activates the exact process, then verifies it
+  # through NSWorkspace rather than treating AXRaise as application focus.
+  METHOD=$(json_get '.method' || echo "")
+  if [[ "$METHOD" == "native-pid-activation" ]]; then
+    _pass "focus uses exact-PID native activation"
+  else
+    _fail "focus method" "expected native-pid-activation, got '$METHOD'"
+  fi
+  FOCUSED_PID=$(json_get '.frontmost_pid' || echo "")
+  if [[ "$FOCUSED_PID" =~ ^[0-9]+$ ]]; then
+    _pass "focus reports verified frontmost PID"
+  else
+    _fail "focus reports verified frontmost PID" "got '$FOCUSED_PID'"
+  fi
+  cu_json state Finder --no-screenshot
+  assert_ok "state after focus ok"
+  assert_json_field "state confirms Finder frontmost" ".frontmost" "true"
 else
-  _fail "focus method" "expected ax-raise, got '$METHOD'"
+  _skip "window focus ok" "interactive desktop tests disabled"
+  _skip "focus uses exact-PID native activation" "interactive desktop tests disabled"
+  _skip "focus reports verified frontmost PID" "interactive desktop tests disabled"
+  _skip "state after focus ok" "interactive desktop tests disabled"
+  _skip "state confirms Finder frontmost" "interactive desktop tests disabled"
 fi
 
 section "window — error handling"

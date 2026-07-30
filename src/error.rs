@@ -33,6 +33,7 @@ pub enum ErrorCode {
     PermissionDenied,
     AppNotFound,
     WindowNotFound,
+    FocusFailed,
     CaptureProtected,
     VerificationFailed,
     InternalError,
@@ -57,6 +58,7 @@ impl ErrorCode {
             Self::PermissionDenied => "permission_denied",
             Self::AppNotFound => "app_not_found",
             Self::WindowNotFound => "window_not_found",
+            Self::FocusFailed => "focus_failed",
             Self::CaptureProtected => "capture_protected",
             Self::VerificationFailed => "verification_failed",
             Self::InternalError => "internal_error",
@@ -91,6 +93,8 @@ impl ErrorCode {
             || error.contains("waiting for window")
         {
             Self::WindowNotFound
+        } else if error.contains("focus failed") || error.contains("failed to activate") {
+            Self::FocusFailed
         } else if error.contains("verification failed") || error.contains("could not verify") {
             Self::VerificationFailed
         } else if error.contains("timed out") || error.contains("timeout expired") {

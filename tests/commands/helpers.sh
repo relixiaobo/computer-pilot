@@ -7,6 +7,15 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CU="$ROOT_DIR/target/release/cu"
 
+# Default command tests must not take the user's foreground app or send global
+# HID events. Set this only when the desktop is intentionally dedicated to the
+# foreground/global compatibility tests.
+COMPUTER_PILOT_TEST_INTERACTIVE="${COMPUTER_PILOT_TEST_INTERACTIVE:-0}"
+
+interactive_tests_enabled() {
+  [[ "$COMPUTER_PILOT_TEST_INTERACTIVE" == "1" ]]
+}
+
 # ── Counters ────────────────────────────────────────────────────────────────
 
 PASS=0
@@ -129,6 +138,58 @@ cu_human() {
     ERR="${ERR}${ERR:+
 }cu_human TIMED OUT after ${CU_TIMEOUT_SECS}s"
   fi
+}
+
+# Reset TextEdit to one disposable document without relying on AppleScript to
+# cold-launch the app. Test documents are intentionally discarded; every call
+# is time-bounded so a stuck Automation request cannot pin the whole suite.
+textedit_reset() {
+  local attempt opened=false marker snapshot
+  for attempt in {1..20}; do
+    if open -g -a TextEdit >/dev/null 2>&1; then
+      opened=true
+      break
+    fi
+    sleep 0.25
+  done
+  [[ "$opened" == "true" ]] || return 1
+  _run_with_timeout 15 osascript -e 'tell application "TextEdit" to close every document saving no' >/dev/null 2>&1
+  _run_with_timeout 15 osascript -e 'tell application "TextEdit" to make new document' >/dev/null 2>&1
+  marker="cu-textedit-fixture-$$"
+  _run_with_timeout 15 osascript -e "tell application \"TextEdit\" to set text of front document to \"$marker\"" >/dev/null 2>&1
+  for attempt in {1..30}; do
+    snapshot=$("$CU" snapshot TextEdit --limit 5 2>/dev/null || true)
+    if [[ "$snapshot" == *"$marker"* ]]; then
+      _run_with_timeout 15 osascript -e 'tell application "TextEdit" to set text of front document to ""' >/dev/null 2>&1
+      for _ in {1..30}; do
+        snapshot=$("$CU" snapshot TextEdit --limit 5 2>/dev/null || true)
+        if printf '%s' "$snapshot" | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+focused = d.get("focused") or {}
+raise SystemExit(0 if focused.get("role") == "textarea" and "cu-textedit-fixture-" not in str(d) else 1)
+' >/dev/null 2>&1; then
+          return 0
+        fi
+        sleep 0.1
+      done
+      return 1
+    fi
+    sleep 0.1
+  done
+  return 1
+}
+
+textedit_cleanup() {
+  _run_with_timeout 15 osascript -e 'tell application "TextEdit" to close every document saving no' >/dev/null 2>&1 || true
+  _run_with_timeout 15 osascript -e 'tell application "TextEdit" to quit saving no' >/dev/null 2>&1 || true
+  while IFS= read -r textedit_pid; do
+    [[ "$textedit_pid" =~ ^[0-9]+$ ]] && kill "$textedit_pid" 2>/dev/null || true
+  done < <(pgrep -x TextEdit 2>/dev/null || true)
+  for _ in {1..50}; do
+    pgrep -x TextEdit >/dev/null 2>&1 || return 0
+    sleep 0.1
+  done
 }
 
 # ── JSON helpers (require python3) ──────────────────────────────────────────
@@ -316,7 +377,7 @@ assert_file_png() {
 
 # ── Cleanup ─────────────────────────────────────────────────────────────────
 
-CLEANUP_FILES=("")
+CLEANUP_FILES=("/tmp/cu-test-stderr")
 
 # Register a file for cleanup at exit
 cleanup_register() {

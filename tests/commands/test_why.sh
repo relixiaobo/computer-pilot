@@ -36,6 +36,13 @@ print('|'.join([
 [[ "$PARSED" == *"has_advice=True"* ]]      && _pass "advice non-empty"   || _fail "advice non-empty"   "$PARSED"
 [[ "$PARSED" == *"snapshot_size_ok=True"* ]] && _pass "snapshot_size > 0" || _fail "snapshot_size"      "$PARSED"
 
+ADVICE=$(echo "$OUT" | python3 -c "import sys,json;print(json.load(sys.stdin).get('advice',''))" 2>/dev/null || echo "")
+if echo "$ADVICE" | grep -qE "retry without --app|--allow-global|tell application|osascript"; then
+  _fail "advice preserves exact PID targeting" "$ADVICE"
+else
+  _pass "advice preserves exact PID targeting"
+fi
+
 section "why — missing ref"
 
 cu_json why 9999 --app Finder

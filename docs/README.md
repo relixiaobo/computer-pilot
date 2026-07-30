@@ -28,7 +28,7 @@ Pilot does not expose a separate bridge, MCP server, SDK, or host adapter.
 Headline calls:
 - **`cu state <app>`** — canonical first call: snapshot + windows + screenshot + frontmost in one round-trip
 - **`cu click <ref> --app X`** — 15-step AX action chain → CGEvent fallback; verify-on-by-default returns `verified` + `verify_advice`
-- **`cu type "..." --app X`** — Unicode CGEvent (no clipboard); auto-routes via paste for CJK / chat apps (`paste_reason`)
+- **`cu type "..." --app X`** — Unicode CGEvent (no clipboard); auto-routes via paste for Chromium inputs / known chat apps (`paste_reason`)
 - **`cu tell <app> '<AppleScript>'`** — direct data access for scriptable apps (`S` flag in `cu apps`)
 - **`cu launch <name|bundleId>`** — spawn + wait for first AX-ready window
 - **`cu why <ref> --app X`** — diagnose why a click/perform/set-value didn't take

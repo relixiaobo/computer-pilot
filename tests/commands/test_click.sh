@@ -5,12 +5,12 @@ source "$(dirname "$0")/helpers.sh"
 
 section "click — coordinate mode"
 
-cu_json "click 100 100"
+cu_json "click 100 100 --app Finder"
 assert_ok "click coords (100, 100)"
 assert_json_field "x in response" ".x" "100.0"
 assert_json_field "y in response" ".y" "100.0"
 
-cu_json "click 500 300 --no-snapshot"
+cu_json "click 500 300 --app Finder --no-snapshot"
 assert_ok "click coords with --no-snapshot"
 # Should NOT have a snapshot field
 NO_SNAP=$(echo "$OUT" | python3 -c "
@@ -24,11 +24,11 @@ fi
 
 section "click — coordinate mode with modifiers"
 
-cu_json "click 100 100 --right --no-snapshot"
+cu_json "click 100 100 --right --app Finder --no-snapshot"
 assert_ok "right-click coords"
 assert_json_field "right flag in response" ".right" "true"
 
-cu_json "click 100 100 --no-snapshot"
+cu_json "click 100 100 --app Finder --no-snapshot"
 assert_ok "double-click coords"
 
 section "click — ref mode (Finder)"
@@ -112,7 +112,7 @@ assert_fail "click --text with non-existent text fails"
 
 section "click — human mode"
 
-cu_human "click 100 100"
+cu_human "click 100 100 --app Finder"
 assert_exit_zero "click human exits 0"
 assert_contains "shows click info" "Clicked"
 

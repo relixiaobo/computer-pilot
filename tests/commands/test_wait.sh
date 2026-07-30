@@ -1,6 +1,7 @@
 #!/bin/bash
 # Test: cu wait
 source "$(dirname "$0")/helpers.sh"
+trap 'textedit_cleanup; cleanup_run' EXIT
 
 section "wait --text — existing text in Finder"
 
@@ -53,8 +54,7 @@ fi
 
 section "wait --gone — non-existent ref (immediate success)"
 
-osascript -e 'tell application "TextEdit" to make new document' 2>/dev/null || true
-sleep 0.5
+textedit_reset
 cu_json "wait --gone 9999 --app TextEdit --timeout 3"
 assert_ok "wait --gone 9999 (already absent)"
 ELAPSED=$(json_get '.elapsed_ms' || echo "9999")
@@ -63,9 +63,6 @@ if [[ "$ELAPSED" -lt 2000 ]] 2>/dev/null; then
 else
   _fail "gone immediate" "took ${ELAPSED}ms"
 fi
-osascript -e 'tell application "TextEdit" to close every document saving no' >/dev/null 2>&1 || true
-osascript -e 'tell application "TextEdit" to quit' >/dev/null 2>&1 || true
-
 section "wait — error: no condition specified"
 
 EXIT=0

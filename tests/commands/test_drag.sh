@@ -4,7 +4,7 @@ source "$(dirname "$0")/helpers.sh"
 
 section "drag — basic"
 
-cu_json "drag 100 200 400 200"
+cu_json "drag 100 200 400 200 --app Finder"
 assert_ok "drag horizontal"
 assert_json_field_exists "from coordinates" ".from"
 assert_json_field_exists "to coordinates" ".to"
@@ -18,23 +18,23 @@ else
   _fail "from/to coordinates" "from.x=$FROM_X to.x=$TO_X"
 fi
 
-cu_json "drag 300 100 300 500"
+cu_json "drag 300 100 300 500 --app Finder"
 assert_ok "drag vertical"
 
 section "drag — with modifiers"
 
-cu_json "drag 100 200 400 200 --shift"
+cu_json "drag 100 200 400 200 --shift --app Finder"
 assert_ok "drag with shift"
 
-cu_json "drag 100 200 400 200 --alt"
+cu_json "drag 100 200 400 200 --alt --app Finder"
 assert_ok "drag with alt (option)"
 
-cu_json "drag 100 200 400 200 --cmd"
+cu_json "drag 100 200 400 200 --cmd --app Finder"
 assert_ok "drag with cmd"
 
 section "drag — human mode"
 
-cu_human "drag 100 200 400 200"
+cu_human "drag 100 200 400 200 --app Finder"
 assert_exit_zero "drag human exits 0"
 assert_contains "shows drag info" "Dragged"
 

@@ -52,6 +52,22 @@ else
   _fail "auto-snapshot displays" "got: $HAS_DISPLAYS"
 fi
 
+COMPACT=$(echo "$OUT" | python3 -c "
+import sys, json
+d = json.load(sys.stdin).get('snapshot', {})
+elements = d.get('elements', [])
+print('|'.join([
+    'compact=' + str(d.get('action_snapshot_compact')),
+    'bounded=' + str(len(elements) <= 50),
+    'paths_omitted=' + str(all('axPath' not in e for e in elements)),
+    'has_hint=' + str(bool(d.get('snapshot_hint'))),
+]))
+" 2>/dev/null || echo "malformed")
+[[ "$COMPACT" == *"compact=True"* ]] && _pass "action snapshot marked compact" || _fail "action snapshot compact marker" "$COMPACT"
+[[ "$COMPACT" == *"bounded=True"* ]] && _pass "action snapshot capped at 50 elements" || _fail "action snapshot element cap" "$COMPACT"
+[[ "$COMPACT" == *"paths_omitted=True"* ]] && _pass "action snapshot omits axPath" || _fail "action snapshot axPath omission" "$COMPACT"
+[[ "$COMPACT" == *"has_hint=True"* ]] && _pass "action snapshot explains explicit snapshot recovery" || _fail "action snapshot hint" "$COMPACT"
+
 section "settle_ms — absent when --no-snapshot"
 
 cu_json key escape --app Finder --no-snapshot
@@ -60,7 +76,7 @@ import sys, json
 print('yes' if 'settle_ms' in json.load(sys.stdin) else 'no')
 " 2>/dev/null || echo "error")
 if [[ "$HAS" == "no" ]]; then
-  _pass "settle_ms omitted when --no-snapshot (no wait incurred)"
+  _pass "settle_ms omitted when --no-snapshot"
 else
   _fail "settle_ms with --no-snapshot" "got: $HAS"
 fi

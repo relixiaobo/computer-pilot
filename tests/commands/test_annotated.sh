@@ -3,7 +3,7 @@
 source "$(dirname "$0")/helpers.sh"
 
 OUT_PATH="/private/tmp/cu-test-annotated-$$.png"
-trap 'rm -f "$OUT_PATH"' EXIT
+cleanup_register "$OUT_PATH"
 
 section "snapshot --annotated — basic JSON output"
 
