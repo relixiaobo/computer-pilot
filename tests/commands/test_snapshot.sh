@@ -1,6 +1,7 @@
 #!/bin/bash
 # Test: cu snapshot
 source "$(dirname "$0")/helpers.sh"
+trap 'textedit_cleanup; cleanup_run' EXIT
 
 section "snapshot — Finder (always running)"
 
@@ -135,9 +136,7 @@ assert_fail "non-existent app fails"
 section "snapshot — focused element (A4)"
 
 # Open TextEdit and create a doc; the textarea should be the focused element
-osascript -e 'tell application "TextEdit" to activate' 2>/dev/null
-sleep 1
-osascript -e 'tell application "TextEdit" to make new document' 2>/dev/null
+textedit_reset
 "$CU" wait --ref 1 --app TextEdit --timeout 5 >/dev/null 2>&1 || true
 "$CU" snapshot TextEdit --limit 5 >/dev/null 2>&1 || true  # warm up
 sleep 0.3
@@ -168,17 +167,18 @@ fi
 
 section "snapshot — modal warning (A6)"
 
-# Trigger TextEdit's "Save changes?" sheet by closing an unsaved document.
-# Use osascript path because Cmd+W via PID-targeted doesn't fire the menu chain.
-"$CU" set-value 1 "modal-trigger" --app TextEdit --no-snapshot >/dev/null 2>&1 || true
-sleep 0.2
-osascript -e 'tell application "TextEdit" to activate' 2>/dev/null
-sleep 0.3
-osascript -e 'tell application "System Events" to tell process "TextEdit" to keystroke "w" using {command down}' 2>/dev/null
-sleep 1
+if interactive_tests_enabled; then
+  # Trigger TextEdit's "Save changes?" sheet by closing an unsaved document.
+  # This deliberately activates TextEdit, so it is opt-in only.
+  "$CU" set-value 1 "modal-trigger" --app TextEdit --no-snapshot >/dev/null 2>&1 || true
+  sleep 0.2
+  osascript -e 'tell application "TextEdit" to activate' 2>/dev/null
+  sleep 0.3
+  osascript -e 'tell application "System Events" to tell process "TextEdit" to keystroke "w" using {command down}' 2>/dev/null
+  sleep 1
 
-cu_json snapshot TextEdit --limit 30
-MODAL_INFO=$(echo "$OUT" | python3 -c "
+  cu_json snapshot TextEdit --limit 30
+  MODAL_INFO=$(echo "$OUT" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
 m = d.get('modal')
@@ -190,29 +190,27 @@ print('|'.join([
 ]))
 " 2>/dev/null || echo "error")
 
-# The modal trigger is environment-dependent — TextEdit with iCloud auto-save
-# enabled silently closes the doc on Cmd+W and never shows a sheet. When that
-# happens, skip the assertion (it's not a `cu` regression).
-if [[ "$MODAL_INFO" == "missing" ]]; then
-  _skip "modal.role is AXSheet" "TextEdit didn't show save sheet (likely iCloud auto-save)"
-  _skip "human mode '⚠ Modal:' warning" "no sheet to render"
-else
-  [[ "$MODAL_INFO" == *"role=AXSheet"* ]] && _pass "modal.role is AXSheet" || _fail "modal.role is AXSheet" "$MODAL_INFO"
-
-  # Human mode shows the warning line
-  cu_human snapshot TextEdit --limit 5
-  if echo "$OUT" | grep -q "^⚠ Modal:"; then
-    _pass "human mode renders '⚠ Modal:' warning"
+  # The modal trigger is environment-dependent — TextEdit with iCloud auto-save
+  # enabled silently closes the doc on Cmd+W and never shows a sheet.
+  if [[ "$MODAL_INFO" == "missing" || "$MODAL_INFO" == "error" ]]; then
+    _skip "modal.role is AXSheet" "TextEdit didn't show save sheet (likely iCloud auto-save)"
+    _skip "human mode '⚠ Modal:' warning" "no sheet to render"
   else
-    _fail "human mode '⚠ Modal:' warning" "missing in output"
-  fi
-fi
+    [[ "$MODAL_INFO" == *"role=AXSheet"* ]] && _pass "modal.role is AXSheet" || _fail "modal.role is AXSheet" "$MODAL_INFO"
 
-# Cleanup: dismiss sheet (don't save), quit. `|| true` because TextEdit's
-# AppleScript bridge can return -128 ("user canceled") when there's still
-# a sheet up; that's not a test failure.
-osascript -e 'tell application "System Events" to tell process "TextEdit" to keystroke "d" using {command down}' 2>/dev/null || true
-sleep 0.5
-osascript -e 'tell application "TextEdit" to quit' 2>/dev/null || true
+    cu_human snapshot TextEdit --limit 5
+    if echo "$OUT" | grep -q "^⚠ Modal:"; then
+      _pass "human mode renders '⚠ Modal:' warning"
+    else
+      _fail "human mode '⚠ Modal:' warning" "missing in output"
+    fi
+  fi
+
+  osascript -e 'tell application "System Events" to tell process "TextEdit" to keystroke "d" using {command down}' 2>/dev/null || true
+  sleep 0.5
+else
+  _skip "modal.role is AXSheet" "interactive desktop tests disabled"
+  _skip "human mode '⚠ Modal:' warning" "interactive desktop tests disabled"
+fi
 
 summary

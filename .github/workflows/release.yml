@@ -19,6 +19,7 @@ jobs:
     environment: release
     env:
       TAG: ${{ inputs.tag || github.ref_name }}
+      HAS_DEVELOPER_ID: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 != '' && secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD != '' && secrets.RELEASE_KEYCHAIN_PASSWORD != '' && secrets.DEVELOPER_ID_APPLICATION != '' && secrets.APPLE_ID != '' && secrets.APPLE_TEAM_ID != '' && secrets.APPLE_APP_PASSWORD != '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,6 +41,7 @@ jobs:
       - name: Build Apple Silicon binary
         run: cargo build --release --locked --target aarch64-apple-darwin
       - name: Import Developer ID certificate
+        if: env.HAS_DEVELOPER_ID == 'true'
         env:
           CERTIFICATE_P12: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 }}
           CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
@@ -55,6 +57,7 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security list-keychain -d user -s "$KEYCHAIN_PATH"
       - name: Sign fixed Computer Pilot identity
+        if: env.HAS_DEVELOPER_ID == 'true'
         env:
           SIGNING_IDENTITY: ${{ secrets.DEVELOPER_ID_APPLICATION }}
         run: |
@@ -63,6 +66,7 @@ jobs:
           codesign --verify --strict --verbose=2 "$BINARY"
           codesign -dvv "$BINARY"
       - name: Notarize signed binary
+        if: env.HAS_DEVELOPER_ID == 'true'
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -70,6 +74,14 @@ jobs:
         run: |
           ditto -c -k --keepParent target/aarch64-apple-darwin/release/cu "$RUNNER_TEMP/cu-notary.zip"
           xcrun notarytool submit "$RUNNER_TEMP/cu-notary.zip" --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" --wait
+          echo "COMPUTER_PILOT_SIGNING_STATUS=developer-id-notarized" >> "$GITHUB_ENV"
+      - name: Apply fixed ad-hoc identity when Developer ID is unavailable
+        if: env.HAS_DEVELOPER_ID != 'true'
+        run: |
+          BINARY="target/aarch64-apple-darwin/release/cu"
+          codesign --force --identifier com.linlab.computer-pilot.cu --sign - "$BINARY"
+          codesign --verify --strict --verbose=2 "$BINARY"
+          echo "COMPUTER_PILOT_SIGNING_STATUS=ad-hoc-unsigned" >> "$GITHUB_ENV"
       - name: Build release assets
         run: |
           VERSION="${TAG#v}"
@@ -79,4 +91,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$TAG" "$RUNNER_TEMP/computer-pilot-dist"/* --verify-tag --generate-notes --title "Computer Pilot $TAG"
+          if [[ "$COMPUTER_PILOT_SIGNING_STATUS" == "developer-id-notarized" ]]; then
+            NOTICE="Developer ID signed and Apple-notarized macOS artifact."
+          else
+            NOTICE="Unsigned development release (ad-hoc identity): SHA-256 verified, but not Apple-notarized. macOS TCC permissions may need to be granted again after upgrades."
+          fi
+          gh release create "$TAG" "$RUNNER_TEMP/computer-pilot-dist"/* --verify-tag --generate-notes --notes "$NOTICE" --title "Computer Pilot $TAG"

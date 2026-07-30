@@ -23,8 +23,8 @@ cu setup
 Interpret the result:
 
 - `ready:true`: core Accessibility and Screen Recording are available.
-- `accessibility:false`: enable the signed Computer Pilot identity under
-  Privacy & Security > Accessibility.
+- `accessibility:false`: enable the current Computer Pilot executable (or its
+  signed identity) under Privacy & Security > Accessibility.
 - `screen_recording:false`: enable it under Privacy & Security > Screen
   Recording.
 - `capture_protected_apps`: these apps opt out of capture even when Screen
@@ -47,7 +47,8 @@ manual visual confirmation where necessary.
 
 ## Distribution Identity
 
-Bundled Agent products must execute the official signed/notarized Computer
-Pilot artifact with its fixed identifier. Do not re-sign, wrap, or copy the
-binary under changing identities; macOS TCC continuity depends on stable code
-identity across upgrades.
+Inspect `release-index.json` before bundling. Prefer an official
+`developer-id-notarized` artifact with the fixed identifier and do not re-sign
+it. An `ad-hoc-unsigned` artifact is usable when signing credentials are
+unavailable, but TCC continuity across upgrades is not guaranteed; pin its
+checksum and surface that limitation to users.

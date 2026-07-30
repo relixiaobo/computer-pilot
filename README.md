@@ -67,17 +67,18 @@ Every action response includes a `method` field documenting the routing:
 A `*-global` method in the response is the audit signal that the agent
 forgot `--app` and disrupted the user. Always pass `--app <selector>`.
 
-**Known limitation:** `drag` and `hover` move the cursor by design. A small
-set of sandboxed Mac App Store apps ignores PID-targeted events. `cu click`
-surfaces this as `verified:false`; observe again and try another targeted AX
-primitive. Do not drop `--app` as a workaround.
+PID-targeted `drag` and `hover` also preserve the real cursor; only their
+`*-global` variants move it. A small set of sandboxed Mac App Store apps
+ignores PID-targeted events. `cu click` surfaces this as `verified:false`;
+observe again and try another targeted AX primitive. Do not drop `--app` as a
+workaround.
 
 ## Install
 
 ### Option A: Download binary (Apple Silicon)
 
-Only Apple Silicon is supported. Download the signed/notarized binary and
-verify its published SHA-256 checksum:
+Only Apple Silicon is supported. Download the binary and verify its published
+SHA-256 checksum:
 
 ```bash
 test "$(uname -m)" = "arm64"
@@ -121,8 +122,11 @@ When a new version is released, update with:
 ```
 
 The `cu` binary is separate; repeat the verified binary install to upgrade it.
-Every release also includes a signed/notarized archive, skill archive, plugin
-archive, checksums, and `release-index.json`.
+Every release includes a binary archive, skill archive, plugin archive,
+checksums, and `release-index.json`. Inspect `signing.status` in the index:
+`developer-id-notarized` is the stable production identity;
+`ad-hoc-unsigned` is checksum-verifiable but not Apple-notarized, and macOS may
+require TCC permissions again after an upgrade.
 
 ### Agent Products
 
@@ -212,12 +216,12 @@ cu ocr "Google Chrome"
 |---------|-------------|
 | `cu click <ref\|x y\|--text>` | Click by ref, coordinates, or OCR text. Pre/post AX diff verifies by default — `verified:false` + `verify_advice` when sandbox apps swallow the event. `--no-verify` to skip |
 | `cu key <combo> [--app]` | Keyboard shortcut (e.g., `cmd+c`, `enter`) |
-| `cu type <text> [--app]` | Type text. Auto-routes via clipboard paste for CJK/chat apps (WeChat, Slack, Discord, Telegram, Lark, QQ, DingTalk, …) — see `paste_reason` |
+| `cu type <text> [--app]` | Type text. Auto-routes via clipboard paste for Chromium inputs and known chat apps; native inputs keep Unicode events, including CJK — see `paste_reason` |
 | `cu set-value <ref\|--ax-path> <text>` | Write text directly into an AX field — no focus, no IME, no clipboard |
 | `cu perform <ref\|--ax-path> <action>` | Invoke a named AX action (`AXShowMenu`, `AXIncrement`, `AXScrollToVisible`, ...) |
-| `cu scroll <dir> <n> --x --y` | Scroll up/down/left/right |
-| `cu hover <x> <y>` | Move mouse (trigger tooltips) |
-| `cu drag <x1> <y1> <x2> <y2>` | Drag with smooth interpolation |
+| `cu scroll <dir> <n> --x --y --app <selector>` | Scroll in the target process without moving the real cursor |
+| `cu hover <x> <y> --app <selector>` | Deliver mouse movement to the target process (trigger tooltips) without moving the real cursor |
+| `cu drag <x1> <y1> <x2> <y2> --app <selector>` | Drag in the target process with smooth interpolation without moving the real cursor |
 
 ### Script & Control
 

@@ -5,7 +5,11 @@
 source "$(dirname "$0")/helpers.sh"
 
 PNG_PATH="/private/tmp/cu-test-fused-$$.png"
-trap 'rm -f /private/tmp/cu-test-fused-*.png' EXIT
+cleanup_register "$PNG_PATH"
+cleanup_register "/private/tmp/cu-test-fused-both.png"
+cleanup_register "/private/tmp/cu-test-fused-diff1.png"
+cleanup_register "/private/tmp/cu-test-fused-diff2.png"
+cleanup_register "/private/tmp/cu-test-fused-h.png"
 
 section "snapshot --with-screenshot — basic JSON"
 

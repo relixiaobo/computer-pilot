@@ -2,13 +2,13 @@
 # Test: cu type
 # Opens TextEdit, types text, verifies
 source "$(dirname "$0")/helpers.sh"
+trap 'textedit_cleanup; cleanup_run' EXIT
 
 # Remove documents leaked by interrupted/manual test runs, then create exactly
 # one target document. We do NOT activate — `cu type --app
 # TextEdit` is PID-targeted, so TextEdit doesn't need to be frontmost as long
 # as the document's textarea is its focused element.
-osascript -e 'tell application "TextEdit" to close every document saving no' 2>/dev/null || true
-osascript -e 'tell application "TextEdit" to make new document' 2>/dev/null
+textedit_reset
 sleep 0.5
 
 section "type — basic text"
@@ -16,6 +16,8 @@ section "type — basic text"
 cu_json "type hello --app TextEdit --no-snapshot"
 assert_ok "type 'hello'"
 assert_json_field "text echoed" ".text" "hello"
+assert_json_field "type dispatched" ".dispatched" "true"
+assert_json_field "type effect verified" ".effect_verified" "true"
 
 section "type — with auto-snapshot"
 
@@ -42,40 +44,22 @@ assert_ok "type with spaces and punctuation"
 
 section "type — non-BMP emoji (UTF-16 surrogate pairs)"
 
-# Clear and focus the textarea deterministically before testing unicode events.
-osascript -e 'tell application "TextEdit" to activate' 2>/dev/null
-sleep 1
+# Clear the internally focused textarea. TextEdit stays in the background so
+# real user keystrokes cannot contaminate this disposable document.
 "$CU" snapshot TextEdit --limit 5 >/dev/null
 cu_json set-value 1 "" --app TextEdit --no-snapshot
 assert_ok "emoji fixture cleared through AX"
-EMOJI_SNAPSHOT=$("$CU" snapshot TextEdit --limit 5)
-read -r CLICK_X CLICK_Y < <(printf '%s' "$EMOJI_SNAPSHOT" | python3 -c '
-import json, sys
-element = json.load(sys.stdin)["elements"][0]
-print(element["x"] + element["width"] / 2, element["y"] + element["height"] / 2)
-')
-cu_json click "$CLICK_X" "$CLICK_Y" --no-snapshot --no-verify
-assert_ok "emoji fixture textarea focused"
-sleep 0.2
-
-# 😀 (U+1F600) and 🎉 (U+1F389) are non-BMP — each encodes to a UTF-16
-# surrogate pair, which the previous "one code unit per event" loop would
-# have split. Both must round-trip whole.
 cu_json type "ab 😀 🎉 cd" --app TextEdit
 assert_ok "type emoji + ASCII"
-
 sleep 0.3
-EMOJI_DOC=$(osascript -e 'tell application "TextEdit" to get text of front document' 2>/dev/null || true)
-
+EMOJI_DOC=$(_run_with_timeout 10 osascript -e 'tell application "TextEdit" to get text of front document' 2>/dev/null || true)
 if [[ "$EMOJI_DOC" == *"😀"* && "$EMOJI_DOC" == *"🎉"* ]]; then
   _pass "non-BMP emoji round-tripped via TextEdit"
-elif [[ -z "$EMOJI_DOC" ]]; then
-  _skip "non-BMP emoji round-tripped via TextEdit" "TextEdit dropped the PID-targeted Unicode event sequence"
 else
   _fail "emoji round-trip" "emoji not in TextEdit document — got: $EMOJI_DOC"
 fi
 
-section "type — --paste path (clipboard ⌘V, the proven CEF/chat-app path)"
+section "type — background PID paste fails loud"
 
 # Snapshot the current clipboard so we can verify cu's restore step.
 SAVED_CLIP=$(pbpaste 2>/dev/null || echo "")
@@ -88,40 +72,21 @@ ORIGINAL_CLIP=$(pbpaste)
 cu_json set-value 1 "" --app TextEdit --no-snapshot
 assert_ok "paste fixture cleared through AX"
 
-# Keep TextEdit frontmost for the global paste transaction. Its background
-# AppKit menu routing does not reliably consume PID-targeted Command-V.
-EXIT=0
-OUT=$(osascript \
-  -e 'on run argv' \
-  -e 'set toolPath to item 1 of argv' \
-  -e 'set inputText to item 2 of argv' \
-  -e 'tell application "TextEdit" to activate' \
-  -e 'delay 1' \
-  -e 'return do shell script (quoted form of toolPath & " type " & quoted form of inputText & " --paste --no-snapshot --allow-global")' \
-  -e 'end run' \
-  "$CU" "你好世界 hi 🎉" 2>/tmp/cu-test-stderr) || EXIT=$?
-ERR=$(cat /tmp/cu-test-stderr 2>/dev/null || true)
-assert_ok "type --paste returns ok"
-
-METHOD=$(echo "$OUT" | python3 -c "import sys,json;print(json.load(sys.stdin).get('method',''))" 2>/dev/null || echo "")
-if [[ "$METHOD" == "paste-global" ]]; then
-  _pass "method=paste-global"
+cu_json state TextEdit --no-screenshot
+TEXTEDIT_FRONTMOST=$(json_get '.frontmost' 2>/dev/null || echo "true")
+if [[ "$TEXTEDIT_FRONTMOST" == "false" ]]; then
+  cu_json type "SHOULD_NOT_LAND" --app TextEdit --paste --no-snapshot
+  assert_fail "background TextEdit paste is not reported as success"
+  BACKGROUND_CODE=$(echo "$ERR" | python3 -c "import sys,json;print(json.load(sys.stdin).get('code',''))" 2>/dev/null || echo "")
+  [[ "$BACKGROUND_CODE" == "unknown_outcome" || "$BACKGROUND_CODE" == "verification_failed" ]] \
+    && _pass "background paste has a recoverable result code" \
+    || _fail "background paste result code" "got: $BACKGROUND_CODE"
+  BACKGROUND_DOC=$(_run_with_timeout 10 osascript -e 'tell application "TextEdit" to get text of front document' 2>/dev/null || true)
+  [[ -z "$BACKGROUND_DOC" ]] && _pass "background paste did not mutate TextEdit" || _fail "background paste isolation" "got: $BACKGROUND_DOC"
 else
-  _fail "method=paste-global" "got: $METHOD"
-fi
-
-# Verify the AX-visible document contains all characters, including the first
-# CJK character. This avoids an unrelated TextEdit AppleScript response race.
-sleep 0.4
-DOC=$("$CU" snapshot TextEdit --limit 5 2>/dev/null | python3 -c "
-import json, sys
-d = json.load(sys.stdin)
-print(next((e.get('value', '') for e in d.get('elements', []) if e.get('role') == 'textarea'), ''))
-" 2>/dev/null || true)
-if [[ "$DOC" == *"你好世界 hi 🎉"* ]]; then
-  _pass "paste delivered full string (CJK + emoji + ASCII)"
-else
-  _fail "paste delivered full string" "got: $DOC"
+  _skip "background TextEdit paste is not reported as success" "TextEdit unexpectedly became frontmost"
+  _skip "background paste has a recoverable result code" "background precondition unavailable"
+  _skip "background paste did not mutate TextEdit" "background precondition unavailable"
 fi
 
 # Verify clipboard was restored (not left set to the typed text).
@@ -164,14 +129,21 @@ fi
 cu_json "type harmless --app TextEdit --no-snapshot"
 assert_ok "--app bypasses safety check"
 
+section "type — focused input preflight"
+
+# Dock has no text input. The command must fail before dispatch instead of
+# sending Unicode events and reporting a false success.
+cu_json type "must-not-dispatch" --app Dock --no-snapshot
+assert_fail "type refuses a target with no focused text input"
+TYPE_CODE=$(echo "$ERR" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("code", ""))' 2>/dev/null || true)
+TYPE_DISPATCHED=$(echo "$ERR" | python3 -c 'import json,sys; print((json.load(sys.stdin).get("diagnostics") or {}).get("dispatched", ""))' 2>/dev/null || true)
+[[ "$TYPE_CODE" == "verification_failed" ]] && _pass "missing focus has verification_failed code" || _fail "missing focus code" "got '$TYPE_CODE'"
+[[ "$TYPE_DISPATCHED" == "False" ]] && _pass "missing focus fails before dispatch" || _fail "missing focus dispatch guard" "got '$TYPE_DISPATCHED'"
+
 section "type — human mode"
 
 cu_human "type test123 --app TextEdit"
 assert_exit_zero "type human exits 0"
 assert_contains "shows typed text" "Typed"
-
-# Cleanup: close TextEdit without saving (`|| true` — see test_key.sh comment)
-osascript -e 'tell application "TextEdit" to close every document saving no' >/dev/null 2>&1 || true
-osascript -e 'tell application "TextEdit" to quit' >/dev/null 2>&1 || true
 
 summary

@@ -47,6 +47,7 @@ solely because the caller timed out.
 | `app_not_found` | App missing or not running | Inspect `cu apps` or launch it. |
 | `ambiguous_target` | Name/bundle matched multiple processes | Choose `diagnostics.candidates[].selector` and reuse that PID selector. |
 | `window_not_found` | Target window unavailable | Observe/launch and wait for a window. |
+| `focus_failed` | macOS did not make the exact requested PID frontmost | Re-resolve the PID; do not send global input. |
 | `observation_required` | Ref has no current client Observation | Run `cu state` or `cu snapshot`. |
 | `observation_not_found` | Observation missing, foreign, or expired | Observe again. |
 | `stale_observation` | UI/window/ref changed | Observe again and re-plan; do not dispatch old intent. |
@@ -76,7 +77,7 @@ On `stale_observation`:
 
 For `verified:false`, read `verify_advice` and the attached snapshot. Prefer:
 
-1. `cu set-value` for AX fields.
+1. `cu set-value` for native AX fields outside `AXWebArea`.
 2. `cu perform <ref> AXPress` for an exposed native action.
 3. `--ax-path` when structure is known.
 4. A fresh ref from a new Observation.
@@ -84,16 +85,25 @@ For `verified:false`, read `verify_advice` and the attached snapshot. Prefer:
 
 Do not recover by dropping `--app` or using `--allow-global`.
 
+For Electron/CEF or any target under `AXWebArea`, allow one exact-PID focus and
+one short prefix probe. Require `focus_verified:true` before type and
+`effect_verified:true` afterward. If either check fails, stop UI retries. Use a
+development app's explicitly provided localhost CDP/Playwright endpoint when
+available; otherwise report the unsupported delivery instead of using global
+keystrokes, System Events click/keystroke, name-based activation, or repeated
+AXValue writes.
+
 ## Method Routing
 
 | Method family | Meaning |
 |---|---|
-| `ax-action`, `ax-set-value`, `ax-perform` | Direct AX operation; preferred. |
-| `cgevent-pid`, `unicode-pid`, `key-pid`, `ocr-text-pid` | PID-targeted, normally non-disruptive. |
+| `ax-action`, `ax-set-value`, `ax-perform` | Direct AX request; inspect `effect_verified`. |
+| `cgevent-pid`, `unicode-pid`, `key-pid`, `ocr-text-pid` | PID-targeted dispatch; inspect `effect_verified`. |
 | `paste-pid` | PID-targeted clipboard paste; desktop clipboard lock used. |
 | `*-global` | Global HID delivery; disruptive and focus-sensitive. |
 
-Hover and drag move the real pointer even when PID-targeted.
+PID-targeted hover and drag preserve the real pointer. Their global variants
+are disruptive.
 
 ## Advisory Strings
 

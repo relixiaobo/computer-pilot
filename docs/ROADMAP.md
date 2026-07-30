@@ -29,7 +29,7 @@ After the E3 wrap-up the user asked for a systematic review of "what information
 | R4 | `annotate_window` also goes through SCK | Annotated screenshots no longer come back blank for off-Space windows |
 | R5 | Element title walks AXTitle → AXDescription → AXHelp → AXIdentifier | Electron/CEF apps store internal IDs in AXTitle; the user-facing label lives in AXHelp |
 | R6 | `cu ocr` attaches aggregate confidence fields + `confidence_hint` | Vision returns plausible-looking hallucinations in the 0.2–0.4 range |
-| R7 | `cu type` auto-routes through paste for CJK / chat apps | WeChat/Slack/Discord/Telegram/Lark/QQ/DingTalk drop the leading character |
+| R7 | `cu type` auto-routes through paste for Chromium inputs / known chat apps | CEF targets can drop the leading character; native inputs keep Unicode events |
 
 **Anti-pattern record**: CLAUDE.md / AGENTS.md gained an "Agent Reliability Principles" section — three principles (single source of truth · loud failures · confidence-tiered output) plus an anti-pattern checklist, each pinned to a specific commit. The first thing a new agent reads when joining the project.
 

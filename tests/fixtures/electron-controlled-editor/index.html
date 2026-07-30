@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Computer Pilot Electron Fixture</title>
+    <style>
+      body { font: 16px system-ui; margin: 32px; color: #181818; background: #fafafa; }
+      main { max-width: 620px; }
+      [contenteditable] { min-height: 96px; padding: 12px; border: 1px solid #777; background: white; }
+      [contenteditable]:empty::before { content: attr(data-placeholder); color: #777; }
+      button { margin-top: 16px; padding: 8px 18px; }
+      #status, #submitted { margin-top: 16px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Controlled Editor Fixture</h1>
+      <div
+        id="editor"
+        contenteditable="true"
+        role="textbox"
+        aria-label="Message this Thread"
+        aria-multiline="true"
+        data-placeholder="Ask anything..."
+      ></div>
+      <button id="send" type="button" disabled>Send</button>
+      <div id="status" aria-live="polite">Draft: empty</div>
+      <div id="submitted" aria-live="polite"></div>
+    </main>
+    <script>
+      const title = new URLSearchParams(location.search).get("title");
+      if (title) document.title = title;
+
+      const editor = document.querySelector("#editor");
+      const send = document.querySelector("#send");
+      const status = document.querySelector("#status");
+      const submitted = document.querySelector("#submitted");
+      let draft = "";
+
+      editor.addEventListener("input", () => {
+        draft = editor.textContent || "";
+        send.disabled = draft.trim().length === 0;
+        status.textContent = draft ? `Draft: ${draft}` : "Draft: empty";
+      });
+
+      send.addEventListener("click", () => {
+        if (!draft.trim()) return;
+        submitted.textContent = `Submitted: ${draft}`;
+        draft = "";
+        editor.textContent = "";
+        send.disabled = true;
+        status.textContent = "Draft: empty";
+      });
+
+      requestAnimationFrame(() => editor.focus());
+    </script>
+  </body>
+</html>

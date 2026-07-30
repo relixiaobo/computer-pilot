@@ -43,7 +43,7 @@ cleanup_targeting_test() {
     kill "$pid" 2>/dev/null || true
   done
 }
-trap cleanup_targeting_test EXIT
+trap 'cleanup_targeting_test; cleanup_run' EXIT
 
 section "app targeting — construct duplicate running instances"
 

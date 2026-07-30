@@ -2,12 +2,13 @@
 # Test: cu set-value
 # Opens TextEdit, writes text via AXValue, verifies via AppleScript
 source "$(dirname "$0")/helpers.sh"
+trap 'textedit_cleanup; cleanup_run' EXIT
 
 # Helper: read TextEdit document, compare to expected via Python (NFC-normalized)
 verify_doc() {
   local label="$1" expected="$2"
   local got
-  got=$(osascript -e 'tell application "TextEdit" to get text of front document' 2>/dev/null)
+  got=$(_run_with_timeout 10 osascript -e 'tell application "TextEdit" to get text of front document' 2>/dev/null)
   local match
   match=$(python3 -c "
 import sys, unicodedata
@@ -22,19 +23,30 @@ print('yes' if got == exp else f'no|{got!r}|{exp!r}')
   fi
 }
 
+set_value_fresh() {
+  local value="$1"
+  shift
+  "$CU" snapshot TextEdit --limit 5 >/dev/null
+  cu_json set-value 1 "$value" --app TextEdit "$@"
+  local code
+  code=$(echo "$ERR" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("code", ""))' 2>/dev/null || true)
+  if [[ "$EXIT" -ne 0 && "$code" == "stale_observation" ]]; then
+    "$CU" snapshot TextEdit --limit 5 >/dev/null
+    cu_json set-value 1 "$value" --app TextEdit "$@"
+  fi
+}
+
 # Open TextEdit and create a doc. Warm up the AX bridge before any write —
 # on a fresh TextEdit instance the first AXValue write can be silently
 # accepted but not propagate to the document until AX has been touched.
-osascript -e 'tell application "TextEdit" to activate' 2>/dev/null
-sleep 1
-osascript -e 'tell application "TextEdit" to make new document' 2>/dev/null
+textedit_reset
 "$CU" wait --ref 1 --app TextEdit --timeout 5 >/dev/null 2>&1 || true
 "$CU" snapshot TextEdit --limit 5 >/dev/null 2>&1 || true
 sleep 0.3
 
 section "set-value — basic ASCII write"
 
-cu_json set-value 1 "hello via AXValue" --app TextEdit --no-snapshot
+set_value_fresh "hello via AXValue" --no-snapshot
 assert_ok "set-value ref 1"
 assert_json_field "method is ax-set-value" ".method" "ax-set-value"
 assert_json_field "value echoed" ".value" "hello via AXValue"
@@ -44,22 +56,19 @@ verify_doc "TextEdit document contains the value" "hello via AXValue"
 
 section "set-value — Unicode (Chinese)"
 
-"$CU" snapshot TextEdit --limit 5 >/dev/null
-cu_json set-value 1 "你好世界" --app TextEdit --no-snapshot
+set_value_fresh "你好世界" --no-snapshot
 assert_ok "set-value Chinese text"
 verify_doc "TextEdit document contains Chinese text" "你好世界"
 
 section "set-value — replaces previous value"
 
-"$CU" snapshot TextEdit --limit 5 >/dev/null
-cu_json set-value 1 "overwrite" --app TextEdit --no-snapshot
+set_value_fresh "overwrite" --no-snapshot
 assert_ok "set-value overwrite"
 verify_doc "AXValue write replaces, not appends" "overwrite"
 
 section "set-value — auto-snapshot"
 
-"$CU" snapshot TextEdit --limit 5 >/dev/null
-cu_json set-value 1 "with snap" --app TextEdit
+set_value_fresh "with snap"
 assert_ok "set-value with snapshot"
 HAS_SNAP=$(echo "$OUT" | python3 -c "
 import sys, json; d = json.load(sys.stdin); print('yes' if 'snapshot' in d else 'no')
@@ -108,10 +117,5 @@ section "set-value — human mode"
 cu_human set-value 1 "testing" --app TextEdit
 assert_exit_zero "set-value human exits 0"
 assert_contains "shows write confirmation" "Set"
-
-# Cleanup — `|| true` because quit may prompt to save (-128) and set -e would
-# otherwise kill the script before summary().
-osascript -e 'tell application "TextEdit" to close every document saving no' >/dev/null 2>&1 || true
-osascript -e 'tell application "TextEdit" to quit' >/dev/null 2>&1 || true
 
 summary

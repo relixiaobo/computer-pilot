@@ -45,6 +45,21 @@ else
   _fail "release tag checkout" "publish workflow does not bind checkout to its tag input"
 fi
 
+section "release contract — signing provenance"
+
+if grep -Fq "HAS_DEVELOPER_ID" "$WORKFLOW" && grep -Fq "ad-hoc-unsigned" "$WORKFLOW"; then
+  _pass "release falls back explicitly when Developer ID secrets are absent"
+else
+  _fail "unsigned release fallback" "workflow still requires unavailable signing secrets"
+fi
+
+if grep -Fq 'COMPUTER_PILOT_SIGNING_STATUS' "$ROOT_DIR/scripts/build-release-assets.sh" \
+  && grep -Fq '"signing"' "$ROOT_DIR/scripts/build-release-assets.sh"; then
+  _pass "release index records signing provenance"
+else
+  _fail "release signing provenance" "release-index.json omits signing status"
+fi
+
 section "permission contract — Apple Events are tell-only"
 
 OSASCRIPT_SPAWNS=$(rg -n 'Command::new\("osascript"\)' "$ROOT_DIR/src" | wc -l | tr -d ' ')

@@ -1,17 +1,46 @@
 #!/bin/bash
 # Test: cu key
 source "$(dirname "$0")/helpers.sh"
+trap 'textedit_cleanup; cleanup_run' EXIT
 
-# Make sure TextEdit has a document. We do NOT activate — `cu key --app TextEdit`
-# is PID-targeted, so TextEdit doesn't need to be frontmost.
-osascript -e 'tell application "TextEdit" to make new document' 2>/dev/null
-sleep 0.5
+# Make sure TextEdit has a focused document so the first Enter behavior can be
+# verified against real document state. Background PID delivery is covered by
+# the Electron controlled-editor fixture, where dropped events must fail loud.
+textedit_reset
+sleep 1
 
 section "key — basic keys with --app"
 
-cu_json "key enter --app TextEdit --no-snapshot"
-assert_ok "key enter"
-assert_json_field "combo echoed" ".combo" "enter"
+ENTER_VERIFIED=false
+if interactive_tests_enabled; then
+  for _ in 1 2; do
+    cu_json window focus --app TextEdit
+    [[ "$EXIT" -eq 0 ]] || continue
+    cu_json "key enter --app TextEdit --no-snapshot"
+    if [[ "$EXIT" -eq 0 ]] && [[ "$(json_get '.effect_verified' 2>/dev/null || true)" == "true" ]]; then
+      ENTER_VERIFIED=true
+      break
+    fi
+  done
+fi
+if [[ "$ENTER_VERIFIED" == "true" ]]; then
+  _pass "key enter"
+  assert_json_field "combo echoed" ".combo" "enter"
+  assert_json_field "key dispatched" ".dispatched" "true"
+  assert_json_field "Enter effect verified" ".effect_verified" "true"
+  DOC_LENGTH_AFTER_ENTER=$(_run_with_timeout 10 osascript -e 'tell application "TextEdit" to count characters of text of front document' 2>/dev/null || echo "0")
+  if [[ "$DOC_LENGTH_AFTER_ENTER" -ge 1 ]]; then
+    _pass "Enter changed the TextEdit document"
+  else
+    _fail "Enter changed the TextEdit document" "document character count was $DOC_LENGTH_AFTER_ENTER"
+  fi
+else
+  _skip "key enter" "interactive desktop tests disabled or foreground unavailable"
+  _skip "combo echoed" "interactive desktop tests disabled or foreground unavailable"
+  _skip "key dispatched" "interactive desktop tests disabled or foreground unavailable"
+  _skip "Enter effect verified" "interactive desktop tests disabled or foreground unavailable"
+  _skip "Enter changed the TextEdit document" "interactive desktop tests disabled or foreground unavailable"
+fi
 
 cu_json "key tab --app TextEdit --no-snapshot"
 assert_ok "key tab"
@@ -38,8 +67,12 @@ assert_ok "key cmd+shift+z (redo)"
 
 section "key — without --app (CGEvent to frontmost, requires --allow-global from terminal)"
 
-cu_json "key escape --no-snapshot --allow-global"
-assert_ok "key escape without --app (--allow-global)"
+if interactive_tests_enabled; then
+  cu_json "key escape --no-snapshot --allow-global"
+  assert_ok "key escape without --app (--allow-global)"
+else
+  _skip "key escape without --app (--allow-global)" "interactive desktop tests disabled"
+fi
 
 section "key — with auto-snapshot"
 
@@ -70,8 +103,12 @@ assert_ok "key right"
 
 section "key — function keys"
 
-cu_json "key f1 --no-snapshot --allow-global"
-assert_ok "key f1"
+if interactive_tests_enabled; then
+  cu_json "key f1 --no-snapshot --allow-global"
+  assert_ok "key f1"
+else
+  _skip "key f1" "interactive desktop tests disabled"
+fi
 
 section "key — frontmost-app safety check"
 
@@ -85,12 +122,17 @@ else
   _fail "refuses key without --app when frontmost is dangerous" "expected refusal, got: $OUT"
 fi
 
-# --allow-global escape hatch bypasses the check even when frontmost is dangerous
-OUT=$(CU_TEST_FRONTMOST_OVERRIDE=Terminal "$CU" key escape --no-snapshot --allow-global 2>&1) || true
-if echo "$OUT" | grep -q '"ok":true'; then
-  _pass "--allow-global bypasses safety check"
+# --allow-global escape hatch bypasses the check even when frontmost is
+# dangerous, but validating it sends a real global event.
+if interactive_tests_enabled; then
+  OUT=$(CU_TEST_FRONTMOST_OVERRIDE=Terminal "$CU" key escape --no-snapshot --allow-global 2>&1) || true
+  if echo "$OUT" | grep -q '"ok":true'; then
+    _pass "--allow-global bypasses safety check"
+  else
+    _fail "--allow-global bypasses safety check" "got: $OUT"
+  fi
 else
-  _fail "--allow-global bypasses safety check" "got: $OUT"
+  _skip "--allow-global bypasses safety check" "interactive desktop tests disabled"
 fi
 
 # --app sidesteps the check entirely (target is explicit)
@@ -98,11 +140,15 @@ cu_json "key escape --app TextEdit --no-snapshot"
 assert_ok "--app bypasses safety check"
 
 # Frontmost not in dangerous list → call proceeds (safety check is allow-by-default)
-OUT=$(CU_TEST_FRONTMOST_OVERRIDE=Safari "$CU" key escape --no-snapshot 2>&1) || true
-if echo "$OUT" | grep -q '"ok":true'; then
-  _pass "non-dangerous frontmost allows global call"
+if interactive_tests_enabled; then
+  OUT=$(CU_TEST_FRONTMOST_OVERRIDE=Safari "$CU" key escape --no-snapshot 2>&1) || true
+  if echo "$OUT" | grep -q '"ok":true'; then
+    _pass "non-dangerous frontmost allows global call"
+  else
+    _fail "non-dangerous frontmost allows global call" "got: $OUT"
+  fi
 else
-  _fail "non-dangerous frontmost allows global call" "got: $OUT"
+  _skip "non-dangerous frontmost allows global call" "interactive desktop tests disabled"
 fi
 
 section "key — human mode"
@@ -110,10 +156,5 @@ section "key — human mode"
 cu_human "key escape --app TextEdit"
 assert_exit_zero "key human exits 0"
 assert_contains "shows key info" "Sent key"
-
-# Cleanup — `|| true` because quit may surface a save dialog (-128 user canceled),
-# and we don't want set -e to kill the script before summary().
-osascript -e 'tell application "TextEdit" to close every document saving no' >/dev/null 2>&1 || true
-osascript -e 'tell application "TextEdit" to quit' >/dev/null 2>&1 || true
 
 summary

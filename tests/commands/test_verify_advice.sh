@@ -5,8 +5,8 @@
 # verified=false silent click via `cu window focus --app X && cu click ...
 # --allow-global`. In a real agent session that recovery hit the agent's
 # OWN terminal because focus drifted between bash invocations. The advice
-# now points at cu primitives with --app (ax-action retry, perform AXPress,
-# single osascript activate then retry --app cu) — never --allow-global.
+# now points at cu primitives with --app and never uses name-based activation
+# or a global input path.
 source "$(dirname "$0")/helpers.sh"
 
 section "verify_advice — coord-click silent failure"
@@ -34,6 +34,15 @@ if [[ "$VERIFIED" == "False" ]]; then
     _fail "advice does NOT suggest --allow-global" "found '--allow-global' in advice: $ADVICE"
   else
     _pass "advice does NOT suggest --allow-global"
+  fi
+
+  if echo "$ADVICE" | grep -qiE "osascript|tell application"; then
+    _fail "advice does NOT suggest name-based activation" "$ADVICE"
+  elif echo "$ADVICE" | grep -qi "activate by application name" \
+    && ! echo "$ADVICE" | grep -qi "do not activate by application name"; then
+    _fail "advice does NOT suggest name-based activation" "$ADVICE"
+  else
+    _pass "advice does NOT suggest name-based activation"
   fi
 
   # Positive check — advice should redirect to a cu primitive that stays

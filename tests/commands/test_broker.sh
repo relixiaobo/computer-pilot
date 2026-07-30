@@ -17,7 +17,7 @@ cleanup_broker() {
   fi
   rm -rf "$BROKER_TEST_HOME"
 }
-trap cleanup_broker EXIT
+trap 'cleanup_broker; cleanup_run' EXIT
 
 section "broker — private public boundary"
 
@@ -316,14 +316,19 @@ section "broker — canonical app identity serializes aliases"
 MUTATION_PID_1=$!
 "$CU" --json --client-key agent.serial --request-id mutation-2 window move 250 150 --app com.apple.finder >"$BROKER_TEST_HOME/mutation-2.out" 2>"$BROKER_TEST_HOME/mutation-2.err" &
 MUTATION_PID_2=$!
-sleep 0.15
-MUTATIONS=$("$CU" --json --client-key agent.serial commands --limit 10 2>/dev/null || true)
-MUTATION_STATES=$(echo "$MUTATIONS" | python3 -c '
+MUTATIONS=""
+MUTATION_STATES=""
+for _ in {1..40}; do
+  MUTATIONS=$("$CU" --json --client-key agent.serial commands --limit 10 2>/dev/null || true)
+  MUTATION_STATES=$(echo "$MUTATIONS" | python3 -c '
 import json,sys
 commands=json.load(sys.stdin).get("commands", [])
 states=sorted(c.get("status") for c in commands if c.get("request_id") in {"mutation-1","mutation-2"})
 print(",".join(states))
 ' 2>/dev/null || true)
+  [[ "$MUTATION_STATES" == "accepted,dispatched" ]] && break
+  sleep 0.05
+done
 if [[ "$MUTATION_STATES" == "accepted,dispatched" ]]; then
   _pass "app name and bundle ID share one mutation lock"
 else

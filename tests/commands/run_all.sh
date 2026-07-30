@@ -4,6 +4,8 @@
 # Examples:
 #   bash tests/commands/run_all.sh              # run all
 #   bash tests/commands/run_all.sh snapshot key  # run specific tests
+#   COMPUTER_PILOT_TEST_INTERACTIVE=1 bash tests/commands/run_all.sh
+#                                                # include foreground/global input
 
 set -uo pipefail
 
@@ -55,6 +57,9 @@ if [[ ${#TESTS[@]} -eq 0 ]]; then
 fi
 
 echo "Running ${#TESTS[@]} test files..."
+if [[ "${COMPUTER_PILOT_TEST_INTERACTIVE:-0}" != "1" ]]; then
+  echo "Foreground/global input tests disabled (set COMPUTER_PILOT_TEST_INTERACTIVE=1 to enable)."
+fi
 
 # Run each test file, collect results
 TOTAL_PASS=0

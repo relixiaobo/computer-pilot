@@ -3,7 +3,7 @@
 set -euo pipefail
 
 if [[ $# -ne 3 ]]; then
-  echo "Usage: build-release-assets.sh <version> <signed-cu-path> <output-dir>" >&2
+  echo "Usage: build-release-assets.sh <version> <cu-path> <output-dir>" >&2
   exit 1
 fi
 
@@ -13,9 +13,16 @@ OUTPUT_DIR="$3"
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 if [[ ! -x "$BINARY" ]]; then
-  echo "Signed binary is missing or not executable: $BINARY" >&2
+  echo "Binary is missing or not executable: $BINARY" >&2
   exit 1
 fi
+
+SIGNING_STATUS="${COMPUTER_PILOT_SIGNING_STATUS:-ad-hoc-unsigned}"
+case "$SIGNING_STATUS" in
+  developer-id-notarized) NOTARIZED=true ;;
+  ad-hoc-unsigned) NOTARIZED=false ;;
+  *) echo "Unsupported signing status: $SIGNING_STATUS" >&2; exit 1 ;;
+esac
 if [[ ! "$OUTPUT_DIR" = /* ]]; then
   echo "Output directory must be absolute" >&2
   exit 1
@@ -60,6 +67,11 @@ cat >"$OUTPUT_DIR/release-index.json" <<EOF
   "integration_model": "skill-shell-cli",
   "platforms": ["macos-arm64"],
   "unsupported_platforms": ["macos-x86_64"],
+  "signing": {
+    "status": "$SIGNING_STATUS",
+    "identifier": "com.linlab.computer-pilot.cu",
+    "notarized": $NOTARIZED
+  },
   "assets": [
     {"name": "$BINARY_ARCHIVE", "type": "application/gzip", "sha256": "$BINARY_SHA"},
     {"name": "cu-arm64", "type": "application/octet-stream", "sha256": "$RAW_SHA"},

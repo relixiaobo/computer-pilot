@@ -1,16 +1,11 @@
 #!/bin/bash
 # Test: cu snapshot --diff (C1)
 source "$(dirname "$0")/helpers.sh"
+trap 'textedit_cleanup; cleanup_run' EXIT
 
 # Resolve a stable target: open one TextEdit doc, lock its position so
 # identity-by-position stays stable across calls.
-osascript -e 'tell application "TextEdit" to close every document saving no' >/dev/null 2>&1 || true
-osascript -e 'tell application "TextEdit" to quit saving no' >/dev/null 2>&1 || true
-sleep 1
-osascript -e 'tell application "TextEdit" to activate' >/dev/null 2>&1
-sleep 1
-osascript -e 'tell application "TextEdit" to make new document' >/dev/null 2>&1
-sleep 1
+textedit_reset
 "$CU" wait --ref 1 --app TextEdit --timeout 5 >/dev/null 2>&1 || true
 "$CU" snapshot TextEdit --limit 5 >/dev/null 2>&1 || true   # warm AX bridge
 sleep 0.3
@@ -154,9 +149,5 @@ assert_json_field_exists ".elements present on plain snapshot" ".elements"
 cu_json snapshot TextEdit --limit 30 --diff
 assert_ok "post-plain --diff ok"
 assert_json_field_exists "diff field present after plain snapshot" ".diff"
-
-# Cleanup
-osascript -e 'tell application "TextEdit" to close every document saving no' 2>/dev/null || true
-osascript -e 'tell application "TextEdit" to quit' 2>/dev/null || true
 
 summary
