@@ -8,7 +8,7 @@
       "name": "computer-pilot",
       "source": "./plugin",
       "description": "Control macOS desktop apps through the shared Computer Pilot skill and cu CLI.",
-      "version": "0.7.2"
+      "version": "0.8.0"
     }
   ]
 }
