@@ -18,9 +18,16 @@ set -f
 
 UNSUPPORTED_PLATFORM_EXIT_CODE=10
 
+# Keep in sync with installation.asset_template in compatibility.json and with
+# scripts/build-release-assets.sh; tests/commands/test_release_contract.sh
+# asserts all three agree. Callers that have the manifest (the skill preflight,
+# any Agent host) should pass --asset-template rather than rely on this default.
+DEFAULT_ASSET_TEMPLATE='computer-pilot-v{version}-macos-arm64.tar.gz'
+
 version=''
 repository=''
 requirement=''
+asset_template=''
 allow_unsigned=false
 asset_directory=''
 install_root=${COMPUTER_PILOT_INSTALL_ROOT:-}
@@ -33,6 +40,7 @@ usage() {
   printf '%s\n' \
     'Usage: sh install-native.sh --version <version> --repository <owner/repo>' \
     '       [--requirement <codesign requirement>] [--allow-unsigned]' \
+    '       [--asset-template <name with {version}>]' \
     '       [--asset-directory <path>] [--install-root <path>] [--bin-dir <path>]'
 }
 
@@ -77,6 +85,11 @@ while [ "$#" -gt 0 ]; do
       requirement=$2
       shift 2
       ;;
+    --asset-template)
+      [ "$#" -ge 2 ] || { usage >&2; exit 2; }
+      asset_template=$2
+      shift 2
+      ;;
     --allow-unsigned)
       allow_unsigned=true
       shift
@@ -113,6 +126,14 @@ printf '%s\n' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\
   fail invalid_version "Invalid release version: $version"
 printf '%s\n' "$repository" | grep -Eq '^[0-9A-Za-z_.-]+/[0-9A-Za-z_.-]+$' ||
   fail invalid_repository "Invalid GitHub repository: $repository"
+[ -n "$asset_template" ] || asset_template=$DEFAULT_ASSET_TEMPLATE
+case "$asset_template" in
+  *'{version}'*) ;;
+  *) fail invalid_asset_template "Asset template must contain {version}: $asset_template" ;;
+esac
+case "$asset_template" in
+  */*|*..*) fail invalid_asset_template "Asset template must be a plain file name: $asset_template" ;;
+esac
 if [ -z "$requirement" ] && [ "$allow_unsigned" != 'true' ]; then
   fail signing_policy_missing \
     'Provide --requirement from compatibility.json installation.signing.requirement, or pass --allow-unsigned only when that manifest declares required_status=ad-hoc-unsigned'
@@ -195,20 +216,26 @@ binary_version() {
 
 emit_result() {
   installed_command=$1
-  if path_contains "$bin_directory"; then
+  # path_ready answers the only question callers actually have: does a plain
+  # `cu` reach Computer Pilot? macOS ships an unrelated /usr/bin/cu (UUCP
+  # dialer) that wins on the stock PATH, so "our bin dir is somewhere on
+  # PATH" is not sufficient — resolve the command and compare.
+  resolved=$(command -v cu 2>/dev/null || true)
+  shadowed_by=''
+  if [ "$resolved" = "$installed_command" ] || [ "$resolved" = "$bin_directory/cu" ]; then
     path_ready=true
   else
     path_ready=false
+    [ -n "$resolved" ] && shadowed_by=$resolved
   fi
-  shadowed_by=''
-  resolved=$(command -v cu 2>/dev/null || true)
-  if [ -n "$resolved" ] && [ "$resolved" != "$bin_directory/cu" ] && [ "$resolved" != "$installed_command" ]; then
-    shadowed_by=$resolved
-  fi
-  printf 'ok=true\nversion=%s\ncommand=%s\nbin_directory=%s\npath_ready=%s\n' \
-    "$version" "$installed_command" "$bin_directory" "$path_ready"
+  printf 'ok=true\nversion=%s\ncommand=%s\ninstall_bin_dir=%s\nbin_directory=%s\npath_ready=%s\n' \
+    "$version" "$installed_command" "$install_root/bin" "$bin_directory" "$path_ready"
   if [ -n "$shadowed_by" ]; then
     printf 'shadowed_by=%s\n' "$shadowed_by"
+  fi
+  if [ "$path_ready" != 'true' ]; then
+    printf 'path_hint=prepend %s to PATH, or invoke %s directly\n' \
+      "$install_root/bin" "$installed_command"
   fi
 }
 
@@ -250,8 +277,10 @@ if [ -x "$fixed_binary" ] && [ ! -L "$fixed_binary" ] &&
   exit 0
 fi
 
-archive_name="computer-pilot-v$version-macos-arm64.tar.gz"
-archive_root="computer-pilot-v$version-macos-arm64"
+archive_name=$(printf '%s' "$asset_template" | sed "s/{version}/$version/g")
+archive_root=${archive_name%.tar.gz}
+[ "$archive_root" != "$archive_name" ] ||
+  fail invalid_asset_template "Asset template must name a .tar.gz archive: $asset_template"
 temporary_directory=$(mktemp -d "${TMPDIR:-/tmp}/computer-pilot-install.XXXXXX") ||
   fail temporary_directory_failed 'Could not create a temporary directory'
 

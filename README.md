@@ -76,10 +76,20 @@ workaround.
 ## Install
 
 `cu` installs into a fixed, user-owned path —
-`${XDG_DATA_HOME:-~/.local/share}/computer-pilot/bin/cu` — with a `cu`
-symlink in `~/.local/bin`. Upgrades replace the same path atomically, which
-is what lets macOS TCC permissions survive official upgrades. No sudo, and
-never `/usr/local/bin`.
+`${XDG_DATA_HOME:-~/.local/share}/computer-pilot/bin/cu`. Upgrades replace
+the same path atomically, which is what lets macOS TCC permissions survive
+official upgrades. No sudo, and never `/usr/local/bin`.
+
+**Put that directory first on your `PATH`.** macOS ships an unrelated
+`/usr/bin/cu` (the UUCP serial dialer), so a plain `cu` resolves to it unless
+Computer Pilot comes earlier:
+
+```bash
+echo 'export PATH="${XDG_DATA_HOME:-$HOME/.local/share}/computer-pilot/bin:$PATH"' >> ~/.zshrc
+```
+
+Verify with `cu --version`: Computer Pilot prints `cu <semver>`, the UUCP
+dialer prints `cu (Taylor UUCP) 1.07`.
 
 ### Option A: Skill installer (recommended)
 
@@ -94,6 +104,7 @@ cd computer-pilot/plugin/skills/computer-pilot
 sh scripts/install-native.sh \
   --version "$(sed -n 's/^  "version": "\(.*\)",$/\1/p' compatibility.json | head -1)" \
   --repository relixiaobo/computer-pilot --allow-unsigned
+export PATH="${XDG_DATA_HOME:-$HOME/.local/share}/computer-pilot/bin:$PATH"
 cu setup
 ```
 
@@ -114,15 +125,13 @@ curl -fL -o "$workdir/cu-arm64" https://github.com/relixiaobo/computer-pilot/rel
 curl -fL -o "$workdir/cu-arm64.sha256" https://github.com/relixiaobo/computer-pilot/releases/latest/download/cu-arm64.sha256
 (cd "$workdir" && shasum -a 256 -c cu-arm64.sha256)
 install_root="${XDG_DATA_HOME:-$HOME/.local/share}/computer-pilot"
-mkdir -p "$install_root/bin" "$HOME/.local/bin"
+mkdir -p "$install_root/bin"
 chmod 0755 "$workdir/cu-arm64"
 mv "$workdir/cu-arm64" "$install_root/bin/.cu.new"
 mv "$install_root/bin/.cu.new" "$install_root/bin/cu"
-ln -sf "$install_root/bin/cu" "$HOME/.local/bin/cu"
+export PATH="$install_root/bin:$PATH"
 cu setup
 ```
-
-Make sure `~/.local/bin` is on your `PATH`.
 
 ### Option C: Build from source
 
@@ -131,10 +140,10 @@ git clone https://github.com/relixiaobo/computer-pilot.git
 cd computer-pilot
 cargo build --release
 install_root="${XDG_DATA_HOME:-$HOME/.local/share}/computer-pilot"
-mkdir -p "$install_root/bin" "$HOME/.local/bin"
+mkdir -p "$install_root/bin"
 cp target/release/cu "$install_root/bin/.cu.new"
 mv "$install_root/bin/.cu.new" "$install_root/bin/cu"
-ln -sf "$install_root/bin/cu" "$HOME/.local/bin/cu"
+export PATH="$install_root/bin:$PATH"
 cu setup
 ```
 

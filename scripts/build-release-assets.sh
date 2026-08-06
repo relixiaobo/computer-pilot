@@ -32,17 +32,32 @@ mkdir -p "$OUTPUT_DIR"
 STAGING="$(mktemp -d)"
 trap 'rm -rf "$STAGING"' EXIT
 
-ARCHIVE_ROOT="$STAGING/computer-pilot-v$VERSION-macos-arm64"
+MANIFEST="$ROOT_DIR/plugin/skills/computer-pilot/compatibility.json"
+
+# The manifest is the single source for the binary asset name: the skill's
+# installer downloads what this script publishes, so the template must not be
+# duplicated here.
+BINARY_ARCHIVE="$(VERSION="$VERSION" python3 -c "
+import json, os
+template = json.load(open('$MANIFEST'))['installation']['asset_template']
+print(template.replace('{version}', os.environ['VERSION']))
+")"
+case "$BINARY_ARCHIVE" in
+  *.tar.gz) ;;
+  *) echo "Manifest asset_template must name a .tar.gz archive: $BINARY_ARCHIVE" >&2; exit 1 ;;
+esac
+BINARY_ARCHIVE_ROOT="${BINARY_ARCHIVE%.tar.gz}"
+
+ARCHIVE_ROOT="$STAGING/$BINARY_ARCHIVE_ROOT"
 mkdir -p "$ARCHIVE_ROOT"
 cp "$BINARY" "$ARCHIVE_ROOT/cu"
 cp "$ROOT_DIR/README.md" "$ARCHIVE_ROOT/README.md"
-cp "$ROOT_DIR/plugin/skills/computer-pilot/compatibility.json" "$ARCHIVE_ROOT/compatibility.json"
+cp "$MANIFEST" "$ARCHIVE_ROOT/compatibility.json"
 
-BINARY_ARCHIVE="computer-pilot-v$VERSION-macos-arm64.tar.gz"
 SKILL_ARCHIVE="computer-pilot-skill-v$VERSION.tar.gz"
 PLUGIN_ARCHIVE="computer-pilot-plugin-v$VERSION.tar.gz"
 
-tar -C "$STAGING" -czf "$OUTPUT_DIR/$BINARY_ARCHIVE" "computer-pilot-v$VERSION-macos-arm64"
+tar -C "$STAGING" -czf "$OUTPUT_DIR/$BINARY_ARCHIVE" "$BINARY_ARCHIVE_ROOT"
 tar -C "$ROOT_DIR/plugin/skills" -czf "$OUTPUT_DIR/$SKILL_ARCHIVE" computer-pilot
 tar -C "$ROOT_DIR" -czf "$OUTPUT_DIR/$PLUGIN_ARCHIVE" plugin
 cp "$BINARY" "$OUTPUT_DIR/cu-arm64"
