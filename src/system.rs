@@ -275,7 +275,10 @@ unsafe extern "C" {
 /// rather than the leaf binary, so accurate System Settings guidance must name
 /// the real subject instead of guessing "your terminal app".
 pub struct TccSubject {
-    pub executable: String,
+    /// `None` when the running executable's path cannot be resolved — the one
+    /// case where no subject can be named, and callers must say so instead of
+    /// rendering an empty name into remediation text.
+    pub executable: Option<String>,
     pub responsible_pid: Option<i32>,
     pub responsible_process: Option<String>,
 }
@@ -284,8 +287,7 @@ pub fn tcc_subject() -> TccSubject {
     let executable = std::env::current_exe()
         .ok()
         .and_then(|path| path.canonicalize().ok())
-        .map(|path| path.to_string_lossy().into_owned())
-        .unwrap_or_default();
+        .map(|path| path.to_string_lossy().into_owned());
 
     // Private but long-stable libquarantine symbol; resolved dynamically so a
     // macOS release that drops it degrades to executable-only reporting.

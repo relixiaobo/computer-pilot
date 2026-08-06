@@ -1706,10 +1706,19 @@ fn cmd_setup(json: bool) -> Result<(), CuError> {
     let subject = system::tcc_subject();
     // The name to grant in System Settings: the responsible app when macOS
     // attributes cu's TCC checks to it, otherwise the cu executable itself.
+    // When neither can be resolved, say so rather than quoting an empty name
+    // the user could never find — and flag the degradation (Principle 3).
     let subject_label = subject
         .responsible_process
         .clone()
-        .unwrap_or_else(|| subject.executable.clone());
+        .or_else(|| subject.executable.clone());
+    let subject_unknown = subject_label.is_none();
+    let subject_label = subject_label
+        .unwrap_or_else(|| "the cu binary you are running".into());
+    let subject_hint = subject_unknown.then_some(
+        "could not resolve the executable path or responsible process; \
+         grant the app that launched cu and re-run `cu setup`",
+    );
 
     const ACCESSIBILITY_URL: &str =
         "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility";
@@ -1749,17 +1758,24 @@ fn cmd_setup(json: bool) -> Result<(), CuError> {
                 "accessibility": accessibility,
                 "screen_recording": screen_recording,
                 "automation": {
+                    // null, not false: setup never probes Automation, so this
+                    // is "unknown", and an agent iterating `permissions` must
+                    // not read it as a denial.
+                    "granted": null,
                     "scope": "per_target_app",
                     "status": "not_checked",
                     "required_for": ["tell"],
                     "settings_url": AUTOMATION_URL,
+                    "remediation": "Automation is requested per target app by `cu tell`; grant it when that app prompts",
                 },
             },
             "tcc_subject": {
                 "executable": subject.executable,
                 "responsible_pid": subject.responsible_pid,
                 "responsible_process": subject.responsible_process,
+                "grant_subject": subject_label,
             },
+            "tcc_subject_hint": subject_hint,
             "ready": ready,
             "scripting_ready": null,
             "scripting_readiness_reason": "Automation permission is granted separately for each target app and is requested only by cu tell",
@@ -1803,6 +1819,8 @@ fn cmd_setup(json: bool) -> Result<(), CuError> {
             println!(
                 "macOS attributes cu's permissions to \"{subject_label}\" — add that app, then re-run: cu setup"
             );
+        } else if let Some(hint) = subject_hint {
+            println!("Could not identify what to grant: {hint}");
         } else {
             println!("Add the cu binary at {subject_label}, then re-run: cu setup");
         }
