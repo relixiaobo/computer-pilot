@@ -60,6 +60,115 @@ else
   _fail "release signing provenance" "release-index.json omits signing status"
 fi
 
+section "release contract — skill-stable promotion gate"
+
+PROMOTE="$ROOT_DIR/scripts/promote-skill-stable.sh"
+
+# The gate enforces the tagged manifest's declared signing intent rather than
+# a fixed tier, because release.yml silently falls back to an ad-hoc identity
+# when Developer ID secrets are absent — promoting that mismatch is the risk.
+if [[ -f "$PROMOTE" ]] && grep -Fq '"$SIGNING_STATUS" == "$REQUIRED_STATUS"' "$PROMOTE" \
+  && grep -Fq 'does not match its declared identity' "$PROMOTE"; then
+  _pass "skill-stable promotion refuses a release that contradicts its declared identity"
+else
+  _fail "skill-stable promotion refuses a release that contradicts its declared identity" \
+    "promote script no longer compares release signing status against the manifest"
+fi
+
+if grep -Fq 'ACTUAL_IDENTIFIER' "$PROMOTE" && grep -Fq 'MANIFEST_IDENTIFIER' "$PROMOTE"; then
+  _pass "promotion pins the released binary's code identifier"
+else
+  _fail "promotion pins the released binary's code identifier" \
+    "promote script does not verify the codesign identifier"
+fi
+
+# An ad-hoc designated requirement is a bare cdhash that changes every build,
+# so pinning one alongside ad-hoc-unsigned could only ever be wrong.
+if grep -Fq 'ad-hoc signatures have no stable identity' "$PROMOTE"; then
+  _pass "promotion rejects a pinned requirement under an ad-hoc declaration"
+else
+  _fail "promotion rejects a pinned requirement under an ad-hoc declaration" \
+    "promote script accepts a requirement that ad-hoc signing cannot satisfy"
+fi
+
+# The manifest's own declaration must be one the gate understands.
+MANIFEST_STATUS=$(python3 -c "
+import json
+print(json.load(open('$ROOT_DIR/plugin/skills/computer-pilot/compatibility.json'))['installation']['signing']['required_status'])
+")
+MANIFEST_REQUIREMENT=$(python3 -c "
+import json
+value = json.load(open('$ROOT_DIR/plugin/skills/computer-pilot/compatibility.json'))['installation']['signing']['requirement']
+print(value if value else '')
+")
+case "$MANIFEST_STATUS" in
+  developer-id-notarized)
+    if [[ -n "$MANIFEST_REQUIREMENT" ]]; then
+      _pass "signed declaration pins a codesign requirement"
+    else
+      _fail "signed declaration pins a codesign requirement" "required_status is signed but requirement is null"
+    fi
+    ;;
+  ad-hoc-unsigned)
+    if [[ -z "$MANIFEST_REQUIREMENT" ]]; then
+      _pass "ad-hoc declaration pins no codesign requirement"
+    else
+      _fail "ad-hoc declaration pins no codesign requirement" "requirement '$MANIFEST_REQUIREMENT' cannot be satisfied by an ad-hoc signature"
+    fi
+    ;;
+  *)
+    _fail "manifest declares a known signing tier" "got '$MANIFEST_STATUS'"
+    ;;
+esac
+
+if grep -Fq 'merge-base --is-ancestor' "$PROMOTE" \
+  && grep -Fq 'check-version-sync.sh' "$PROMOTE" \
+  && grep -Fq 'codesign --verify' "$PROMOTE"; then
+  _pass "promotion verifies ancestry, version sync, and codesign requirement"
+else
+  _fail "promotion verification gates" "promote script is missing a required gate"
+fi
+
+if grep -Fq 'tested_version' "$ROOT_DIR/scripts/release.sh" \
+  && grep -Fq 'tested_version' "$ROOT_DIR/scripts/check-version-sync.sh"; then
+  _pass "release tooling moves and enforces the manifest version pins"
+else
+  _fail "manifest version pin tooling" "release.sh or check-version-sync.sh does not handle tested_version"
+fi
+
+section "release contract — one source for the binary asset name"
+
+# The publisher, the promotion gate, and the skill's installer must agree on
+# what the release asset is called; a rename that only lands in one of them
+# breaks every install with no CI signal.
+MANIFEST_TEMPLATE=$(python3 -c "
+import json
+print(json.load(open('$ROOT_DIR/plugin/skills/computer-pilot/compatibility.json'))['installation']['asset_template'])
+")
+if [[ -n "$MANIFEST_TEMPLATE" && "$MANIFEST_TEMPLATE" == *"{version}"* ]]; then
+  _pass "manifest declares a versioned asset template"
+else
+  _fail "manifest declares a versioned asset template" "got '$MANIFEST_TEMPLATE'"
+fi
+
+for script in build-release-assets.sh promote-skill-stable.sh; do
+  if grep -Fq "asset_template" "$ROOT_DIR/scripts/$script"; then
+    _pass "$script reads the asset name from the manifest"
+  else
+    _fail "$script reads the asset name from the manifest" \
+      "no asset_template lookup — the archive name is hardcoded again"
+  fi
+done
+
+INSTALLER_DEFAULT=$(sed -n "s/^DEFAULT_ASSET_TEMPLATE='\(.*\)'$/\1/p" \
+  "$ROOT_DIR/plugin/skills/computer-pilot/scripts/install-native.sh")
+if [[ "$INSTALLER_DEFAULT" == "$MANIFEST_TEMPLATE" ]]; then
+  _pass "installer default asset template matches the manifest"
+else
+  _fail "installer default asset template matches the manifest" \
+    "manifest='$MANIFEST_TEMPLATE' installer='$INSTALLER_DEFAULT'"
+fi
+
 section "permission contract — Apple Events are tell-only"
 
 OSASCRIPT_SPAWNS=$(rg -n 'Command::new\("osascript"\)' "$ROOT_DIR/src" | wc -l | tr -d ' ')

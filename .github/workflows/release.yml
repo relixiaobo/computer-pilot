@@ -94,6 +94,6 @@ jobs:
           if [[ "$COMPUTER_PILOT_SIGNING_STATUS" == "developer-id-notarized" ]]; then
             NOTICE="Developer ID signed and Apple-notarized macOS artifact."
           else
-            NOTICE="Unsigned development release (ad-hoc identity): SHA-256 verified, but not Apple-notarized. macOS TCC permissions may need to be granted again after upgrades."
+            NOTICE="Ad-hoc signed release with the fixed identifier com.linlab.computer-pilot.cu: verify the published SHA-256 digests, which are the integrity anchor since an ad-hoc signature carries no stable code identity. Not Apple-notarized."
           fi
           gh release create "$TAG" "$RUNNER_TEMP/computer-pilot-dist"/* --verify-tag --generate-notes --notes "$NOTICE" --title "Computer Pilot $TAG"

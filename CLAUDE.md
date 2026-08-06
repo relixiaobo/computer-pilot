@@ -17,6 +17,7 @@ bash tests/commands/run_all.sh                # Run 700+ command-test assertions
 bash scripts/release.sh <version>              # Prepare a draft release PR
 bash scripts/release.sh <version> --dry-run    # Preview release-PR preparation
 bash scripts/check-version-sync.sh             # Verify all version surfaces
+bash scripts/promote-skill-stable.sh <version> # Promote a published release to skill-stable
 ```
 
 ## Release Flow
@@ -32,19 +33,69 @@ bash scripts/check-version-sync.sh             # Verify all version surfaces
 7. **Publish**: the tag workflow packages, checksums, and publishes assets; it
    signs/notarizes when Developer ID secrets exist, otherwise it emits a clearly
    marked fixed-identifier ad-hoc artifact
+8. **Promote**: `scripts/promote-skill-stable.sh <version>` verifies the
+   published release (public, checksums consistent with `release-index.json`,
+   code identifier, version sync at the tag) and fast-forwards the
+   `skill-stable` branch to the release tag. Agent hosts (Tenon etc.) track
+   `skill-stable`, never `main`.
+
+   The signing gate enforces the **tagged manifest's declared intent**, not a
+   fixed tier: `installation.signing.required_status` must equal the
+   published `signing.status`. This is what catches the dangerous case —
+   `release.yml` silently falls back to an ad-hoc identity when Developer ID
+   secrets are absent, so a repository that declares
+   `developer-id-notarized` can never promote an ad-hoc artifact. A project
+   without a Developer ID declares `ad-hoc-unsigned` with a null
+   `requirement` (ad-hoc designated requirements are a bare cdhash that
+   changes every build, so pinning one is always wrong), and integrity then
+   rests on the verified SHA-256 digests — which the gate says out loud.
 
 Manual rules:
 - **Never push a release commit or tag directly to main.** Use a release PR and protected workflows.
-- **README points to `/releases/latest/` URL** — auto-resolves to the newest release tag, so updating the release is enough.
+- **README's `/releases/latest/` URLs are the human browsing entry only.**
+  The skill installer and the manifest always pin versioned
+  `releases/download/v<version>/` URLs — never point the installer at
+  `latest`.
+- **`skill-stable` only moves through the promote script.** Never push it by
+  hand.
 
 The release script bumps **five** version surfaces in one commit:
 1. `Cargo.toml` — drives `cu --version`
 2. `plugin/.claude-plugin/plugin.json` — Claude Code plugin manifest
 3. `plugin/package.json` — packaged skill/plugin version
 4. `.claude-plugin/marketplace.json` — marketplace entry (what users see in `/plugin marketplace`)
-5. `plugin/skills/computer-pilot/compatibility.json` — CLI, skill, platform, and Broker compatibility
+5. `plugin/skills/computer-pilot/compatibility.json` — the manifest: CLI,
+   skill, platform, Broker compatibility, and the `installation` block the
+   skill preflight installs from. Its `cli.version`, `cli.tested_version`,
+   and `cli.minimum_version` move together under the exact-pin support
+   policy (widen to a range only after cross-version tests exist).
 
-All five must move together. `scripts/check-version-sync.sh` enforces this.
+All five must move together. `scripts/check-version-sync.sh` enforces this,
+plus manifest self-consistency (schema, installation block, signing policy).
+
+## Install Layout
+
+`install-native.sh` (bundled in the skill) converges the machine to the
+manifest: `<install-root>/bin/cu` is the **fixed realpath** — upgrades stage
+on the same volume and atomically rename over it, never write in place, and
+never activate via versioned directories + symlink swap (TCC resolves the
+realpath; a per-version path would shed permission grants on every upgrade —
+this is the deliberate inverse of Browser Pilot's layout, which has no TCC
+dependency). `<install-root>/versions/` holds rollback copies only. A `cu`
+symlink in `~/.local/bin` (or `--bin-dir`) points at the fixed path and never
+retargets. No sudo, no `/usr/local/bin`, no `latest` URLs.
+
+**macOS ships an unrelated `/usr/bin/cu`** (Taylor UUCP serial dialer) that
+answers `cu --version` with `cu (Taylor UUCP) 1.07`. Never resolve the binary
+with a bare `command -v cu`: the skill preflight, README, and embedding docs
+all prepend `<install-root>/bin` to `PATH` and require `cu <semver>` output.
+The installer's `path_ready` reports whether a plain `cu` actually reaches
+Computer Pilot, with `shadowed_by` naming whatever won instead.
+
+The binary asset name has one source: `installation.asset_template` in the
+manifest. `build-release-assets.sh` and `promote-skill-stable.sh` read it;
+the installer takes `--asset-template` (its literal default is asserted equal
+to the manifest by `test_installer.sh`).
 
 Users update the plugin with:
 ```
@@ -213,6 +264,31 @@ the same `cu click ... --app <Name>` (do NOT drop to global tap).
 
 - **AppleScript injection**: Escape `\` and `"` in user-provided text before embedding in AppleScript strings.
 - **`cu tell` expressions**: The user/agent provides AppleScript expression, auto-wrapped in `tell application "X" ... end tell`. App name escaped via `applescript_escape()`. Timeout enforced (default 10s). Output uses `-ss` flag for unambiguous structured text.
+
+### 12. Broker compatibility contract
+
+Broker reuse is decided by `broker_is_current` in `src/broker.rs`: same
+`INTERNAL_PROTOCOL` **and** a Broker version at least the calling CLI's.
+
+- **Newer or equal Broker → reused untouched.** Workers always run from the
+  calling CLI's own executable, so a second CLI (an older global install, an
+  Agent-bundled copy) must never restart a Broker that already speaks its
+  wire format.
+- **Older or unidentifiable Broker → retired via StopIfIdle.** Without this
+  there is no retirement path at all — the daemon has no idle timeout and no
+  stop command — so a Broker-side fix that did not change the wire format
+  would never take effect after an upgrade. The machine converges on the
+  newest installed version.
+- **Older but busy → keep serving through it.** Its protocol still matches,
+  so failing the user's command would be gratuitous; the upgrade happens on a
+  later idle call.
+
+Therefore: any change to Broker request/response **semantics** must bump
+`INTERNAL_PROTOCOL`, and version ordering — not a capability list — is what
+tells a CLI whether a running Broker predates a behavior it needs.
+
+`tests/commands/test_broker_upgrade.sh` covers the full matrix offline with
+scripted Brokers plus a real prior release binary; keep it green.
 
 ## Agent Reliability Principles
 
