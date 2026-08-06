@@ -86,6 +86,39 @@ else
   _fail "manifest version pin tooling" "release.sh or check-version-sync.sh does not handle tested_version"
 fi
 
+section "release contract — one source for the binary asset name"
+
+# The publisher, the promotion gate, and the skill's installer must agree on
+# what the release asset is called; a rename that only lands in one of them
+# breaks every install with no CI signal.
+MANIFEST_TEMPLATE=$(python3 -c "
+import json
+print(json.load(open('$ROOT_DIR/plugin/skills/computer-pilot/compatibility.json'))['installation']['asset_template'])
+")
+if [[ -n "$MANIFEST_TEMPLATE" && "$MANIFEST_TEMPLATE" == *"{version}"* ]]; then
+  _pass "manifest declares a versioned asset template"
+else
+  _fail "manifest declares a versioned asset template" "got '$MANIFEST_TEMPLATE'"
+fi
+
+for script in build-release-assets.sh promote-skill-stable.sh; do
+  if grep -Fq "asset_template" "$ROOT_DIR/scripts/$script"; then
+    _pass "$script reads the asset name from the manifest"
+  else
+    _fail "$script reads the asset name from the manifest" \
+      "no asset_template lookup — the archive name is hardcoded again"
+  fi
+done
+
+INSTALLER_DEFAULT=$(sed -n "s/^DEFAULT_ASSET_TEMPLATE='\(.*\)'$/\1/p" \
+  "$ROOT_DIR/plugin/skills/computer-pilot/scripts/install-native.sh")
+if [[ "$INSTALLER_DEFAULT" == "$MANIFEST_TEMPLATE" ]]; then
+  _pass "installer default asset template matches the manifest"
+else
+  _fail "installer default asset template matches the manifest" \
+    "manifest='$MANIFEST_TEMPLATE' installer='$INSTALLER_DEFAULT'"
+fi
+
 section "permission contract — Apple Events are tell-only"
 
 OSASCRIPT_SPAWNS=$(rg -n 'Command::new\("osascript"\)' "$ROOT_DIR/src" | wc -l | tr -d ' ')
