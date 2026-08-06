@@ -20,6 +20,11 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+/// Compatibility contract for CLI<->Broker coordination. The CLI reuses any
+/// running Broker whose protocol matches, regardless of its version string —
+/// so ANY change to request/response semantics MUST bump this constant, and
+/// new optional coordination features must be advertised through the Pong
+/// `capabilities` list instead of being inferred from the version.
 const INTERNAL_PROTOCOL: u32 = 2;
 const DEFAULT_TIMEOUT_MS: u64 = 60_000;
 const MAX_TIMEOUT_MS: u64 = 300_000;
@@ -193,6 +198,10 @@ pub struct BrokerStatus {
     pub running: bool,
     pub pid: u32,
     pub protocol: u32,
+    // Informational only — never a compatibility gate. Absent from Brokers
+    // older than this field; skip on output so agents don't read "".
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub version: String,
     pub command_count: usize,
     pub active_count: usize,
     pub uncertain_count: usize,
@@ -256,6 +265,11 @@ enum Response {
         pid: u32,
         #[serde(default)]
         version: String,
+        // Optional coordination features this Broker build supports. A newer
+        // CLI probes this list before relying on one; Brokers that predate
+        // the field deserialize to an empty list.
+        #[serde(default)]
+        capabilities: Vec<String>,
     },
     Run {
         result: RunResult,
@@ -568,6 +582,7 @@ fn ping(token: &str) -> Option<(u32, String, u32)> {
             protocol,
             version,
             pid,
+            ..
         }) => Some((protocol, version, pid)),
         _ => None,
     }
@@ -578,9 +593,13 @@ fn ensure_running() -> Result<String, BrokerError> {
     let token = create_token_if_missing()
         .or_else(|_| read_token())
         .map_err(BrokerError::internal)?;
-    if let Some((protocol, version, _pid)) = ping(&token)
+    // Reuse on protocol match only. Version equality is deliberately NOT
+    // required: workers always run from the calling CLI's own executable, so
+    // a same-protocol Broker from another installed version coordinates
+    // correctly, and alternating old/new CLIs (e.g. a global install next to
+    // an Agent-bundled one) must not restart each other's Broker.
+    if let Some((protocol, _version, _pid)) = ping(&token)
         && protocol == INTERNAL_PROTOCOL
-        && version == crate::VERSION
     {
         return Ok(token);
     }
@@ -593,7 +612,7 @@ fn ensure_running() -> Result<String, BrokerError> {
     let owns_start_lock = lock.is_ok();
     if owns_start_lock {
         if let Some((protocol, version, pid)) = ping(&token) {
-            if protocol == INTERNAL_PROTOCOL && version == crate::VERSION {
+            if protocol == INTERNAL_PROTOCOL {
                 let _ = fs::remove_file(start_lock_path());
                 return Ok(token);
             }
@@ -627,9 +646,7 @@ fn ensure_running() -> Result<String, BrokerError> {
 
     let deadline = now_ms().saturating_add(START_WAIT_MS);
     while now_ms() < deadline {
-        if ping(&token).is_some_and(|(protocol, version, _)| {
-            protocol == INTERNAL_PROTOCOL && version == crate::VERSION
-        }) {
+        if ping(&token).is_some_and(|(protocol, _version, _)| protocol == INTERNAL_PROTOCOL) {
             if owns_start_lock {
                 let _ = fs::remove_file(start_lock_path());
             }
@@ -1068,6 +1085,7 @@ fn route(request: Request, shared: SharedState) -> Response {
             protocol: INTERNAL_PROTOCOL,
             pid: std::process::id(),
             version: crate::VERSION.into(),
+            capabilities: vec!["stop_if_idle".into()],
         },
         Request::Run {
             executable,
@@ -1966,6 +1984,7 @@ fn broker_status(shared: &SharedState, client_key: &str) -> Response {
             running: true,
             pid: std::process::id(),
             protocol: INTERNAL_PROTOCOL,
+            version: crate::VERSION.into(),
             command_count: records.len(),
             active_count: records
                 .iter()
