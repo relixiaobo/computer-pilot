@@ -17,6 +17,7 @@ bash tests/commands/run_all.sh                # Run 700+ command-test assertions
 bash scripts/release.sh <version>              # Prepare a draft release PR
 bash scripts/release.sh <version> --dry-run    # Preview release-PR preparation
 bash scripts/check-version-sync.sh             # Verify all version surfaces
+bash scripts/promote-skill-stable.sh <version> # Promote a published release to skill-stable
 ```
 
 ## Release Flow
@@ -32,19 +33,47 @@ bash scripts/check-version-sync.sh             # Verify all version surfaces
 7. **Publish**: the tag workflow packages, checksums, and publishes assets; it
    signs/notarizes when Developer ID secrets exist, otherwise it emits a clearly
    marked fixed-identifier ad-hoc artifact
+8. **Promote**: `scripts/promote-skill-stable.sh <version>` verifies the
+   published release (public, checksums, `developer-id-notarized`, manifest
+   codesign requirement, version sync at the tag) and fast-forwards the
+   `skill-stable` branch to the release tag. The stable channel refuses
+   ad-hoc artifacts unconditionally. Agent hosts (Tenon etc.) track
+   `skill-stable`, never `main`.
 
 Manual rules:
 - **Never push a release commit or tag directly to main.** Use a release PR and protected workflows.
-- **README points to `/releases/latest/` URL** — auto-resolves to the newest release tag, so updating the release is enough.
+- **README's `/releases/latest/` URLs are the human browsing entry only.**
+  The skill installer and the manifest always pin versioned
+  `releases/download/v<version>/` URLs — never point the installer at
+  `latest`.
+- **`skill-stable` only moves through the promote script.** Never push it by
+  hand.
 
 The release script bumps **five** version surfaces in one commit:
 1. `Cargo.toml` — drives `cu --version`
 2. `plugin/.claude-plugin/plugin.json` — Claude Code plugin manifest
 3. `plugin/package.json` — packaged skill/plugin version
 4. `.claude-plugin/marketplace.json` — marketplace entry (what users see in `/plugin marketplace`)
-5. `plugin/skills/computer-pilot/compatibility.json` — CLI, skill, platform, and Broker compatibility
+5. `plugin/skills/computer-pilot/compatibility.json` — the manifest: CLI,
+   skill, platform, Broker compatibility, and the `installation` block the
+   skill preflight installs from. Its `cli.version`, `cli.tested_version`,
+   and `cli.minimum_version` move together under the exact-pin support
+   policy (widen to a range only after cross-version tests exist).
 
-All five must move together. `scripts/check-version-sync.sh` enforces this.
+All five must move together. `scripts/check-version-sync.sh` enforces this,
+plus manifest self-consistency (schema, installation block, signing policy).
+
+## Install Layout
+
+`install-native.sh` (bundled in the skill) converges the machine to the
+manifest: `<install-root>/bin/cu` is the **fixed realpath** — upgrades stage
+on the same volume and atomically rename over it, never write in place, and
+never activate via versioned directories + symlink swap (TCC resolves the
+realpath; a per-version path would shed permission grants on every upgrade —
+this is the deliberate inverse of Browser Pilot's layout, which has no TCC
+dependency). `<install-root>/versions/` holds rollback copies only. A `cu`
+symlink in `~/.local/bin` (or `--bin-dir`) points at the fixed path and never
+retargets. No sudo, no `/usr/local/bin`, no `latest` URLs.
 
 Users update the plugin with:
 ```
@@ -213,6 +242,22 @@ the same `cu click ... --app <Name>` (do NOT drop to global tap).
 
 - **AppleScript injection**: Escape `\` and `"` in user-provided text before embedding in AppleScript strings.
 - **`cu tell` expressions**: The user/agent provides AppleScript expression, auto-wrapped in `tell application "X" ... end tell`. App name escaped via `applescript_escape()`. Timeout enforced (default 10s). Output uses `-ss` flag for unambiguous structured text.
+
+### 12. Broker compatibility contract
+
+`INTERNAL_PROTOCOL` in `src/broker.rs` is the ONLY CLI↔Broker compatibility
+gate: the CLI reuses any running Broker whose protocol matches, regardless of
+version (workers always run from the calling CLI's own executable, so mixed
+versions coordinate correctly — this is what lets a global install and an
+Agent-bundled newer cu alternate without Broker churn). Therefore:
+
+- Any change to Broker request/response **semantics** must bump
+  `INTERNAL_PROTOCOL`.
+- New optional coordination features must be advertised in the Pong
+  `capabilities` list and probed by the CLI — never inferred from the
+  Broker's version string.
+- `tests/commands/test_broker_upgrade.sh` proves cross-version reuse against
+  a real prior release binary; keep it green.
 
 ## Agent Reliability Principles
 

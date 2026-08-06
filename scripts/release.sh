@@ -86,6 +86,10 @@ else
   sed -i.bak "s/\"version\": \"$CURRENT\"/\"version\": \"$VERSION\"/" plugin/package.json
   sed -i.bak "s/\"version\": \"$CURRENT\"/\"version\": \"$VERSION\"/" .claude-plugin/marketplace.json
   sed -i.bak "s/\"version\": \"$CURRENT\"/\"version\": \"$VERSION\"/g" plugin/skills/computer-pilot/compatibility.json
+  # Exact-pin support policy: tested_version and minimum_version move with the
+  # release version until cross-version compatibility tests justify a range.
+  sed -i.bak "s/\"tested_version\": \"$CURRENT\"/\"tested_version\": \"$VERSION\"/" plugin/skills/computer-pilot/compatibility.json
+  sed -i.bak "s/\"minimum_version\": \"$CURRENT\"/\"minimum_version\": \"$VERSION\"/" plugin/skills/computer-pilot/compatibility.json
   rm Cargo.toml.bak plugin/.claude-plugin/plugin.json.bak plugin/package.json.bak
   rm .claude-plugin/marketplace.json.bak plugin/skills/computer-pilot/compatibility.json.bak
 fi

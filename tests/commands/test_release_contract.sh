@@ -60,6 +60,32 @@ else
   _fail "release signing provenance" "release-index.json omits signing status"
 fi
 
+section "release contract — skill-stable promotion gate"
+
+PROMOTE="$ROOT_DIR/scripts/promote-skill-stable.sh"
+
+if [[ -f "$PROMOTE" ]] && grep -Fq 'developer-id-notarized' "$PROMOTE" \
+  && grep -Fq 'does not accept ad-hoc' "$PROMOTE"; then
+  _pass "skill-stable promotion refuses ad-hoc artifacts"
+else
+  _fail "skill-stable promotion refuses ad-hoc artifacts" "missing notarization gate in promote script"
+fi
+
+if grep -Fq 'merge-base --is-ancestor' "$PROMOTE" \
+  && grep -Fq 'check-version-sync.sh' "$PROMOTE" \
+  && grep -Fq 'codesign --verify' "$PROMOTE"; then
+  _pass "promotion verifies ancestry, version sync, and codesign requirement"
+else
+  _fail "promotion verification gates" "promote script is missing a required gate"
+fi
+
+if grep -Fq 'tested_version' "$ROOT_DIR/scripts/release.sh" \
+  && grep -Fq 'tested_version' "$ROOT_DIR/scripts/check-version-sync.sh"; then
+  _pass "release tooling moves and enforces the manifest version pins"
+else
+  _fail "manifest version pin tooling" "release.sh or check-version-sync.sh does not handle tested_version"
+fi
+
 section "permission contract — Apple Events are tell-only"
 
 OSASCRIPT_SPAWNS=$(rg -n 'Command::new\("osascript"\)' "$ROOT_DIR/src" | wc -l | tr -d ' ')
