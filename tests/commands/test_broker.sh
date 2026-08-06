@@ -33,57 +33,10 @@ OUT=$("$CU" --json bridge --stdio 2>/tmp/cu-test-stderr) || EXIT=$?
 ERR=$(cat /tmp/cu-test-stderr 2>/dev/null || true)
 assert_exit_nonzero "removed public bridge is rejected"
 
-section "broker — same-protocol version mismatch is reused, not restarted"
-
-# The compatibility contract is INTERNAL_PROTOCOL, not the version string:
-# a same-protocol Broker from another installed version must be reused as-is
-# (alternating old/new CLIs must not churn each other's Broker).
-REUSE_HOME="$BROKER_TEST_HOME/reuse-home"
-python3 - "$REUSE_HOME" <<'PY' &
-import json, os, signal, socket, sys
-home = sys.argv[1]
-signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
-os.makedirs(home, mode=0o700, exist_ok=True)
-token = "fake-reuse-token"
-with open(home + "/broker.token", "w", encoding="utf-8") as handle:
-    handle.write(token)
-os.chmod(home + "/broker.token", 0o600)
-path = home + "/broker.sock"
-server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-server.bind(path)
-server.listen()
-while True:
-    connection, _ = server.accept()
-    request = json.loads(connection.makefile("rb").readline())
-    if request.get("type") == "ping":
-        response = {"type": "pong", "protocol": 2, "version": "0.0.0", "pid": os.getpid()}
-    elif request.get("type") == "status":
-        response = {"type": "status", "status": {
-            "running": True, "pid": os.getpid(), "protocol": 2,
-            "command_count": 0, "active_count": 0, "uncertain_count": 0,
-        }}
-    else:
-        response = {"type": "error", "code": "invalid_argument", "error": "unexpected", "retryable": False}
-    connection.sendall((json.dumps(response) + "\n").encode())
-    connection.close()
-PY
-REUSE_BROKER_PID=$!
-for _ in {1..100}; do
-  [[ -S "$REUSE_HOME/broker.sock" ]] && break
-  sleep 0.01
-done
-EXIT=0
-OUT=$(COMPUTER_PILOT_HOME="$REUSE_HOME" "$CU" --json --client-key agent.upgrade status 2>/tmp/cu-test-stderr) || EXIT=$?
-ERR=$(cat /tmp/cu-test-stderr 2>/dev/null || true)
-REUSED_PID=$(echo "$OUT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("pid", ""))' 2>/dev/null || true)
-if [[ "$EXIT" -eq 0 && "$REUSED_PID" == "$REUSE_BROKER_PID" ]] && kill -0 "$REUSE_BROKER_PID" 2>/dev/null; then
-  _pass "same-protocol Broker with another version is reused in place"
-else
-  _fail "same-protocol Broker reuse" "exit=$EXIT served_pid=$REUSED_PID fake_pid=$REUSE_BROKER_PID stderr=${ERR:0:200}"
-fi
-kill "$REUSE_BROKER_PID" 2>/dev/null || true
-wait "$REUSE_BROKER_PID" 2>/dev/null || true
-rm -f "$REUSE_HOME/broker.sock"
+# Version-ordering reuse and retirement (newer Broker reused, older retired,
+# busy-older kept serving) is covered as one matrix in test_broker_upgrade.sh.
+# This suite keeps the lifecycle cases: protocol mismatch and legacy Brokers
+# that predate StopIfIdle.
 
 section "broker — protocol mismatch performs a safe upgrade"
 
