@@ -16,6 +16,101 @@ assert_json_field "automation is not probed by setup" ".automation.status" "not_
 assert_json_field "scripting readiness is target-dependent" ".scripting_ready" "None"
 assert_json_field_exists "scripting_ready field" ".scripting_ready"
 
+section "setup — structured permissions and TCC subject"
+
+assert_json_field_exists "accessibility settings_url" ".permissions.accessibility.settings_url"
+assert_json_field_exists "screen_recording settings_url" ".permissions.screen_recording.settings_url"
+assert_json_field_exists "automation settings_url" ".permissions.automation.settings_url"
+assert_json_field "structured automation scope" ".permissions.automation.scope" "per_target_app"
+assert_json_field_exists "tcc_subject executable" ".tcc_subject.executable"
+assert_json_field_exists "tcc_subject grant_subject" ".tcc_subject.grant_subject"
+
+# Every entry under permissions must carry the keys permissions.md tells the
+# agent to read. Automation is never probed, so its granted is null — an agent
+# iterating the object must be able to tell "unknown" from "denied".
+AUTOMATION_KEYS=$(echo "$OUT" | python3 -c "
+import json, sys
+automation = json.load(sys.stdin)['permissions']['automation']
+missing = [k for k in ('granted', 'remediation', 'settings_url') if k not in automation]
+print(','.join(missing) if missing else 'complete')
+")
+if [[ "$AUTOMATION_KEYS" == "complete" ]]; then
+  _pass "automation entry carries granted/remediation/settings_url"
+else
+  _fail "automation entry carries granted/remediation/settings_url" "missing: $AUTOMATION_KEYS"
+fi
+
+AUTOMATION_GRANTED=$(echo "$OUT" | python3 -c "
+import json, sys
+value = json.load(sys.stdin)['permissions']['automation']['granted']
+print('null' if value is None else repr(value))
+")
+if [[ "$AUTOMATION_GRANTED" == "null" ]]; then
+  _pass "automation granted is null (unprobed), not false"
+else
+  _fail "automation granted is null (unprobed), not false" "got $AUTOMATION_GRANTED"
+fi
+
+# Structured granted must mirror the legacy booleans.
+assert_json_field "structured accessibility mirrors legacy" \
+  ".permissions.accessibility.granted" "$(json_get '.accessibility')"
+assert_json_field "structured screen_recording mirrors legacy" \
+  ".permissions.screen_recording.granted" "$(json_get '.screen_recording')"
+
+# Principle 3: remediation is loud only on the degraded path — present exactly
+# when the permission is missing, absent when granted.
+for perm in accessibility screen_recording; do
+  GRANTED=$(json_get ".permissions.$perm.granted")
+  REMEDIATION=$(json_get ".permissions.$perm.remediation" || true)
+  if [[ "$GRANTED" == "true" && -z "$REMEDIATION" ]]; then
+    _pass "$perm granted -> no remediation"
+  elif [[ "$GRANTED" == "false" && -n "$REMEDIATION" ]]; then
+    _pass "$perm missing -> remediation present"
+  else
+    _fail "$perm remediation gating" "granted=$GRANTED remediation='$REMEDIATION'"
+  fi
+done
+
+# grant_subject is what the agent tells the user to enable. It must resolve to
+# the responsible process when macOS attributes cu's checks to one, otherwise
+# to the executable path — and must never be blank.
+RESPONSIBLE=$(json_get '.tcc_subject.responsible_process' || true)
+EXECUTABLE=$(json_get '.tcc_subject.executable' || true)
+GRANT_SUBJECT=$(json_get '.tcc_subject.grant_subject' || true)
+SUBJECT_HINT=$(json_get '.tcc_subject_hint' || true)
+if [[ -n "$RESPONSIBLE" && "$RESPONSIBLE" != "None" ]]; then
+  if [[ "$GRANT_SUBJECT" == "$RESPONSIBLE" ]]; then
+    _pass "grant_subject names the responsible process ($RESPONSIBLE)"
+  else
+    _fail "grant_subject names the responsible process" "grant_subject='$GRANT_SUBJECT' responsible='$RESPONSIBLE'"
+  fi
+elif [[ -n "$EXECUTABLE" && "$EXECUTABLE" != "None" ]]; then
+  if [[ "$GRANT_SUBJECT" == "$EXECUTABLE" ]]; then
+    _pass "grant_subject falls back to the executable path"
+  else
+    _fail "grant_subject falls back to the executable path" "grant_subject='$GRANT_SUBJECT' executable='$EXECUTABLE'"
+  fi
+else
+  _fail "tcc_subject resolution" "neither responsible_process nor executable set"
+fi
+
+# grant_subject is embedded verbatim in remediation strings, so a blank one
+# would produce instructions naming nothing.
+if [[ -n "$GRANT_SUBJECT" && "$GRANT_SUBJECT" != "None" ]]; then
+  _pass "grant_subject is never blank"
+else
+  _fail "grant_subject is never blank" "got '$GRANT_SUBJECT'"
+fi
+
+# Principle 3: the hint appears only when no subject could be resolved.
+if [[ -n "$RESPONSIBLE" || -n "$EXECUTABLE" ]]; then
+  if [[ -z "$SUBJECT_HINT" || "$SUBJECT_HINT" == "None" ]]; then
+    _pass "tcc_subject_hint absent when a subject resolved"
+  else
+    _fail "tcc_subject_hint absent when a subject resolved" "got '$SUBJECT_HINT'"
+  fi
+fi
+
 section "setup — human mode"
 
 cu_human "setup"
