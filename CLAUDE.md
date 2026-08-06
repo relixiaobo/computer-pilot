@@ -75,6 +75,18 @@ dependency). `<install-root>/versions/` holds rollback copies only. A `cu`
 symlink in `~/.local/bin` (or `--bin-dir`) points at the fixed path and never
 retargets. No sudo, no `/usr/local/bin`, no `latest` URLs.
 
+**macOS ships an unrelated `/usr/bin/cu`** (Taylor UUCP serial dialer) that
+answers `cu --version` with `cu (Taylor UUCP) 1.07`. Never resolve the binary
+with a bare `command -v cu`: the skill preflight, README, and embedding docs
+all prepend `<install-root>/bin` to `PATH` and require `cu <semver>` output.
+The installer's `path_ready` reports whether a plain `cu` actually reaches
+Computer Pilot, with `shadowed_by` naming whatever won instead.
+
+The binary asset name has one source: `installation.asset_template` in the
+manifest. `build-release-assets.sh` and `promote-skill-stable.sh` read it;
+the installer takes `--asset-template` (its literal default is asserted equal
+to the manifest by `test_installer.sh`).
+
 Users update the plugin with:
 ```
 /plugin marketplace update computer-pilot-marketplace
@@ -245,19 +257,28 @@ the same `cu click ... --app <Name>` (do NOT drop to global tap).
 
 ### 12. Broker compatibility contract
 
-`INTERNAL_PROTOCOL` in `src/broker.rs` is the ONLY CLI↔Broker compatibility
-gate: the CLI reuses any running Broker whose protocol matches, regardless of
-version (workers always run from the calling CLI's own executable, so mixed
-versions coordinate correctly — this is what lets a global install and an
-Agent-bundled newer cu alternate without Broker churn). Therefore:
+Broker reuse is decided by `broker_is_current` in `src/broker.rs`: same
+`INTERNAL_PROTOCOL` **and** a Broker version at least the calling CLI's.
 
-- Any change to Broker request/response **semantics** must bump
-  `INTERNAL_PROTOCOL`.
-- New optional coordination features must be advertised in the Pong
-  `capabilities` list and probed by the CLI — never inferred from the
-  Broker's version string.
-- `tests/commands/test_broker_upgrade.sh` proves cross-version reuse against
-  a real prior release binary; keep it green.
+- **Newer or equal Broker → reused untouched.** Workers always run from the
+  calling CLI's own executable, so a second CLI (an older global install, an
+  Agent-bundled copy) must never restart a Broker that already speaks its
+  wire format.
+- **Older or unidentifiable Broker → retired via StopIfIdle.** Without this
+  there is no retirement path at all — the daemon has no idle timeout and no
+  stop command — so a Broker-side fix that did not change the wire format
+  would never take effect after an upgrade. The machine converges on the
+  newest installed version.
+- **Older but busy → keep serving through it.** Its protocol still matches,
+  so failing the user's command would be gratuitous; the upgrade happens on a
+  later idle call.
+
+Therefore: any change to Broker request/response **semantics** must bump
+`INTERNAL_PROTOCOL`, and version ordering — not a capability list — is what
+tells a CLI whether a running Broker predates a behavior it needs.
+
+`tests/commands/test_broker_upgrade.sh` covers the full matrix offline with
+scripted Brokers plus a real prior release binary; keep it green.
 
 ## Agent Reliability Principles
 

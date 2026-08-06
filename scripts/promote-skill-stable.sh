@@ -91,10 +91,29 @@ print(json.load(open('$WORKDIR/release-index.json'))['version'])
 [[ "$INDEX_VERSION" == "$VERSION" ]] ||
   fail "release-index.json reports version '$INDEX_VERSION', expected '$VERSION'"
 
+echo "==> Resolving tag commit"
+git fetch origin main --quiet
+git fetch origin "refs/tags/$TAG:refs/tags/$TAG" --no-tags --quiet 2>/dev/null || true
+git show-ref --verify --quiet "refs/tags/$TAG" || fail "tag $TAG is not available locally"
+TAG_COMMIT="$(git rev-list -n 1 "$TAG")"
+git merge-base --is-ancestor "$TAG_COMMIT" origin/main ||
+  fail "$TAG does not point to a commit on origin/main"
+
+WORKTREE="$WORKDIR/tag-checkout"
+git worktree add --detach "$WORKTREE" "$TAG_COMMIT" >/dev/null 2>&1 ||
+  fail "could not create a worktree for $TAG"
+MANIFEST="$WORKTREE/plugin/skills/computer-pilot/compatibility.json"
+
 echo "==> Verifying binary archive checksum"
-ARCHIVE="computer-pilot-v$VERSION-macos-arm64.tar.gz"
+# The tagged manifest is the single source for the asset name — the same
+# template the skill's installer renders when it downloads this release.
+ARCHIVE="$(VERSION="$VERSION" python3 -c "
+import json, os
+template = json.load(open('$MANIFEST'))['installation']['asset_template']
+print(template.replace('{version}', os.environ['VERSION']))
+")"
 gh release download "$TAG" --pattern "$ARCHIVE" --pattern "$ARCHIVE.sha256" --dir "$WORKDIR" ||
-  fail "could not download $ARCHIVE"
+  fail "could not download $ARCHIVE (manifest asset_template renders to this name)"
 (cd "$WORKDIR" && shasum -a 256 -c "$ARCHIVE.sha256" >/dev/null) ||
   fail "$ARCHIVE fails its checksum"
 INDEX_SHA="$(python3 -c "
@@ -106,28 +125,17 @@ ACTUAL_SHA="$(shasum -a 256 "$WORKDIR/$ARCHIVE" | awk '{print $1}')"
 [[ "$INDEX_SHA" == "$ACTUAL_SHA" ]] ||
   fail "$ARCHIVE checksum does not match release-index.json"
 
-echo "==> Resolving tag commit"
-git fetch origin main --quiet
-git fetch origin "refs/tags/$TAG:refs/tags/$TAG" --no-tags --quiet 2>/dev/null || true
-git show-ref --verify --quiet "refs/tags/$TAG" || fail "tag $TAG is not available locally"
-TAG_COMMIT="$(git rev-list -n 1 "$TAG")"
-git merge-base --is-ancestor "$TAG_COMMIT" origin/main ||
-  fail "$TAG does not point to a commit on origin/main"
-
 echo "==> Verifying manifest signing requirement and version sync at $TAG"
-WORKTREE="$WORKDIR/tag-checkout"
-git worktree add --detach "$WORKTREE" "$TAG_COMMIT" >/dev/null 2>&1 ||
-  fail "could not create a worktree for $TAG"
 REQUIREMENT="$(python3 -c "
 import json
-value = json.load(open('$WORKTREE/plugin/skills/computer-pilot/compatibility.json'))['installation']['signing']['requirement']
+value = json.load(open('$MANIFEST'))['installation']['signing']['requirement']
 print(value if value else '')
 ")"
 [[ -n "$REQUIREMENT" ]] ||
   fail "the manifest at $TAG has no installation.signing.requirement — the stable channel requires a pinned codesign requirement"
 REQUIRED_STATUS="$(python3 -c "
 import json
-print(json.load(open('$WORKTREE/plugin/skills/computer-pilot/compatibility.json'))['installation']['signing']['required_status'])
+print(json.load(open('$MANIFEST'))['installation']['signing']['required_status'])
 ")"
 [[ "$REQUIRED_STATUS" == "developer-id-notarized" ]] ||
   fail "the manifest at $TAG declares required_status '$REQUIRED_STATUS' — must be developer-id-notarized"
@@ -136,7 +144,7 @@ bash "$WORKTREE/scripts/check-version-sync.sh" "$VERSION" >/dev/null ||
 
 echo "==> Verifying codesign requirement on the released binary"
 tar -xzf "$WORKDIR/$ARCHIVE" -C "$WORKDIR"
-RELEASED_BINARY="$WORKDIR/computer-pilot-v$VERSION-macos-arm64/cu"
+RELEASED_BINARY="$WORKDIR/${ARCHIVE%.tar.gz}/cu"
 [[ -f "$RELEASED_BINARY" ]] || fail "released archive does not contain cu"
 codesign --verify --strict -R="$REQUIREMENT" "$RELEASED_BINARY" ||
   fail "released cu does not satisfy the manifest codesign requirement"
