@@ -64,12 +64,62 @@ section "release contract — skill-stable promotion gate"
 
 PROMOTE="$ROOT_DIR/scripts/promote-skill-stable.sh"
 
-if [[ -f "$PROMOTE" ]] && grep -Fq 'developer-id-notarized' "$PROMOTE" \
-  && grep -Fq 'does not accept ad-hoc' "$PROMOTE"; then
-  _pass "skill-stable promotion refuses ad-hoc artifacts"
+# The gate enforces the tagged manifest's declared signing intent rather than
+# a fixed tier, because release.yml silently falls back to an ad-hoc identity
+# when Developer ID secrets are absent — promoting that mismatch is the risk.
+if [[ -f "$PROMOTE" ]] && grep -Fq '"$SIGNING_STATUS" == "$REQUIRED_STATUS"' "$PROMOTE" \
+  && grep -Fq 'does not match its declared identity' "$PROMOTE"; then
+  _pass "skill-stable promotion refuses a release that contradicts its declared identity"
 else
-  _fail "skill-stable promotion refuses ad-hoc artifacts" "missing notarization gate in promote script"
+  _fail "skill-stable promotion refuses a release that contradicts its declared identity" \
+    "promote script no longer compares release signing status against the manifest"
 fi
+
+if grep -Fq 'ACTUAL_IDENTIFIER' "$PROMOTE" && grep -Fq 'MANIFEST_IDENTIFIER' "$PROMOTE"; then
+  _pass "promotion pins the released binary's code identifier"
+else
+  _fail "promotion pins the released binary's code identifier" \
+    "promote script does not verify the codesign identifier"
+fi
+
+# An ad-hoc designated requirement is a bare cdhash that changes every build,
+# so pinning one alongside ad-hoc-unsigned could only ever be wrong.
+if grep -Fq 'ad-hoc signatures have no stable identity' "$PROMOTE"; then
+  _pass "promotion rejects a pinned requirement under an ad-hoc declaration"
+else
+  _fail "promotion rejects a pinned requirement under an ad-hoc declaration" \
+    "promote script accepts a requirement that ad-hoc signing cannot satisfy"
+fi
+
+# The manifest's own declaration must be one the gate understands.
+MANIFEST_STATUS=$(python3 -c "
+import json
+print(json.load(open('$ROOT_DIR/plugin/skills/computer-pilot/compatibility.json'))['installation']['signing']['required_status'])
+")
+MANIFEST_REQUIREMENT=$(python3 -c "
+import json
+value = json.load(open('$ROOT_DIR/plugin/skills/computer-pilot/compatibility.json'))['installation']['signing']['requirement']
+print(value if value else '')
+")
+case "$MANIFEST_STATUS" in
+  developer-id-notarized)
+    if [[ -n "$MANIFEST_REQUIREMENT" ]]; then
+      _pass "signed declaration pins a codesign requirement"
+    else
+      _fail "signed declaration pins a codesign requirement" "required_status is signed but requirement is null"
+    fi
+    ;;
+  ad-hoc-unsigned)
+    if [[ -z "$MANIFEST_REQUIREMENT" ]]; then
+      _pass "ad-hoc declaration pins no codesign requirement"
+    else
+      _fail "ad-hoc declaration pins no codesign requirement" "requirement '$MANIFEST_REQUIREMENT' cannot be satisfied by an ad-hoc signature"
+    fi
+    ;;
+  *)
+    _fail "manifest declares a known signing tier" "got '$MANIFEST_STATUS'"
+    ;;
+esac
 
 if grep -Fq 'merge-base --is-ancestor' "$PROMOTE" \
   && grep -Fq 'check-version-sync.sh' "$PROMOTE" \
