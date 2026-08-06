@@ -263,6 +263,72 @@ pub fn check_screen_recording() -> bool {
     unsafe { CGPreflightScreenCaptureAccess() != 0 }
 }
 
+// ── TCC attribution subject ─────────────────────────────────────────────────
+
+unsafe extern "C" {
+    fn dlsym(handle: *mut c_void, symbol: *const c_char) -> *mut c_void;
+    fn proc_pidpath(pid: i32, buffer: *mut c_void, buffersize: u32) -> i32;
+}
+
+/// The process macOS TCC may attribute permission checks to. TCC often keys
+/// grants on the "responsible process" (the app that spawned the shell chain)
+/// rather than the leaf binary, so accurate System Settings guidance must name
+/// the real subject instead of guessing "your terminal app".
+pub struct TccSubject {
+    pub executable: String,
+    pub responsible_pid: Option<i32>,
+    pub responsible_process: Option<String>,
+}
+
+pub fn tcc_subject() -> TccSubject {
+    let executable = std::env::current_exe()
+        .ok()
+        .and_then(|path| path.canonicalize().ok())
+        .map(|path| path.to_string_lossy().into_owned())
+        .unwrap_or_default();
+
+    // Private but long-stable libquarantine symbol; resolved dynamically so a
+    // macOS release that drops it degrades to executable-only reporting.
+    let responsible_pid = unsafe {
+        const RTLD_DEFAULT: *mut c_void = -2isize as *mut c_void;
+        let symbol = dlsym(
+            RTLD_DEFAULT,
+            c"responsibility_get_pid_responsible_for_pid".as_ptr(),
+        );
+        if symbol.is_null() {
+            None
+        } else {
+            let get: unsafe extern "C" fn(i32) -> i32 = std::mem::transmute(symbol);
+            let pid = get(std::process::id() as i32);
+            (pid > 0).then_some(pid)
+        }
+    };
+
+    let responsible_process = responsible_pid.and_then(|pid| {
+        if pid == std::process::id() as i32 {
+            return None; // cu is its own responsible process
+        }
+        running_apps_native()
+            .into_iter()
+            .find(|app| app.pid == pid)
+            .map(|app| app.name)
+            .or_else(|| {
+                let mut buffer = [0u8; 4096];
+                let written = unsafe {
+                    proc_pidpath(pid, buffer.as_mut_ptr() as *mut c_void, buffer.len() as u32)
+                };
+                (written > 0)
+                    .then(|| String::from_utf8_lossy(&buffer[..written as usize]).into_owned())
+            })
+    });
+
+    TccSubject {
+        executable,
+        responsible_pid,
+        responsible_process,
+    }
+}
+
 // ── App resolution ──────────────────────────────────────────────────────────
 
 fn parse_pid_selector(selector: &str) -> Result<Option<i32>, CuError> {

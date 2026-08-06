@@ -23,12 +23,19 @@ cu setup
 Interpret the result:
 
 - `ready:true`: core Accessibility and Screen Recording are available.
-- `accessibility:false`: enable the current Computer Pilot executable (or its
-  signed identity) under Privacy & Security > Accessibility.
-- `screen_recording:false`: enable it under Privacy & Security > Screen
-  Recording.
+- `permissions.<name>.granted:false`: follow that entry's `remediation`
+  string. It names the exact subject to enable; `settings_url` is the
+  System Settings deep link to give the user (JSON mode never opens System
+  Settings itself).
+- `tcc_subject`: the identity macOS attributes cu's permission checks to.
+  When `responsible_process` is set (for example the Agent host app or a
+  terminal), that app — not the cu binary — must be enabled in System
+  Settings. When it is null, enable the `executable` path itself.
 - `capture_protected_apps`: these apps opt out of capture even when Screen
   Recording is granted.
+
+The legacy top-level `accessibility` / `screen_recording` booleans remain for
+compatibility; prefer the structured `permissions` object.
 
 The first `cu tell <target>` may trigger an Automation prompt for that target.
 Grant only when the task needs Apple Events access.

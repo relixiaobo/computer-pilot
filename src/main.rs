@@ -1703,8 +1703,40 @@ fn cmd_setup(json: bool) -> Result<(), CuError> {
     } else {
         Vec::new()
     };
+    let subject = system::tcc_subject();
+    // The name to grant in System Settings: the responsible app when macOS
+    // attributes cu's TCC checks to it, otherwise the cu executable itself.
+    let subject_label = subject
+        .responsible_process
+        .clone()
+        .unwrap_or_else(|| subject.executable.clone());
+
+    const ACCESSIBILITY_URL: &str =
+        "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility";
+    const SCREEN_CAPTURE_URL: &str =
+        "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture";
+    const AUTOMATION_URL: &str =
+        "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation";
 
     if json {
+        let mut accessibility = serde_json::json!({
+            "granted": ax,
+            "settings_url": ACCESSIBILITY_URL,
+        });
+        if !ax {
+            accessibility["remediation"] = serde_json::json!(format!(
+                "Enable \"{subject_label}\" under System Settings > Privacy & Security > Accessibility, then re-run `cu setup`"
+            ));
+        }
+        let mut screen_recording = serde_json::json!({
+            "granted": sr,
+            "settings_url": SCREEN_CAPTURE_URL,
+        });
+        if !sr {
+            screen_recording["remediation"] = serde_json::json!(format!(
+                "Enable \"{subject_label}\" under System Settings > Privacy & Security > Screen Recording, then re-run `cu setup`"
+            ));
+        }
         return ok(serde_json::json!({
             "ok": true, "version": VERSION, "platform": "macos",
             "accessibility": ax, "screen_recording": sr,
@@ -1712,6 +1744,21 @@ fn cmd_setup(json: bool) -> Result<(), CuError> {
                 "scope": "per_target_app",
                 "status": "not_checked",
                 "required_for": ["tell"]
+            },
+            "permissions": {
+                "accessibility": accessibility,
+                "screen_recording": screen_recording,
+                "automation": {
+                    "scope": "per_target_app",
+                    "status": "not_checked",
+                    "required_for": ["tell"],
+                    "settings_url": AUTOMATION_URL,
+                },
+            },
+            "tcc_subject": {
+                "executable": subject.executable,
+                "responsible_pid": subject.responsible_pid,
+                "responsible_process": subject.responsible_process,
             },
             "ready": ready,
             "scripting_ready": null,
@@ -1752,18 +1799,20 @@ fn cmd_setup(json: bool) -> Result<(), CuError> {
                 "Screen Recording is required for screenshot and OCR.\n→ System Settings → Privacy & Security → Screen Recording\n"
             );
         }
-        println!("Add your terminal app, then re-run: cu setup");
+        if subject.responsible_process.is_some() {
+            println!(
+                "macOS attributes cu's permissions to \"{subject_label}\" — add that app, then re-run: cu setup"
+            );
+        } else {
+            println!("Add the cu binary at {subject_label}, then re-run: cu setup");
+        }
         if !ax {
             let _ = std::process::Command::new("open")
-                .arg(
-                    "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
-                )
+                .arg(ACCESSIBILITY_URL)
                 .spawn();
         } else if !sr {
             let _ = std::process::Command::new("open")
-                .arg(
-                    "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
-                )
+                .arg(SCREEN_CAPTURE_URL)
                 .spawn();
         }
         // Automation pane can't be opened directly; it's per-app on first use.

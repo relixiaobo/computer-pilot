@@ -16,6 +16,46 @@ assert_json_field "automation is not probed by setup" ".automation.status" "not_
 assert_json_field "scripting readiness is target-dependent" ".scripting_ready" "None"
 assert_json_field_exists "scripting_ready field" ".scripting_ready"
 
+section "setup — structured permissions and TCC subject"
+
+assert_json_field_exists "accessibility settings_url" ".permissions.accessibility.settings_url"
+assert_json_field_exists "screen_recording settings_url" ".permissions.screen_recording.settings_url"
+assert_json_field_exists "automation settings_url" ".permissions.automation.settings_url"
+assert_json_field "structured automation scope" ".permissions.automation.scope" "per_target_app"
+assert_json_field_exists "tcc_subject executable" ".tcc_subject.executable"
+
+# Structured granted must mirror the legacy booleans.
+assert_json_field "structured accessibility mirrors legacy" \
+  ".permissions.accessibility.granted" "$(json_get '.accessibility')"
+assert_json_field "structured screen_recording mirrors legacy" \
+  ".permissions.screen_recording.granted" "$(json_get '.screen_recording')"
+
+# Principle 3: remediation is loud only on the degraded path — present exactly
+# when the permission is missing, absent when granted.
+for perm in accessibility screen_recording; do
+  GRANTED=$(json_get ".permissions.$perm.granted")
+  REMEDIATION=$(json_get ".permissions.$perm.remediation" || true)
+  if [[ "$GRANTED" == "true" && -z "$REMEDIATION" ]]; then
+    _pass "$perm granted -> no remediation"
+  elif [[ "$GRANTED" == "false" && -n "$REMEDIATION" ]]; then
+    _pass "$perm missing -> remediation present"
+  else
+    _fail "$perm remediation gating" "granted=$GRANTED remediation='$REMEDIATION'"
+  fi
+done
+
+# The remediation subject must name the responsible process when one exists,
+# otherwise the executable path.
+RESPONSIBLE=$(json_get '.tcc_subject.responsible_process' || true)
+EXECUTABLE=$(json_get '.tcc_subject.executable')
+if [[ -n "$RESPONSIBLE" && "$RESPONSIBLE" != "None" ]]; then
+  _pass "tcc_subject resolves the responsible process ($RESPONSIBLE)"
+elif [[ -n "$EXECUTABLE" ]]; then
+  _pass "tcc_subject falls back to the executable path"
+else
+  _fail "tcc_subject resolution" "neither responsible_process nor executable set"
+fi
+
 section "setup — human mode"
 
 cu_human "setup"
