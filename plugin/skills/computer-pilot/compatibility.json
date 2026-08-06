@@ -1,10 +1,12 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "version": "0.8.0",
   "integration_model": "skill-shell-cli",
   "cli": {
     "name": "cu",
     "version": "0.8.0",
+    "tested_version": "0.8.0",
+    "minimum_version": "0.8.0",
     "machine_schema_version": "1.0"
   },
   "private_broker_protocol": 2,
@@ -14,6 +16,18 @@
   "unsupported_platforms": [
     "macos-x86_64"
   ],
+  "installation": {
+    "repository": "relixiaobo/computer-pilot",
+    "asset_template": "computer-pilot-v{version}-macos-arm64.tar.gz",
+    "installer": "scripts/install-native.sh",
+    "install_root": "${XDG_DATA_HOME:-$HOME/.local/share}/computer-pilot",
+    "command_path": "${XDG_DATA_HOME:-$HOME/.local/share}/computer-pilot/bin/cu",
+    "signing": {
+      "identifier": "com.linlab.computer-pilot.cu",
+      "requirement": null,
+      "required_status": "ad-hoc-unsigned"
+    }
+  },
   "requires": {
     "shell": true,
     "mcp": false,

@@ -11,10 +11,30 @@ per-user Broker is a private `cu` implementation detail.
 
 ## Initialize
 
-Confirm the binary and establish stable task identity:
+Run this preflight before the first desktop action. Do not assume the host
+installed Computer Pilot:
 
 ```bash
-cu --version
+CU_CMD="$(command -v cu || echo "${XDG_DATA_HOME:-$HOME/.local/share}/computer-pilot/bin/cu")"
+"$CU_CMD" --version
+```
+
+If that fails, or the version is below `cli.minimum_version` in
+[compatibility.json](compatibility.json), install the pinned release with the
+bundled installer: read the manifest's `installation` object and run its
+`installer` path, resolved inside this skill directory, with `--version` set
+to the manifest's top-level `version` and `--repository` set to
+`installation.repository`. Append `--requirement` with
+`installation.signing.requirement` when that value is set; append
+`--allow-unsigned` only when the manifest declares `required_status`
+`ad-hoc-unsigned`. Never install with sudo, a `latest` URL, or any download
+outside this installer. When the installer reports `path_ready=false` or
+`shadowed_by=...`, invoke the absolute `command` path it returned instead of
+`cu`.
+
+Establish stable task identity:
+
+```bash
 export COMPUTER_PILOT_CLIENT_KEY="<stable-logical-agent-key>"
 export COMPUTER_PILOT_OUTPUT_DIR="/absolute/task-owned/output-dir"
 ```

@@ -18,7 +18,14 @@ adapter.
 ## Host Responsibilities
 
 1. Install the complete skill directory unchanged.
-2. Put a supported official `cu` binary on the Agent shell `PATH`.
+2. Provide a supported official `cu` binary: either preinstall it with the
+   bundled `scripts/install-native.sh` (use `--asset-directory` to install
+   from locally bundled release assets without network access), or let the
+   skill preflight self-install it. Both paths converge on the same fixed
+   layout — `<install-root>/bin/cu` is the stable realpath that upgrades
+   replace atomically, so macOS TCC grants survive official upgrades. Do not
+   install with sudo, do not copy a raw binary to an unmanaged path, and do
+   not re-sign official artifacts.
 3. Assign one stable `COMPUTER_PILOT_CLIENT_KEY` per logical Agent.
 4. Assign an absolute, task-owned `COMPUTER_PILOT_OUTPUT_DIR`.
 5. Let the Agent use its existing shell execution and file/image reading tools.
@@ -33,10 +40,17 @@ help is the public contract.
 Read `../compatibility.json` before selecting a bundled artifact. Match:
 
 - supported platform and architecture;
-- CLI version range;
+- CLI version range (`cli.minimum_version` through `cli.version`;
+  `cli.tested_version` is the exact release the skill was validated against);
 - machine schema version;
 - skill/plugin version;
 - required public integration model.
+
+The manifest's `installation` object is the single source for the pinned
+release: repository, asset template, installer path, fixed install layout,
+and the signing policy (`signing.requirement` is the codesign designated
+requirement official binaries must satisfy; `required_status`
+`developer-id-notarized` marks the production identity).
 
 Reject unsupported Intel Macs explicitly. Do not silently use an older raw
 binary with a newer skill.
@@ -59,5 +73,8 @@ Test at least:
 - user UI changes producing `stale_observation` before action dispatch;
 - request replay, conflict, cancellation, expiration, and `unknown_outcome`;
 - independent task output directories with no overwrite or symlink traversal;
-- permission continuity across an official version upgrade;
+- permission continuity across an official version upgrade (the fixed
+  `<install-root>/bin/cu` realpath must not change and the atomic replace
+  must preserve existing TCC grants for signed identities);
+- an offline `--asset-directory` install from bundled release assets;
 - self-installed and bundled copies following identical skill/shell/CLI flow.

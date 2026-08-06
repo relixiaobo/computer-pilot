@@ -75,10 +75,37 @@ workaround.
 
 ## Install
 
-### Option A: Download binary (Apple Silicon)
+`cu` installs into a fixed, user-owned path —
+`${XDG_DATA_HOME:-~/.local/share}/computer-pilot/bin/cu` — with a `cu`
+symlink in `~/.local/bin`. Upgrades replace the same path atomically, which
+is what lets macOS TCC permissions survive official upgrades. No sudo, and
+never `/usr/local/bin`.
 
-Only Apple Silicon is supported. Download the binary and verify its published
-SHA-256 checksum:
+### Option A: Skill installer (recommended)
+
+The Computer Pilot skill self-installs the exact CLI release pinned in its
+`compatibility.json` on first use, verifying the SHA-256 sidecar and (for
+Developer ID releases) the codesign requirement. Install the plugin (below)
+and the binary follows automatically. To run the installer yourself:
+
+```bash
+git clone --depth 1 https://github.com/relixiaobo/computer-pilot.git
+cd computer-pilot/plugin/skills/computer-pilot
+sh scripts/install-native.sh \
+  --version "$(sed -n 's/^  "version": "\(.*\)",$/\1/p' compatibility.json | head -1)" \
+  --repository relixiaobo/computer-pilot --allow-unsigned
+cu setup
+```
+
+Drop `--allow-unsigned` and pass
+`--requirement "<installation.signing.requirement>"` once releases are
+Developer ID signed (the manifest's `installation.signing` object declares
+the current policy).
+
+### Option B: Download binary manually (Apple Silicon)
+
+Only Apple Silicon is supported. Download the binary, verify its published
+SHA-256 checksum, and place it at the managed fixed path:
 
 ```bash
 test "$(uname -m)" = "arm64"
@@ -86,18 +113,28 @@ workdir="$(mktemp -d)"
 curl -fL -o "$workdir/cu-arm64" https://github.com/relixiaobo/computer-pilot/releases/latest/download/cu-arm64
 curl -fL -o "$workdir/cu-arm64.sha256" https://github.com/relixiaobo/computer-pilot/releases/latest/download/cu-arm64.sha256
 (cd "$workdir" && shasum -a 256 -c cu-arm64.sha256)
-chmod +x "$workdir/cu-arm64"
-sudo install -m 0755 "$workdir/cu-arm64" /usr/local/bin/cu
+install_root="${XDG_DATA_HOME:-$HOME/.local/share}/computer-pilot"
+mkdir -p "$install_root/bin" "$HOME/.local/bin"
+chmod 0755 "$workdir/cu-arm64"
+mv "$workdir/cu-arm64" "$install_root/bin/.cu.new"
+mv "$install_root/bin/.cu.new" "$install_root/bin/cu"
+ln -sf "$install_root/bin/cu" "$HOME/.local/bin/cu"
 cu setup
 ```
 
-### Option B: Build from source
+Make sure `~/.local/bin` is on your `PATH`.
+
+### Option C: Build from source
 
 ```bash
 git clone https://github.com/relixiaobo/computer-pilot.git
 cd computer-pilot
 cargo build --release
-sudo cp target/release/cu /usr/local/bin/
+install_root="${XDG_DATA_HOME:-$HOME/.local/share}/computer-pilot"
+mkdir -p "$install_root/bin" "$HOME/.local/bin"
+cp target/release/cu "$install_root/bin/.cu.new"
+mv "$install_root/bin/.cu.new" "$install_root/bin/cu"
+ln -sf "$install_root/bin/cu" "$HOME/.local/bin/cu"
 cu setup
 ```
 
@@ -121,7 +158,10 @@ When a new version is released, update with:
 /plugin update computer-pilot@computer-pilot-marketplace
 ```
 
-The `cu` binary is separate; repeat the verified binary install to upgrade it.
+The updated skill pins a new CLI release in its `compatibility.json`; the
+skill preflight converges the binary automatically on next use. Manual
+installs (Option B/C) repeat the same steps to upgrade — the fixed path makes
+the swap atomic.
 Every release includes a binary archive, skill archive, plugin archive,
 checksums, and `release-index.json`. Inspect `signing.status` in the index:
 `developer-id-notarized` is the stable production identity;
