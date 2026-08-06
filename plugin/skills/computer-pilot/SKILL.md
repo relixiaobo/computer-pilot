@@ -12,25 +12,31 @@ per-user Broker is a private `cu` implementation detail.
 ## Initialize
 
 Run this preflight before the first desktop action. Do not assume the host
-installed Computer Pilot:
+installed Computer Pilot. Put the managed install directory first on `PATH`
+so every later `cu` in this skill resolves to Computer Pilot:
 
 ```bash
-CU_CMD="$(command -v cu || echo "${XDG_DATA_HOME:-$HOME/.local/share}/computer-pilot/bin/cu")"
-"$CU_CMD" --version
+export PATH="${XDG_DATA_HOME:-$HOME/.local/share}/computer-pilot/bin:$PATH"
+cu --version
 ```
 
-If that fails, or the version is below `cli.minimum_version` in
-[compatibility.json](compatibility.json), install the pinned release with the
-bundled installer: read the manifest's `installation` object and run its
-`installer` path, resolved inside this skill directory, with `--version` set
-to the manifest's top-level `version` and `--repository` set to
-`installation.repository`. Append `--requirement` with
+macOS ships an unrelated `/usr/bin/cu` (the UUCP serial dialer) that answers
+`cu --version` with `cu (Taylor UUCP) 1.07`. Computer Pilot always prints
+`cu <semver>`. Treat any other output — and any failure — as "not
+installed"; never run desktop commands against the UUCP binary.
+
+Install when the preflight does not print `cu <semver>`, or when that version
+is below `cli.minimum_version` in
+[compatibility.json](compatibility.json). Read the manifest's `installation`
+object and run its `installer` path, resolved inside this skill directory,
+with `--version` set to the manifest's top-level `version`, `--repository`
+set to `installation.repository`, and `--asset-template` set to
+`installation.asset_template`. Append `--requirement` with
 `installation.signing.requirement` when that value is set; append
 `--allow-unsigned` only when the manifest declares `required_status`
 `ad-hoc-unsigned`. Never install with sudo, a `latest` URL, or any download
-outside this installer. When the installer reports `path_ready=false` or
-`shadowed_by=...`, invoke the absolute `command` path it returned instead of
-`cu`.
+outside this installer. Re-run the two preflight lines afterwards; the
+installer also reports the absolute `command` path if you need it.
 
 Establish stable task identity:
 

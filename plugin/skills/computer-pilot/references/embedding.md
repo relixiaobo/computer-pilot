@@ -26,11 +26,16 @@ adapter.
    replace atomically, so macOS TCC grants survive official upgrades. Do not
    install with sudo, do not copy a raw binary to an unmanaged path, and do
    not re-sign official artifacts.
-3. Assign one stable `COMPUTER_PILOT_CLIENT_KEY` per logical Agent.
-4. Assign an absolute, task-owned `COMPUTER_PILOT_OUTPUT_DIR`.
-5. Let the Agent use its existing shell execution and file/image reading tools.
-6. Preserve stdout, stderr, exit status, and JSON fields.
-7. Keep the private Broker internal to Computer Pilot.
+3. Put `<install-root>/bin` **first** on the Agent shell `PATH`. macOS ships
+   an unrelated `/usr/bin/cu` (UUCP dialer) that otherwise wins: it answers
+   `cu --version` with `cu (Taylor UUCP) 1.07` and fails every desktop
+   command. The installer reports `path_ready=false` plus `shadowed_by` and
+   `install_bin_dir` when a plain `cu` does not reach Computer Pilot.
+4. Assign one stable `COMPUTER_PILOT_CLIENT_KEY` per logical Agent.
+5. Assign an absolute, task-owned `COMPUTER_PILOT_OUTPUT_DIR`.
+6. Let the Agent use its existing shell execution and file/image reading tools.
+7. Preserve stdout, stderr, exit status, and JSON fields.
+8. Keep the private Broker internal to Computer Pilot.
 
 Do not generate a second tool catalog from `cu --help`; the skill plus runtime
 help is the public contract.

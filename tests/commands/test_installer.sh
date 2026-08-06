@@ -88,6 +88,42 @@ run_installer --version "$REAL_VERSION" --repository relixiaobo/computer-pilot \
   --install-root "$INSTALL_ROOT" --bin-dir "$BIN_DIR"
 assert_err_code "relative asset directory is rejected" "invalid_install_path"
 
+run_installer --version "$REAL_VERSION" --repository relixiaobo/computer-pilot \
+  --allow-unsigned --asset-template "computer-pilot-macos.tar.gz" \
+  --asset-directory "$ASSETS_REAL" --install-root "$INSTALL_ROOT" --bin-dir "$BIN_DIR"
+assert_err_code "asset template without {version} is rejected" "invalid_asset_template"
+
+run_installer --version "$REAL_VERSION" --repository relixiaobo/computer-pilot \
+  --allow-unsigned --asset-template "../escape-v{version}.tar.gz" \
+  --asset-directory "$ASSETS_REAL" --install-root "$INSTALL_ROOT" --bin-dir "$BIN_DIR"
+assert_err_code "asset template with a path separator is rejected" "invalid_asset_template"
+
+section "installer — asset name matches what the release pipeline publishes"
+
+# build-release-assets.sh derives the archive name from the manifest, and the
+# installer's built-in default must agree with that same manifest — otherwise
+# a renamed asset silently breaks every user's install.
+MANIFEST_TEMPLATE=$(python3 -c "
+import json
+print(json.load(open('$ROOT_DIR/plugin/skills/computer-pilot/compatibility.json'))['installation']['asset_template'])
+")
+INSTALLER_DEFAULT=$(sed -n "s/^DEFAULT_ASSET_TEMPLATE='\(.*\)'$/\1/p" "$INSTALLER")
+if [[ "$MANIFEST_TEMPLATE" == "$INSTALLER_DEFAULT" ]]; then
+  _pass "installer default asset template matches the manifest"
+else
+  _fail "installer default asset template matches the manifest" \
+    "manifest='$MANIFEST_TEMPLATE' installer='$INSTALLER_DEFAULT'"
+fi
+
+PUBLISHED_ARCHIVE=$(ls "$ASSETS_REAL" | grep -E '^computer-pilot-v.*macos-arm64\.tar\.gz$' | head -1)
+RENDERED_ARCHIVE="${MANIFEST_TEMPLATE//\{version\}/$REAL_VERSION}"
+if [[ "$PUBLISHED_ARCHIVE" == "$RENDERED_ARCHIVE" ]]; then
+  _pass "build-release-assets.sh publishes the manifest-rendered name"
+else
+  _fail "build-release-assets.sh publishes the manifest-rendered name" \
+    "published='$PUBLISHED_ARCHIVE' manifest-rendered='$RENDERED_ARCHIVE'"
+fi
+
 section "installer — fresh install"
 
 run_installer --version "$REAL_VERSION" --repository relixiaobo/computer-pilot \
@@ -128,6 +164,45 @@ if [[ "$(out_field path_ready)" == "false" ]]; then
   _pass "path_ready=false when bin dir is not on PATH"
 else
   _fail "path_ready=false when bin dir is not on PATH" "got '$(out_field path_ready)'"
+fi
+
+if [[ "$(out_field install_bin_dir)" == "$INSTALL_ROOT/bin" ]]; then
+  _pass "install_bin_dir names the directory to prepend to PATH"
+else
+  _fail "install_bin_dir names the directory to prepend to PATH" "got '$(out_field install_bin_dir)'"
+fi
+
+if [[ "$(out_field path_hint)" == *"$INSTALL_ROOT/bin"* ]]; then
+  _pass "path_hint is emitted on the degraded path"
+else
+  _fail "path_hint is emitted on the degraded path" "got '$(out_field path_hint)'"
+fi
+
+# The stock macOS /usr/bin/cu (UUCP dialer) is what a bare `cu` resolves to
+# under RESTRICTED_PATH — the installer must report it rather than claim the
+# command is ready.
+if [[ "$(out_field shadowed_by)" == "/usr/bin/cu" ]]; then
+  _pass "stock /usr/bin/cu is reported as shadowing Computer Pilot"
+else
+  _fail "stock /usr/bin/cu is reported as shadowing Computer Pilot" "got '$(out_field shadowed_by)'"
+fi
+
+# Prepending the managed bin dir is the documented fix; prove it works.
+RESOLVED_VERSION=$(env PATH="$INSTALL_ROOT/bin:$RESTRICTED_PATH" cu --version 2>/dev/null | awk '{print $2}')
+if [[ "$RESOLVED_VERSION" == "$REAL_VERSION" ]]; then
+  _pass "prepending install_bin_dir makes a bare 'cu' reach Computer Pilot"
+else
+  _fail "prepending install_bin_dir makes a bare 'cu' reach Computer Pilot" "got '$RESOLVED_VERSION'"
+fi
+
+PATH_READY_OUT=$(env PATH="$INSTALL_ROOT/bin:$RESTRICTED_PATH" HOME="$SANDBOX/home" \
+  sh "$INSTALLER" --version "$REAL_VERSION" --repository relixiaobo/computer-pilot \
+  --allow-unsigned --asset-directory "$ASSETS_REAL" \
+  --install-root "$INSTALL_ROOT" --bin-dir "$BIN_DIR" 2>/dev/null)
+if [[ "$PATH_READY_OUT" == *"path_ready=true"* && "$PATH_READY_OUT" != *"shadowed_by="* ]]; then
+  _pass "path_ready=true once the managed bin dir wins on PATH"
+else
+  _fail "path_ready=true once the managed bin dir wins on PATH" "got: ${PATH_READY_OUT//$'\n'/ }"
 fi
 
 if [[ -f "$INSTALL_ROOT/versions/$REAL_VERSION/cu" ]]; then
