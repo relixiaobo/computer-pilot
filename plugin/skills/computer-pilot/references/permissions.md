@@ -47,8 +47,17 @@ manual visual confirmation where necessary.
 
 ## Distribution Identity
 
-Inspect `release-index.json` before bundling. Prefer an official
-`developer-id-notarized` artifact with the fixed identifier and do not re-sign
-it. An `ad-hoc-unsigned` artifact is usable when signing credentials are
-unavailable, but TCC continuity across upgrades is not guaranteed; pin its
-checksum and surface that limitation to users.
+Inspect `release-index.json` before bundling and match its `signing.status`
+against the manifest's `installation.signing.required_status`; a release that
+contradicts the declaration is not an official artifact. Never re-sign an
+official binary — that replaces its identity.
+
+`ad-hoc-unsigned` artifacts carry the fixed identifier but no stable code
+identity (an ad-hoc designated requirement is a bare cdhash that changes with
+every build), so their integrity rests on the published SHA-256 digests.
+`developer-id-notarized` adds Apple-verifiable provenance.
+
+Signing tier does not by itself decide permission continuity: the grant
+follows `tcc_subject`. When macOS attributes cu's checks to a responsible
+process — the usual case in an Agent or terminal shell — the permission lives
+on that host app and is unaffected by replacing the cu binary.

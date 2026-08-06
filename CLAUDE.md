@@ -34,11 +34,21 @@ bash scripts/promote-skill-stable.sh <version> # Promote a published release to 
    signs/notarizes when Developer ID secrets exist, otherwise it emits a clearly
    marked fixed-identifier ad-hoc artifact
 8. **Promote**: `scripts/promote-skill-stable.sh <version>` verifies the
-   published release (public, checksums, `developer-id-notarized`, manifest
-   codesign requirement, version sync at the tag) and fast-forwards the
-   `skill-stable` branch to the release tag. The stable channel refuses
-   ad-hoc artifacts unconditionally. Agent hosts (Tenon etc.) track
+   published release (public, checksums consistent with `release-index.json`,
+   code identifier, version sync at the tag) and fast-forwards the
+   `skill-stable` branch to the release tag. Agent hosts (Tenon etc.) track
    `skill-stable`, never `main`.
+
+   The signing gate enforces the **tagged manifest's declared intent**, not a
+   fixed tier: `installation.signing.required_status` must equal the
+   published `signing.status`. This is what catches the dangerous case —
+   `release.yml` silently falls back to an ad-hoc identity when Developer ID
+   secrets are absent, so a repository that declares
+   `developer-id-notarized` can never promote an ad-hoc artifact. A project
+   without a Developer ID declares `ad-hoc-unsigned` with a null
+   `requirement` (ad-hoc designated requirements are a bare cdhash that
+   changes every build, so pinning one is always wrong), and integrity then
+   rests on the verified SHA-256 digests — which the gate says out loud.
 
 Manual rules:
 - **Never push a release commit or tag directly to main.** Use a release PR and protected workflows.

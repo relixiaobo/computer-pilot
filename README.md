@@ -173,9 +173,16 @@ installs (Option B/C) repeat the same steps to upgrade — the fixed path makes
 the swap atomic.
 Every release includes a binary archive, skill archive, plugin archive,
 checksums, and `release-index.json`. Inspect `signing.status` in the index:
-`developer-id-notarized` is the stable production identity;
-`ad-hoc-unsigned` is checksum-verifiable but not Apple-notarized, and macOS may
-require TCC permissions again after an upgrade.
+`ad-hoc-unsigned` releases are verified by their published SHA-256 digests but
+carry no stable code identity — an ad-hoc designated requirement is a bare
+cdhash that changes with every build. `developer-id-notarized` adds Apple-
+verifiable provenance when signing credentials are available.
+
+This does not normally affect permissions. macOS attributes `cu`'s
+Accessibility and Screen Recording checks to the *responsible process* — the
+terminal or Agent host that launched it — not to the `cu` binary, so the grant
+lives on that app and upgrading `cu` does not disturb it. Run `cu setup` and
+read `tcc_subject` to see which identity your setup actually uses.
 
 ### Agent Products
 
