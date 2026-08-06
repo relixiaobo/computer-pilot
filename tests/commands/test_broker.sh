@@ -33,7 +33,12 @@ OUT=$("$CU" --json bridge --stdio 2>/tmp/cu-test-stderr) || EXIT=$?
 ERR=$(cat /tmp/cu-test-stderr 2>/dev/null || true)
 assert_exit_nonzero "removed public bridge is rejected"
 
-section "broker — version mismatch performs a safe upgrade"
+# Version-ordering reuse and retirement (newer Broker reused, older retired,
+# busy-older kept serving) is covered as one matrix in test_broker_upgrade.sh.
+# This suite keeps the lifecycle cases: protocol mismatch and legacy Brokers
+# that predate StopIfIdle.
+
+section "broker — protocol mismatch performs a safe upgrade"
 
 UPGRADE_HOME="$BROKER_TEST_HOME/upgrade-home"
 python3 - "$UPGRADE_HOME" <<'PY' &
@@ -52,7 +57,7 @@ while True:
     connection, _ = server.accept()
     request = json.loads(connection.makefile("rb").readline())
     if request.get("type") == "ping":
-        response = {"type": "pong", "protocol": 2, "version": "0.0.0", "pid": os.getpid()}
+        response = {"type": "pong", "protocol": 1, "version": "0.0.0", "pid": os.getpid()}
     elif request.get("type") == "stop_if_idle":
         response = {"type": "stopping"}
     else:
@@ -76,9 +81,9 @@ EXIT=0
 OUT=$(COMPUTER_PILOT_HOME="$UPGRADE_HOME" "$CU" --json --client-key agent.upgrade status 2>/tmp/cu-test-stderr) || EXIT=$?
 ERR=$(cat /tmp/cu-test-stderr 2>/dev/null || true)
 if [[ "$EXIT" -eq 0 ]] && echo "$OUT" | python3 -c 'import json,sys; assert json.load(sys.stdin)["running"] is True' 2>/dev/null; then
-  _pass "same-protocol old version is replaced through StopIfIdle"
+  _pass "incompatible-protocol Broker is replaced through StopIfIdle"
 else
-  _fail "version-aware Broker upgrade" "exit=$EXIT stderr=${ERR:0:200}"
+  _fail "protocol-aware Broker upgrade" "exit=$EXIT stderr=${ERR:0:200}"
 fi
 UPGRADED_PID=$(echo "$OUT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("pid", ""))' 2>/dev/null || true)
 if [[ "$UPGRADED_PID" =~ ^[0-9]+$ ]]; then
@@ -106,7 +111,7 @@ while True:
     connection, _ = server.accept()
     request = json.loads(connection.makefile("rb").readline())
     if request.get("type") == "ping":
-        response = {"type": "pong", "protocol": 2, "version": "0.5.9", "pid": os.getpid()}
+        response = {"type": "pong", "protocol": 1, "version": "0.5.9", "pid": os.getpid()}
     else:
         response = {
             "type": "error",

@@ -8,3 +8,6 @@ __pycache__/
 
 # Generated artifact from `python tests/agent/caliper_report.py`
 tests/agent/caliper_records.json
+
+# Downloaded official release binaries used by the broker upgrade test
+tests/fixtures/cu-v*

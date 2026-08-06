@@ -20,6 +20,14 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+/// Wire contract for CLI<->Broker coordination. ANY change to request or
+/// response semantics MUST bump this constant.
+///
+/// Reuse is decided by protocol AND version ordering (see `broker_is_current`):
+/// a Broker at least as new as the calling CLI is reused as-is, so alternating
+/// CLIs never restart each other's Broker; an older one is retired through
+/// StopIfIdle so a bug fix that did not change the wire format still takes
+/// effect. The machine therefore converges on the newest installed version.
 const INTERNAL_PROTOCOL: u32 = 2;
 const DEFAULT_TIMEOUT_MS: u64 = 60_000;
 const MAX_TIMEOUT_MS: u64 = 300_000;
@@ -193,6 +201,11 @@ pub struct BrokerStatus {
     pub running: bool,
     pub pid: u32,
     pub protocol: u32,
+    /// Which Broker build is actually serving this CLI. `null` means the
+    /// running Broker predates this field — the only case where the CLI
+    /// cannot name it.
+    #[serde(default)]
+    pub version: Option<String>,
     pub command_count: usize,
     pub active_count: usize,
     pub uncertain_count: usize,
@@ -254,6 +267,9 @@ enum Response {
         protocol: u32,
         #[serde(default)]
         pid: u32,
+        // Empty when the Broker predates this field. Treated as "older than
+        // this CLI" by `broker_is_current`, so an unidentifiable Broker is
+        // replaced rather than trusted.
         #[serde(default)]
         version: String,
     },
@@ -573,14 +589,42 @@ fn ping(token: &str) -> Option<(u32, String, u32)> {
     }
 }
 
+fn parse_version(value: &str) -> Option<(u64, u64, u64)> {
+    // Pre-release and build metadata are ignored: 0.9.0-rc1 orders as 0.9.0.
+    let core = value.split(['-', '+']).next()?;
+    let mut parts = core.split('.');
+    let major = parts.next()?.parse().ok()?;
+    let minor = parts.next()?.parse().ok()?;
+    let patch = parts.next()?.parse().ok()?;
+    parts.next().is_none().then_some((major, minor, patch))
+}
+
+/// Whether a running Broker can serve this CLI as it is.
+///
+/// Same protocol and at least this CLI's version: reuse it, so a second CLI —
+/// an older global install, another Agent's bundled copy — never restarts a
+/// Broker that already speaks its wire format. Older (or unidentifiable, which
+/// means it predates the version field): retire it, so a Broker-side fix that
+/// did not change the wire format actually takes effect after an upgrade.
+fn broker_is_current(protocol: u32, version: &str) -> bool {
+    if protocol != INTERNAL_PROTOCOL {
+        return false;
+    }
+    match (parse_version(version), parse_version(crate::VERSION)) {
+        (Some(running), Some(current)) => running >= current,
+        // An unparseable running version is never trusted over this CLI.
+        (None, Some(_)) => false,
+        _ => true,
+    }
+}
+
 fn ensure_running() -> Result<String, BrokerError> {
     prepare_home().map_err(BrokerError::internal)?;
     let token = create_token_if_missing()
         .or_else(|_| read_token())
         .map_err(BrokerError::internal)?;
     if let Some((protocol, version, _pid)) = ping(&token)
-        && protocol == INTERNAL_PROTOCOL
-        && version == crate::VERSION
+        && broker_is_current(protocol, &version)
     {
         return Ok(token);
     }
@@ -593,12 +637,19 @@ fn ensure_running() -> Result<String, BrokerError> {
     let owns_start_lock = lock.is_ok();
     if owns_start_lock {
         if let Some((protocol, version, pid)) = ping(&token) {
-            if protocol == INTERNAL_PROTOCOL && version == crate::VERSION {
+            if broker_is_current(protocol, &version) {
                 let _ = fs::remove_file(start_lock_path());
                 return Ok(token);
             }
             if let Err(error) = stop_incompatible_broker(&token, protocol, &version, pid) {
                 let _ = fs::remove_file(start_lock_path());
+                // A same-protocol Broker that is merely older still speaks this
+                // CLI's wire format. When it is too busy to retire, serve the
+                // user's command through it instead of failing; the upgrade
+                // happens on a later call that finds it idle.
+                if protocol == INTERNAL_PROTOCOL && error.code == "target_busy" {
+                    return Ok(token);
+                }
                 return Err(error);
             }
         }
@@ -627,9 +678,8 @@ fn ensure_running() -> Result<String, BrokerError> {
 
     let deadline = now_ms().saturating_add(START_WAIT_MS);
     while now_ms() < deadline {
-        if ping(&token).is_some_and(|(protocol, version, _)| {
-            protocol == INTERNAL_PROTOCOL && version == crate::VERSION
-        }) {
+        if ping(&token).is_some_and(|(protocol, version, _)| broker_is_current(protocol, &version))
+        {
             if owns_start_lock {
                 let _ = fs::remove_file(start_lock_path());
             }
@@ -639,6 +689,11 @@ fn ensure_running() -> Result<String, BrokerError> {
     }
     if owns_start_lock {
         let _ = fs::remove_file(start_lock_path());
+    }
+    // Another CLI may have kept an older but wire-compatible Broker alive
+    // because it was busy. Serve this command through it rather than failing.
+    if ping(&token).is_some_and(|(protocol, _version, _)| protocol == INTERNAL_PROTOCOL) {
+        return Ok(token);
     }
     Err(BrokerError::internal("private Broker did not become ready"))
 }
@@ -1966,6 +2021,7 @@ fn broker_status(shared: &SharedState, client_key: &str) -> Response {
             running: true,
             pid: std::process::id(),
             protocol: INTERNAL_PROTOCOL,
+            version: Some(crate::VERSION.into()),
             command_count: records.len(),
             active_count: records
                 .iter()
