@@ -108,6 +108,91 @@ else
   _fail "failure detail reports the underlying command error" "got: ${DETAIL:0:200}"
 fi
 
+section "agent harness — model selection matches the credentials present"
+
+# release.sh gates L2 on *a* key being present and then runs run.py with no
+# flags. When the only key is OpenAI-compatible, the model default has to come
+# from .env too, or the run dies mid-loop as a generic "LLM error" after the
+# release has already built.
+CRED_OUT=$(cd "$ROOT_DIR" && python3 - <<'PY' 2>&1
+import importlib.util, json, os, sys
+from pathlib import Path
+
+spec = importlib.util.spec_from_file_location("harness", "tests/agent/run.py")
+harness = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(harness)
+
+# run.py loads .env at import, so clear the keys here to make the checks
+# independent of whatever this machine happens to have configured.
+for var in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY"):
+    os.environ.pop(var, None)
+
+out = {
+    "routes_claude": harness.is_claude_model("claude-sonnet-5"),
+    "routes_openai": harness.is_claude_model("gpt-5.6-sol"),
+    "claude_without_key": harness.credential_error("claude-sonnet-5"),
+    "openai_without_key": harness.credential_error("gpt-5.6-sol"),
+}
+os.environ["ANTHROPIC_API_KEY"] = "test"
+out["claude_with_key"] = harness.credential_error("claude-sonnet-5")
+del os.environ["ANTHROPIC_API_KEY"]
+os.environ["OPENAI_API_KEY"] = "test"
+out["openai_with_key"] = harness.credential_error("gpt-5.6-sol")
+print(json.dumps(out))
+PY
+)
+
+CRED_JSON=$(echo "$CRED_OUT" | tail -1)
+if ! echo "$CRED_JSON" | python3 -c 'import json,sys; json.load(sys.stdin)' 2>/dev/null; then
+  _fail "credential preflight is inspectable" "could not import run.py: ${CRED_OUT:0:300}"
+  summary
+fi
+
+cred_field() { echo "$CRED_JSON" | python3 -c "import json,sys; print(json.load(sys.stdin)['$1'])"; }
+
+if [[ "$(cred_field routes_claude)" == "True" && "$(cred_field routes_openai)" == "False" ]]; then
+  _pass "one predicate decides which provider a model id routes to"
+else
+  _fail "one predicate decides which provider a model id routes to" \
+    "is_claude_model misclassified a known model id"
+fi
+
+for case in claude_without_key openai_without_key; do
+  value=$(cred_field "$case")
+  if [[ "$value" != "None" && -n "$value" ]]; then
+    _pass "$case reports the missing credential"
+  else
+    _fail "$case reports the missing credential" "credential_error returned $value"
+  fi
+done
+
+for case in claude_with_key openai_with_key; do
+  if [[ "$(cred_field "$case")" == "None" ]]; then
+    _pass "$case accepts the matching credential"
+  else
+    _fail "$case accepts the matching credential" "credential_error rejected a usable key"
+  fi
+done
+
+# The default has to read AGENT_MODEL; a hardcoded Claude id would ignore a
+# release machine that only has an OpenAI-compatible key.
+if grep -Fq 'os.environ.get("AGENT_MODEL"' "$RUNNER"; then
+  _pass "model default reads AGENT_MODEL"
+else
+  _fail "model default reads AGENT_MODEL" "--model default is hardcoded again"
+fi
+
+# The preflight must run before the agent loop, so a misconfigured release
+# fails immediately instead of after touching the desktop.
+if grep -Fq 'problem = credential_error(args.model)' "$RUNNER" \
+  && [[ $(grep -n 'problem = credential_error' "$RUNNER" | cut -d: -f1) -lt \
+        $(grep -n 'result = run_agent_task' "$RUNNER" | cut -d: -f1) ]]; then
+  _pass "credential preflight runs before the first task"
+else
+  _fail "credential preflight runs before the first task" \
+    "run.py starts tasks before checking credentials"
+fi
+
 section "agent harness — command results carry success separately from text"
 
 # cu_result keeps ok and text apart; collapsing them back into a bare string is
