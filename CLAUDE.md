@@ -11,6 +11,8 @@ Three-tier control: **AppleScript** (scriptable apps) → **AX tree + CGEvent** 
 ## Quick Reference
 
 ```
+bash scripts/verify.sh                        # EVERY gate: CI checks + command suite
+bash scripts/verify.sh --skip-desktop         # CI-equivalent only (no desktop needed)
 cargo build --release                         # Build
 bash tests/commands/run_all.sh                # Run 700+ command-test assertions
 ./target/release/cu --human <command>         # Run in dev
@@ -26,9 +28,9 @@ bash scripts/promote-skill-stable.sh <version> # Promote a published release to 
 
 1. **Pre-flight**: clean, current `main` matches `origin/main`, version/tag/branch are new
 2. **Version bump**: update every CLI, skill, plugin, marketplace, and compatibility surface
-3. **Build & test**: build plus L1/L2 checks unless explicitly skipped
+3. **Build & test**: `scripts/verify.sh` (every CI check plus L1) then L2, unless explicitly skipped
 4. **PR**: commit on `release/vX.Y.Z`, push that branch, and open a draft PR
-5. **CI**: hosted static checks plus the TCC-enabled Apple Silicon command suite must pass
+5. **CI**: the hosted `test` job must pass. L1 is not a CI gate — `verify.sh` in step 3 is what covers it (see Testing)
 6. **Tag**: after merge, the protected Tag Release workflow tags the merged `main`
 7. **Publish**: the tag workflow packages, checksums, and publishes assets; it
    signs/notarizes when Developer ID secrets exist, otherwise it emits a clearly
@@ -390,6 +392,26 @@ Three layers (defined in `tests/`):
 - **L3 macOSWorld** (`tests/macosworld/`) — 133 locally-runnable tasks classified in `local_test_set.json`. Run via `tests/macosworld/run_selected.py`. Manual / quarterly cadence — too slow + heavy for per-release.
 
 All tests use the release binary: `target/release/cu`. Build first with `cargo build --release`.
+
+### What CI covers, and what it cannot
+
+`bash scripts/verify.sh` is the single pre-push/pre-merge command. Steps 1-6
+mirror the hosted `test` job exactly (version sync, skill metadata,
+`cargo fmt --check`, `cargo clippy --all-targets -D warnings`, `cargo test`,
+release build); step 7 is L1.
+
+**CI does not run L1.** The suite needs a macOS session already holding
+Accessibility and Screen Recording grants, which a GitHub-hosted runner
+cannot provide. The only Actions path is a self-hosted runner, and this
+repository must not use one while it is public: any fork can open a pull
+request that runs arbitrary code on it, and that machine by definition has
+full desktop-automation permissions. `.github/workflows/tcc-suite.yml`
+therefore keeps the job on `workflow_dispatch` only. Add `pull_request:` back
+only if the repo goes private or a dedicated disposable machine exists.
+
+So L1 is a **local gate the maintainer owns**. Running only L1 locally is not
+enough either — that gap once left `main` red on `cargo fmt` across four
+merges. Run `verify.sh`, not its parts.
 
 ### Two rules for adding tests
 

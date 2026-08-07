@@ -5,6 +5,10 @@ on:
   push:
     branches: [main]
 
+# Only checks that a GitHub-hosted runner can honestly complete live here.
+# The TCC-enabled command suite needs a real desktop session holding
+# Accessibility and Screen Recording grants, so it runs from
+# tcc-suite.yml on demand and locally through scripts/verify.sh.
 jobs:
   test:
     runs-on: macos-14
@@ -24,12 +28,3 @@ jobs:
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
       - run: cargo build --release
-
-  command-contract:
-    runs-on: [self-hosted, macOS, ARM64, computer-pilot-tcc]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - run: cargo build --release --locked
-      - name: TCC-enabled command contract tests
-        run: bash tests/commands/run_all.sh
