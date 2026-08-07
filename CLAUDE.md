@@ -382,6 +382,12 @@ checklist exists so a future revert doesn't bring them back.
   image/file/rich-text clipboard is silently destroyed. Use
   `pasteboard::save/restore` (all items, all types) and skip the restore when
   changeCount shows the user wrote mid-paste.
+- **"Grade a check against a command's output without checking it succeeded"**
+  — this applies to test harnesses too. `tests/agent/run.py` matched
+  `expect_contains` against the text of a failed `cu tell`, and AppleScript
+  quotes the object it could not find (`Can't get note "Agent Test - X"`), so
+  the check that proved the note existed passed precisely when it did not.
+  Route every check through the ok/text pair, never the text alone.
 
 ## Testing
 

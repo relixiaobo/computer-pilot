@@ -213,34 +213,46 @@ def verify_task(task: dict) -> list[dict]:
         desc = check["description"]
 
         if "command" in check:
-            output = cu(check["command"][1:])
-            try:
-                parsed = json.loads(output)
-                value = str(parsed.get("result", output))
-            except json.JSONDecodeError:
-                value = output
-
-            # expect_contains check
-            if "expect_contains" in check:
-                expected = check["expect_contains"]
-                passed = expected.lower() in value.lower()
+            res = cu_result(check["command"][1:])
+            # A failed command's error text is still matched by the checks
+            # below, and AppleScript quotes the name it could not find
+            # (Can't get note "Agent Test - X") — so a missing note satisfied
+            # the expect_contains that was supposed to prove it exists. Same
+            # for expect_min_length: an error message is long enough.
+            if not res["ok"]:
                 results.append({
-                    "check": desc, "passed": passed,
-                    "detail": f"expected '{expected}' in output, got: {value[:200]}"
+                    "check": desc, "passed": False,
+                    "detail": f"verification command failed: {res['text'][:200]}"
                 })
-
-            # expect_min_length check
-            if "expect_min_length" in check:
+            else:
+                output = res["text"]
                 try:
-                    length = int(value.strip().strip('"'))
-                except ValueError:
-                    length = len(value)
-                min_len = check["expect_min_length"]
-                passed = length >= min_len
-                results.append({
-                    "check": desc, "passed": passed,
-                    "detail": f"length={length}, min={min_len}"
-                })
+                    parsed = json.loads(output)
+                    value = str(parsed.get("result", output))
+                except json.JSONDecodeError:
+                    value = output
+
+                # expect_contains check
+                if "expect_contains" in check:
+                    expected = check["expect_contains"]
+                    passed = expected.lower() in value.lower()
+                    results.append({
+                        "check": desc, "passed": passed,
+                        "detail": f"expected '{expected}' in output, got: {value[:200]}"
+                    })
+
+                # expect_min_length check
+                if "expect_min_length" in check:
+                    try:
+                        length = int(value.strip().strip('"'))
+                    except ValueError:
+                        length = len(value)
+                    min_len = check["expect_min_length"]
+                    passed = length >= min_len
+                    results.append({
+                        "check": desc, "passed": passed,
+                        "detail": f"length={length}, min={min_len}"
+                    })
 
         # cross_check: verify output contains data from another source
         if "cross_check" in check:
@@ -301,7 +313,14 @@ def verify_task(task: dict) -> list[dict]:
                     })
                     continue
                 source_out = source_res["text"]
-                main_out = cu(check["command"][1:]) if "command" in check else ""
+                main_res = cu_result(check["command"][1:]) if "command" in check else None
+                if main_res is not None and not main_res["ok"]:
+                    results.append({
+                        "check": f"{desc} (cross-check)", "passed": False,
+                        "detail": f"target command failed: {main_res['text'][:200]}"
+                    })
+                    continue
+                main_out = main_res["text"] if main_res else ""
                 try:
                     source_val = str(json.loads(source_out).get("result", ""))
                     main_val = str(json.loads(main_out).get("result", ""))
