@@ -193,15 +193,110 @@ else
     "run.py starts tasks before checking credentials"
 fi
 
+section "agent harness — a task whose fixture failed is void, not failed by the agent"
+
+# A cold Reminders took longer than the CLI's 10s default to accept its first
+# write, so the reminder the task describes was never created. The agent then
+# spent its whole step budget looking for it and the run was reported as an
+# agent failure — the one reading that is exactly backwards.
+FIXTURE_OUT=$(cd "$ROOT_DIR" && python3 - <<'PY' 2>&1
+import importlib.util, json, sys
+
+spec = importlib.util.spec_from_file_location("harness", "tests/agent/run.py")
+harness = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(harness)
+
+broken = {
+    "id": "broken-fixture",
+    "name": "task whose setup cannot succeed",
+    "goal": "unreachable",
+    "setup": [["cu", "snapshot", "NoSuchApp-ZZZ"]],
+    "verify": [],
+}
+# A model that would need a key we deliberately do not pass: if the fixture
+# check does not stop first, this raises instead of returning a result.
+result = harness.run_agent_task(broken, "no-such-model", max_steps=1, verbose=False)
+
+out = {
+    "status": result["agent_status"],
+    "verified": result["verified"],
+    "steps": result["steps"],
+    "output_tokens": result["output_tokens"],
+    "detail": result["checks"][0]["detail"] if result["checks"] else "",
+    # Harness-owned tell commands must carry a longer budget than the product
+    # default; the agent's own commands must not be rewritten.
+    "tell_gets_timeout": harness.with_fixture_timeout(["cu", "tell", "Notes", "x"]),
+    "tell_keeps_own": harness.with_fixture_timeout(["cu", "tell", "Notes", "x", "--timeout", "5"]),
+    "non_tell_untouched": harness.with_fixture_timeout(["cu", "snapshot", "Finder"]),
+}
+print(json.dumps(out))
+PY
+)
+
+FIXTURE_JSON=$(echo "$FIXTURE_OUT" | tail -1)
+if ! echo "$FIXTURE_JSON" | python3 -c 'import json,sys; json.load(sys.stdin)' 2>/dev/null; then
+  _fail "fixture failure is inspectable" "run_agent_task did not return: ${FIXTURE_OUT:0:300}"
+  summary
+fi
+
+fixture_field() { echo "$FIXTURE_JSON" | python3 -c "import json,sys; v=json.load(sys.stdin)['$1']; print(json.dumps(v) if isinstance(v,(list,dict)) else v)"; }
+
+if [[ "$(fixture_field status)" == "setup_failed" ]]; then
+  _pass "a failed fixture is reported as setup_failed, not as an agent result"
+else
+  _fail "a failed fixture is reported as setup_failed, not as an agent result" \
+    "got status=$(fixture_field status)"
+fi
+
+if [[ "$(fixture_field verified)" == "False" ]]; then
+  _pass "a task with no fixture cannot report verified"
+else
+  _fail "a task with no fixture cannot report verified" "verified=$(fixture_field verified)"
+fi
+
+if [[ "$(fixture_field steps)" == "0" && "$(fixture_field output_tokens)" == "0" ]]; then
+  _pass "no agent steps or tokens are spent against a fixture that failed"
+else
+  _fail "no agent steps or tokens are spent against a fixture that failed" \
+    "steps=$(fixture_field steps) output_tokens=$(fixture_field output_tokens)"
+fi
+
+DETAIL=$(fixture_field detail)
+if [[ "$DETAIL" == *"setup failed"* && "$DETAIL" == *"app_not_found"* ]]; then
+  _pass "the reason names the setup command that failed"
+else
+  _fail "the reason names the setup command that failed" "got: ${DETAIL:0:200}"
+fi
+
+if [[ "$(fixture_field tell_gets_timeout)" == *"--timeout"* ]]; then
+  _pass "harness-owned cu tell gets a longer timeout than the product default"
+else
+  _fail "harness-owned cu tell gets a longer timeout than the product default" \
+    "got $(fixture_field tell_gets_timeout)"
+fi
+
+if [[ "$(fixture_field tell_keeps_own)" == *'"5"'* ]]; then
+  _pass "a command that set its own timeout keeps it"
+else
+  _fail "a command that set its own timeout keeps it" "got $(fixture_field tell_keeps_own)"
+fi
+
+if [[ "$(fixture_field non_tell_untouched)" != *"--timeout"* ]]; then
+  _pass "non-tell commands are left alone"
+else
+  _fail "non-tell commands are left alone" "got $(fixture_field non_tell_untouched)"
+fi
+
 section "agent harness — command results carry success separately from text"
 
 # cu_result keeps ok and text apart; collapsing them back into a bare string is
 # what let error text be graded as output.
-if grep -Fq 'res = cu_result(check["command"][1:])' "$RUNNER"; then
+if grep -Fq 'res = fixture_cu(check["command"])' "$RUNNER" \
+  && grep -Fq 'if not res["ok"]:' "$RUNNER"; then
   _pass "verification reads command success, not just its text"
 else
   _fail "verification reads command success, not just its text" \
-    "verify_task no longer routes the check command through cu_result"
+    "verify_task no longer consults the ok/text pair of its check command"
 fi
 
 summary

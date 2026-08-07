@@ -204,10 +204,32 @@ def _extract_cu_commands(text: str) -> list[str]:
     return commands
 
 
+# A cold Reminders needs more than the CLI's 10s default to accept its first
+# write; the same is true of Mail and Calendar. That is an environment cost of
+# the harness building its own fixtures, not product behaviour under test, so
+# harness-owned `cu tell` calls get a longer budget. The agent's own commands
+# are deliberately left on the product default — the test has to reflect what
+# an agent actually experiences.
+FIXTURE_TELL_TIMEOUT = os.environ.get("AGENT_FIXTURE_TELL_TIMEOUT", "30")
+
+
+def with_fixture_timeout(cmd: list[str]) -> list[str]:
+    """Give a harness-owned `cu tell` a longer timeout, unless it set its own."""
+    if cmd[:2] != ["cu", "tell"] or "--timeout" in cmd:
+        return cmd
+    return cmd + ["--timeout", FIXTURE_TELL_TIMEOUT]
+
+
+def fixture_cu(cmd: list[str]) -> dict:
+    """Run a harness-owned `cu` command — verification reads, mostly."""
+    return cu_result(with_fixture_timeout(cmd)[1:])
+
+
 def _run_fixture_cmd(cmd: list[str]) -> dict:
     """Run one setup/cleanup entry. `cu ...` goes through the CLI; anything
     else runs as a plain command, so a task can build the world it needs
     (files on the Desktop, for instance) and not only drive apps."""
+    cmd = with_fixture_timeout(cmd)
     if cmd and cmd[0] == "cu":
         return cu_result(cmd[1:])
     try:
@@ -217,16 +239,23 @@ def _run_fixture_cmd(cmd: list[str]) -> dict:
         return {"ok": False, "text": str(e)}
 
 
-def run_setup(task: dict, verbose: bool = True):
-    """Run setup commands. A failed setup invalidates the whole task, so say so
-    instead of letting the agent run against a world that was never built."""
+def run_setup(task: dict, verbose: bool = True) -> str | None:
+    """Run setup commands. Returns None on success, else why the task is void.
+
+    A failed setup means the world the task describes was never built, so
+    anything the agent does next is measured against the wrong state. Steps
+    that are genuinely optional already say so in AppleScript (`try ... end
+    try` returns ok), so a failure here is real.
+    """
     for cmd in task.get("setup", []):
         res = _run_fixture_cmd(cmd)
-        # Setup steps are routinely best-effort (delete a note that may not
-        # exist), so this is a warning, not a hard stop.
-        if not res["ok"] and verbose:
-            print(f"  [setup] non-zero: {' '.join(cmd)[:80]} → {res['text'][:120]}")
+        if not res["ok"]:
+            reason = f"setup failed: {' '.join(cmd)[:80]} → {res['text'][:200]}"
+            if verbose:
+                print(f"  [setup] {reason}")
+            return reason
         time.sleep(0.5)
+    return None
 
 
 def run_cleanup(task: dict, verbose: bool = True):
@@ -245,7 +274,7 @@ def verify_task(task: dict) -> list[dict]:
         desc = check["description"]
 
         if "command" in check:
-            res = cu_result(check["command"][1:])
+            res = fixture_cu(check["command"])
             # A failed command's error text is still matched by the checks
             # below, and AppleScript quotes the name it could not find
             # (Can't get note "Agent Test - X") — so a missing note satisfied
@@ -290,8 +319,8 @@ def verify_task(task: dict) -> list[dict]:
         if "cross_check" in check:
             cc = check["cross_check"]
             if "source_command" in cc and "target_command" in cc:
-                source_res = cu_result(cc["source_command"][1:])
-                target_res = cu_result(cc["target_command"][1:])
+                source_res = fixture_cu(cc["source_command"])
+                target_res = fixture_cu(cc["target_command"])
                 # A failed source command produces no tokens too. Without this
                 # guard it was reported as "env gap, not an agent failure" —
                 # a real breakage silently marked passed.
@@ -337,7 +366,7 @@ def verify_task(task: dict) -> list[dict]:
                     })
             elif "source_command" in cc:
                 # source_command only — check against the main command output
-                source_res = cu_result(cc["source_command"][1:])
+                source_res = fixture_cu(cc["source_command"])
                 if not source_res["ok"]:
                     results.append({
                         "check": f"{desc} (cross-check)", "passed": False,
@@ -345,7 +374,7 @@ def verify_task(task: dict) -> list[dict]:
                     })
                     continue
                 source_out = source_res["text"]
-                main_res = cu_result(check["command"][1:]) if "command" in check else None
+                main_res = fixture_cu(check["command"]) if "command" in check else None
                 if main_res is not None and not main_res["ok"]:
                     results.append({
                         "check": f"{desc} (cross-check)", "passed": False,
@@ -391,7 +420,23 @@ def run_agent_task(task: dict, model: str, max_steps: int = 15, verbose: bool = 
         print(f"{'='*60}")
 
     # Setup
-    run_setup(task)
+    setup_failure = run_setup(task)
+    if setup_failure:
+        # Running the agent now would spend a full step budget against state
+        # the task never established, and report the result as an agent
+        # failure. Fail here, where the reason is still legible.
+        run_cleanup(task)
+        return {
+            "task_id": task_id,
+            "task_name": task["name"],
+            "agent_status": "setup_failed",
+            "verified": False,
+            "checks": [{"check": "task fixture established",
+                        "passed": False, "detail": setup_failure}],
+            "steps": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+        }
     time.sleep(1)
 
     messages = []

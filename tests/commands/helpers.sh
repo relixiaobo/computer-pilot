@@ -233,7 +233,11 @@ is_json() {
 assert_ok() {
   local name="$1"
   if ! is_json; then
-    _fail "$name" "output is not valid JSON"
+    # cu writes error JSON to stderr and signals failure through the exit
+    # status, both of which cu_json already captured. Reporting only "not
+    # valid JSON" throws away the code, message and hint that say why — and
+    # that is the entire diagnosis for every flaky failure in this suite.
+    _fail "$name" "output is not valid JSON (exit=${EXIT:-?}) stdout=${OUT:0:120} stderr=${ERR:0:240}"
     return
   fi
   local ok
