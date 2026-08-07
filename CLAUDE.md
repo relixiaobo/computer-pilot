@@ -387,7 +387,10 @@ checklist exists so a future revert doesn't bring them back.
   `expect_contains` against the text of a failed `cu tell`, and AppleScript
   quotes the object it could not find (`Can't get note "Agent Test - X"`), so
   the check that proved the note existed passed precisely when it did not.
-  Route every check through the ok/text pair, never the text alone.
+  Route every check through the ok/text pair, never the text alone. The same
+  applies one step earlier: a task whose `setup` failed has no world to be
+  graded against, so it must abort as `setup_failed` rather than spend an
+  agent's step budget hunting for a fixture that was never built.
 
 ## Testing
 
