@@ -382,13 +382,19 @@ checklist exists so a future revert doesn't bring them back.
   image/file/rich-text clipboard is silently destroyed. Use
   `pasteboard::save/restore` (all items, all types) and skip the restore when
   changeCount shows the user wrote mid-paste.
+- **"Grade a check against a command's output without checking it succeeded"**
+  — this applies to test harnesses too. `tests/agent/run.py` matched
+  `expect_contains` against the text of a failed `cu tell`, and AppleScript
+  quotes the object it could not find (`Can't get note "Agent Test - X"`), so
+  the check that proved the note existed passed precisely when it did not.
+  Route every check through the ok/text pair, never the text alone.
 
 ## Testing
 
 Three layers (defined in `tests/`):
 
 - **L1 Command tests** (`tests/commands/run_all.sh`) — 700+ assertions covering every CLI command in isolation. The default run preserves the user's foreground app and pointer. Run `COMPUTER_PILOT_TEST_INTERACTIVE=1 bash tests/commands/run_all.sh` only on a dedicated desktop to include exact-PID focus, foreground Electron paste, and global HID compatibility tests. Specific suites: `bash tests/commands/run_all.sh snapshot key tell`.
-- **L2 Agent E2E** (`tests/agent/run.py`) — real LLM agent + cross-check verification. Loads `plugin/skills/computer-pilot/SKILL.md` as the system prompt so the test mirrors production. Needs `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in `.env`. Wired into `scripts/release.sh` — every release runs L2 unless `--skip-agent` or no API key.
+- **L2 Agent E2E** (`tests/agent/run.py`) — real LLM agent + cross-check verification. Loads `plugin/skills/computer-pilot/SKILL.md` as the system prompt so the test mirrors production. Needs `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in `.env`, plus `AGENT_MODEL` naming a model that key can actually reach (and `OPENAI_BASE_URL` when it is served by a relay). `release.sh` runs `run.py` with no flags, so `.env` is the only place a release can express which model it tests against; a mismatch between the key and the model fails the preflight before anything is built. Wired into `scripts/release.sh` — every release runs L2 unless `--skip-agent` or no API key.
 - **L3 macOSWorld** (`tests/macosworld/`) — 133 locally-runnable tasks classified in `local_test_set.json`. Run via `tests/macosworld/run_selected.py`. Manual / quarterly cadence — too slow + heavy for per-release.
 
 All tests use the release binary: `target/release/cu`. Build first with `cargo build --release`.

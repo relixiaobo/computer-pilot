@@ -14,6 +14,11 @@ Usage:
   python3 tests/agent/run.py --dry-run
   python3 tests/agent/run.py --model claude-sonnet-5
   python3 tests/agent/run.py --model gpt-5.6-sol   # any non-Claude id uses the OpenAI path
+
+Model selection: --model, else AGENT_MODEL, else claude-sonnet-5. Put
+AGENT_MODEL in .env next to the key it belongs to — release.sh runs this with
+no flags, so .env is the only place a release can express which model to use.
+An OpenAI-compatible relay needs OPENAI_BASE_URL set alongside OPENAI_API_KEY.
 """
 
 import argparse
@@ -122,9 +127,36 @@ def cu(args: list[str]) -> str:
 MAX_TOKENS = int(os.environ.get("AGENT_MAX_TOKENS", "16000"))
 
 
+def is_claude_model(model: str) -> bool:
+    """Which provider a model id routes to. The credential preflight and the
+    call site must agree, so both read this one predicate."""
+    return "claude" in model or "opus" in model or "sonnet" in model
+
+
+def credential_error(model: str) -> str | None:
+    """Actionable message when the model can't be reached, else None.
+
+    release.sh gates L2 on *a* key being present, which an OpenAI-only .env
+    satisfies — but the model default used to be a Claude id regardless, so
+    the run died inside the agent loop as a generic 'LLM error' after the
+    release had already started building.
+    """
+    if is_claude_model(model):
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            return (f"model '{model}' needs ANTHROPIC_API_KEY (not found in the "
+                    f"environment or .env). Set it, or select a model that "
+                    f"matches the key you have via AGENT_MODEL / --model.")
+    elif not os.environ.get("OPENAI_API_KEY"):
+        return (f"model '{model}' needs OPENAI_API_KEY (not found in the "
+                f"environment or .env), plus OPENAI_BASE_URL when it is served "
+                f"by a relay. Set it, or select a Claude model via "
+                f"AGENT_MODEL / --model.")
+    return None
+
+
 def call_llm(model: str, messages: list[dict]) -> tuple[str, int, int]:
     """Call LLM, return (text, input_tokens, output_tokens)."""
-    if "claude" in model or "opus" in model or "sonnet" in model:
+    if is_claude_model(model):
         import anthropic
         client = anthropic.Anthropic()
         response = client.messages.create(
@@ -213,34 +245,46 @@ def verify_task(task: dict) -> list[dict]:
         desc = check["description"]
 
         if "command" in check:
-            output = cu(check["command"][1:])
-            try:
-                parsed = json.loads(output)
-                value = str(parsed.get("result", output))
-            except json.JSONDecodeError:
-                value = output
-
-            # expect_contains check
-            if "expect_contains" in check:
-                expected = check["expect_contains"]
-                passed = expected.lower() in value.lower()
+            res = cu_result(check["command"][1:])
+            # A failed command's error text is still matched by the checks
+            # below, and AppleScript quotes the name it could not find
+            # (Can't get note "Agent Test - X") — so a missing note satisfied
+            # the expect_contains that was supposed to prove it exists. Same
+            # for expect_min_length: an error message is long enough.
+            if not res["ok"]:
                 results.append({
-                    "check": desc, "passed": passed,
-                    "detail": f"expected '{expected}' in output, got: {value[:200]}"
+                    "check": desc, "passed": False,
+                    "detail": f"verification command failed: {res['text'][:200]}"
                 })
-
-            # expect_min_length check
-            if "expect_min_length" in check:
+            else:
+                output = res["text"]
                 try:
-                    length = int(value.strip().strip('"'))
-                except ValueError:
-                    length = len(value)
-                min_len = check["expect_min_length"]
-                passed = length >= min_len
-                results.append({
-                    "check": desc, "passed": passed,
-                    "detail": f"length={length}, min={min_len}"
-                })
+                    parsed = json.loads(output)
+                    value = str(parsed.get("result", output))
+                except json.JSONDecodeError:
+                    value = output
+
+                # expect_contains check
+                if "expect_contains" in check:
+                    expected = check["expect_contains"]
+                    passed = expected.lower() in value.lower()
+                    results.append({
+                        "check": desc, "passed": passed,
+                        "detail": f"expected '{expected}' in output, got: {value[:200]}"
+                    })
+
+                # expect_min_length check
+                if "expect_min_length" in check:
+                    try:
+                        length = int(value.strip().strip('"'))
+                    except ValueError:
+                        length = len(value)
+                    min_len = check["expect_min_length"]
+                    passed = length >= min_len
+                    results.append({
+                        "check": desc, "passed": passed,
+                        "detail": f"length={length}, min={min_len}"
+                    })
 
         # cross_check: verify output contains data from another source
         if "cross_check" in check:
@@ -301,7 +345,14 @@ def verify_task(task: dict) -> list[dict]:
                     })
                     continue
                 source_out = source_res["text"]
-                main_out = cu(check["command"][1:]) if "command" in check else ""
+                main_res = cu_result(check["command"][1:]) if "command" in check else None
+                if main_res is not None and not main_res["ok"]:
+                    results.append({
+                        "check": f"{desc} (cross-check)", "passed": False,
+                        "detail": f"target command failed: {main_res['text'][:200]}"
+                    })
+                    continue
+                main_out = main_res["text"] if main_res else ""
                 try:
                     source_val = str(json.loads(source_out).get("result", ""))
                     main_val = str(json.loads(main_out).get("result", ""))
@@ -457,7 +508,7 @@ def main():
     parser = argparse.ArgumentParser(description="Agent E2E test runner")
     parser.add_argument("--task", help="Path to single task JSON")
     parser.add_argument("--tasks-dir", default="tests/agent/tasks", help="Directory of task JSONs")
-    parser.add_argument("--model", default="claude-sonnet-5")
+    parser.add_argument("--model", default=os.environ.get("AGENT_MODEL", "claude-sonnet-5"))
     parser.add_argument("--max-steps", type=int, default=15)
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
@@ -485,6 +536,12 @@ def main():
             print(f"    Verify: {len(t.get('verify', []))} checks")
         print(f"\n{len(tasks)} tasks")
         return
+
+    # Fail before touching the desktop or the release, not 15 steps in.
+    problem = credential_error(args.model)
+    if problem:
+        print(f"Cannot run agent tests: {problem}", file=sys.stderr)
+        sys.exit(1)
 
     # Run
     results = []
