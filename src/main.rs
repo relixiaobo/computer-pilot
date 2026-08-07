@@ -1713,8 +1713,7 @@ fn cmd_setup(json: bool) -> Result<(), CuError> {
         .clone()
         .or_else(|| subject.executable.clone());
     let subject_unknown = subject_label.is_none();
-    let subject_label = subject_label
-        .unwrap_or_else(|| "the cu binary you are running".into());
+    let subject_label = subject_label.unwrap_or_else(|| "the cu binary you are running".into());
     let subject_hint = subject_unknown.then_some(
         "could not resolve the executable path or responsible process; \
          grant the app that launched cu and re-run `cu setup`",
