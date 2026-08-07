@@ -95,9 +95,13 @@ else
 fi
 
 run bash scripts/check-version-sync.sh "$VERSION"
-run cargo build --release
-if [[ -z "$SKIP_TESTS" ]]; then
-  run bash tests/commands/run_all.sh
+# One entry point for every gate, so the release cannot pass on a narrower
+# set of checks than CI runs. --skip-tests still covers fmt/clippy/cargo
+# test/build; only the desktop command suite is dropped.
+if [[ -n "$SKIP_TESTS" ]]; then
+  run bash scripts/verify.sh --skip-desktop
+else
+  run bash scripts/verify.sh
 fi
 
 if [[ -z "$SKIP_AGENT" && -f tests/agent/run.py ]]; then

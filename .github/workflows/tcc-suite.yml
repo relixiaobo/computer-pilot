@@ -1,0 +1,30 @@
+name: TCC Command Suite
+
+# Manual only, and deliberately not wired to pull_request.
+#
+# This suite needs a macOS session that already holds Accessibility and
+# Screen Recording grants, so it cannot run on a GitHub-hosted runner. The
+# only way to run it in Actions is a self-hosted runner — which this
+# repository must not use while it is public: any fork can open a pull
+# request that executes arbitrary code on the runner, and this runner is by
+# definition a machine with full desktop-automation permissions.
+#
+# The suite is therefore a LOCAL gate. Run `bash scripts/verify.sh` before
+# pushing or merging; it runs the hosted CI checks plus this suite.
+#
+# If the repository ever becomes private, or a dedicated disposable machine
+# is available, register a runner with the labels below and add
+# `pull_request:` to the triggers.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  command-contract:
+    runs-on: [self-hosted, macOS, ARM64, computer-pilot-tcc]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release --locked
+      - name: TCC-enabled command contract tests
+        run: bash tests/commands/run_all.sh
