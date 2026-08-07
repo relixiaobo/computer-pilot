@@ -169,6 +169,21 @@ else
     "manifest='$MANIFEST_TEMPLATE' installer='$INSTALLER_DEFAULT'"
 fi
 
+# The installer recognizes an older Computer Pilot by this identifier; a drift
+# would silently downgrade that refusal to the generic message.
+MANIFEST_IDENTIFIER=$(python3 -c "
+import json
+print(json.load(open('$ROOT_DIR/plugin/skills/computer-pilot/compatibility.json'))['installation']['signing']['identifier'])
+")
+INSTALLER_IDENTIFIER=$(sed -n "s/^SIGNING_IDENTIFIER='\(.*\)'$/\1/p" \
+  "$ROOT_DIR/plugin/skills/computer-pilot/scripts/install-native.sh")
+if [[ "$INSTALLER_IDENTIFIER" == "$MANIFEST_IDENTIFIER" ]]; then
+  _pass "installer signing identifier matches the manifest"
+else
+  _fail "installer signing identifier matches the manifest" \
+    "manifest='$MANIFEST_IDENTIFIER' installer='$INSTALLER_IDENTIFIER'"
+fi
+
 section "permission contract — Apple Events are tell-only"
 
 OSASCRIPT_SPAWNS=$(rg -n 'Command::new\("osascript"\)' "$ROOT_DIR/src" | wc -l | tr -d ' ')

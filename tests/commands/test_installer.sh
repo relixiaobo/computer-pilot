@@ -399,6 +399,62 @@ else
   _fail "unmanaged command content is untouched" "file was modified"
 fi
 
+section "installer — conflict message identifies what is in the way"
+
+# Upgrading from a pre-0.9.0 manual install is the case a real user hits: the
+# file at the bin path is their own older cu. The refusal has to say so, or
+# they are left at a dead end. Identification reads the code signature — the
+# installer must never execute an unknown binary to ask its version.
+OLD_CP_BIN="$SANDBOX/bin-oldcp"
+mkdir -p "$OLD_CP_BIN"
+printf '#!/bin/sh\necho "cu 0.7.2"\n' >"$OLD_CP_BIN/cu"
+chmod +x "$OLD_CP_BIN/cu"
+if codesign -s - --identifier com.linlab.computer-pilot.cu "$OLD_CP_BIN/cu" 2>/dev/null; then
+  run_installer --version "$REAL_VERSION" --repository relixiaobo/computer-pilot \
+    --allow-unsigned --asset-directory "$ASSETS_REAL" \
+    --install-root "$SANDBOX/data-oldcp" --bin-dir "$OLD_CP_BIN"
+  assert_err_code "an older Computer Pilot at the bin path is refused" "command_conflict"
+  if [[ "$ERR" == *"older Computer Pilot"* && "$ERR" == *"remove it and re-run"* ]]; then
+    _pass "refusal identifies it as an older Computer Pilot and names the way out"
+  else
+    _fail "refusal identifies it as an older Computer Pilot and names the way out" \
+      "message was: ${ERR//$'\n'/ }"
+  fi
+else
+  _skip "older-Computer-Pilot identification" "codesign could not ad-hoc sign the fixture"
+fi
+
+# A binary that is not ours gets the generic escape hatch, not a wrong claim.
+FOREIGN_BIN="$SANDBOX/bin-foreign"
+mkdir -p "$FOREIGN_BIN"
+printf '#!/bin/sh\necho other\n' >"$FOREIGN_BIN/cu"
+chmod +x "$FOREIGN_BIN/cu"
+run_installer --version "$REAL_VERSION" --repository relixiaobo/computer-pilot \
+  --allow-unsigned --asset-directory "$ASSETS_REAL" \
+  --install-root "$SANDBOX/data-foreign" --bin-dir "$FOREIGN_BIN"
+if [[ "$ERR" == *"command_conflict"* && "$ERR" == *"--bin-dir"* && "$ERR" != *"older Computer Pilot"* ]]; then
+  _pass "a foreign command gets the generic escape hatch, not a false claim"
+else
+  _fail "a foreign command gets the generic escape hatch, not a false claim" \
+    "message was: ${ERR//$'\n'/ }"
+fi
+
+# Identification must not run the file. A binary that fails loudly when
+# executed still produces a clean refusal.
+TRAP_BIN="$SANDBOX/bin-trap"
+mkdir -p "$TRAP_BIN"
+printf '#!/bin/sh\necho EXECUTED-BY-INSTALLER >&2\nexit 7\n' >"$TRAP_BIN/cu"
+chmod +x "$TRAP_BIN/cu"
+run_installer --version "$REAL_VERSION" --repository relixiaobo/computer-pilot \
+  --allow-unsigned --asset-directory "$ASSETS_REAL" \
+  --install-root "$SANDBOX/data-trap" --bin-dir "$TRAP_BIN"
+if [[ "$ERR" == *"command_conflict"* && "$ERR" != *"EXECUTED-BY-INSTALLER"* ]]; then
+  _pass "the unknown command is never executed to identify it"
+else
+  _fail "the unknown command is never executed to identify it" \
+    "installer ran the file: ${ERR//$'\n'/ }"
+fi
+
 DECOY_DIR="$SANDBOX/decoy"
 mkdir -p "$DECOY_DIR"
 printf '#!/bin/sh\necho decoy\n' >"$DECOY_DIR/cu"

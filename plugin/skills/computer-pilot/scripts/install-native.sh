@@ -24,6 +24,11 @@ UNSUPPORTED_PLATFORM_EXIT_CODE=10
 # any Agent host) should pass --asset-template rather than rely on this default.
 DEFAULT_ASSET_TEMPLATE='computer-pilot-v{version}-macos-arm64.tar.gz'
 
+# Matches installation.signing.identifier in compatibility.json (also asserted
+# by tests/commands/test_release_contract.sh). Used only to recognize an older
+# Computer Pilot occupying the command path — never as a trust decision.
+SIGNING_IDENTIFIER='com.linlab.computer-pilot.cu'
+
 version=''
 repository=''
 requirement=''
@@ -249,11 +254,36 @@ is_owned_link() {
   [ "$link_target" = "$fixed_binary" ]
 }
 
+# Say what is already sitting at a command path, so the refusal names a way
+# out instead of a dead end. Read the code signature rather than running the
+# file: it is unknown by definition, and executing it to ask its version
+# would be the one thing this refusal exists to avoid.
+describe_unmanaged_command() {
+  conflict_path=$1
+  conflict_identifier=$(codesign -dvv "$conflict_path" 2>&1 | sed -n 's/^Identifier=//p')
+  case "$conflict_identifier" in
+    "$SIGNING_IDENTIFIER")
+      printf 'an older Computer Pilot installed outside the managed layout — remove it and re-run' ;;
+    com.apple.*)
+      printf 'an Apple system binary (%s) — pass --bin-dir to install elsewhere' "$conflict_identifier" ;;
+    '')
+      printf 'unidentified — remove it and re-run, or pass --bin-dir to install elsewhere' ;;
+    *)
+      printf 'code identifier %s — remove it and re-run, or pass --bin-dir to install elsewhere' \
+        "$conflict_identifier" ;;
+  esac
+}
+
+refuse_unmanaged_command() {
+  conflict=$1
+  fail command_conflict \
+    "Refusing to replace an unmanaged command: $conflict ($(describe_unmanaged_command "$conflict"))"
+}
+
 ensure_command_link() {
   mkdir -p "$bin_directory" ||
     fail install_directory_failed "Could not create $bin_directory"
-  is_owned_link "$bin_directory/cu" ||
-    fail command_conflict "Refusing to replace an unmanaged command: $bin_directory/cu"
+  is_owned_link "$bin_directory/cu" || refuse_unmanaged_command "$bin_directory/cu"
   if [ ! -L "$bin_directory/cu" ]; then
     temporary_link=$bin_directory/.cu.$$.tmp
     [ ! -e "$temporary_link" ] && [ ! -L "$temporary_link" ] ||
@@ -376,8 +406,7 @@ if [ -L "$fixed_binary" ]; then
   fail install_conflict "Fixed binary path is a symlink, refusing to replace: $fixed_binary"
 fi
 
-is_owned_link "$bin_directory/cu" ||
-  fail command_conflict "Refusing to replace an unmanaged command: $bin_directory/cu"
+is_owned_link "$bin_directory/cu" || refuse_unmanaged_command "$bin_directory/cu"
 
 # Keep an archived copy for manual rollback. Never activated in place; the
 # fixed realpath below is the only executable path agents and TCC ever see.
