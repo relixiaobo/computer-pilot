@@ -12,7 +12,8 @@ Usage:
   python3 tests/agent/run.py
   python3 tests/agent/run.py --task tests/agent/tasks/mail_to_notes.json
   python3 tests/agent/run.py --dry-run
-  python3 tests/agent/run.py --model claude-sonnet-4-6
+  python3 tests/agent/run.py --model claude-sonnet-5
+  python3 tests/agent/run.py --model gpt-5.6-sol   # any non-Claude id uses the OpenAI path
 """
 
 import argparse
@@ -57,15 +58,68 @@ SYSTEM_PROMPT = f"""You are a macOS automation agent. You control a Mac through 
 """
 
 
-def cu(args: list[str]) -> str:
-    """Run a cu command, return stdout."""
+# `cu apps` is allowed up to 60s on machines with many running apps, so a
+# shorter deadline here would kill legitimate commands. Matches the default in
+# tests/commands/helpers.sh.
+CU_TIMEOUT = int(os.environ.get("CU_TIMEOUT_SECS", "75"))
+
+# How much of a command's output the agent gets to see. Truncation is
+# announced in the text itself so a cut can never look like a short answer.
+RESULT_CHAR_LIMIT = int(os.environ.get("AGENT_RESULT_CHARS", "6000"))
+
+# SKILL.md's Initialize step requires both of these. Without them the agent
+# under test runs with the default client key and no task-owned output
+# directory, which is not the contract production agents follow.
+AGENT_CLIENT_KEY = os.environ.get("COMPUTER_PILOT_CLIENT_KEY", "agent-e2e")
+AGENT_OUTPUT_DIR = os.environ.get(
+    "COMPUTER_PILOT_OUTPUT_DIR",
+    str(Path(__file__).resolve().parent.parent.parent / "test-results" / "agent-output"),
+)
+
+
+def cu_result(args: list[str]) -> dict:
+    """Run a cu command and return {"ok", "text"} as a real shell would show it.
+
+    cu writes success JSON to stdout, error JSON to stderr, and signals failure
+    through the exit status. Returning stdout alone made every failed command
+    look like an empty success: the agent under test could not see the error
+    code, the hint, or that anything had gone wrong — so it kept going blind,
+    and verification could not tell a failed check from an absent result.
+    """
+    env = dict(os.environ)
+    env["COMPUTER_PILOT_CLIENT_KEY"] = AGENT_CLIENT_KEY
+    env["COMPUTER_PILOT_OUTPUT_DIR"] = AGENT_OUTPUT_DIR
+    Path(AGENT_OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
     try:
         result = subprocess.run(
-            [CU] + args, capture_output=True, text=True, timeout=30
+            [CU] + args, capture_output=True, text=True, timeout=CU_TIMEOUT, env=env
         )
-        return result.stdout.strip()
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "text": json.dumps(
+            {"ok": False, "code": "harness_timeout",
+             "error": f"cu did not finish within {CU_TIMEOUT}s"})}
     except Exception as e:
-        return json.dumps({"ok": False, "error": str(e)})
+        return {"ok": False, "text": json.dumps({"ok": False, "error": str(e)})}
+
+    out = result.stdout.strip()
+    err = result.stderr.strip()
+    if result.returncode != 0:
+        return {"ok": False, "text": err or out or json.dumps(
+            {"ok": False, "code": "unknown_failure",
+             "error": f"cu exited {result.returncode} with no output"})}
+    return {"ok": True, "text": out or err}
+
+
+def cu(args: list[str]) -> str:
+    """Agent-facing view of a cu command: stdout on success, error JSON on failure."""
+    return cu_result(args)["text"]
+
+
+# Current Claude models run adaptive thinking by default, and max_tokens caps
+# thinking PLUS response text together — a budget sized for reply text alone
+# truncates the agent mid-command, which is indistinguishable from the agent
+# failures this suite exists to detect.
+MAX_TOKENS = int(os.environ.get("AGENT_MAX_TOKENS", "16000"))
 
 
 def call_llm(model: str, messages: list[dict]) -> tuple[str, int, int]:
@@ -74,15 +128,16 @@ def call_llm(model: str, messages: list[dict]) -> tuple[str, int, int]:
         import anthropic
         client = anthropic.Anthropic()
         response = client.messages.create(
-            model=model, max_tokens=4096,
+            model=model, max_tokens=MAX_TOKENS,
             system=SYSTEM_PROMPT, messages=messages,
         )
-        return response.content[0].text, response.usage.input_tokens, response.usage.output_tokens
+        text = next((b.text for b in response.content if b.type == "text"), "")
+        return text, response.usage.input_tokens, response.usage.output_tokens
     else:
         import openai
         client = openai.OpenAI()
         response = client.chat.completions.create(
-            model=model, max_completion_tokens=4096,
+            model=model, max_completion_tokens=MAX_TOKENS,
             messages=[{"role": "system", "content": SYSTEM_PROMPT}] + messages,
         )
         return response.choices[0].message.content, response.usage.prompt_tokens, response.usage.completion_tokens
@@ -117,17 +172,37 @@ def _extract_cu_commands(text: str) -> list[str]:
     return commands
 
 
-def run_setup(task: dict):
-    """Run setup commands."""
+def _run_fixture_cmd(cmd: list[str]) -> dict:
+    """Run one setup/cleanup entry. `cu ...` goes through the CLI; anything
+    else runs as a plain command, so a task can build the world it needs
+    (files on the Desktop, for instance) and not only drive apps."""
+    if cmd and cmd[0] == "cu":
+        return cu_result(cmd[1:])
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=CU_TIMEOUT)
+        return {"ok": r.returncode == 0, "text": (r.stderr or r.stdout).strip()}
+    except Exception as e:
+        return {"ok": False, "text": str(e)}
+
+
+def run_setup(task: dict, verbose: bool = True):
+    """Run setup commands. A failed setup invalidates the whole task, so say so
+    instead of letting the agent run against a world that was never built."""
     for cmd in task.get("setup", []):
-        cu(cmd[1:])  # skip "cu" prefix
+        res = _run_fixture_cmd(cmd)
+        # Setup steps are routinely best-effort (delete a note that may not
+        # exist), so this is a warning, not a hard stop.
+        if not res["ok"] and verbose:
+            print(f"  [setup] non-zero: {' '.join(cmd)[:80]} → {res['text'][:120]}")
         time.sleep(0.5)
 
 
-def run_cleanup(task: dict):
-    """Run cleanup commands."""
+def run_cleanup(task: dict, verbose: bool = True):
+    """Run cleanup commands. Leftovers poison the next run, so report failures."""
     for cmd in task.get("cleanup", []):
-        cu(cmd[1:])
+        res = _run_fixture_cmd(cmd)
+        if not res["ok"] and verbose:
+            print(f"  [cleanup] non-zero: {' '.join(cmd)[:80]} → {res['text'][:120]}")
         time.sleep(0.5)
 
 
@@ -171,8 +246,21 @@ def verify_task(task: dict) -> list[dict]:
         if "cross_check" in check:
             cc = check["cross_check"]
             if "source_command" in cc and "target_command" in cc:
-                source_out = cu(cc["source_command"][1:])
-                target_out = cu(cc["target_command"][1:])
+                source_res = cu_result(cc["source_command"][1:])
+                target_res = cu_result(cc["target_command"][1:])
+                # A failed source command produces no tokens too. Without this
+                # guard it was reported as "env gap, not an agent failure" —
+                # a real breakage silently marked passed.
+                if not source_res["ok"] or not target_res["ok"]:
+                    failed = "source" if not source_res["ok"] else "target"
+                    detail = (source_res if not source_res["ok"] else target_res)["text"]
+                    results.append({
+                        "check": f"{desc} (cross-check)", "passed": False,
+                        "detail": f"{failed} command failed: {detail[:200]}"
+                    })
+                    continue
+                source_out = source_res["text"]
+                target_out = target_res["text"]
                 try:
                     source_val = str(json.loads(source_out).get("result", ""))
                     target_val = str(json.loads(target_out).get("result", ""))
@@ -205,7 +293,14 @@ def verify_task(task: dict) -> list[dict]:
                     })
             elif "source_command" in cc:
                 # source_command only — check against the main command output
-                source_out = cu(cc["source_command"][1:])
+                source_res = cu_result(cc["source_command"][1:])
+                if not source_res["ok"]:
+                    results.append({
+                        "check": f"{desc} (cross-check)", "passed": False,
+                        "detail": f"source command failed: {source_res['text'][:200]}"
+                    })
+                    continue
+                source_out = source_res["text"]
                 main_out = cu(check["command"][1:]) if "command" in check else ""
                 try:
                     source_val = str(json.loads(source_out).get("result", ""))
@@ -264,7 +359,7 @@ def run_agent_task(task: dict, model: str, max_steps: int = 15, verbose: bool = 
 Step {step}/{max_steps}.
 
 Running apps:
-{apps_out[:500]}
+{apps_out[:1500]}
 
 What cu commands should I run next? Output one command per line.
 When done, say DONE. If stuck, say FAIL."""
@@ -298,7 +393,15 @@ When done, say DONE. If stuck, say FAIL."""
                 display = cmd_line[:120] + ("..." if len(cmd_line) > 120 else "")
                 print(f"    $ cu {' '.join(args[:5])}{'...' if len(args) > 5 else ''}")
             r = cu(args)
-            results.append(f"$ {cmd_line[:200]}\n{r[:1000]}")
+            # A snapshot easily exceeds 1000 chars; silently cutting it handed
+            # the agent invalid JSON with no indication anything was missing.
+            if len(r) > RESULT_CHAR_LIMIT:
+                shown = (r[:RESULT_CHAR_LIMIT]
+                         + f"\n[truncated by test harness at {RESULT_CHAR_LIMIT} "
+                           f"of {len(r)} chars — re-run with a narrower --limit]")
+            else:
+                shown = r
+            results.append(f"$ {cmd_line[:200]}\n{shown}")
             if verbose:
                 print(f"      → {r[:150]}")
             time.sleep(0.5)
@@ -354,7 +457,7 @@ def main():
     parser = argparse.ArgumentParser(description="Agent E2E test runner")
     parser.add_argument("--task", help="Path to single task JSON")
     parser.add_argument("--tasks-dir", default="tests/agent/tasks", help="Directory of task JSONs")
-    parser.add_argument("--model", default="claude-sonnet-4-6")
+    parser.add_argument("--model", default="claude-sonnet-5")
     parser.add_argument("--max-steps", type=int, default=15)
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
