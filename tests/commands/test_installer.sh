@@ -56,6 +56,55 @@ else
   exit 1
 fi
 
+section "installer — usable as packaged and shipped"
+
+# The skill archive is what an Agent host actually unpacks. If the installer
+# arrives without its executable bit, an agent following SKILL.md fails at
+# the first step, so assert against the real artifact rather than the repo.
+SHIPPED="$SANDBOX/shipped"
+mkdir -p "$SHIPPED"
+if tar -xzf "$ASSETS_REAL/computer-pilot-skill-v$REAL_VERSION.tar.gz" -C "$SHIPPED" 2>/dev/null; then
+  _pass "skill archive extracts"
+else
+  _fail "skill archive extracts" "could not unpack the published skill archive"
+fi
+
+SHIPPED_INSTALLER="$SHIPPED/computer-pilot/scripts/install-native.sh"
+if [[ -f "$SHIPPED_INSTALLER" ]]; then
+  _pass "skill archive ships the installer"
+else
+  _fail "skill archive ships the installer" "missing scripts/install-native.sh"
+fi
+
+if [[ -x "$SHIPPED_INSTALLER" ]]; then
+  _pass "packaged installer keeps its executable bit"
+else
+  _fail "packaged installer keeps its executable bit" \
+    "mode $(ls -l "$SHIPPED_INSTALLER" 2>/dev/null | awk '{print $1}') — direct execution would fail"
+fi
+
+# Both invocation forms must work: SKILL.md prescribes `sh <installer>`, and a
+# host that runs it directly must not be broken by a lost mode bit.
+if ( "$SHIPPED_INSTALLER" --help >/dev/null 2>&1 ); then
+  _pass "packaged installer runs when executed directly"
+else
+  _fail "packaged installer runs when executed directly" "direct execution failed"
+fi
+if sh "$SHIPPED_INSTALLER" --help >/dev/null 2>&1; then
+  _pass "packaged installer runs via sh (the form SKILL.md prescribes)"
+else
+  _fail "packaged installer runs via sh (the form SKILL.md prescribes)" "sh invocation failed"
+fi
+
+# SKILL.md must not tell the agent to execute it directly, since a repackaged
+# copy can lose the bit even though the official archive preserves it.
+SKILL_MD="$ROOT_DIR/plugin/skills/computer-pilot/SKILL.md"
+if grep -q 'sh scripts/install-native.sh' "$SKILL_MD"; then
+  _pass "SKILL.md prescribes the sh invocation form"
+else
+  _fail "SKILL.md prescribes the sh invocation form" "no 'sh scripts/install-native.sh' in the preflight"
+fi
+
 # A fake next release: a shell stub that reports version 9.9.9, packaged with
 # the same asset pipeline. Exercises upgrade without needing a second build.
 FAKE_BIN="$SANDBOX/fake-cu"
