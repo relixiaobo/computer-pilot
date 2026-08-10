@@ -106,12 +106,8 @@ cu_json launch Calculator --timeout 8
 assert_ok "background launch ok"
 sleep 0.5
 FRONT_AFTER=$(frontmost_pid)
-if [[ "$FRONT_BEFORE" == "$FRONT_AFTER" ]]; then
-  _pass "frontmost pid unchanged across launch (${FRONT_BEFORE:-none})"
-else
-  _fail "frontmost preserved" "before=$FRONT_BEFORE after=$FRONT_AFTER — launch stole focus"
-fi
 LAUNCHED_PID=$(json_get '.pid' || echo "")
+assert_frontmost_preserved "$FRONT_BEFORE" "$FRONT_AFTER" "$LAUNCHED_PID"
 if [[ -n "$LAUNCHED_PID" && "$LAUNCHED_PID" == "$FRONT_AFTER" && "$FRONT_BEFORE" != "$FRONT_AFTER" ]]; then
   _fail "launched app stayed in background" "Calculator (pid $LAUNCHED_PID) became frontmost"
 else

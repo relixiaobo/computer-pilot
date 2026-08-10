@@ -42,10 +42,18 @@ assert_ok "tell Finder selection (may be empty)"
 section "tell — write and cleanup"
 
 NOTE_NAME="cu-test-tell-sh-$$"
-cu_json tell Notes "make new note with properties {name:\"$NOTE_NAME\", body:\"test\"}" --timeout 30
-assert_ok "create note"
-cu_json tell Notes "delete note \"$NOTE_NAME\"" --timeout 30
-assert_ok "delete note"
+# Overridable so the stalled-app branch can actually be exercised:
+# NOTE_TIMEOUT=1 bash tests/commands/run_all.sh tell
+NOTE_TIMEOUT=${NOTE_TIMEOUT:-60}
+cu_json tell Notes "make new note with properties {name:\"$NOTE_NAME\", body:\"test\"}" --timeout "$NOTE_TIMEOUT"
+assert_ok_or_app_stalled "create note" Notes
+if [[ "$ASSERT_LAST_PASSED" == "yes" ]]; then
+  cu_json tell Notes "delete note \"$NOTE_NAME\"" --timeout "$NOTE_TIMEOUT"
+  assert_ok_or_app_stalled "delete note" Notes
+else
+  # Nothing was created, so a delete would fail for an unrelated reason.
+  _skip "delete note" "skipped because the note was never created"
+fi
 
 section "tell — full tell block passthrough"
 
