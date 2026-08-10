@@ -249,6 +249,59 @@ assert_ok() {
   fi
 }
 
+# assert_ok_or_app_stalled "test name" "App" — ok=true passes; a
+# command_expired from the target app is a loud SKIP, not a failure.
+#
+# Scriptable apps serialize AppleScript behind their own work: one Notes write
+# measured 0.2s, 6.3s and >30s on the same machine within days, depending on
+# iCloud sync. When the app never answers, cu returns a structured
+# command_expired — that is cu behaving correctly, and reddening the gate for
+# it teaches us to ignore the gate. Every other failure still fails.
+# Sets ASSERT_LAST_PASSED to yes/no so a caller can skip dependent steps.
+# It always returns 0: this file runs under `set -e`, so a bare call that
+# returned non-zero would abort the whole suite and silently swallow every
+# assertion after it.
+assert_ok_or_app_stalled() {
+  local name="$1" app="${2:-the app}"
+  ASSERT_LAST_PASSED=no
+  if is_json && [[ "$(json_get '.ok' || echo "")" == "true" ]]; then
+    _pass "$name"
+    ASSERT_LAST_PASSED=yes
+    return 0
+  fi
+  if [[ "${ERR:-}${OUT:-}" == *"command_expired"* ]]; then
+    _skip "$name" "$app did not answer in time — cu returned command_expired"
+    return 0
+  fi
+  _fail "$name" "exit=${EXIT:-?} stdout=${OUT:0:120} stderr=${ERR:0:200}"
+  return 0
+}
+
+# assert_frontmost_preserved BEFORE AFTER LAUNCHED_PID — `cu launch` must not
+# bring the app it launched to the front.
+#
+# The check used to fail on *any* frontmost change, which attributes to cu
+# something it did not do: a chat app raising itself on an incoming message
+# moves the frontmost pid mid-test. cu can only break this guarantee by
+# activating the app it launched, so that stays a hard failure; a third app
+# taking focus is reported as an inconclusive SKIP naming the interloper.
+assert_frontmost_preserved() {
+  local before="$1" after="$2" launched="$3"
+  if [[ "$before" == "$after" ]]; then
+    _pass "frontmost pid unchanged across launch (${before:-none})"
+    return 0
+  fi
+  if [[ -n "$launched" && "$launched" == "$after" ]]; then
+    _fail "frontmost preserved" "before=$before after=$after — launch activated the app it started"
+    return 0
+  fi
+  local interloper
+  interloper=$(ps -p "${after:-0}" -o comm= 2>/dev/null | sed 's|.*/||')
+  _skip "frontmost preserved" \
+    "another app took focus mid-test (${interloper:-pid ${after:-none}}) — not the app cu launched"
+  return 0
+}
+
 # assert_fail "test name" — command should exit non-zero or return ok=false
 assert_fail() {
   local name="$1"
