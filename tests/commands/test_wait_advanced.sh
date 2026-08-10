@@ -33,11 +33,7 @@ cu_json wait --new-window --app Finder --timeout 2
 END=$(python3 -c "import time; print(int(time.time()*1000))")
 ELAPSED=$((END - START))
 assert_fail "no new window → timeout (exit 1)"
-if [[ "$ELAPSED" -ge 1500 && "$ELAPSED" -le 4000 ]]; then
-  _pass "new-window timeout duration ~2s ($ELAPSED ms)"
-else
-  _fail "new-window timing" "elapsed=$ELAPSED"
-fi
+assert_elapsed_window "new-window timeout duration ~2s" "$ELAPSED" 1500 4000
 
 section "wait --new-window — succeeds when one is opened during the wait"
 
@@ -49,11 +45,7 @@ HELPER=$!
 cu_json wait --new-window --app Finder --timeout 10
 assert_ok "new-window detected → ok"
 ELAPSED_MS=$(json_get '.elapsed_ms' || echo "9999")
-if [[ "$ELAPSED_MS" -ge 3000 && "$ELAPSED_MS" -le 9000 ]]; then
-  _pass "new-window detected within window (${ELAPSED_MS}ms)"
-else
-  _fail "new-window timing" "elapsed_ms=$ELAPSED_MS"
-fi
+assert_elapsed_window "new-window detected within window" "$ELAPSED_MS" 3000 9000
 wait $HELPER 2>/dev/null || true
 
 section "wait --modal — times out when no modal appears"

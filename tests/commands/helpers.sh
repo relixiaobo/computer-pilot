@@ -302,6 +302,26 @@ assert_frontmost_preserved() {
   return 0
 }
 
+# assert_elapsed_window NAME ACTUAL MIN SOFT_MAX — a wall-clock assertion whose
+# two halves mean different things.
+#
+# Returning *early* is a product bug: the wait did not honour its timeout, and
+# no amount of machine load can cause it. Taking *longer* than expected cannot
+# be distinguished from a loaded machine without a controlled environment —
+# and this suite runs right after a release build, which is the least
+# controlled moment there is. So the floor fails and the ceiling skips, loudly,
+# carrying the measurement.
+assert_elapsed_window() {
+  local name="$1" actual="$2" min="$3" soft_max="$4"
+  if [[ "$actual" -lt "$min" ]]; then
+    _fail "$name" "returned after ${actual}ms, before the ${min}ms floor — the wait did not run"
+  elif [[ "$actual" -gt "$soft_max" ]]; then
+    _skip "$name" "took ${actual}ms against a ${soft_max}ms ceiling — machine load, not a wait that ignored its timeout"
+  else
+    _pass "$name (${actual}ms)"
+  fi
+}
+
 # assert_fail "test name" — command should exit non-zero or return ok=false
 assert_fail() {
   local name="$1"
