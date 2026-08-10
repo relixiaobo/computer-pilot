@@ -22,9 +22,16 @@ trap cleanup_sandbox EXIT
 # test copies from that. Committing inside each clone instead would leave main
 # ahead of its origin, which release.sh rejects long before the checks under
 # test — and the assertions would then pass on the wrong error message.
+#
+# The sandbox must not inherit whatever branch the host repo happens to be on.
+# release.sh runs this suite from inside its own release branch, so a bare
+# clone's HEAD points at release/vX.Y.Z and every sandbox then fails with
+# "start release preparation from main" — the suite measuring its environment
+# instead of the thing under test.
 ORIGIN="$SANDBOX/origin.git"
 git clone --quiet --bare --local --no-hardlinks "$ROOT_DIR" "$ORIGIN" 2>"$SANDBOX/clone.err"
-git clone --quiet --local "$ORIGIN" "$SANDBOX/prime" 2>>"$SANDBOX/clone.err"
+git -C "$ORIGIN" symbolic-ref HEAD refs/heads/main
+git clone --quiet --local --branch main "$ORIGIN" "$SANDBOX/prime" 2>>"$SANDBOX/clone.err"
 cp "$ROOT_DIR/scripts/release.sh" "$SANDBOX/prime/scripts/release.sh"
 (cd "$SANDBOX/prime" \
   && git -c user.email=t@t -c user.name=t commit --quiet -am "use working-tree release.sh" 2>/dev/null \
@@ -32,7 +39,7 @@ cp "$ROOT_DIR/scripts/release.sh" "$SANDBOX/prime/scripts/release.sh"
 rm -rf "$SANDBOX/prime"
 
 make_clone() {
-  git clone --quiet --local "$ORIGIN" "$1" 2>>"$SANDBOX/clone.err"
+  git clone --quiet --local --branch main "$ORIGIN" "$1" 2>>"$SANDBOX/clone.err"
 }
 
 CLONE="$SANDBOX/repo"
