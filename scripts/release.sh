@@ -48,9 +48,75 @@ run() {
   fi
 }
 
-if [[ -n "$(git status --porcelain)" ]]; then
-  echo "Error: release preparation requires a clean working tree." >&2
+# The version surfaces this script edits, in the order it edits them. Also the
+# exact set its own recovery is allowed to touch.
+VERSION_FILES=(
+  Cargo.toml
+  Cargo.lock
+  plugin/.claude-plugin/plugin.json
+  plugin/package.json
+  .claude-plugin/marketplace.json
+  plugin/skills/computer-pilot/compatibility.json
+)
+
+# An interrupted attempt leaves exactly two traces: the version surfaces edited
+# in the working tree, and an empty release branch. Both then fail this run's
+# own preflight, so a retry's first obstacle is the wreckage of the last one —
+# and the tests never get a chance to run. A trap alone cannot fix this: a
+# killed process never runs one, so recovery has to happen on the way in.
+#
+# Only provably-ours state is touched: the branch must carry no commits and
+# must not exist on the remote, and no file may be dirty outside VERSION_FILES.
+# Anything else is left alone and still fails the checks below.
+dirty_outside_version_files() {
+  local path
+  while read -r path; do
+    [[ -z "$path" ]] && continue
+    local known=""
+    for vf in "${VERSION_FILES[@]}"; do
+      [[ "$path" == "$vf" ]] && known=1 && break
+    done
+    [[ -z "$known" ]] && return 0
+  done < <(git status --porcelain | grep -v '^??' | awk '{print $2}')
+  return 1
+}
+
+branch_is_an_abandoned_attempt() {
+  git show-ref --verify --quiet "refs/heads/$BRANCH" || return 1
+  git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1 && return 1
+  [[ "$(git rev-list --count "origin/main..$BRANCH" 2>/dev/null || echo 1)" == "0" ]]
+}
+
+git fetch origin main --quiet
+
+if ! dirty_outside_version_files && [[ -n "$(git status --porcelain | grep -v '^??' || true)" ]] \
+   || branch_is_an_abandoned_attempt; then
+  if [[ -n "$DRY_RUN" ]]; then
+    echo "[DRY-RUN] discard leftover version edits and delete abandoned branch $BRANCH"
+  else
+    echo "Recovering from an interrupted attempt: discarding leftover version edits"
+    git checkout -- "${VERSION_FILES[@]}" 2>/dev/null || true
+    if branch_is_an_abandoned_attempt; then
+      echo "Recovering from an interrupted attempt: deleting empty branch $BRANCH"
+      [[ "$(git branch --show-current)" == "$BRANCH" ]] && git switch --quiet main
+      git branch -D "$BRANCH" >/dev/null
+    fi
+  fi
+fi
+
+# Untracked files are not an obstacle: the release commit adds six named paths
+# and never `git add -A`, so nothing untracked can reach it. Counting them as
+# dirty forced callers to stash their own work first — and a run killed
+# mid-flight then left that work stranded in a stash, which is a far worse
+# failure than the one the check was guarding against.
+if [[ -n "$(git status --porcelain | grep -v '^??' || true)" ]]; then
+  echo "Error: release preparation requires no uncommitted changes to tracked files." >&2
+  git status --short | grep -v '^??' >&2
   exit 1
+fi
+UNTRACKED_COUNT=$(git status --porcelain | grep -c '^??' || true)
+if [[ "$UNTRACKED_COUNT" -gt 0 ]]; then
+  echo "Note: $UNTRACKED_COUNT untracked path(s) present; they are not part of the release commit."
 fi
 if [[ "$(git branch --show-current)" != "main" ]]; then
   echo "Error: start release preparation from main." >&2
