@@ -287,6 +287,102 @@ else
   _fail "non-tell commands are left alone" "got $(fixture_field non_tell_untouched)"
 fi
 
+section "agent harness — a reply that runs nothing must not read as success"
+
+# SKILL.md's Initialize step tells the agent to export PATH before calling cu.
+# When a reply joined them with `;` on one line, the extractor — which required
+# the line to *start* with `cu ` — dropped it. One release run extracted 0
+# commands across 3 tasks, and each was scored as the agent having failed.
+LOOP_OUT=$(cd "$ROOT_DIR" && python3 - <<'PY' 2>&1
+import importlib.util, json, sys
+
+spec = importlib.util.spec_from_file_location("harness", "tests/agent/run.py")
+harness = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(harness)
+
+extraction = {
+    "export_prefix": harness._extract_cu_commands(
+        'export PATH="/x:$PATH"; export COMPUTER_PILOT_CLIENT_KEY="k"; cu apps'),
+    "cd_prefix": harness._extract_cu_commands('cd /tmp; cu apps'),
+    "plain": harness._extract_cu_commands('cu snapshot Finder'),
+    # A semicolon inside the AppleScript must survive untouched.
+    "quoted_semicolon": harness._extract_cu_commands(
+        "cu tell Notes 'set x to 1; set y to 2'"),
+    "not_a_cu_line": harness._extract_cu_commands('echo hello; ls -la'),
+}
+
+# Drive the loop with a model that never emits a command: the run must say so
+# and stop, not drift until the agent declares DONE against an untouched desktop.
+seen = []
+def stub_llm(model, messages):
+    # The feedback is appended after the call returns, so record the whole
+    # history rather than only the message that prompted this turn.
+    seen.extend(m["content"] for m in messages if m["role"] == "user")
+    return ("I will now do the task.", 1, 1)
+harness.call_llm = stub_llm
+
+result = harness.run_agent_task(
+    {"id": "silent", "name": "reply with no command", "goal": "nothing", "verify": []},
+    "stub-model", max_steps=10, verbose=False)
+
+print(json.dumps({
+    "extraction": extraction,
+    "status": result["agent_status"],
+    "steps": result["steps"],
+    "told_agent": any("no cu command was found" in m for m in seen),
+}))
+PY
+)
+
+LOOP_JSON=$(echo "$LOOP_OUT" | tail -1)
+if ! echo "$LOOP_JSON" | python3 -c 'import json,sys; json.load(sys.stdin)' 2>/dev/null; then
+  _fail "agent loop is inspectable" "could not drive run_agent_task: ${LOOP_OUT:0:300}"
+  summary
+fi
+
+loop_field() { echo "$LOOP_JSON" | python3 -c "import json,sys; v=json.load(sys.stdin)$1; print(json.dumps(v) if isinstance(v,(list,dict)) else v)"; }
+
+for case in export_prefix cd_prefix plain; do
+  if [[ "$(loop_field "['extraction']['$case']")" == *"cu "* ]]; then
+    _pass "extractor finds the command in a $case line"
+  else
+    _fail "extractor finds the command in a $case line" "got $(loop_field "['extraction']['$case']")"
+  fi
+done
+
+if [[ "$(loop_field "['extraction']['quoted_semicolon']")" == *"set x to 1; set y to 2"* ]]; then
+  _pass "a semicolon inside the script is not treated as a shell separator"
+else
+  _fail "a semicolon inside the script is not treated as a shell separator" \
+    "got $(loop_field "['extraction']['quoted_semicolon']")"
+fi
+
+if [[ "$(loop_field "['extraction']['not_a_cu_line']")" == "[]" ]]; then
+  _pass "a line with no cu command yields nothing"
+else
+  _fail "a line with no cu command yields nothing" "got $(loop_field "['extraction']['not_a_cu_line']")"
+fi
+
+if [[ "$(loop_field "['told_agent']")" == "True" ]]; then
+  _pass "the agent is told when its reply ran nothing"
+else
+  _fail "the agent is told when its reply ran nothing" "no feedback message was sent"
+fi
+
+if [[ "$(loop_field "['status']")" == "no_commands" ]]; then
+  _pass "a run that never executes anything ends as no_commands"
+else
+  _fail "a run that never executes anything ends as no_commands" \
+    "got status=$(loop_field "['status']")"
+fi
+
+if [[ "$(loop_field "['steps']")" -lt 10 ]]; then
+  _pass "it stops early instead of spending the whole step budget"
+else
+  _fail "it stops early instead of spending the whole step budget" \
+    "steps=$(loop_field "['steps']")"
+fi
+
 section "agent harness — command results carry success separately from text"
 
 # cu_result keeps ok and text apart; collapsing them back into a bare string is

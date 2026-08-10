@@ -24,6 +24,7 @@ An OpenAI-compatible relay needs OPENAI_BASE_URL set alongside OPENAI_API_KEY.
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -175,13 +176,30 @@ def call_llm(model: str, messages: list[dict]) -> tuple[str, int, int]:
         return response.choices[0].message.content, response.usage.prompt_tokens, response.usage.completion_tokens
 
 
+# SKILL.md's Initialize step tells the agent to export PATH before calling cu,
+# so a reply that joins them with `;` on one line is following the skill, not
+# defying the harness. Requiring the line to *start* with `cu ` silently
+# dropped every such line: one release run extracted 0 commands from 3 tasks
+# and scored the agent as having failed them.
+_SHELL_PREFIX = re.compile(
+    r'''^\s*(?:(?:export\s+[A-Za-z_][A-Za-z0-9_]*=(?:"[^"]*"|'[^']*'|[^;\s]*)|cd\s+(?:"[^"]*"|'[^']*'|[^;\s]+))\s*;\s*)+'''
+)
+
+
+def _strip_shell_prefix(line: str) -> str:
+    """Drop leading `export VAR=...;` / `cd ...;` segments. Everything from the
+    command itself onward is left untouched, so quoting inside a cu tell script
+    is never disturbed."""
+    return _SHELL_PREFIX.sub('', line, count=1)
+
+
 def _extract_cu_commands(text: str) -> list[str]:
     """Extract cu commands from LLM response, handling multi-line scripts in quotes."""
     commands = []
     lines = text.split('\n')
     i = 0
     while i < len(lines):
-        line = lines[i].strip().strip('`')
+        line = _strip_shell_prefix(lines[i].strip().strip('`'))
         if line.startswith('cu '):
             # Check if this line has an unclosed single quote (multi-line script)
             if line.count("'") % 2 == 1:
@@ -444,6 +462,7 @@ def run_agent_task(task: dict, model: str, max_steps: int = 15, verbose: bool = 
     total_output = 0
     steps = 0
     status = "incomplete"
+    empty_replies = 0
 
     for step in range(1, max_steps + 1):
         steps = step
@@ -511,6 +530,18 @@ When done, say DONE. If stuck, say FAIL."""
                 break
             if "FAIL" in response:
                 status = "fail"
+                break
+            # The reply ran nothing and claimed nothing. Saying so is the whole
+            # point: silence here reads to the agent as "that worked", and a
+            # few quiet turns later it declares DONE against a desktop it never
+            # touched — which the run then scores as an agent failure.
+            empty_replies += 1
+            messages.append({"role": "user", "content": (
+                "Nothing ran: no cu command was found in that reply. Put each "
+                "command on its own line beginning with `cu `. Environment "
+                "setup may precede it on the same line, separated by `;`.")})
+            if empty_replies >= 3:
+                status = "no_commands"
                 break
 
         time.sleep(0.3)
