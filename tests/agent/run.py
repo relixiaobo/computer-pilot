@@ -426,7 +426,7 @@ def verify_task(task: dict) -> list[dict]:
     return results
 
 
-def run_agent_task(task: dict, model: str, max_steps: int = 15, verbose: bool = True) -> dict:
+def run_agent_task(task: dict, model: str, max_steps: int = 25, verbose: bool = True) -> dict:
     """Run one agent task end-to-end."""
     task_id = task["id"]
     goal = task["goal"]
@@ -545,6 +545,13 @@ When done, say DONE. If stuck, say FAIL."""
                 break
 
         time.sleep(0.3)
+    else:
+        # The loop ran out before the agent said DONE or FAIL: we cut it off
+        # mid-task. That is our budget ending, not the agent failing — and
+        # when verification then fails, the two look identical in the summary.
+        # calendar_reminder has finished in 4, 5, 11 and 15 steps on the same
+        # machine, so the ceiling is a real hazard, not a hypothetical one.
+        status = "budget_exhausted"
 
     # Verify
     time.sleep(1)
@@ -568,7 +575,7 @@ When done, say DONE. If stuck, say FAIL."""
     # Cleanup
     run_cleanup(task)
 
-    return {
+    result = {
         "task_id": task_id,
         "task_name": task["name"],
         "agent_status": status,
@@ -578,6 +585,17 @@ When done, say DONE. If stuck, say FAIL."""
         "input_tokens": total_input,
         "output_tokens": total_output,
     }
+    if status == "budget_exhausted" and not all_passed:
+        # Principle 3: the degraded path gets a string the reader cannot skim
+        # past. Without it this is indistinguishable in the summary from an
+        # agent that tried and got it wrong.
+        result["budget_advice"] = (
+            f"the agent was still working when it hit the {max_steps}-step budget, "
+            f"so a failed check here may mean the budget was too small rather than "
+            f"the agent being wrong — re-run with --max-steps above {max_steps}")
+        if verbose:
+            print(f"  NOTE: {result['budget_advice']}")
+    return result
 
 
 def main():
@@ -585,7 +603,7 @@ def main():
     parser.add_argument("--task", help="Path to single task JSON")
     parser.add_argument("--tasks-dir", default="tests/agent/tasks", help="Directory of task JSONs")
     parser.add_argument("--model", default=os.environ.get("AGENT_MODEL", "claude-sonnet-5"))
-    parser.add_argument("--max-steps", type=int, default=15)
+    parser.add_argument("--max-steps", type=int, default=25)
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
