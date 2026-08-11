@@ -383,6 +383,86 @@ else
     "steps=$(loop_field "['steps']")"
 fi
 
+section "agent harness — running out of budget is not the agent being wrong"
+
+# calendar_reminder has finished in 4, 5, 11 and 15 steps on this machine, and
+# the 15 was against a 15-step ceiling. When the budget runs out first, a
+# failed check says nothing about the agent — but in the summary it reads
+# exactly like one, which is how a harness limit becomes "L2 blocked the
+# release".
+BUDGET_OUT=$(cd "$ROOT_DIR" && python3 - <<'PY' 2>&1
+import importlib.util, json, sys
+
+spec = importlib.util.spec_from_file_location("harness", "tests/agent/run.py")
+harness = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(harness)
+
+# An agent that keeps working and never declares DONE.
+harness.call_llm = lambda model, messages: ("cu apps", 1, 1)
+
+failing_check = {"description": "artifact exists",
+                 "command": ["cu", "snapshot", "NoSuchApp-ZZZ"],
+                 "expect_contains": "NoSuchApp-ZZZ"}
+
+ran_out = harness.run_agent_task(
+    {"id": "b", "name": "never finishes", "goal": "g", "verify": [failing_check]},
+    "stub-model", max_steps=2, verbose=False)
+ran_out_clean = harness.run_agent_task(
+    {"id": "c", "name": "never finishes, nothing to check", "goal": "g", "verify": []},
+    "stub-model", max_steps=2, verbose=False)
+
+print(json.dumps({
+    "status": ran_out["agent_status"],
+    "steps": ran_out["steps"],
+    "advice": ran_out.get("budget_advice", ""),
+    "advice_when_verified": ran_out_clean.get("budget_advice", ""),
+    "default_budget": harness.run_agent_task.__defaults__[0],
+}))
+PY
+)
+
+BUDGET_JSON=$(echo "$BUDGET_OUT" | tail -1)
+if ! echo "$BUDGET_JSON" | python3 -c 'import json,sys; json.load(sys.stdin)' 2>/dev/null; then
+  _fail "budget outcome is inspectable" "could not drive run_agent_task: ${BUDGET_OUT:0:300}"
+  summary
+fi
+
+budget_field() { echo "$BUDGET_JSON" | python3 -c "import json,sys; print(json.load(sys.stdin)['$1'])"; }
+
+if [[ "$(budget_field status)" == "budget_exhausted" ]]; then
+  _pass "a run cut off by the step budget says so"
+else
+  _fail "a run cut off by the step budget says so" "got status=$(budget_field status)"
+fi
+
+if [[ "$(budget_field steps)" == "2" ]]; then
+  _pass "it spends the whole budget before reporting that"
+else
+  _fail "it spends the whole budget before reporting that" "steps=$(budget_field steps)"
+fi
+
+ADVICE=$(budget_field advice)
+if [[ "$ADVICE" == *"budget was too small"* && "$ADVICE" == *"--max-steps"* ]]; then
+  _pass "a failed check carries advice naming the budget as a possible cause"
+else
+  _fail "a failed check carries advice naming the budget as a possible cause" "got: ${ADVICE:0:160}"
+fi
+
+# The advisory belongs only on the degraded path — attaching it to a run whose
+# checks passed would train the reader to skip it.
+if [[ -z "$(budget_field advice_when_verified)" ]]; then
+  _pass "no advice when the checks passed anyway"
+else
+  _fail "no advice when the checks passed anyway" "got: $(budget_field advice_when_verified)"
+fi
+
+if [[ "$(budget_field default_budget)" -ge 25 ]]; then
+  _pass "the default budget leaves margin above the observed 15-step run"
+else
+  _fail "the default budget leaves margin above the observed 15-step run" \
+    "default=$(budget_field default_budget)"
+fi
+
 section "agent harness — command results carry success separately from text"
 
 # cu_result keeps ok and text apart; collapsing them back into a bare string is
