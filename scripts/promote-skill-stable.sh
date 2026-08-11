@@ -54,6 +54,36 @@ fail() {
   exit 1
 }
 
+# A gh call fails for two very different reasons: GitHub answered no, or we
+# never reached GitHub. Collapsing both into "the release does not exist"
+# sends the operator hunting for a broken release while the real fault is the
+# network — the same mistake this project has paid for repeatedly elsewhere.
+#
+# Transport failures are retried (they are not a verdict); a definitive answer
+# from GitHub is never retried, so the gate keeps its full strength.
+TRANSPORT_RE='TLS handshake|unexpected EOF|connection reset|no such host|i/o timeout|Client.Timeout|error connecting|deadline exceeded|502 Bad Gateway|503 Service|504 Gateway'
+
+gh_attempt() {
+  local what=$1
+  shift
+  local attempt
+  for attempt in 1 2 3; do
+    if "$@" >"$WORKDIR/gh.out" 2>"$WORKDIR/gh.err"; then
+      cat "$WORKDIR/gh.out"
+      return 0
+    fi
+    if grep -qE "$TRANSPORT_RE" "$WORKDIR/gh.err"; then
+      if [[ "$attempt" -lt 3 ]]; then
+        echo "    (could not reach GitHub while $what — retry $attempt)" >&2
+        sleep $((attempt * 5))
+        continue
+      fi
+      fail "could not reach GitHub while $what. This is a network failure, not a verdict on the release: $(head -c 160 "$WORKDIR/gh.err")"
+    fi
+    return 1
+  done
+}
+
 json() {
   python3 -c "
 import json, sys
@@ -65,16 +95,17 @@ print(value)
 }
 
 echo "==> Verifying GitHub release $TAG"
-gh release view "$TAG" --json isDraft,isPrerelease >"$WORKDIR/release.json" ||
-  fail "release $TAG does not exist or is not visible"
+gh_attempt "verifying release $TAG" gh release view "$TAG" --json isDraft,isPrerelease \
+  >"$WORKDIR/release.json" || fail "release $TAG does not exist or is not visible"
 [[ "$(json "$WORKDIR/release.json" isDraft)" == "False" ]] ||
   fail "release $TAG is a draft"
 [[ "$(json "$WORKDIR/release.json" isPrerelease)" == "False" ]] ||
   fail "release $TAG is a prerelease"
 
 echo "==> Verifying release index"
-gh release download "$TAG" --pattern 'release-index.json' --pattern 'release-index.json.sha256' \
-  --dir "$WORKDIR" || fail "could not download release-index.json for $TAG"
+gh_attempt "downloading release-index.json" gh release download "$TAG" \
+  --pattern 'release-index.json' --pattern 'release-index.json.sha256' --dir "$WORKDIR" \
+  || fail "could not download release-index.json for $TAG"
 (cd "$WORKDIR" && shasum -a 256 -c release-index.json.sha256 >/dev/null) ||
   fail "release-index.json fails its checksum"
 
@@ -122,7 +153,8 @@ import json, os
 template = json.load(open('$MANIFEST'))['installation']['asset_template']
 print(template.replace('{version}', os.environ['VERSION']))
 ")"
-gh release download "$TAG" --pattern "$ARCHIVE" --pattern "$ARCHIVE.sha256" --dir "$WORKDIR" ||
+gh_attempt "downloading $ARCHIVE" gh release download "$TAG" \
+  --pattern "$ARCHIVE" --pattern "$ARCHIVE.sha256" --dir "$WORKDIR" ||
   fail "could not download $ARCHIVE (manifest asset_template renders to this name)"
 (cd "$WORKDIR" && shasum -a 256 -c "$ARCHIVE.sha256" >/dev/null) ||
   fail "$ARCHIVE fails its checksum"
