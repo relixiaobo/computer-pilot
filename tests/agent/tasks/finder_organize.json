@@ -7,12 +7,6 @@
       "/bin/sh",
       "-c",
       "set -e; d=\"$HOME/Desktop\"; printf \"quarterly figures\\n\" > \"$d/cu-l2-fixture-report.txt\"; printf \"meeting notes\\n\" > \"$d/cu-l2-fixture-notes.md\"; mkdir -p \"$d/cu-l2-fixture-archive\""
-    ],
-    [
-      "cu",
-      "tell",
-      "Notes",
-      "try\ndelete note \"Agent Test - Desktop Inventory\"\nend try"
     ]
   ],
   "verify": [
@@ -47,15 +41,25 @@
   ],
   "cleanup": [
     [
-      "cu",
-      "tell",
-      "Notes",
-      "try\ndelete note \"Agent Test - Desktop Inventory\"\nend try"
-    ],
-    [
       "/bin/sh",
       "-c",
-      "rm -rf \"$HOME/Desktop/cu-l2-fixture-report.txt\" \"$HOME/Desktop/cu-l2-fixture-notes.md\" \"$HOME/Desktop/cu-l2-fixture-archive\""
+      "set -e; d=\"$HOME/Desktop\"; rm -f \"$d/cu-l2-fixture-report.txt\" \"$d/cu-l2-fixture-notes.md\"; if [ -d \"$d/cu-l2-fixture-archive\" ]; then rmdir \"$d/cu-l2-fixture-archive\"; fi; for p in \"$d/cu-l2-fixture-report.txt\" \"$d/cu-l2-fixture-notes.md\" \"$d/cu-l2-fixture-archive\"; do [ ! -e \"$p\" ] || { echo \"cleanup left $p\" >&2; exit 1; }; done"
     ]
+  ],
+  "cleanup_until": [
+    {
+      "command": [
+        "cu",
+        "tell",
+        "Notes",
+        "set noteIDs to get id of every note whose name is \"Agent Test - Desktop Inventory\"\nif (count of noteIDs) is greater than 0 then\n  set stableID to item 1 of noteIDs\n  delete note id stableID\nend if\nreturn \"cleaned\""
+      ],
+      "verify": [
+        "cu",
+        "tell",
+        "Notes",
+        "set remaining to count of (every note whose name is \"Agent Test - Desktop Inventory\")\nif remaining is not 0 then error \"cleanup left \" & remaining & \" inventory note(s)\"\nreturn \"cleaned\""
+      ]
+    }
   ]
 }

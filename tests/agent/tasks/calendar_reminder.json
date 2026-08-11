@@ -45,13 +45,27 @@
       "cu",
       "tell",
       "Calendar",
-      "repeat with c in calendars\n  try\n    delete (every event of c whose summary is \"Agent Test Task\")\n  end try\nend repeat\nreturn \"cleaned\""
+      "repeat with c in calendars\n  set matches to every event of c whose summary is \"Agent Test Task\"\n  repeat with e in matches\n    delete e\n  end repeat\nend repeat\nreturn \"cleaned\""
     ],
     [
       "cu",
       "tell",
       "Reminders",
-      "try\ndelete reminder \"Agent Test Task\"\nend try"
+      "repeat with l in lists\n  set matches to every reminder of l whose name is \"Agent Test Task\"\n  repeat with r in matches\n    delete r\n  end repeat\nend repeat\nreturn \"cleaned\""
+    ]
+  ],
+  "cleanup_verify": [
+    [
+      "cu",
+      "tell",
+      "Calendar",
+      "set remaining to 0\nrepeat with c in calendars\n  set remaining to remaining + (count of (every event of c whose summary is \"Agent Test Task\"))\nend repeat\nif remaining is not 0 then error \"cleanup left \" & remaining & \" calendar event(s)\"\nreturn \"cleaned\""
+    ],
+    [
+      "cu",
+      "tell",
+      "Reminders",
+      "set remaining to 0\nrepeat with l in lists\n  set remaining to remaining + (count of (every reminder of l whose name is \"Agent Test Task\"))\nend repeat\nif remaining is not 0 then error \"cleanup left \" & remaining & \" reminder(s)\"\nreturn \"cleaned\""
     ]
   ]
 }

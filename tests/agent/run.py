@@ -229,6 +229,9 @@ def _extract_cu_commands(text: str) -> list[str]:
 # are deliberately left on the product default — the test has to reflect what
 # an agent actually experiences.
 FIXTURE_TELL_TIMEOUT = os.environ.get("AGENT_FIXTURE_TELL_TIMEOUT", "30")
+CLEANUP_VERIFY_TIMEOUT = float(os.environ.get("AGENT_CLEANUP_VERIFY_TIMEOUT", "30"))
+CLEANUP_VERIFY_SETTLE = 1.0
+CLEANUP_VERIFY_INTERVAL = 1.0
 
 
 def with_fixture_timeout(cmd: list[str]) -> list[str]:
@@ -276,13 +279,73 @@ def run_setup(task: dict, verbose: bool = True) -> str | None:
     return None
 
 
-def run_cleanup(task: dict, verbose: bool = True):
-    """Run cleanup commands. Leftovers poison the next run, so report failures."""
+def run_cleanup(task: dict, verbose: bool = True) -> list[str]:
+    """Run every cleanup command and return actionable failure details.
+
+    Cleanup is part of the harness contract: leftovers change the starting
+    world for the next task. Keep going after one failure so independent
+    artifacts still get removed, but never let a partial cleanup read as a
+    successful run.
+    """
+    failures = []
     for cmd in task.get("cleanup", []):
         res = _run_fixture_cmd(cmd)
-        if not res["ok"] and verbose:
-            print(f"  [cleanup] non-zero: {' '.join(cmd)[:80]} → {res['text'][:120]}")
+        if not res["ok"]:
+            reason = f"cleanup failed: {' '.join(cmd)[:80]} → {res['text'][:200]}"
+            failures.append(reason)
+            if verbose:
+                print(f"  [cleanup] {reason}")
         time.sleep(0.5)
+
+    # Some apps only commit one matching deletion per AppleScript transaction.
+    # Re-run the mutation in fresh processes until its independent postcondition
+    # passes; Notes is the concrete case this contract exists for.
+    for cleanup_until in task.get("cleanup_until", []):
+        cmd = cleanup_until["command"]
+        verify_cmd = cleanup_until["verify"]
+        deadline = time.monotonic() + CLEANUP_VERIFY_TIMEOUT
+        while True:
+            verify_res = _run_fixture_cmd(verify_cmd)
+            if verify_res["ok"]:
+                break
+            if time.monotonic() >= deadline:
+                reason = (f"cleanup verification failed: {' '.join(verify_cmd)[:80]} "
+                          f"→ {verify_res['text'][:200]}")
+                failures.append(reason)
+                if verbose:
+                    print(f"  [cleanup] {reason}")
+                break
+            res = _run_fixture_cmd(cmd)
+            if not res["ok"]:
+                reason = f"cleanup failed: {' '.join(cmd)[:80]} → {res['text'][:200]}"
+                failures.append(reason)
+                if verbose:
+                    print(f"  [cleanup] {reason}")
+                break
+            time.sleep(CLEANUP_VERIFY_SETTLE)
+
+    # App mutations such as Notes deletion commit when the AppleScript returns.
+    # Checking inside that same script sees stale state and raising an error can
+    # roll the mutation back. Verify in a fresh command and tolerate bounded
+    # application-level propagation instead.
+    cleanup_verify = task.get("cleanup_verify", [])
+    if cleanup_verify:
+        time.sleep(CLEANUP_VERIFY_SETTLE)
+    for cmd in cleanup_verify:
+        deadline = time.monotonic() + CLEANUP_VERIFY_TIMEOUT
+        while True:
+            res = _run_fixture_cmd(cmd)
+            if res["ok"]:
+                break
+            if time.monotonic() >= deadline:
+                reason = (f"cleanup verification failed: {' '.join(cmd)[:80]} "
+                          f"→ {res['text'][:200]}")
+                failures.append(reason)
+                if verbose:
+                    print(f"  [cleanup] {reason}")
+                break
+            time.sleep(CLEANUP_VERIFY_INTERVAL)
+    return failures
 
 
 def verify_task(task: dict) -> list[dict]:
@@ -437,14 +500,33 @@ def run_agent_task(task: dict, model: str, max_steps: int = 25, verbose: bool = 
         print(f"Goal: {goal}")
         print(f"{'='*60}")
 
+    # Start from a known world. A previous interrupted run may have left exact
+    # test fixtures behind; building on top of them makes verification pass for
+    # work the current agent never did.
+    pre_cleanup_failures = run_cleanup(task)
+    if pre_cleanup_failures:
+        detail = " | ".join(pre_cleanup_failures)
+        return {
+            "task_id": task_id,
+            "task_name": task["name"],
+            "agent_status": "setup_failed",
+            "verified": False,
+            "checks": [{"check": "stale task fixtures removed before setup",
+                        "passed": False, "detail": detail}],
+            "cleanup_error": detail,
+            "steps": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+        }
+
     # Setup
     setup_failure = run_setup(task)
     if setup_failure:
         # Running the agent now would spend a full step budget against state
         # the task never established, and report the result as an agent
         # failure. Fail here, where the reason is still legible.
-        run_cleanup(task)
-        return {
+        cleanup_failures = run_cleanup(task)
+        result = {
             "task_id": task_id,
             "task_name": task["name"],
             "agent_status": "setup_failed",
@@ -455,6 +537,14 @@ def run_agent_task(task: dict, model: str, max_steps: int = 25, verbose: bool = 
             "input_tokens": 0,
             "output_tokens": 0,
         }
+        if cleanup_failures:
+            detail = " | ".join(cleanup_failures)
+            result["verified"] = False
+            result["cleanup_error"] = detail
+            result["checks"].append({
+                "check": "task fixture cleanup", "passed": False, "detail": detail
+            })
+        return result
     time.sleep(1)
 
     messages = []
@@ -556,7 +646,7 @@ When done, say DONE. If stuck, say FAIL."""
     # Verify
     time.sleep(1)
     verify_results = verify_task(task)
-    all_passed = all(v["passed"] for v in verify_results)
+    verification_passed = all(v["passed"] for v in verify_results)
 
     if verbose:
         print(f"\n  Agent status: {status}")
@@ -573,7 +663,13 @@ When done, say DONE. If stuck, say FAIL."""
                 print(f"           {v['detail']}")
 
     # Cleanup
-    run_cleanup(task)
+    cleanup_failures = run_cleanup(task)
+    if cleanup_failures:
+        detail = " | ".join(cleanup_failures)
+        verify_results.append({
+            "check": "task fixture cleanup", "passed": False, "detail": detail
+        })
+    all_passed = verification_passed and not cleanup_failures
 
     result = {
         "task_id": task_id,
@@ -585,7 +681,9 @@ When done, say DONE. If stuck, say FAIL."""
         "input_tokens": total_input,
         "output_tokens": total_output,
     }
-    if status == "budget_exhausted" and not all_passed:
+    if cleanup_failures:
+        result["cleanup_error"] = " | ".join(cleanup_failures)
+    if status == "budget_exhausted" and not verification_passed:
         # Principle 3: the degraded path gets a string the reader cannot skim
         # past. Without it this is indistinguishable in the summary from an
         # agent that tried and got it wrong.

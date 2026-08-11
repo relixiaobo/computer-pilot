@@ -2,9 +2,7 @@
   "id": "mail-to-notes",
   "name": "Read emails and create summary note",
   "goal": "Read the 3 most recent emails from Mail (including their actual content), summarize them, and create a note in Notes app titled 'Agent Test - Mail Summary' with the summary. The summary must reference specific details from the actual email content (sender names, amounts, dates, etc.), not just subjects.",
-  "setup": [
-    ["cu", "tell", "Notes", "try\ndelete note \"Agent Test - Mail Summary\"\nend try"]
-  ],
+  "setup": [],
   "verify": [
     {
       "description": "Note exists with correct title",
@@ -25,7 +23,11 @@
       "expect_min_length": 100
     }
   ],
-  "cleanup": [
-    ["cu", "tell", "Notes", "try\ndelete note \"Agent Test - Mail Summary\"\nend try"]
+  "cleanup": [],
+  "cleanup_until": [
+    {
+      "command": ["cu", "tell", "Notes", "set noteIDs to get id of every note whose name is \"Agent Test - Mail Summary\"\nif (count of noteIDs) is greater than 0 then\n  set stableID to item 1 of noteIDs\n  delete note id stableID\nend if\nreturn \"cleaned\""],
+      "verify": ["cu", "tell", "Notes", "set remaining to count of (every note whose name is \"Agent Test - Mail Summary\")\nif remaining is not 0 then error \"cleanup left \" & remaining & \" mail summary note(s)\"\nreturn \"cleaned\""]
+    }
   ]
 }
