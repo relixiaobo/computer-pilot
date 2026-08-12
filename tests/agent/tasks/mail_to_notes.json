@@ -1,7 +1,7 @@
 {
   "id": "mail-to-notes",
   "name": "Read emails and create summary note",
-  "goal": "Read the 3 most recent emails from Mail (including their actual content), summarize them, and create a note in Notes app titled 'Agent Test - Mail Summary' with the summary. The summary must reference specific details from the actual email content (sender names, amounts, dates, etc.), not just subjects.",
+  "goal": "Across every Mail account's INBOX, inspect up to its first 3 messages, compare their date received values, and read the 3 most recent emails overall (including their actual content). Create a note in Notes titled 'Agent Test - Mail Summary'. Include each email's exact subject and specific details from its actual content (sender names, amounts, dates, etc.), not just subjects.",
   "setup": [],
   "verify": [
     {
@@ -10,11 +10,19 @@
       "expect_contains": "Agent Test - Mail Summary"
     },
     {
-      "description": "Note contains actual email details (subject from message 1)",
+      "description": "Note contains the exact subjects of the 3 globally newest inbox messages",
       "cross_check": {
-        "source_command": ["cu", "tell", "Mail", "get subject of message 1 of mailbox \"INBOX\" of account 1"],
+        "source_command": [
+          "cu",
+          "tell",
+          "Mail",
+          "set newestDate1 to missing value\nset newestDate2 to missing value\nset newestDate3 to missing value\nset newestSubject1 to missing value\nset newestSubject2 to missing value\nset newestSubject3 to missing value\nset accountCount to count of accounts\nrepeat with accountIndex from 1 to accountCount\n  set accountRef to account accountIndex\n  set boxRef to mailbox \"INBOX\" of accountRef\n  set messageCount to count of messages of boxRef\n  set takeCount to 3\n  if messageCount < takeCount then set takeCount to messageCount\n  repeat with messageIndex from 1 to takeCount\n    set messageRef to message messageIndex of boxRef\n    set candidateDate to date received of messageRef\n    set candidateSubject to subject of messageRef as text\n    if newestDate1 is missing value then\n      set newestDate1 to candidateDate\n      set newestSubject1 to candidateSubject\n    else if candidateDate > newestDate1 then\n      set newestDate3 to newestDate2\n      set newestSubject3 to newestSubject2\n      set newestDate2 to newestDate1\n      set newestSubject2 to newestSubject1\n      set newestDate1 to candidateDate\n      set newestSubject1 to candidateSubject\n    else if newestDate2 is missing value then\n      set newestDate2 to candidateDate\n      set newestSubject2 to candidateSubject\n    else if candidateDate > newestDate2 then\n      set newestDate3 to newestDate2\n      set newestSubject3 to newestSubject2\n      set newestDate2 to candidateDate\n      set newestSubject2 to candidateSubject\n    else if newestDate3 is missing value then\n      set newestDate3 to candidateDate\n      set newestSubject3 to candidateSubject\n    else if candidateDate > newestDate3 then\n      set newestDate3 to candidateDate\n      set newestSubject3 to candidateSubject\n    end if\n  end repeat\nend repeat\nif newestSubject3 is missing value then error \"fewer than 3 inbox messages across all accounts\"\nreturn newestSubject1 & linefeed & newestSubject2 & linefeed & newestSubject3"
+        ],
         "target_command": ["cu", "tell", "Notes", "get plaintext of note \"Agent Test - Mail Summary\""],
-        "description": "Note must contain the actual subject of the first email"
+        "freeze_source": true,
+        "source_timeout": 45,
+        "match": "all_lines",
+        "description": "Note must contain every exact subject captured at task start"
       }
     },
     {

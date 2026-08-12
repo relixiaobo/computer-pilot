@@ -234,16 +234,16 @@ CLEANUP_VERIFY_SETTLE = 1.0
 CLEANUP_VERIFY_INTERVAL = 1.0
 
 
-def with_fixture_timeout(cmd: list[str]) -> list[str]:
-    """Give a harness-owned `cu tell` a longer timeout, unless it set its own."""
+def with_fixture_timeout(cmd: list[str], timeout: str | int | None = None) -> list[str]:
+    """Give a harness-owned `cu tell` a bounded timeout unless it set its own."""
     if cmd[:2] != ["cu", "tell"] or "--timeout" in cmd:
         return cmd
-    return cmd + ["--timeout", FIXTURE_TELL_TIMEOUT]
+    return cmd + ["--timeout", str(timeout or FIXTURE_TELL_TIMEOUT)]
 
 
-def fixture_cu(cmd: list[str]) -> dict:
+def fixture_cu(cmd: list[str], timeout: str | int | None = None) -> dict:
     """Run a harness-owned `cu` command — verification reads, mostly."""
-    return cu_result(with_fixture_timeout(cmd)[1:])
+    return cu_result(with_fixture_timeout(cmd, timeout)[1:])
 
 
 def _run_fixture_cmd(cmd: list[str]) -> dict:
@@ -277,6 +277,33 @@ def run_setup(task: dict, verbose: bool = True) -> str | None:
             return reason
         time.sleep(0.5)
     return None
+
+
+def capture_verification_sources(
+    task: dict, verbose: bool = True
+) -> tuple[dict[int, dict], str | None]:
+    """Freeze verification inputs that may change while the agent is working."""
+    captured = {}
+    for check_index, check in enumerate(task.get("verify", [])):
+        cross_check = check.get("cross_check", {})
+        if not cross_check.get("freeze_source"):
+            continue
+        source_command = cross_check.get("source_command")
+        if not source_command:
+            reason = (f"verification source failed: {check['description']} has "
+                      "freeze_source but no source_command")
+            if verbose:
+                print(f"  [setup] {reason}")
+            return {}, reason
+        result = fixture_cu(source_command, cross_check.get("source_timeout"))
+        if not result["ok"]:
+            reason = (f"verification source failed: {' '.join(source_command)[:80]} "
+                      f"→ {result['text'][:200]}")
+            if verbose:
+                print(f"  [setup] {reason}")
+            return {}, reason
+        captured[check_index] = result
+    return captured, None
 
 
 def run_cleanup(task: dict, verbose: bool = True) -> list[str]:
@@ -348,10 +375,10 @@ def run_cleanup(task: dict, verbose: bool = True) -> list[str]:
     return failures
 
 
-def verify_task(task: dict) -> list[dict]:
+def verify_task(task: dict, captured_sources: dict[int, dict] | None = None) -> list[dict]:
     """Run verification checks. Returns list of {check, passed, detail}."""
     results = []
-    for check in task.get("verify", []):
+    for check_index, check in enumerate(task.get("verify", [])):
         desc = check["description"]
 
         if "command" in check:
@@ -400,7 +427,13 @@ def verify_task(task: dict) -> list[dict]:
         if "cross_check" in check:
             cc = check["cross_check"]
             if "source_command" in cc and "target_command" in cc:
-                source_res = fixture_cu(cc["source_command"])
+                if cc.get("freeze_source"):
+                    source_res = (captured_sources or {}).get(check_index, {
+                        "ok": False,
+                        "text": "frozen verification source is missing",
+                    })
+                else:
+                    source_res = fixture_cu(cc["source_command"])
                 target_res = fixture_cu(cc["target_command"])
                 # A failed source command produces no tokens too. Without this
                 # guard it was reported as "env gap, not an agent failure" —
@@ -422,13 +455,23 @@ def verify_task(task: dict) -> list[dict]:
                     source_val = source_out
                     target_val = target_out
 
-                # Extract a meaningful substring from source to look for in target
-                # Remove quotes, take first meaningful word/phrase
                 source_clean = source_val.strip().strip('"').strip()
-                # Find a specific token (>3 chars) from source in target
-                tokens = [t for t in source_clean.split() if len(t) > 3]
+                match_mode = cc.get("match", "any_token")
+                if match_mode not in {"any_token", "all_lines"}:
+                    results.append({
+                        "check": f"{desc} (cross-check)", "passed": False,
+                        "detail": f"unknown cross-check match mode: {match_mode}",
+                    })
+                    continue
+                if match_mode == "all_lines":
+                    source_items = [line.strip() for line in source_clean.splitlines()
+                                    if line.strip()]
+                else:
+                    # Existing cross-checks use one meaningful source token as
+                    # evidence that the target came from the live application.
+                    source_items = [t for t in source_clean.split() if len(t) > 3]
 
-                if not tokens:
+                if not source_items:
                     # Source command returned nothing usable — typically an
                     # environmental gap (empty Desktop, no inbox messages,
                     # etc.) rather than an agent failure. Skip with passed=True
@@ -440,10 +483,21 @@ def verify_task(task: dict) -> list[dict]:
                         "detail": f"source command returned no usable tokens (source={source_clean[:80]!r}) — env gap, not an agent failure"
                     })
                 else:
-                    found = any(t.lower() in target_val.lower() for t in tokens[:5])
+                    target_folded = target_val.casefold()
+                    if match_mode == "all_lines":
+                        missing = [item for item in source_items
+                                   if item.casefold() not in target_folded]
+                        found = not missing
+                        detail = (f"matched {len(source_items) - len(missing)}/"
+                                  f"{len(source_items)} complete source lines")
+                    else:
+                        candidates = source_items[:5]
+                        found = any(item.casefold() in target_folded
+                                    for item in candidates)
+                        detail = f"source tokens: {candidates}, found in target: {found}"
                     results.append({
                         "check": f"{desc} (cross-check)", "passed": found,
-                        "detail": f"source tokens: {tokens[:5]}, found in target: {found}"
+                        "detail": detail,
                     })
             elif "source_command" in cc:
                 # source_command only — check against the main command output
@@ -540,6 +594,28 @@ def run_agent_task(task: dict, model: str, max_steps: int = 25, verbose: bool = 
         if cleanup_failures:
             detail = " | ".join(cleanup_failures)
             result["verified"] = False
+            result["cleanup_error"] = detail
+            result["checks"].append({
+                "check": "task fixture cleanup", "passed": False, "detail": detail
+            })
+        return result
+
+    captured_sources, source_failure = capture_verification_sources(task)
+    if source_failure:
+        cleanup_failures = run_cleanup(task)
+        result = {
+            "task_id": task_id,
+            "task_name": task["name"],
+            "agent_status": "setup_failed",
+            "verified": False,
+            "checks": [{"check": "verification source established",
+                        "passed": False, "detail": source_failure}],
+            "steps": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+        }
+        if cleanup_failures:
+            detail = " | ".join(cleanup_failures)
             result["cleanup_error"] = detail
             result["checks"].append({
                 "check": "task fixture cleanup", "passed": False, "detail": detail
@@ -645,7 +721,7 @@ When done, say DONE. If stuck, say FAIL."""
 
     # Verify
     time.sleep(1)
-    verify_results = verify_task(task)
+    verify_results = verify_task(task, captured_sources)
     verification_passed = all(v["passed"] for v in verify_results)
 
     if verbose:
