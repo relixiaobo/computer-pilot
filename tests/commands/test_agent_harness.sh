@@ -108,6 +108,134 @@ else
   _fail "failure detail reports the underlying command error" "got: ${DETAIL:0:200}"
 fi
 
+section "agent harness — mutable verification sources are frozen and matched completely"
+
+FROZEN_OUT=$(cd "$ROOT_DIR" && python3 - <<'PY' 2>&1
+import importlib.util, json
+
+spec = importlib.util.spec_from_file_location("harness", "tests/agent/run.py")
+harness = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(harness)
+
+source = ["cu", "tell", "Mail", "source"]
+target = ["cu", "tell", "Notes", "target"]
+task = {"id": "frozen", "name": "frozen source", "goal": "use live data", "verify": [{
+    "description": "all three messages are represented",
+    "cross_check": {
+        "source_command": source,
+        "target_command": target,
+        "freeze_source": True,
+        "source_timeout": 45,
+        "match": "all_lines",
+    },
+}]}
+
+calls = []
+source_value = "Alpha subject\nBeta subject\nGamma subject"
+def fixture(command, timeout=None):
+    calls.append(command[-1])
+    if command == source:
+        # A later source read would return a new message. Verification must use
+        # the task-start value instead of drifting while the agent works.
+        source_reads = sum(1 for call in calls if call == "source")
+        value = source_value if source_reads == 1 else "New arrival"
+    else:
+        # Deliberately use a different order: account enumeration and summary
+        # layout must not change which complete source items are required.
+        value = "Gamma subject details; Alpha subject details; Beta subject details"
+    return {"ok": True, "text": json.dumps({"ok": True, "result": value})}
+
+harness.time.sleep = lambda _: None
+harness.run_cleanup = lambda task, verbose=True: []
+harness.run_setup = lambda task, verbose=True: None
+harness.cu = lambda args: '{"ok":true,"apps":[]}'
+harness.call_llm = lambda model, messages: ("DONE", 1, 1)
+harness.fixture_cu = fixture
+passing_result = harness.run_agent_task(task, "stub-model", max_steps=1, verbose=False)
+
+def missing_fixture(command, timeout=None):
+    if command == target:
+        value = "Gamma subject details; Alpha subject details"
+        return {"ok": True, "text": json.dumps({"ok": True, "result": value})}
+    raise AssertionError("frozen source was read again")
+
+harness.fixture_cu = missing_fixture
+captured = {0: {"ok": True, "text": json.dumps({"ok": True, "result": source_value})}}
+missing = harness.verify_task(task, captured)
+
+model_called = False
+def should_not_run(model, messages):
+    global model_called
+    model_called = True
+    raise AssertionError("model ran without a verification baseline")
+harness.fixture_cu = lambda command, timeout=None: {"ok": False, "text": "Mail unavailable"}
+harness.call_llm = should_not_run
+source_failure = harness.run_agent_task(task, "stub-model", max_steps=1, verbose=False)
+
+print(json.dumps({
+    "source_reads": sum(1 for call in calls if call == "source"),
+    "source_timeout": harness.with_fixture_timeout(source, 45)[-1],
+    "default_timeout": harness.with_fixture_timeout(target)[-1],
+    "expected_default_timeout": harness.FIXTURE_TELL_TIMEOUT,
+    "passing_verified": passing_result["verified"],
+    "passing": passing_result["checks"][0],
+    "missing": missing[0],
+    "failure_status": source_failure["agent_status"],
+    "failure_steps": source_failure["steps"],
+    "model_called": model_called,
+}))
+PY
+)
+
+FROZEN_JSON=$(echo "$FROZEN_OUT" | tail -1)
+if ! echo "$FROZEN_JSON" | python3 -c 'import json,sys; json.load(sys.stdin)' 2>/dev/null; then
+  _fail "frozen cross-check is inspectable" "could not drive frozen source logic: ${FROZEN_OUT:0:300}"
+  summary
+fi
+
+frozen_field() { echo "$FROZEN_JSON" | python3 -c "import json,sys; v=json.load(sys.stdin)$1; print(v)"; }
+
+if [[ "$(frozen_field "['passing_verified']")" == "True" \
+   && "$(frozen_field "['source_reads']")" == "1" ]]; then
+  _pass "a mutable source is captured once before the agent runs"
+else
+  _fail "a mutable source is captured once before the agent runs" \
+    "verified=$(frozen_field "['passing_verified']") reads=$(frozen_field "['source_reads']")"
+fi
+
+if [[ "$(frozen_field "['source_timeout']")" == "45" \
+   && "$(frozen_field "['default_timeout']")" == "$(frozen_field "['expected_default_timeout']")" ]]; then
+  _pass "source timeout is task-scoped and does not change ordinary fixture commands"
+else
+  _fail "source timeout is task-scoped and does not change ordinary fixture commands" \
+    "source=$(frozen_field "['source_timeout']") default=$(frozen_field "['default_timeout']")"
+fi
+
+if [[ "$(frozen_field "['passing']['passed']")" == "True" \
+   && "$(frozen_field "['passing']['detail']")" == *"3/3"* ]]; then
+  _pass "all complete source lines match regardless of target order"
+else
+  _fail "all complete source lines match regardless of target order" \
+    "got $(frozen_field "['passing']")"
+fi
+
+if [[ "$(frozen_field "['missing']['passed']")" == "False" \
+   && "$(frozen_field "['missing']['detail']")" == *"2/3"* ]]; then
+  _pass "omitting one of three source messages fails the cross-check"
+else
+  _fail "omitting one of three source messages fails the cross-check" \
+    "got $(frozen_field "['missing']")"
+fi
+
+if [[ "$(frozen_field "['failure_status']")" == "setup_failed" \
+   && "$(frozen_field "['failure_steps']")" == "0" \
+   && "$(frozen_field "['model_called']")" == "False" ]]; then
+  _pass "a missing verification baseline stops before the model runs"
+else
+  _fail "a missing verification baseline stops before the model runs" \
+    "status=$(frozen_field "['failure_status']") steps=$(frozen_field "['failure_steps']") model_called=$(frozen_field "['model_called']")"
+fi
+
 section "agent harness — model selection matches the credentials present"
 
 # release.sh gates L2 on *a* key being present and then runs run.py with no

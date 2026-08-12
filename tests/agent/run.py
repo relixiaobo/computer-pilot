@@ -229,18 +229,21 @@ def _extract_cu_commands(text: str) -> list[str]:
 # are deliberately left on the product default — the test has to reflect what
 # an agent actually experiences.
 FIXTURE_TELL_TIMEOUT = os.environ.get("AGENT_FIXTURE_TELL_TIMEOUT", "30")
+CLEANUP_VERIFY_TIMEOUT = float(os.environ.get("AGENT_CLEANUP_VERIFY_TIMEOUT", "30"))
+CLEANUP_VERIFY_SETTLE = 1.0
+CLEANUP_VERIFY_INTERVAL = 1.0
 
 
-def with_fixture_timeout(cmd: list[str]) -> list[str]:
-    """Give a harness-owned `cu tell` a longer timeout, unless it set its own."""
+def with_fixture_timeout(cmd: list[str], timeout: str | int | None = None) -> list[str]:
+    """Give a harness-owned `cu tell` a bounded timeout unless it set its own."""
     if cmd[:2] != ["cu", "tell"] or "--timeout" in cmd:
         return cmd
-    return cmd + ["--timeout", FIXTURE_TELL_TIMEOUT]
+    return cmd + ["--timeout", str(timeout or FIXTURE_TELL_TIMEOUT)]
 
 
-def fixture_cu(cmd: list[str]) -> dict:
+def fixture_cu(cmd: list[str], timeout: str | int | None = None) -> dict:
     """Run a harness-owned `cu` command — verification reads, mostly."""
-    return cu_result(with_fixture_timeout(cmd)[1:])
+    return cu_result(with_fixture_timeout(cmd, timeout)[1:])
 
 
 def _run_fixture_cmd(cmd: list[str]) -> dict:
@@ -276,19 +279,106 @@ def run_setup(task: dict, verbose: bool = True) -> str | None:
     return None
 
 
-def run_cleanup(task: dict, verbose: bool = True):
-    """Run cleanup commands. Leftovers poison the next run, so report failures."""
+def capture_verification_sources(
+    task: dict, verbose: bool = True
+) -> tuple[dict[int, dict], str | None]:
+    """Freeze verification inputs that may change while the agent is working."""
+    captured = {}
+    for check_index, check in enumerate(task.get("verify", [])):
+        cross_check = check.get("cross_check", {})
+        if not cross_check.get("freeze_source"):
+            continue
+        source_command = cross_check.get("source_command")
+        if not source_command:
+            reason = (f"verification source failed: {check['description']} has "
+                      "freeze_source but no source_command")
+            if verbose:
+                print(f"  [setup] {reason}")
+            return {}, reason
+        result = fixture_cu(source_command, cross_check.get("source_timeout"))
+        if not result["ok"]:
+            reason = (f"verification source failed: {' '.join(source_command)[:80]} "
+                      f"→ {result['text'][:200]}")
+            if verbose:
+                print(f"  [setup] {reason}")
+            return {}, reason
+        captured[check_index] = result
+    return captured, None
+
+
+def run_cleanup(task: dict, verbose: bool = True) -> list[str]:
+    """Run every cleanup command and return actionable failure details.
+
+    Cleanup is part of the harness contract: leftovers change the starting
+    world for the next task. Keep going after one failure so independent
+    artifacts still get removed, but never let a partial cleanup read as a
+    successful run.
+    """
+    failures = []
     for cmd in task.get("cleanup", []):
         res = _run_fixture_cmd(cmd)
-        if not res["ok"] and verbose:
-            print(f"  [cleanup] non-zero: {' '.join(cmd)[:80]} → {res['text'][:120]}")
+        if not res["ok"]:
+            reason = f"cleanup failed: {' '.join(cmd)[:80]} → {res['text'][:200]}"
+            failures.append(reason)
+            if verbose:
+                print(f"  [cleanup] {reason}")
         time.sleep(0.5)
 
+    # Some apps only commit one matching deletion per AppleScript transaction.
+    # Re-run the mutation in fresh processes until its independent postcondition
+    # passes; Notes is the concrete case this contract exists for.
+    for cleanup_until in task.get("cleanup_until", []):
+        cmd = cleanup_until["command"]
+        verify_cmd = cleanup_until["verify"]
+        deadline = time.monotonic() + CLEANUP_VERIFY_TIMEOUT
+        while True:
+            verify_res = _run_fixture_cmd(verify_cmd)
+            if verify_res["ok"]:
+                break
+            if time.monotonic() >= deadline:
+                reason = (f"cleanup verification failed: {' '.join(verify_cmd)[:80]} "
+                          f"→ {verify_res['text'][:200]}")
+                failures.append(reason)
+                if verbose:
+                    print(f"  [cleanup] {reason}")
+                break
+            res = _run_fixture_cmd(cmd)
+            if not res["ok"]:
+                reason = f"cleanup failed: {' '.join(cmd)[:80]} → {res['text'][:200]}"
+                failures.append(reason)
+                if verbose:
+                    print(f"  [cleanup] {reason}")
+                break
+            time.sleep(CLEANUP_VERIFY_SETTLE)
 
-def verify_task(task: dict) -> list[dict]:
+    # App mutations such as Notes deletion commit when the AppleScript returns.
+    # Checking inside that same script sees stale state and raising an error can
+    # roll the mutation back. Verify in a fresh command and tolerate bounded
+    # application-level propagation instead.
+    cleanup_verify = task.get("cleanup_verify", [])
+    if cleanup_verify:
+        time.sleep(CLEANUP_VERIFY_SETTLE)
+    for cmd in cleanup_verify:
+        deadline = time.monotonic() + CLEANUP_VERIFY_TIMEOUT
+        while True:
+            res = _run_fixture_cmd(cmd)
+            if res["ok"]:
+                break
+            if time.monotonic() >= deadline:
+                reason = (f"cleanup verification failed: {' '.join(cmd)[:80]} "
+                          f"→ {res['text'][:200]}")
+                failures.append(reason)
+                if verbose:
+                    print(f"  [cleanup] {reason}")
+                break
+            time.sleep(CLEANUP_VERIFY_INTERVAL)
+    return failures
+
+
+def verify_task(task: dict, captured_sources: dict[int, dict] | None = None) -> list[dict]:
     """Run verification checks. Returns list of {check, passed, detail}."""
     results = []
-    for check in task.get("verify", []):
+    for check_index, check in enumerate(task.get("verify", [])):
         desc = check["description"]
 
         if "command" in check:
@@ -337,7 +427,13 @@ def verify_task(task: dict) -> list[dict]:
         if "cross_check" in check:
             cc = check["cross_check"]
             if "source_command" in cc and "target_command" in cc:
-                source_res = fixture_cu(cc["source_command"])
+                if cc.get("freeze_source"):
+                    source_res = (captured_sources or {}).get(check_index, {
+                        "ok": False,
+                        "text": "frozen verification source is missing",
+                    })
+                else:
+                    source_res = fixture_cu(cc["source_command"])
                 target_res = fixture_cu(cc["target_command"])
                 # A failed source command produces no tokens too. Without this
                 # guard it was reported as "env gap, not an agent failure" —
@@ -359,13 +455,23 @@ def verify_task(task: dict) -> list[dict]:
                     source_val = source_out
                     target_val = target_out
 
-                # Extract a meaningful substring from source to look for in target
-                # Remove quotes, take first meaningful word/phrase
                 source_clean = source_val.strip().strip('"').strip()
-                # Find a specific token (>3 chars) from source in target
-                tokens = [t for t in source_clean.split() if len(t) > 3]
+                match_mode = cc.get("match", "any_token")
+                if match_mode not in {"any_token", "all_lines"}:
+                    results.append({
+                        "check": f"{desc} (cross-check)", "passed": False,
+                        "detail": f"unknown cross-check match mode: {match_mode}",
+                    })
+                    continue
+                if match_mode == "all_lines":
+                    source_items = [line.strip() for line in source_clean.splitlines()
+                                    if line.strip()]
+                else:
+                    # Existing cross-checks use one meaningful source token as
+                    # evidence that the target came from the live application.
+                    source_items = [t for t in source_clean.split() if len(t) > 3]
 
-                if not tokens:
+                if not source_items:
                     # Source command returned nothing usable — typically an
                     # environmental gap (empty Desktop, no inbox messages,
                     # etc.) rather than an agent failure. Skip with passed=True
@@ -377,10 +483,21 @@ def verify_task(task: dict) -> list[dict]:
                         "detail": f"source command returned no usable tokens (source={source_clean[:80]!r}) — env gap, not an agent failure"
                     })
                 else:
-                    found = any(t.lower() in target_val.lower() for t in tokens[:5])
+                    target_folded = target_val.casefold()
+                    if match_mode == "all_lines":
+                        missing = [item for item in source_items
+                                   if item.casefold() not in target_folded]
+                        found = not missing
+                        detail = (f"matched {len(source_items) - len(missing)}/"
+                                  f"{len(source_items)} complete source lines")
+                    else:
+                        candidates = source_items[:5]
+                        found = any(item.casefold() in target_folded
+                                    for item in candidates)
+                        detail = f"source tokens: {candidates}, found in target: {found}"
                     results.append({
                         "check": f"{desc} (cross-check)", "passed": found,
-                        "detail": f"source tokens: {tokens[:5]}, found in target: {found}"
+                        "detail": detail,
                     })
             elif "source_command" in cc:
                 # source_command only — check against the main command output
@@ -437,14 +554,33 @@ def run_agent_task(task: dict, model: str, max_steps: int = 25, verbose: bool = 
         print(f"Goal: {goal}")
         print(f"{'='*60}")
 
+    # Start from a known world. A previous interrupted run may have left exact
+    # test fixtures behind; building on top of them makes verification pass for
+    # work the current agent never did.
+    pre_cleanup_failures = run_cleanup(task)
+    if pre_cleanup_failures:
+        detail = " | ".join(pre_cleanup_failures)
+        return {
+            "task_id": task_id,
+            "task_name": task["name"],
+            "agent_status": "setup_failed",
+            "verified": False,
+            "checks": [{"check": "stale task fixtures removed before setup",
+                        "passed": False, "detail": detail}],
+            "cleanup_error": detail,
+            "steps": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+        }
+
     # Setup
     setup_failure = run_setup(task)
     if setup_failure:
         # Running the agent now would spend a full step budget against state
         # the task never established, and report the result as an agent
         # failure. Fail here, where the reason is still legible.
-        run_cleanup(task)
-        return {
+        cleanup_failures = run_cleanup(task)
+        result = {
             "task_id": task_id,
             "task_name": task["name"],
             "agent_status": "setup_failed",
@@ -455,6 +591,36 @@ def run_agent_task(task: dict, model: str, max_steps: int = 25, verbose: bool = 
             "input_tokens": 0,
             "output_tokens": 0,
         }
+        if cleanup_failures:
+            detail = " | ".join(cleanup_failures)
+            result["verified"] = False
+            result["cleanup_error"] = detail
+            result["checks"].append({
+                "check": "task fixture cleanup", "passed": False, "detail": detail
+            })
+        return result
+
+    captured_sources, source_failure = capture_verification_sources(task)
+    if source_failure:
+        cleanup_failures = run_cleanup(task)
+        result = {
+            "task_id": task_id,
+            "task_name": task["name"],
+            "agent_status": "setup_failed",
+            "verified": False,
+            "checks": [{"check": "verification source established",
+                        "passed": False, "detail": source_failure}],
+            "steps": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+        }
+        if cleanup_failures:
+            detail = " | ".join(cleanup_failures)
+            result["cleanup_error"] = detail
+            result["checks"].append({
+                "check": "task fixture cleanup", "passed": False, "detail": detail
+            })
+        return result
     time.sleep(1)
 
     messages = []
@@ -555,8 +721,8 @@ When done, say DONE. If stuck, say FAIL."""
 
     # Verify
     time.sleep(1)
-    verify_results = verify_task(task)
-    all_passed = all(v["passed"] for v in verify_results)
+    verify_results = verify_task(task, captured_sources)
+    verification_passed = all(v["passed"] for v in verify_results)
 
     if verbose:
         print(f"\n  Agent status: {status}")
@@ -573,7 +739,13 @@ When done, say DONE. If stuck, say FAIL."""
                 print(f"           {v['detail']}")
 
     # Cleanup
-    run_cleanup(task)
+    cleanup_failures = run_cleanup(task)
+    if cleanup_failures:
+        detail = " | ".join(cleanup_failures)
+        verify_results.append({
+            "check": "task fixture cleanup", "passed": False, "detail": detail
+        })
+    all_passed = verification_passed and not cleanup_failures
 
     result = {
         "task_id": task_id,
@@ -585,7 +757,9 @@ When done, say DONE. If stuck, say FAIL."""
         "input_tokens": total_input,
         "output_tokens": total_output,
     }
-    if status == "budget_exhausted" and not all_passed:
+    if cleanup_failures:
+        result["cleanup_error"] = " | ".join(cleanup_failures)
+    if status == "budget_exhausted" and not verification_passed:
         # Principle 3: the degraded path gets a string the reader cannot skim
         # past. Without it this is indistinguishable in the summary from an
         # agent that tried and got it wrong.
