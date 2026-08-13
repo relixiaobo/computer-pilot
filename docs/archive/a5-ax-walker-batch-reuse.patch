@@ -1,0 +1,193 @@
+--- a/src/ax.rs
++++ b/src/ax.rs
+@@ -856,9 +856,26 @@
+ /// this element relative to its parent (already includes any `:N` sibling
+ /// disambiguator). `parent_path` is the slash-joined path from the root to
+ /// the parent. `self_path = parent_path + "/" + my_segment`.
++/// Owns the batch-read values array for one `walk` frame.
++///
++/// `walk` receives ownership from its parent and has early returns (element
++/// limit reached, depth cap) that fire *before* the array would otherwise be
++/// released. A guard keeps every exit path correct, per the CFRelease rule in
++/// CLAUDE.md ("all AXUIElementCopyAttributeValue results are +1 retained").
++struct BatchValues(CFArrayRef);
++
++impl Drop for BatchValues {
++    fn drop(&mut self) {
++        if !self.0.is_null() {
++            unsafe { CFRelease(self.0) };
++        }
++    }
++}
++
+ #[allow(clippy::too_many_arguments)]
+ unsafe fn walk(
+     element: CFTypeRef,
++    values: CFArrayRef,
+     out: &mut Vec<Element>,
+     counter: &mut usize,
+     limit: usize,
+@@ -868,6 +885,8 @@
+     my_segment: &str,
+     parent_path: &str,
+ ) {
++    // Take ownership immediately so every early return below releases it.
++    let values = BatchValues(values);
+     if out.len() >= limit {
+         return;
+     }
+@@ -882,10 +901,10 @@
+         format!("{parent_path}/{my_segment}")
+     };
+
+-    // Single IPC call to read all attributes. On failure, fall back to
+-    // individual reads for AXChildren so we don't lose entire subtrees.
+-    let values = batch_read(element, batch_keys);
+-    if values.is_null() {
++    // The parent already performed the single batch IPC read for this element
++    // and handed the values in. On failure, fall back to individual reads for
++    // AXChildren so we don't lose entire subtrees.
++    if values.0.is_null() {
+         if let Some(children) = ax_attr(element, "AXChildren") {
+             if CFGetTypeID(children) == CFArrayGetTypeID() {
+                 let count = CFArrayGetCount(children);
+@@ -896,9 +915,11 @@
+                     if child.is_null() {
+                         continue;
+                     }
+-                    let child_segment = compute_child_segment(child, &mut seen);
++                    let child_values = batch_read(child, batch_keys);
++                    let child_segment = segment_from_values(child, child_values, &mut seen);
+                     walk(
+                         child,
++                        child_values,
+                         out,
+                         counter,
+                         limit,
+@@ -919,18 +940,18 @@
+     }
+
+     // Check role and maybe add to output
+-    if let Some(role) = batch_string(values, BA_ROLE)
++    if let Some(role) = batch_string(values.0, BA_ROLE)
+         && is_included(&role)
+     {
+-        let title = batch_string(values, BA_TITLE)
+-            .or_else(|| batch_string(values, BA_DESC))
+-            .or_else(|| batch_string(values, BA_HELP))
+-            .or_else(|| batch_string(values, BA_IDENTIFIER))
++        let title = batch_string(values.0, BA_TITLE)
++            .or_else(|| batch_string(values.0, BA_DESC))
++            .or_else(|| batch_string(values.0, BA_HELP))
++            .or_else(|| batch_string(values.0, BA_IDENTIFIER))
+             .filter(|s| !s.is_empty());
+
+-        let value = batch_string(values, BA_VALUE).filter(|s| !s.is_empty());
+-        let pos = batch_position(values, BA_POS).unwrap_or_default();
+-        let size = batch_size(values, BA_SIZE).unwrap_or_default();
++        let value = batch_string(values.0, BA_VALUE).filter(|s| !s.is_empty());
++        let pos = batch_position(values.0, BA_POS).unwrap_or_default();
++        let size = batch_size(values.0, BA_SIZE).unwrap_or_default();
+
+         if size.width > 0.0 || size.height > 0.0 {
+             *counter += 1;
+@@ -949,14 +970,13 @@
+     }
+
+     if out.len() >= limit {
+-        CFRelease(values);
+         return;
+     }
+
+     // Recurse into children (from the same batch read — no extra IPC).
+     // Track sibling segments to assign `:N` disambiguators when multiple
+     // children produce the same `Role[Title]` segment.
+-    if let Some(children) = batch_children(values, BA_CHILDREN) {
++    if let Some(children) = batch_children(values.0, BA_CHILDREN) {
+         let count = CFArrayGetCount(children);
+         let mut seen: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+         for i in 0..count {
+@@ -964,9 +984,11 @@
+             if child.is_null() {
+                 continue;
+             }
+-            let child_segment = compute_child_segment(child, &mut seen);
++            let child_values = batch_read(child, batch_keys);
++            let child_segment = segment_from_values(child, child_values, &mut seen);
+             walk(
+                 child,
++                child_values,
+                 out,
+                 counter,
+                 limit,
+@@ -981,13 +1003,37 @@
+             }
+         }
+     }
+-
+-    CFRelease(values);
+ }
+
+ /// Compute the path segment for `child` (Role[Title]:N). `seen` tracks how
+ /// many earlier siblings produced the same `Role[Title]` so we can append
+ /// the `:N` disambiguator (omitted when `N == 0`). Mutates `seen` in place.
++/// Compute a child's path segment from its already-read batch `values`,
++/// avoiding the 2-3 extra per-node IPC round-trips `compute_child_segment`
++/// costs. Falls back to individual reads only when the batch read failed.
++unsafe fn segment_from_values(
++    child: CFTypeRef,
++    values: CFArrayRef,
++    seen: &mut std::collections::HashMap<String, usize>,
++) -> String {
++    if values.is_null() {
++        return compute_child_segment(child, seen);
++    }
++    let role = batch_string(values, BA_ROLE).unwrap_or_default();
++    let title = batch_string(values, BA_TITLE)
++        .or_else(|| batch_string(values, BA_DESC))
++        .filter(|s| !s.is_empty());
++    let base = build_path_segment(&role, title.as_deref());
++    let idx_ref = seen.entry(base.clone()).or_insert(0);
++    let idx = *idx_ref;
++    *idx_ref += 1;
++    if idx == 0 {
++        base
++    } else {
++        format!("{base}:{idx}")
++    }
++}
++
+ unsafe fn compute_child_segment(
+     child: CFTypeRef,
+     seen: &mut std::collections::HashMap<String, usize>,
+@@ -2101,13 +2147,26 @@
+         let mut counter = 0usize;
+         let mut depth_limited = false;
+         // Compute the root's own path segment so descendants get full paths.
+-        let root_role = ax_string(walk_root, "AXRole").unwrap_or_default();
+-        let root_title = ax_string(walk_root, "AXTitle")
+-            .or_else(|| ax_string(walk_root, "AXDescription"))
+-            .filter(|s| !s.is_empty());
++        let root_values = batch_read(walk_root, batch_keys);
++        let (root_role, root_title) = if root_values.is_null() {
++            (
++                ax_string(walk_root, "AXRole").unwrap_or_default(),
++                ax_string(walk_root, "AXTitle")
++                    .or_else(|| ax_string(walk_root, "AXDescription"))
++                    .filter(|s| !s.is_empty()),
++            )
++        } else {
++            (
++                batch_string(root_values, BA_ROLE).unwrap_or_default(),
++                batch_string(root_values, BA_TITLE)
++                    .or_else(|| batch_string(root_values, BA_DESC))
++                    .filter(|s| !s.is_empty()),
++            )
++        };
+         let root_segment = build_path_segment(&root_role, root_title.as_deref());
+         walk(
+             walk_root,
++            root_values,
+             &mut elements,
+             &mut counter,
+             limit,

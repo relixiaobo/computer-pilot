@@ -7,11 +7,65 @@
 > - [`competitive-analysis.md`](./competitive-analysis.md) — feature grid across projects (factual snapshot)
 > - This doc — execution plan + progress log (live)
 
-Last updated: 2026-07-27. The sprint history below is retained for provenance.
+Last updated: 2026-08-13. The sprint history below is retained for provenance.
 Current architecture adds four recovery commands, client-isolated Observations,
 a private per-user Broker, safe file results, and the CLI-only public Agent
-boundary documented in `universal-agent-integration.md` (**31 commands, 700+
-test assertions**).
+boundary documented in `universal-agent-integration.md` (**31 commands, 900+
+default command-test assertions**).
+
+---
+
+## Post-v0.9.2 optimization queue
+
+This is the active optimization queue after re-checking the July 2026 proposal
+against `main` at `80c5d15`. The original proposal and its site inventory are
+frozen under [`archive/`](./archive/) because their `v0.8.0` line references and
+several implementation assumptions are no longer current.
+
+- [ ] **O1 — Canonicalize AX traversal and ref projection (P0)**
+  - **Current evidence**: `src/ax.rs` still has separate recursive paths for
+    snapshot projection, ref action, set-value, perform, and inspection. Each
+    path independently decides which elements increment the ref counter.
+  - **Required outcome**: one shared inclusion/projection contract governs every
+    ref producer and consumer; behavior tests compare snapshot refs with every
+    action path, including a deliberately unreadable subtree.
+  - **Why first**: the remaining traversal and limit work builds on this
+    contract. Optimize only after identity is shared.
+
+- [ ] **O2 — Add a pure-logic Rust test foundation (P0)**
+  - **Current evidence**: the default command suite is broad, but `cargo test`
+    currently contains only two unit tests. Path parsing/projection, geometry,
+    normalization, and state-transition logic therefore rely mainly on live
+    macOS integration tests.
+  - **Required outcome**: extract testable pure helpers where needed and cover
+    boundary/error cases without AX, TCC, or running applications. Keep the
+    command suite as the behavioral layer rather than replacing it.
+
+- [ ] **O3 — Unify action `--limit` semantics (P1, after O1)**
+  - **Current evidence**: snapshot/query commands expose several defaults, while
+    ref action helpers such as `ax_click`, `ax_find_element`, `ax_set_value`, and
+    `ax_perform` accept `_limit` but resolve through an unbounded independent
+    walk. The Broker's Observation check does honor the captured limit.
+  - **Required outcome**: document one meaning for the flag, enforce it on every
+    route, and test that a ref beyond the selected Observation cannot be acted
+    on through any fallback.
+
+- [ ] **O4 — Re-evaluate AX batch-value reuse (P1, after O1)**
+  - **Candidate**: the archived
+    [`a5-ax-walker-batch-reuse.patch`](./archive/a5-ax-walker-batch-reuse.patch)
+    remains a useful implementation sketch, not a ready change.
+  - **2026-08-13 re-check**: the patch applied to `80c5d15`, passed formatting,
+    Clippy, release build, and 61 targeted AX assertions. A/B identity and
+    geometry gates passed, but the measured medians did not reproduce the old
+    speedup (Finder `+1.7%`, Calendar `+2.6%`; positive is slower).
+  - **Required outcome**: rebase onto O1, add the equivalence behavior test to
+    the repository, and require a repeatable improvement on a quiescent target.
+    Delete the candidate if it still has no measurable benefit.
+
+Other proposals in the archived plan are **not accepted backlog items**. Window
+identity, stale Observations, action verification, and Broker behavior changed
+substantially after `v0.8.0`; each needs a fresh reproduction and current-tree
+design before it can enter this queue.
 
 ---
 
