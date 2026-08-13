@@ -4,6 +4,7 @@
 use crate::error::CuError;
 use serde::{Deserialize, Serialize};
 use std::ffi::{CStr, c_char, c_long, c_void};
+use std::sync::OnceLock;
 
 // ── Core Foundation FFI ─────────────────────────────────────────────────────
 
@@ -770,6 +771,13 @@ unsafe fn create_batch_keys() -> CFArrayRef {
 /// Read all batch attributes from an element in a single IPC call.
 /// Returns the values array (caller must CFRelease), or null on failure.
 unsafe fn batch_read(element: CFTypeRef, keys: CFArrayRef) -> CFArrayRef {
+    // Test-only fault injection used by the O1 behavior gate. The production
+    // path never sets these variables; keeping the seam here exercises the
+    // same per-node fallback that handles a real AX error marker.
+    let fault_role = test_ax_faults().batch_fail_role.as_deref();
+    if fault_role.is_some() && ax_string(element, "AXRole").as_deref() == fault_role {
+        return std::ptr::null();
+    }
     let mut values: CFArrayRef = std::ptr::null();
     let err = AXUIElementCopyMultipleAttributeValues(element, keys, 0, &mut values);
     if err == AX_OK && !values.is_null() {
@@ -777,6 +785,19 @@ unsafe fn batch_read(element: CFTypeRef, keys: CFArrayRef) -> CFArrayRef {
     } else {
         std::ptr::null()
     }
+}
+
+struct TestAxFaults {
+    batch_fail_role: Option<String>,
+    children_fallback_role: Option<String>,
+}
+
+fn test_ax_faults() -> &'static TestAxFaults {
+    static FAULTS: OnceLock<TestAxFaults> = OnceLock::new();
+    FAULTS.get_or_init(|| TestAxFaults {
+        batch_fail_role: std::env::var("CU_TEST_AX_BATCH_FAIL_ROLE").ok(),
+        children_fallback_role: std::env::var("CU_TEST_AX_BATCH_CHILDREN_FALLBACK_ROLE").ok(),
+    })
 }
 
 /// Extract a string from position `idx` in the batch values array.
@@ -848,115 +869,338 @@ unsafe fn batch_children(values: CFArrayRef, idx: usize) -> Option<CFArrayRef> {
     Some(val)
 }
 
-// ── Tree walk ───────────────────────────────────────────────────────────────
+// ── Canonical ref traversal ────────────────────────────────────────────────
 
 const MAX_DEPTH: usize = 30;
 
-/// Recursive AX tree walker. `my_segment` is the path segment that identifies
-/// this element relative to its parent (already includes any `:N` sibling
-/// disambiguator). `parent_path` is the slash-joined path from the root to
-/// the parent. `self_path = parent_path + "/" + my_segment`.
-#[allow(clippy::too_many_arguments)]
-unsafe fn walk(
-    element: CFTypeRef,
-    out: &mut Vec<Element>,
-    counter: &mut usize,
-    limit: usize,
-    depth: usize,
-    depth_limited: &mut bool,
-    batch_keys: CFArrayRef,
-    my_segment: &str,
-    parent_path: &str,
-) {
-    if out.len() >= limit {
-        return;
-    }
-    if depth > MAX_DEPTH {
-        *depth_limited = true;
-        return;
+/// The sole policy for assigning numeric refs.
+///
+/// A node consumes a ref exactly when its AX role is in `INCLUDED_ROLES` and
+/// at least one dimension of its AX bounding box is positive.  Keeping this
+/// decision pure makes it usable by both the batch snapshot reader and the
+/// single-element action reader; neither reader may invent its own counting
+/// rule.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct RefProjection {
+    emits_ref: bool,
+}
+
+impl RefProjection {
+    fn from_parts(role: Option<&str>, size: CGSize) -> Self {
+        Self {
+            emits_ref: role.is_some_and(is_included) && (size.width > 0.0 || size.height > 0.0),
+        }
     }
 
-    let self_path = if parent_path.is_empty() {
-        my_segment.to_string()
-    } else {
-        format!("{parent_path}/{my_segment}")
+    fn assign(self, counter: &mut usize) -> Option<usize> {
+        if self.emits_ref {
+            *counter += 1;
+            Some(*counter)
+        } else {
+            None
+        }
+    }
+}
+
+#[cfg(test)]
+mod ref_projection_tests {
+    use super::{CGSize, RefProjection};
+
+    #[test]
+    fn only_included_positive_geometry_consumes_a_ref() {
+        let mut counter = 0;
+        assert_eq!(
+            RefProjection::from_parts(
+                Some("AXButton"),
+                CGSize {
+                    width: 10.0,
+                    height: 0.0
+                }
+            )
+            .assign(&mut counter),
+            Some(1)
+        );
+        assert_eq!(
+            RefProjection::from_parts(
+                Some("AXGroup"),
+                CGSize {
+                    width: 10.0,
+                    height: 10.0
+                }
+            )
+            .assign(&mut counter),
+            None
+        );
+        assert_eq!(
+            RefProjection::from_parts(
+                Some("AXButton"),
+                CGSize {
+                    width: 0.0,
+                    height: 0.0
+                }
+            )
+            .assign(&mut counter),
+            None
+        );
+        assert_eq!(counter, 1);
+    }
+
+    #[test]
+    fn preorder_counter_skips_static_and_zero_size_nodes_without_gaps() {
+        let nodes = [
+            (Some("AXGroup"), 100.0, 100.0),
+            (Some("AXButton"), 0.0, 0.0),
+            (Some("AXStaticText"), 8.0, 8.0),
+            (Some("AXButton"), 20.0, 10.0),
+        ];
+        let mut counter = 0;
+        let refs: Vec<_> = nodes
+            .iter()
+            .filter_map(|(role, width, height)| {
+                RefProjection::from_parts(
+                    *role,
+                    CGSize {
+                        width: *width,
+                        height: *height,
+                    },
+                )
+                .assign(&mut counter)
+            })
+            .collect();
+        assert_eq!(refs, [1, 2]);
+        assert_eq!(counter, 2);
+    }
+}
+
+/// Attributes needed by the canonical traversal. `children` is borrowed from
+/// one of the pointers in `owned`; those pointers are released only after the
+/// node's descendants have been visited.
+struct RefNodeRead {
+    role: Option<String>,
+    title: Option<String>,
+    value: Option<String>,
+    position: Option<CGPoint>,
+    size: CGSize,
+    children: Option<CFArrayRef>,
+    owned: Vec<CFTypeRef>,
+}
+
+impl RefNodeRead {
+    unsafe fn release(self) {
+        for pointer in self.owned {
+            if !pointer.is_null() {
+                CFRelease(pointer);
+            }
+        }
+    }
+}
+
+/// Read an array-valued AXChildren attribute and retain it for the caller.
+/// Non-array values are released immediately and treated as unavailable.
+unsafe fn retained_children(element: CFTypeRef) -> (Option<CFArrayRef>, Vec<CFTypeRef>) {
+    let Some(children) = ax_attr(element, "AXChildren") else {
+        return (None, Vec::new());
     };
+    if CFGetTypeID(children) == CFArrayGetTypeID() {
+        (Some(children), vec![children])
+    } else {
+        CFRelease(children);
+        (None, Vec::new())
+    }
+}
 
-    // Single IPC call to read all attributes. On failure, fall back to
-    // individual reads for AXChildren so we don't lose entire subtrees.
+/// Read the fields that action and inspection consumers need. All of those
+/// consumers now use this same reader and traversal, so unreadable/static
+/// nodes are treated identically for click, find, set-value, perform, and why.
+unsafe fn read_single_ref_node(element: CFTypeRef) -> RefNodeRead {
+    let role = ax_string(element, "AXRole");
+    let projected = role.as_deref().is_some_and(is_included);
+    let size = if projected {
+        ax_size(element).unwrap_or_default()
+    } else {
+        CGSize::default()
+    };
+    let (children, owned) = retained_children(element);
+    RefNodeRead {
+        role,
+        title: None,
+        value: None,
+        position: None,
+        size,
+        children,
+        owned,
+    }
+}
+
+/// Read a batch field, retrying the individual attribute when the batch slot
+/// is absent or contains an AX error marker. This keeps a partial batch read
+/// from changing the ref projection or dropping a whole child subtree.
+unsafe fn batch_string_with_fallback(
+    values: CFArrayRef,
+    index: usize,
+    element: CFTypeRef,
+    name: &str,
+) -> Option<String> {
+    batch_string(values, index).or_else(|| ax_string(element, name))
+}
+
+unsafe fn batch_position_with_fallback(values: CFArrayRef, element: CFTypeRef) -> Option<CGPoint> {
+    batch_position(values, BA_POS).or_else(|| ax_position(element))
+}
+
+unsafe fn batch_size_with_fallback(values: CFArrayRef, element: CFTypeRef) -> CGSize {
+    batch_size(values, BA_SIZE)
+        .or_else(|| ax_size(element))
+        .unwrap_or_default()
+}
+
+/// Snapshot reader. The batch array remains in `owned` while its borrowed
+/// AXChildren array is traversed; if that slot is unreadable, AXChildren is
+/// fetched separately and retained instead.
+unsafe fn read_batch_ref_node(element: CFTypeRef, batch_keys: CFArrayRef) -> RefNodeRead {
     let values = batch_read(element, batch_keys);
     if values.is_null() {
-        if let Some(children) = ax_attr(element, "AXChildren") {
-            if CFGetTypeID(children) == CFArrayGetTypeID() {
-                let count = CFArrayGetCount(children);
-                let mut seen: std::collections::HashMap<String, usize> =
-                    std::collections::HashMap::new();
-                for i in 0..count {
-                    let child = CFArrayGetValueAtIndex(children, i);
-                    if child.is_null() {
-                        continue;
-                    }
-                    let child_segment = compute_child_segment(child, &mut seen);
-                    walk(
-                        child,
-                        out,
-                        counter,
-                        limit,
-                        depth + 1,
-                        depth_limited,
-                        batch_keys,
-                        &child_segment,
-                        &self_path,
-                    );
-                    if out.len() >= limit {
-                        break;
-                    }
-                }
-            }
-            CFRelease(children);
+        let role = ax_string(element, "AXRole");
+        let projected = role.as_deref().is_some_and(is_included);
+        let size = if projected {
+            ax_size(element).unwrap_or_default()
+        } else {
+            CGSize::default()
+        };
+        let title = if projected {
+            ax_string(element, "AXTitle")
+                .or_else(|| ax_string(element, "AXDescription"))
+                .or_else(|| ax_string(element, "AXHelp"))
+                .or_else(|| ax_string(element, "AXIdentifier"))
+                .filter(|s| !s.is_empty())
+        } else {
+            None
+        };
+        let value = if projected {
+            ax_string(element, "AXValue").filter(|s| !s.is_empty())
+        } else {
+            None
+        };
+        let position = if projected {
+            ax_position(element)
+        } else {
+            None
+        };
+        let (children, owned) = retained_children(element);
+        return RefNodeRead {
+            role,
+            title,
+            value,
+            position,
+            size,
+            children,
+            owned,
+        };
+    }
+
+    let role = batch_string_with_fallback(values, BA_ROLE, element, "AXRole");
+    let projected = role.as_deref().is_some_and(is_included);
+    let size = if projected {
+        batch_size_with_fallback(values, element)
+    } else {
+        CGSize::default()
+    };
+    let title = if projected {
+        batch_string_with_fallback(values, BA_TITLE, element, "AXTitle")
+            .or_else(|| batch_string_with_fallback(values, BA_DESC, element, "AXDescription"))
+            .or_else(|| batch_string_with_fallback(values, BA_HELP, element, "AXHelp"))
+            .or_else(|| batch_string_with_fallback(values, BA_IDENTIFIER, element, "AXIdentifier"))
+            .filter(|s| !s.is_empty())
+    } else {
+        None
+    };
+    let value = if projected {
+        batch_string_with_fallback(values, BA_VALUE, element, "AXValue").filter(|s| !s.is_empty())
+    } else {
+        None
+    };
+    let position = if projected {
+        batch_position_with_fallback(values, element)
+    } else {
+        None
+    };
+
+    // `values` owns/retains its child array. When the slot is valid, keeping
+    // only `values` alive is sufficient; when it is an error marker, the
+    // separately fetched children array is added to the ownership chain.
+    let mut owned = vec![values];
+    let fallback_role = test_ax_faults().children_fallback_role.as_deref();
+    let force_children_fallback = fallback_role.is_some() && fallback_role == role.as_deref();
+    let children =
+        if !force_children_fallback && let Some(children) = batch_children(values, BA_CHILDREN) {
+            Some(children)
+        } else {
+            let (children, mut child_owned) = retained_children(element);
+            owned.append(&mut child_owned);
+            children
+        };
+
+    RefNodeRead {
+        role,
+        title,
+        value,
+        position,
+        size,
+        children,
+        owned,
+    }
+}
+
+/// Visit control for the canonical DFS. `Break` returns the consumer's result
+/// and stops traversal immediately (used by both limits and ref lookups).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RefVisit<T> {
+    Continue,
+    Break(T),
+}
+
+/// One preorder traversal for every numeric-ref producer and consumer.
+/// `track_paths` is false for action-only consumers to avoid path-label IPC;
+/// it does not affect inclusion or ref numbering.
+#[allow(clippy::too_many_arguments)]
+unsafe fn traverse_ref_tree<T, Reader, Visitor>(
+    element: CFTypeRef,
+    counter: &mut usize,
+    depth: usize,
+    track_paths: bool,
+    my_segment: &str,
+    parent_path: &str,
+    depth_limited: &mut bool,
+    reader: &mut Reader,
+    visitor: &mut Visitor,
+) -> Option<T>
+where
+    Reader: FnMut(CFTypeRef) -> RefNodeRead,
+    Visitor: FnMut(CFTypeRef, &RefNodeRead, Option<usize>, &str) -> RefVisit<T>,
+{
+    if depth > MAX_DEPTH {
+        *depth_limited = true;
+        return None;
+    }
+
+    let node = reader(element);
+    let ref_id = RefProjection::from_parts(node.role.as_deref(), node.size).assign(counter);
+    let self_path = if track_paths {
+        if parent_path.is_empty() {
+            my_segment.to_string()
+        } else {
+            format!("{parent_path}/{my_segment}")
         }
-        return;
+    } else {
+        String::new()
+    };
+
+    if let RefVisit::Break(result) = visitor(element, &node, ref_id, &self_path) {
+        node.release();
+        return Some(result);
     }
 
-    // Check role and maybe add to output
-    if let Some(role) = batch_string(values, BA_ROLE)
-        && is_included(&role)
-    {
-        let title = batch_string(values, BA_TITLE)
-            .or_else(|| batch_string(values, BA_DESC))
-            .or_else(|| batch_string(values, BA_HELP))
-            .or_else(|| batch_string(values, BA_IDENTIFIER))
-            .filter(|s| !s.is_empty());
-
-        let value = batch_string(values, BA_VALUE).filter(|s| !s.is_empty());
-        let pos = batch_position(values, BA_POS).unwrap_or_default();
-        let size = batch_size(values, BA_SIZE).unwrap_or_default();
-
-        if size.width > 0.0 || size.height > 0.0 {
-            *counter += 1;
-            out.push(Element {
-                ref_id: *counter,
-                role: normalize_role(&role),
-                title,
-                value,
-                x: pos.x.round(),
-                y: pos.y.round(),
-                width: size.width.round(),
-                height: size.height.round(),
-                ax_path: Some(self_path.clone()),
-            });
-        }
-    }
-
-    if out.len() >= limit {
-        CFRelease(values);
-        return;
-    }
-
-    // Recurse into children (from the same batch read — no extra IPC).
-    // Track sibling segments to assign `:N` disambiguators when multiple
-    // children produce the same `Role[Title]` segment.
-    if let Some(children) = batch_children(values, BA_CHILDREN) {
+    if let Some(children) = node.children {
         let count = CFArrayGetCount(children);
         let mut seen: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
         for i in 0..count {
@@ -964,25 +1208,30 @@ unsafe fn walk(
             if child.is_null() {
                 continue;
             }
-            let child_segment = compute_child_segment(child, &mut seen);
-            walk(
+            let child_segment = if track_paths {
+                compute_child_segment(child, &mut seen)
+            } else {
+                String::new()
+            };
+            if let Some(result) = traverse_ref_tree(
                 child,
-                out,
                 counter,
-                limit,
                 depth + 1,
-                depth_limited,
-                batch_keys,
+                track_paths,
                 &child_segment,
                 &self_path,
-            );
-            if out.len() >= limit {
-                break;
+                depth_limited,
+                reader,
+                visitor,
+            ) {
+                node.release();
+                return Some(result);
             }
         }
     }
 
-    CFRelease(values);
+    node.release();
+    None
 }
 
 /// Compute the path segment for `child` (Role[Title]:N). `seen` tracks how
@@ -1194,149 +1443,43 @@ unsafe fn copy_action_names(element: CFTypeRef) -> Vec<String> {
     out
 }
 
-/// Walk tree to find element by ref and perform the named AX action.
-/// Returns Some((success, available_actions)) on hit, None on miss.
-/// `available_actions` is always populated when the element is found, so
-/// callers can include it in error hints regardless of success.
-unsafe fn find_and_perform_action(
-    element: CFTypeRef,
-    target_ref: usize,
-    counter: &mut usize,
-    depth: usize,
-    action: &str,
-) -> Option<(bool, Vec<String>)> {
-    if depth > MAX_DEPTH {
-        return None;
-    }
-
-    if let Some(role) = ax_string(element, "AXRole")
-        && is_included(&role)
-    {
-        let size = ax_size(element).unwrap_or_default();
-        if size.width > 0.0 || size.height > 0.0 {
-            *counter += 1;
-            if *counter == target_ref {
-                let success = try_action(element, action);
-                let available = copy_action_names(element);
-                return Some((success, available));
-            }
+/// Resolve a numeric ref through the canonical traversal and run a callback
+/// when that ref is reached. The callback owns only the duration of the call;
+/// AX children remain alive until the traversal unwinds.
+unsafe fn resolve_ref_with<T, F>(root: CFTypeRef, ref_id: usize, perform: F) -> (Option<T>, usize)
+where
+    F: FnOnce(CFTypeRef, &RefNodeRead, usize) -> T,
+{
+    let mut counter = 0usize;
+    let mut depth_limited = false;
+    let mut perform = Some(perform);
+    let mut reader = |element| read_single_ref_node(element);
+    let mut visitor = |element: CFTypeRef,
+                       node: &RefNodeRead,
+                       candidate: Option<usize>,
+                       _path: &str|
+     -> RefVisit<T> {
+        if candidate == Some(ref_id) {
+            let callback = perform
+                .take()
+                .expect("canonical ref callback invoked more than once");
+            RefVisit::Break(callback(element, node, ref_id))
+        } else {
+            RefVisit::Continue
         }
-    }
-
-    if let Some(children) = ax_attr(element, "AXChildren") {
-        if CFGetTypeID(children) == CFArrayGetTypeID() {
-            let count = CFArrayGetCount(children);
-            for i in 0..count {
-                let child = CFArrayGetValueAtIndex(children, i);
-                if !child.is_null()
-                    && let Some(result) =
-                        find_and_perform_action(child, target_ref, counter, depth + 1, action)
-                {
-                    CFRelease(children);
-                    return Some(result);
-                }
-            }
-        }
-        CFRelease(children);
-    }
-    None
-}
-
-/// Walk tree to find element by ref and write `value_cf` to its AXValue.
-/// Returns Some(true) on successful write, Some(false) if the element rejected
-/// the write, None if the ref was not found.
-unsafe fn find_and_set_value(
-    element: CFTypeRef,
-    target_ref: usize,
-    counter: &mut usize,
-    depth: usize,
-    value_cf: CFTypeRef,
-) -> Option<bool> {
-    if depth > MAX_DEPTH {
-        return None;
-    }
-
-    if let Some(role) = ax_string(element, "AXRole")
-        && is_included(&role)
-    {
-        let size = ax_size(element).unwrap_or_default();
-        if size.width > 0.0 || size.height > 0.0 {
-            *counter += 1;
-            if *counter == target_ref {
-                return Some(try_set_value(element, "AXValue", value_cf));
-            }
-        }
-    }
-
-    if let Some(children) = ax_attr(element, "AXChildren") {
-        if CFGetTypeID(children) == CFArrayGetTypeID() {
-            let count = CFArrayGetCount(children);
-            for i in 0..count {
-                let child = CFArrayGetValueAtIndex(children, i);
-                if !child.is_null()
-                    && let Some(result) =
-                        find_and_set_value(child, target_ref, counter, depth + 1, value_cf)
-                {
-                    CFRelease(children);
-                    return Some(result);
-                }
-            }
-        }
-        CFRelease(children);
-    }
-    None
-}
-
-/// Walk tree to find element by ref. If `perform_actions` is true, tries AX actions.
-/// Returns (action_performed, x_center, y_center).
-unsafe fn find_element_by_ref(
-    element: CFTypeRef,
-    target_ref: usize,
-    counter: &mut usize,
-    depth: usize,
-    perform_actions: bool,
-) -> Option<(bool, f64, f64)> {
-    if depth > MAX_DEPTH {
-        return None;
-    }
-
-    if let Some(role) = ax_string(element, "AXRole")
-        && is_included(&role)
-    {
-        let size = ax_size(element).unwrap_or_default();
-        if size.width > 0.0 || size.height > 0.0 {
-            *counter += 1;
-            if *counter == target_ref {
-                let pos = ax_position(element).unwrap_or_default();
-                let cx = pos.x + size.width / 2.0;
-                let cy = pos.y + size.height / 2.0;
-                let acted = if perform_actions {
-                    try_ax_actions(element).is_some()
-                } else {
-                    false
-                };
-                return Some((acted, cx, cy));
-            }
-        }
-    }
-
-    if let Some(children) = ax_attr(element, "AXChildren") {
-        if CFGetTypeID(children) == CFArrayGetTypeID() {
-            let count = CFArrayGetCount(children);
-            for i in 0..count {
-                let child = CFArrayGetValueAtIndex(children, i);
-                if !child.is_null()
-                    && let Some(result) =
-                        find_element_by_ref(child, target_ref, counter, depth + 1, perform_actions)
-                {
-                    CFRelease(children);
-                    return Some(result);
-                }
-            }
-        }
-        CFRelease(children);
-    }
-    None
+    };
+    let result = traverse_ref_tree(
+        root,
+        &mut counter,
+        0,
+        false,
+        "",
+        "",
+        &mut depth_limited,
+        &mut reader,
+        &mut visitor,
+    );
+    (result, counter)
 }
 
 // ── Public API ──────────────────────────────────────────────────────────────
@@ -1356,8 +1499,20 @@ fn resolve_ref(pid: i32, ref_id: usize, perform_actions: bool) -> Result<(bool, 
 
         let walk_root = window_el.unwrap_or(app_el);
 
-        let mut counter = 0usize;
-        let result = find_element_by_ref(walk_root, ref_id, &mut counter, 0, perform_actions);
+        let (result, counter) = resolve_ref_with(walk_root, ref_id, |element, node, _| {
+            let pos = node
+                .position
+                .or_else(|| ax_position(element))
+                .unwrap_or_default();
+            let cx = pos.x + node.size.width / 2.0;
+            let cy = pos.y + node.size.height / 2.0;
+            let acted = if perform_actions {
+                try_ax_actions(element).is_some()
+            } else {
+                false
+            };
+            (acted, cx, cy)
+        });
 
         if let Some(w) = window_el {
             CFRelease(w);
@@ -1687,8 +1842,9 @@ pub fn ax_set_value(pid: i32, ref_id: usize, _limit: usize, value: &str) -> Resu
         }
         let walk_root = window_el.unwrap_or(app_el);
 
-        let mut counter = 0usize;
-        let result = find_and_set_value(walk_root, ref_id, &mut counter, 0, value_cf);
+        let (result, counter) = resolve_ref_with(walk_root, ref_id, |element, _, _| {
+            try_set_value(element, "AXValue", value_cf)
+        });
 
         if let Some(w) = window_el {
             CFRelease(w);
@@ -1737,8 +1893,11 @@ pub fn ax_perform(
         }
         let walk_root = window_el.unwrap_or(app_el);
 
-        let mut counter = 0usize;
-        let result = find_and_perform_action(walk_root, ref_id, &mut counter, 0, action);
+        let (result, counter) = resolve_ref_with(walk_root, ref_id, |element, _, _| {
+            let success = try_action(element, action);
+            let available = copy_action_names(element);
+            (success, available)
+        });
 
         if let Some(w) = window_el {
             CFRelease(w);
@@ -1788,63 +1947,6 @@ pub struct RefInspection {
     pub subrole: Option<String>,
 }
 
-unsafe fn find_and_inspect(
-    element: CFTypeRef,
-    target_ref: usize,
-    counter: &mut usize,
-    depth: usize,
-) -> Option<RefInspection> {
-    if depth > MAX_DEPTH {
-        return None;
-    }
-    if let Some(role) = ax_string(element, "AXRole")
-        && is_included(&role)
-    {
-        let size = ax_size(element).unwrap_or_default();
-        if size.width > 0.0 || size.height > 0.0 {
-            *counter += 1;
-            if *counter == target_ref {
-                let actions = copy_action_names(element);
-                let enabled = ax_attr(element, "AXEnabled").map(|v| {
-                    let is_bool = CFGetTypeID(v) == CFBooleanGetTypeID();
-                    let result = is_bool && std::ptr::eq(v, kCFBooleanTrue);
-                    CFRelease(v);
-                    result
-                });
-                let focused = ax_attr(element, "AXFocused").map(|v| {
-                    let is_bool = CFGetTypeID(v) == CFBooleanGetTypeID();
-                    let result = is_bool && std::ptr::eq(v, kCFBooleanTrue);
-                    CFRelease(v);
-                    result
-                });
-                let subrole = ax_string(element, "AXSubrole").filter(|s| !s.is_empty());
-                return Some(RefInspection {
-                    actions,
-                    enabled,
-                    focused,
-                    subrole,
-                });
-            }
-        }
-    }
-    if let Some(children) = ax_attr(element, "AXChildren") {
-        if CFGetTypeID(children) == CFArrayGetTypeID() {
-            let count = CFArrayGetCount(children);
-            for i in 0..count {
-                let child = CFArrayGetValueAtIndex(children, i);
-                if !child.is_null()
-                    && let Some(r) = find_and_inspect(child, target_ref, counter, depth + 1)
-                {
-                    CFRelease(children);
-                    return Some(r);
-                }
-            }
-        }
-        CFRelease(children);
-    }
-    None
-}
-
 /// Walk the tree to find a ref and return its supported actions + enabled state.
 /// Returns None if the ref is out of range. Used by `cu why`.
 pub fn inspect_ref(pid: i32, ref_id: usize) -> Option<RefInspection> {
@@ -1859,8 +1961,18 @@ pub fn inspect_ref(pid: i32, ref_id: usize) -> Option<RefInspection> {
             set_element_timeout(w);
         }
         let walk_root = window_el.unwrap_or(app_el);
-        let mut counter = 0usize;
-        let result = find_and_inspect(walk_root, ref_id, &mut counter, 0);
+        let (result, _) = resolve_ref_with(walk_root, ref_id, |element, _, _| {
+            let actions = copy_action_names(element);
+            let enabled = ax_bool(element, "AXEnabled");
+            let focused = ax_bool(element, "AXFocused");
+            let subrole = ax_string(element, "AXSubrole").filter(|s| !s.is_empty());
+            RefInspection {
+                actions,
+                enabled,
+                focused,
+                subrole,
+            }
+        });
         if let Some(w) = window_el {
             CFRelease(w);
         }
@@ -2106,16 +2218,49 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
             .or_else(|| ax_string(walk_root, "AXDescription"))
             .filter(|s| !s.is_empty());
         let root_segment = build_path_segment(&root_role, root_title.as_deref());
-        walk(
+        let mut reader = |element| read_batch_ref_node(element, batch_keys);
+        let mut visitor = |element: CFTypeRef,
+                           node: &RefNodeRead,
+                           ref_id: Option<usize>,
+                           self_path: &str|
+         -> RefVisit<()> {
+            if elements.len() >= limit {
+                return RefVisit::Break(());
+            }
+            if let Some(ref_id) = ref_id {
+                let pos = node.position.unwrap_or_default();
+                elements.push(Element {
+                    ref_id,
+                    role: normalize_role(node.role.as_deref().unwrap_or_default()),
+                    title: node.title.clone(),
+                    value: node.value.clone(),
+                    x: pos.x.round(),
+                    y: pos.y.round(),
+                    width: node.size.width.round(),
+                    height: node.size.height.round(),
+                    ax_path: Some(self_path.to_string()),
+                });
+            }
+            if elements.len() >= limit {
+                RefVisit::Break(())
+            } else {
+                // `element` is intentionally consumed by the visitor type so
+                // the callback remains compatible with action consumers; the
+                // snapshot projection itself only needs the decoded fields.
+                let _ = element;
+                RefVisit::Continue
+            }
+        };
+        let _ = traverse_ref_tree(
             walk_root,
-            &mut elements,
             &mut counter,
-            limit,
             0,
-            &mut depth_limited,
-            batch_keys,
+            true,
             &root_segment,
             "",
+            &mut depth_limited,
+            &mut reader,
+            &mut visitor,
         );
         CFRelease(batch_keys);
 
