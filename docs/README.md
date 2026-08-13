@@ -43,4 +43,4 @@ Per-flag reference: run `cu <command> --help`, or read [`plugin/skills/computer-
 | [ROADMAP.md](ROADMAP.md) | Sprint progress + reliability work — current source of truth |
 | [universal-agent-integration.md](universal-agent-integration.md) | CLI-only Agent integration and private Broker boundary |
 | [competitive-analysis.md](competitive-analysis.md) | Feature comparison snapshot (frozen 2026-04-03 — see ROADMAP for current state) |
-| [archive/](archive/) | Research and historical design docs (frozen) |
+| [archive/](archive/) | Research, superseded plans, inventories, and candidate patches (frozen) |
