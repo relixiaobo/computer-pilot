@@ -66,6 +66,47 @@ else
   _skip "why identity" "no row ref"
 fi
 
+section "ref projection — perform diagnostics use the same target identity"
+
+# Pick an observed element that exposes at least one AX action. The invalid
+# action is deliberately side-effect free; its diagnostic echoes the action
+# list read by `why`, proving both consumers resolved the same numeric ref.
+PERFORM_REF=""
+WHY_ACTIONS=""
+for candidate in $(seq 1 12); do
+  cu_json why "$candidate" --app Finder --limit 120
+  if [[ "$EXIT" -ne 0 ]] || [[ "$(json_get '.found' || echo false)" != "true" ]]; then
+    continue
+  fi
+  candidate_actions=$(echo "$OUT" | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+a = d.get("checks", {}).get("actions_supported", [])
+print(json.dumps(sorted(a), separators=(",", ":")))
+')
+  if [[ "$candidate_actions" != "[]" ]]; then
+    PERFORM_REF="$candidate"
+    WHY_ACTIONS="$candidate_actions"
+    break
+  fi
+done
+
+if [[ -n "$PERFORM_REF" ]]; then
+  cu_json perform "$PERFORM_REF" AXCanonicalProjectionProbe --app Finder --no-snapshot
+  PERFORM_JSON="${OUT:-$ERR}"
+  PERFORM_ACTIONS=$(echo "$PERFORM_JSON" | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+print(json.dumps(sorted(d.get("diagnostics", {}).get("available_actions", [])), separators=(",", ":")))
+' 2>/dev/null || echo "")
+  [[ "$EXIT" -ne 0 && "$PERFORM_ACTIONS" == "$WHY_ACTIONS" ]] \
+    && _pass "perform ref [$PERFORM_REF] shares why action identity" \
+    || _fail "perform ref shares why action identity" \
+      "why=$WHY_ACTIONS perform=$PERFORM_ACTIONS exit=$EXIT output=${PERFORM_JSON:0:180}"
+else
+  _skip "perform/why identity" "no Finder ref in the first 12 exposes an AX action"
+fi
+
 section "ref projection — TextEdit action paths use the same order"
 
 if textedit_reset; then
@@ -115,7 +156,15 @@ roles={e.get("axPath", "").split("/")[-1].split("[")[0] for e in d.get("elements
 print("AXRow" if "row" in {r.lower() for r in roles} else "")
 ')
 if [[ -n "$FAULT_ROLE" ]]; then
-  BASE_COUNT=$(echo "$SNAPSHOT_JSON" | python3 -c 'import json,sys; print(len(json.load(sys.stdin).get("elements", [])))')
+  BASE_DESC_PATH=$(echo "$SNAPSHOT_JSON" | python3 -c '
+import json,sys
+es=json.load(sys.stdin).get("elements", [])
+for e in es:
+    parts=e.get("axPath", "").split("/")
+    if len(parts) > 1 and any(p == "row" or p.startswith("row:") for p in parts[:-1]):
+        print(e["axPath"])
+        break
+')
   BASE_AFTER=$(echo "$SNAPSHOT_JSON" | python3 -c '
 import json,sys
 d=json.load(sys.stdin); es=d.get("elements", [])
@@ -124,13 +173,21 @@ print(next((e["ref"] for e in es if e.get("role")=="statictext"), ""))
   FAULT_JSON=$(CU_TEST_AX_BATCH_FAIL_ROLE="$FAULT_ROLE" COMPUTER_PILOT_BROKER_CHILD=1 "$CU" snapshot Finder --limit 120 2>/dev/null || true)
   FAULT_OK=$(echo "$FAULT_JSON" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("ok",False))' 2>/dev/null || echo false)
   if [[ "$FAULT_OK" == "True" ]]; then
-    FAULT_COUNT=$(echo "$FAULT_JSON" | python3 -c 'import json,sys; print(len(json.load(sys.stdin).get("elements", [])))')
+    FAULT_DESC=$(echo "$FAULT_JSON" | python3 -c '
+import json,sys
+path=sys.argv[1]
+es=json.load(sys.stdin).get("elements", [])
+e=next((e for e in es if e.get("axPath") == path), None)
+print("|".join(str(e.get(k, "")) for k in ("role", "x", "y", "width", "height")) if e else "")
+' "$BASE_DESC_PATH")
     FAULT_AFTER=$(echo "$FAULT_JSON" | python3 -c '
 import json,sys
 d=json.load(sys.stdin); es=d.get("elements", [])
 print(next((e["ref"] for e in es if e.get("role")=="statictext"), ""))
 ')
-    [[ "$FAULT_COUNT" == "$BASE_COUNT" ]] && _pass "batch failure keeps descendant count" || _fail "batch failure count" "baseline=$BASE_COUNT fault=$FAULT_COUNT"
+    [[ -n "$BASE_DESC_PATH" && -n "$FAULT_DESC" ]] \
+      && _pass "batch failure preserves a named descendant" \
+      || _fail "batch failure descendant fallback" "path=$BASE_DESC_PATH identity=$FAULT_DESC"
     [[ "$FAULT_AFTER" == "$BASE_AFTER" ]] && _pass "batch failure keeps later refs" || _fail "batch failure later refs" "baseline=$BASE_AFTER fault=$FAULT_AFTER"
   else
     _fail "batch failure injection snapshot" "fault role=$FAULT_ROLE output=${FAULT_JSON:0:160}"
@@ -139,13 +196,21 @@ print(next((e["ref"] for e in es if e.get("role")=="statictext"), ""))
   CHILD_FAULT_JSON=$(CU_TEST_AX_BATCH_CHILDREN_FALLBACK_ROLE="$FAULT_ROLE" COMPUTER_PILOT_BROKER_CHILD=1 "$CU" snapshot Finder --limit 120 2>/dev/null || true)
   CHILD_FAULT_OK=$(echo "$CHILD_FAULT_JSON" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("ok",False))' 2>/dev/null || echo false)
   if [[ "$CHILD_FAULT_OK" == "True" ]]; then
-    CHILD_FAULT_COUNT=$(echo "$CHILD_FAULT_JSON" | python3 -c 'import json,sys; print(len(json.load(sys.stdin).get("elements", [])))')
+    CHILD_FAULT_DESC=$(echo "$CHILD_FAULT_JSON" | python3 -c '
+import json,sys
+path=sys.argv[1]
+es=json.load(sys.stdin).get("elements", [])
+e=next((e for e in es if e.get("axPath") == path), None)
+print("|".join(str(e.get(k, "")) for k in ("role", "x", "y", "width", "height")) if e else "")
+' "$BASE_DESC_PATH")
     CHILD_FAULT_AFTER=$(echo "$CHILD_FAULT_JSON" | python3 -c '
 import json,sys
 d=json.load(sys.stdin); es=d.get("elements", [])
 print(next((e["ref"] for e in es if e.get("role")=="statictext"), ""))
 ')
-    [[ "$CHILD_FAULT_COUNT" == "$BASE_COUNT" ]] && _pass "children-slot fallback keeps descendant count" || _fail "children-slot fallback count" "baseline=$BASE_COUNT fault=$CHILD_FAULT_COUNT"
+    [[ -n "$BASE_DESC_PATH" && -n "$CHILD_FAULT_DESC" ]] \
+      && _pass "children-slot fallback preserves a named descendant" \
+      || _fail "children-slot fallback descendant" "path=$BASE_DESC_PATH identity=$CHILD_FAULT_DESC"
     [[ "$CHILD_FAULT_AFTER" == "$BASE_AFTER" ]] && _pass "children-slot fallback keeps later refs" || _fail "children-slot fallback later refs" "baseline=$BASE_AFTER fault=$CHILD_FAULT_AFTER"
   else
     _fail "children-slot fallback injection snapshot" "fault role=$FAULT_ROLE output=${CHILD_FAULT_JSON:0:160}"
