@@ -1307,6 +1307,10 @@ fn fail_main(e: CuError, json: bool) -> ! {
 
 fn broker_child_argv(json: bool) -> Vec<String> {
     let raw: Vec<String> = std::env::args().skip(1).collect();
+    broker_child_argv_from(&raw, json)
+}
+
+fn broker_child_argv_from(raw: &[String], json: bool) -> Vec<String> {
     let mut argv = Vec::with_capacity(raw.len() + 1);
     let mut root = true;
     let mut index = 0;
@@ -4769,4 +4773,203 @@ fn maybe_attach_snapshot(
     limit: usize,
 ) -> Option<ax::SnapshotResult> {
     capture_and_maybe_attach_snapshot(result, json, no_snapshot, app, limit, false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn strings(values: &[&str]) -> Vec<String> {
+        values.iter().map(|value| (*value).to_string()).collect()
+    }
+
+    fn focused(ref_id: Option<usize>, role: &str, path: Option<&str>) -> ax::FocusedSummary {
+        ax::FocusedSummary {
+            ref_id,
+            role: role.into(),
+            title: None,
+            value: None,
+            ax_path: path.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn method_metadata_distinguishes_delivery_confidence() {
+        let cases = [
+            ("ax-action", "high", false),
+            ("ax-set-value", "medium", true),
+            ("ax-perform", "medium", true),
+            ("key-pid", "medium", true),
+            ("unicode-pid", "medium", true),
+            ("paste-pid", "medium", true),
+            ("cgevent-pid", "high", false),
+            ("ocr-text-pid", "medium", true),
+            ("cgevent-global", "low", true),
+            ("ocr-text-global", "low", true),
+            ("unknown-method", "medium", false),
+        ];
+
+        for (method, confidence, has_advice) in cases {
+            let actual = method_meta(method);
+            assert_eq!(actual.0, confidence, "method={method}");
+            assert_eq!(!actual.1.is_empty(), has_advice, "method={method}");
+        }
+    }
+
+    #[test]
+    fn method_annotation_is_additive_and_preserves_explicit_metadata() {
+        let mut result = serde_json::json!({"ok": true});
+        annotate_method(&mut result);
+        assert_eq!(result, serde_json::json!({"ok": true}));
+
+        let mut direct = serde_json::json!({"ok": true, "method": "ax-action"});
+        annotate_method(&mut direct);
+        assert_eq!(direct["confidence"], "high");
+        assert!(direct.get("advice").is_none());
+
+        let mut fallback = serde_json::json!({"method": "key-global"});
+        annotate_method(&mut fallback);
+        assert_eq!(fallback["confidence"], "low");
+        assert!(fallback["advice"].as_str().unwrap().contains("--app"));
+
+        let mut explicit = serde_json::json!({
+            "method": "key-global",
+            "confidence": "verified",
+            "advice": "caller supplied"
+        });
+        annotate_method(&mut explicit);
+        assert_eq!(explicit["confidence"], "verified");
+        assert_eq!(explicit["advice"], "caller supplied");
+    }
+
+    #[test]
+    fn broker_child_arguments_strip_only_private_root_options() {
+        let raw = strings(&[
+            "--client-key",
+            "agent-1",
+            "--request-id=req-1",
+            "--timeout",
+            "5000",
+            "click",
+            "7",
+            "--timeout",
+            "25",
+        ]);
+        assert_eq!(
+            broker_child_argv_from(&raw, true),
+            strings(&["--json", "click", "7", "--timeout", "25"])
+        );
+
+        let explicit_human = strings(&["--human", "snapshot", "Finder"]);
+        assert_eq!(
+            broker_child_argv_from(&explicit_human, true),
+            explicit_human
+        );
+
+        let explicit_json = strings(&["--json", "apps"]);
+        assert_eq!(broker_child_argv_from(&explicit_json, false), explicit_json);
+
+        assert_eq!(
+            broker_child_argv_from(&strings(&["apps"]), false),
+            strings(&["--human", "apps"])
+        );
+    }
+
+    #[test]
+    fn paste_routing_matches_only_known_app_names() {
+        for name in [
+            "Slack",
+            "slack",
+            "Slack Helper",
+            "WeChat",
+            "微信",
+            "Lark Beta",
+            "飞书",
+            "DingTalk",
+        ] {
+            assert!(is_paste_app(name), "name={name}");
+        }
+        for name in ["TextEdit", "Finder", "Mail", "Calendar"] {
+            assert!(!is_paste_app(name), "name={name}");
+        }
+    }
+
+    #[test]
+    fn focused_identity_prefers_structural_path_then_ref() {
+        let original = focused(Some(3), "textfield", Some("window[A]/group/textfield"));
+        assert!(same_focused_element(&original, &original));
+        assert!(same_focused_element(
+            &original,
+            &focused(Some(9), "textfield", Some("window[B]/group/textfield"))
+        ));
+        assert!(same_focused_element(
+            &focused(Some(3), "textfield", None),
+            &focused(Some(3), "textfield", None)
+        ));
+        assert!(!same_focused_element(
+            &focused(None, "textfield", None),
+            &focused(None, "textfield", None)
+        ));
+        assert!(!same_focused_element(
+            &focused(Some(3), "textfield", None),
+            &focused(Some(3), "textarea", None)
+        ));
+        assert!(focused_inside_webarea(&focused(
+            Some(1),
+            "textfield",
+            Some("window/AXWebArea/textfield")
+        )));
+        assert!(!focused_inside_webarea(&focused(
+            Some(1),
+            "textfield",
+            Some("window/group/textfield")
+        )));
+    }
+
+    #[test]
+    fn region_parser_accepts_supported_forms_and_rejects_bad_geometry() {
+        for (input, expected) in [
+            ("480,200 400x300", (480.0, 200.0, 400.0, 300.0)),
+            ("480,200,400,300", (480.0, 200.0, 400.0, 300.0)),
+            ("480 200 400 300", (480.0, 200.0, 400.0, 300.0)),
+            ("480,200 400X300", (480.0, 200.0, 400.0, 300.0)),
+            ("-20,-10 40x30", (-20.0, -10.0, 40.0, 30.0)),
+        ] {
+            assert_eq!(parse_region(input).unwrap(), expected, "input={input}");
+        }
+
+        let missing = parse_region("1,2,3").unwrap_err();
+        assert!(missing.error.contains("expected 4 numbers"));
+        assert!(missing.hint.is_some());
+        assert_eq!(missing.suggested_next.len(), 1);
+
+        for input in ["a,2,3,4", "NaN,2,3,4", "inf,2,3,4"] {
+            assert!(parse_region(input).is_err(), "input={input}");
+        }
+        for input in ["1,2,0,4", "1,2,3,0", "1,2,-3,4", "1,2,3,-4"] {
+            let error = parse_region(input).unwrap_err();
+            assert!(error.error.contains("must be > 0"), "input={input}");
+        }
+    }
+
+    #[test]
+    fn action_text_compaction_counts_unicode_scalars() {
+        let short = "a".repeat(ACTION_SNAPSHOT_TEXT_LIMIT - 1);
+        assert_eq!(compact_action_text(&short), (short, false));
+
+        let exact = "b".repeat(ACTION_SNAPSHOT_TEXT_LIMIT);
+        assert_eq!(compact_action_text(&exact), (exact, false));
+
+        let long = "c".repeat(ACTION_SNAPSHOT_TEXT_LIMIT + 1);
+        let (compact, truncated) = compact_action_text(&long);
+        assert!(truncated);
+        assert!(compact.ends_with("..."));
+        assert_eq!(compact.chars().count(), ACTION_SNAPSHOT_TEXT_LIMIT + 3);
+
+        let unicode = "界".repeat(ACTION_SNAPSHOT_TEXT_LIMIT + 1);
+        let (compact, truncated) = compact_action_text(&unicode);
+        assert!(truncated);
+        assert_eq!(compact.matches('界').count(), ACTION_SNAPSHOT_TEXT_LIMIT);
+        assert!(compact.ends_with("..."));
+    }
 }

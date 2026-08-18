@@ -904,7 +904,98 @@ impl RefProjection {
 
 #[cfg(test)]
 mod ref_projection_tests {
-    use super::{CGSize, RefProjection};
+    use super::{
+        CGSize, INCLUDED_ROLES, RefProjection, build_path_segment, is_included, normalize_role,
+        parse_path_segment,
+    };
+
+    #[test]
+    fn included_roles_and_normalization_are_one_contract() {
+        assert_eq!(INCLUDED_ROLES.len(), 16);
+        for role in INCLUDED_ROLES {
+            assert!(is_included(role), "role={role}");
+            assert!(!normalize_role(role).starts_with("AX"), "role={role}");
+        }
+
+        for (raw, normalized) in [
+            ("AXButton", "button"),
+            ("AXStaticText", "statictext"),
+            ("AXTextField", "textfield"),
+            ("button", "button"),
+            ("AxButton", "axbutton"),
+            ("AX", ""),
+            ("", ""),
+        ] {
+            assert_eq!(normalize_role(raw), normalized, "raw={raw}");
+        }
+        for role in ["AXGroup", "AXWindow", "AXToolbar", "button", ""] {
+            assert!(!is_included(role), "role={role}");
+        }
+    }
+
+    #[test]
+    fn path_segments_sanitize_boundaries_and_round_trip() {
+        assert_eq!(build_path_segment("AXButton", None), "button");
+        assert_eq!(build_path_segment("AXButton", Some("")), "button");
+        assert_eq!(build_path_segment("AXButton", Some("Save")), "button[Save]");
+        assert_eq!(
+            build_path_segment("AXButton", Some("A/B[C]D")),
+            "button[A_B_C_D]"
+        );
+
+        let sixty = "界".repeat(60);
+        assert_eq!(
+            build_path_segment("AXStaticText", Some(&sixty)),
+            format!("statictext[{sixty}]")
+        );
+        let sixty_one = "界".repeat(61);
+        assert_eq!(
+            build_path_segment("AXStaticText", Some(&sixty_one)),
+            format!("statictext[{sixty}…]")
+        );
+
+        for (segment, role, title, index) in [
+            ("button", "button", None, 0),
+            ("button[Save]", "button", Some("Save"), 0),
+            ("button[Save]:2", "button", Some("Save"), 2),
+            ("row:12", "row", None, 12),
+            ("button[Title:part]:3", "button", Some("Title:part"), 3),
+            ("button[]", "button", Some(""), 0),
+        ] {
+            let actual = parse_path_segment(segment);
+            assert_eq!(actual.0, role, "segment={segment}");
+            assert_eq!(actual.1.as_deref(), title, "segment={segment}");
+            assert_eq!(actual.2, index, "segment={segment}");
+        }
+
+        let generated = format!("{}:4", build_path_segment("AXButton", Some("A/B[C]:D")));
+        assert_eq!(
+            parse_path_segment(&generated),
+            ("button".into(), Some("A_B_C_:D".into()), 4)
+        );
+    }
+
+    #[test]
+    fn projection_handles_geometry_boundaries_without_consuming_refs() {
+        for (role, width, height, emits) in [
+            (Some("AXButton"), 1.0, 1.0, true),
+            (Some("AXButton"), 1.0, 0.0, true),
+            (Some("AXButton"), 0.0, 1.0, true),
+            (Some("AXButton"), 0.0, 0.0, false),
+            (Some("AXButton"), -1.0, -1.0, false),
+            (Some("AXButton"), -1.0, 1.0, true),
+            (Some("AXGroup"), 10.0, 10.0, false),
+            (None, 10.0, 10.0, false),
+            (Some("AXButton"), f64::NAN, 0.0, false),
+            (Some("AXButton"), f64::INFINITY, 0.0, true),
+        ] {
+            let projection = RefProjection::from_parts(role, CGSize { width, height });
+            assert_eq!(
+                projection.emits_ref, emits,
+                "role={role:?} size={width}x{height}"
+            );
+        }
+    }
 
     #[test]
     fn only_included_positive_geometry_consumes_a_ref() {

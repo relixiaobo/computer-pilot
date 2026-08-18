@@ -189,3 +189,74 @@ impl From<&str> for CuError {
         s.to_string().into()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn error_classification_maps_recoverable_failure_families() {
+        let cases = [
+            ("ambiguous target: two apps", ErrorCode::AmbiguousTarget),
+            ("invalid PID selector", ErrorCode::InvalidArgument),
+            ("capture-protected window", ErrorCode::CaptureProtected),
+            ("capture protected content", ErrorCode::CaptureProtected),
+            ("permission denied", ErrorCode::PermissionDenied),
+            (
+                "not authorized to send Apple events",
+                ErrorCode::PermissionDenied,
+            ),
+            ("automation failed (-1743)", ErrorCode::PermissionDenied),
+            ("app not running", ErrorCode::AppNotFound),
+            ("application isn't running", ErrorCode::AppNotFound),
+            ("window not found", ErrorCode::WindowNotFound),
+            ("waiting for window timed out", ErrorCode::WindowNotFound),
+            ("focus failed", ErrorCode::FocusFailed),
+            ("failed to activate target", ErrorCode::FocusFailed),
+            ("verification failed", ErrorCode::VerificationFailed),
+            ("could not verify the action", ErrorCode::VerificationFailed),
+            ("command timed out", ErrorCode::CommandExpired),
+            ("timeout expired", ErrorCode::CommandExpired),
+            ("unclassified failure", ErrorCode::CommandFailed),
+        ];
+
+        for (message, expected) in cases {
+            assert_eq!(ErrorCode::classify(message), expected, "message={message}");
+            let error: CuError = message.into();
+            assert_eq!(error.code, expected, "message={message}");
+        }
+    }
+
+    #[test]
+    fn json_envelope_omits_unset_recovery_fields() {
+        let value = CuError::msg("plain failure").to_json();
+        assert_eq!(value["schema_version"], crate::MACHINE_SCHEMA_VERSION);
+        assert_eq!(value["ok"], false);
+        assert_eq!(value["code"], "command_failed");
+        assert_eq!(value["error"], "plain failure");
+        assert_eq!(value["retryable"], false);
+        assert!(value.get("hint").is_none());
+        assert!(value.get("suggested_next").is_none());
+        assert!(value.get("diagnostics").is_none());
+    }
+
+    #[test]
+    fn json_envelope_preserves_all_explicit_recovery_fields() {
+        let value = CuError::msg("stale")
+            .with_code(ErrorCode::StaleObservation)
+            .retryable(true)
+            .with_hint("snapshot again")
+            .with_next("cu snapshot Finder")
+            .with_next("cu click 3 --app Finder")
+            .with_diagnostics(serde_json::json!({"ref": 3}))
+            .to_json();
+
+        assert_eq!(value["code"], "stale_observation");
+        assert_eq!(value["retryable"], true);
+        assert_eq!(value["hint"], "snapshot again");
+        assert_eq!(value["suggested_next"].as_array().unwrap().len(), 2);
+        assert_eq!(value["suggested_next"][0], "cu snapshot Finder");
+        assert_eq!(value["suggested_next"][1], "cu click 3 --app Finder");
+        assert_eq!(value["diagnostics"]["ref"], 3);
+    }
+}

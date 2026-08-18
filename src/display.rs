@@ -100,3 +100,49 @@ pub fn display_for_point(x: f64, y: f64, displays: &[DisplayInfo]) -> Option<u32
 fn _unused() -> *const c_void {
     std::ptr::null()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn display(id: u32, main: bool, x: f64, y: f64, width: f64, height: f64) -> DisplayInfo {
+        DisplayInfo {
+            id,
+            main,
+            x,
+            y,
+            width,
+            height,
+        }
+    }
+
+    #[test]
+    fn point_lookup_uses_half_open_global_display_bounds() {
+        let displays = [
+            display(1, true, 0.0, 0.0, 1920.0, 1080.0),
+            display(2, false, -1280.0, -200.0, 1280.0, 1024.0),
+            display(3, false, 1920.0, 100.0, 1600.0, 900.0),
+        ];
+
+        assert_eq!(display_for_point(0.0, 0.0, &displays), Some(1));
+        assert_eq!(display_for_point(1919.999, 1079.999, &displays), Some(1));
+        assert_eq!(display_for_point(-1280.0, -200.0, &displays), Some(2));
+        assert_eq!(display_for_point(-0.001, 823.999, &displays), Some(2));
+        assert_eq!(display_for_point(1920.0, 100.0, &displays), Some(3));
+        assert_eq!(display_for_point(3519.999, 999.999, &displays), Some(3));
+    }
+
+    #[test]
+    fn point_lookup_falls_back_to_main_only_when_outside() {
+        let displays = [
+            display(7, false, -100.0, 0.0, 100.0, 100.0),
+            display(8, true, 0.0, 0.0, 100.0, 100.0),
+        ];
+
+        assert_eq!(display_for_point(100.0, 50.0, &displays), Some(8));
+        assert_eq!(display_for_point(50.0, 100.0, &displays), Some(8));
+        assert_eq!(display_for_point(10_000.0, 10_000.0, &displays), Some(8));
+        assert_eq!(display_for_point(10_000.0, 10_000.0, &displays[..1]), None);
+        assert_eq!(display_for_point(0.0, 0.0, &[]), None);
+    }
+}
