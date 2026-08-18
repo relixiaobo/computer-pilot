@@ -10,8 +10,8 @@
 Last updated: 2026-08-13. The sprint history below is retained for provenance.
 Current architecture adds four recovery commands, client-isolated Observations,
 a private per-user Broker, safe file results, and the CLI-only public Agent
-boundary documented in `universal-agent-integration.md` (**31 commands, 900+
-default command-test assertions**).
+boundary documented in `universal-agent-integration.md` (**31 commands, 1,016
+passing default command-test assertions**).
 
 ---
 
@@ -22,19 +22,20 @@ against `main` at `80c5d15`. The original proposal and its site inventory are
 frozen under [`archive/`](./archive/) because their `v0.8.0` line references and
 several implementation assumptions are no longer current.
 
-- [ ] **O1 — Canonicalize AX traversal and ref projection (P0)**
-  - **Current evidence**: `src/ax.rs` still has separate recursive paths for
-    snapshot projection, ref action, set-value, perform, and inspection. Each
-    path independently decides which elements increment the ref counter.
-  - **Required outcome**: one shared inclusion/projection contract governs every
-    ref producer and consumer; behavior tests compare snapshot refs with every
-    action path, including a deliberately unreadable subtree.
-  - **Why first**: the remaining traversal and limit work builds on this
-    contract. Optimize only after identity is shared.
+- [x] **O1 — Canonicalize AX traversal and ref projection (P0)** — **done
+  2026-08-13 in [PR #35](https://github.com/relixiaobo/computer-pilot/pull/35)**
+  - **Outcome**: one canonical preorder traversal and ref-projection contract
+    now governs snapshot, click/find, set-value, perform, and `why` inspection.
+    Batch reads recover missing attributes and unreadable child slots without
+    changing ref identity.
+  - **Behavior coverage**: snapshot/action ref and geometry identity, static and
+    zero-size nodes, perform/why identity, unreadable subtrees, and child-slot
+    fallback. The merged baseline is 18 targeted assertions and 1,016 passing
+    command-test assertions.
 
 - [ ] **O2 — Add a pure-logic Rust test foundation (P0)**
   - **Current evidence**: the default command suite is broad, but `cargo test`
-    currently contains only two unit tests. Path parsing/projection, geometry,
+    currently contains only four unit tests. Path parsing/projection, geometry,
     normalization, and state-transition logic therefore rely mainly on live
     macOS integration tests.
   - **Required outcome**: extract testable pure helpers where needed and cover
