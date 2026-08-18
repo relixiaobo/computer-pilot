@@ -367,3 +367,59 @@ pub fn resolve_keycode(name: &str) -> Result<u16, String> {
 
     Ok(code)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn modifier_parser_supports_aliases_combinations_and_case() {
+        assert_eq!(resolve_flags(&[]).unwrap(), 0);
+        assert_eq!(resolve_flags(&["cmd"]).unwrap(), FLAG_COMMAND);
+        assert_eq!(resolve_flags(&["COMMAND"]).unwrap(), FLAG_COMMAND);
+        assert_eq!(resolve_flags(&["shift"]).unwrap(), FLAG_SHIFT);
+        assert_eq!(resolve_flags(&["ctrl"]).unwrap(), FLAG_CONTROL);
+        assert_eq!(resolve_flags(&["control"]).unwrap(), FLAG_CONTROL);
+        assert_eq!(resolve_flags(&["alt"]).unwrap(), FLAG_OPTION);
+        assert_eq!(resolve_flags(&["option"]).unwrap(), FLAG_OPTION);
+        assert_eq!(resolve_flags(&["opt"]).unwrap(), FLAG_OPTION);
+        assert_eq!(
+            resolve_flags(&["cmd", "shift", "ctrl", "alt"]).unwrap(),
+            FLAG_COMMAND | FLAG_SHIFT | FLAG_CONTROL | FLAG_OPTION
+        );
+        assert_eq!(resolve_flags(&["cmd", "cmd"]).unwrap(), FLAG_COMMAND);
+        assert_eq!(
+            resolve_flags(&["meta"]).unwrap_err(),
+            "unknown modifier: meta"
+        );
+    }
+
+    #[test]
+    fn keycode_parser_covers_each_key_family_and_alias() {
+        for (name, code) in [
+            ("a", 0),
+            ("Z", 6),
+            ("0", 29),
+            ("9", 25),
+            ("return", 36),
+            ("enter", 36),
+            ("backspace", 51),
+            ("esc", 53),
+            ("up", 126),
+            ("right", 124),
+            ("minus", 27),
+            ("plus", 24),
+            ("leftbracket", 33),
+            ("slash", 44),
+            ("f1", 122),
+            ("F12", 111),
+            ("pageup", 116),
+            ("pagedown", 121),
+            ("home", 115),
+            ("end", 119),
+        ] {
+            assert_eq!(resolve_keycode(name).unwrap(), code, "name={name}");
+        }
+        assert_eq!(resolve_keycode("hyper").unwrap_err(), "unknown key: hyper");
+    }
+}

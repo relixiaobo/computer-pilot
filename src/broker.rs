@@ -2218,3 +2218,192 @@ fn path_is_private(path: &Path) -> bool {
         .map(|metadata| metadata.permissions().mode() & 0o077 == 0)
         .unwrap_or(false)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn options(mutating: bool, resource: Option<&str>, desktop_lock: bool) -> RunOptions {
+        RunOptions {
+            client_key: "test-agent".into(),
+            request_id: None,
+            timeout_ms: 1_000,
+            command: "test".into(),
+            argv: Vec::new(),
+            mutating,
+            resource: resource.map(str::to_string),
+            desktop_lock,
+            ref_id: None,
+            observation_id: None,
+            output_dir: None,
+            test_frontmost_override: None,
+        }
+    }
+
+    fn observed(ref_id: usize) -> ObservedElement {
+        ObservedElement {
+            ref_id,
+            role: "button".into(),
+            title: Some("Save".into()),
+            value: Some("0".into()),
+            x: 10.0,
+            y: 20.0,
+            width: 100.0,
+            height: 30.0,
+            ax_path: Some("window/button[Save]".into()),
+        }
+    }
+
+    fn assert_identity_change(base: &ObservedElement, mutate: impl FnOnce(&mut ObservedElement)) {
+        let mut changed = base.clone();
+        mutate(&mut changed);
+        assert!(!same_element(base, &changed));
+        assert_ne!(
+            observed_generation(std::slice::from_ref(base)),
+            observed_generation(&[changed])
+        );
+    }
+
+    #[test]
+    fn semantic_versions_accept_metadata_and_reject_malformed_values() {
+        for (value, expected) in [
+            ("0.9.2", Some((0, 9, 2))),
+            ("1.2.3", Some((1, 2, 3))),
+            ("1.2.3-rc1", Some((1, 2, 3))),
+            ("1.2.3+build.4", Some((1, 2, 3))),
+            ("1.2.3-rc1+build.4", Some((1, 2, 3))),
+            ("", None),
+            ("1", None),
+            ("1.2", None),
+            ("1.2.3.4", None),
+            ("v1.2.3", None),
+            ("1.two.3", None),
+            ("1.2.-3", None),
+        ] {
+            assert_eq!(parse_version(value), expected, "value={value}");
+        }
+    }
+
+    #[test]
+    fn broker_reuse_requires_matching_protocol_and_current_or_newer_version() {
+        let current_with_metadata = format!("{}+other-build", crate::VERSION);
+        assert!(broker_is_current(INTERNAL_PROTOCOL, crate::VERSION));
+        assert!(broker_is_current(INTERNAL_PROTOCOL, "999.0.0"));
+        assert!(broker_is_current(INTERNAL_PROTOCOL, &current_with_metadata));
+        assert!(!broker_is_current(INTERNAL_PROTOCOL + 1, crate::VERSION));
+        assert!(!broker_is_current(INTERNAL_PROTOCOL, "0.0.0"));
+        assert!(!broker_is_current(INTERNAL_PROTOCOL, "unknown"));
+        assert!(!broker_is_current(INTERNAL_PROTOCOL, ""));
+    }
+
+    #[test]
+    fn resource_admission_enforces_reader_writer_and_desktop_exclusion() {
+        let read = options(false, Some("pid:1"), false);
+        let write = options(true, Some("pid:1"), false);
+        let desktop = options(true, None, true);
+        let no_resource_write = options(true, None, false);
+        let no_resource_read = options(false, None, false);
+        let mut state = BrokerState::default();
+
+        assert!(resource_available(&state, &read));
+        assert!(resource_available(&state, &write));
+        assert!(resource_available(&state, &desktop));
+
+        state.readers.insert("pid:1".into(), 2);
+        assert!(resource_available(&state, &read));
+        assert!(!resource_available(&state, &write));
+        assert!(resource_available(&state, &desktop));
+
+        state.readers.clear();
+        state.writers.insert("pid:1".into());
+        assert!(!resource_available(&state, &read));
+        assert!(!resource_available(&state, &write));
+        state.writers.clear();
+        state.writers.insert("pid:2".into());
+        assert!(resource_available(&state, &read));
+        assert!(resource_available(&state, &write));
+
+        state.writers.clear();
+        state.desktop_active = true;
+        assert!(resource_available(&state, &read));
+        assert!(!resource_available(&state, &write));
+        assert!(!resource_available(&state, &desktop));
+        assert!(!resource_available(&state, &no_resource_write));
+        assert!(resource_available(&state, &no_resource_read));
+
+        state.desktop_active = false;
+        state.active_mutations = 1;
+        assert!(!resource_available(&state, &desktop));
+        state.active_mutations = 0;
+        assert!(resource_available(&state, &desktop));
+    }
+
+    #[test]
+    fn observed_identity_and_generation_cover_every_action_field() {
+        let base = observed(1);
+        assert!(same_element(&base, &base));
+        assert_eq!(
+            observed_generation(std::slice::from_ref(&base)),
+            observed_generation(std::slice::from_ref(&base))
+        );
+
+        assert_identity_change(&base, |element| element.ref_id = 2);
+        assert_identity_change(&base, |element| element.role = "link".into());
+        assert_identity_change(&base, |element| element.title = Some("Open".into()));
+        assert_identity_change(&base, |element| element.value = None);
+        assert_identity_change(&base, |element| element.x = -0.0);
+        assert_identity_change(&base, |element| element.y = 21.0);
+        assert_identity_change(&base, |element| element.width = 101.0);
+        assert_identity_change(&base, |element| element.height = 31.0);
+        assert_identity_change(&base, |element| element.ax_path = None);
+
+        let second = observed(2);
+        assert_ne!(
+            observed_generation(&[base.clone(), second.clone()]),
+            observed_generation(&[second, base])
+        );
+    }
+
+    #[test]
+    fn command_status_terminal_set_is_explicit() {
+        for status in ["completed", "cancelled", "expired", "unknown_outcome"] {
+            assert!(is_terminal(status), "status={status}");
+        }
+        for status in ["accepted", "dispatched", "running", "failed", ""] {
+            assert!(!is_terminal(status), "status={status}");
+        }
+    }
+
+    #[test]
+    fn client_and_request_identifiers_enforce_protocol_boundaries() {
+        for value in [
+            "abc",
+            "agent-1",
+            "agent.one",
+            "agent_one",
+            "agent:one",
+            &"a".repeat(128),
+        ] {
+            assert!(validate_client_key(value).is_ok(), "value={value}");
+        }
+        for value in [
+            "",
+            "ab",
+            "-agent",
+            ".agent",
+            "agent one",
+            "agent/one",
+            "代理一",
+            &"a".repeat(129),
+        ] {
+            assert!(validate_client_key(value).is_err(), "value={value}");
+        }
+
+        for value in ["1", "request-1", "请求-1", &"r".repeat(128)] {
+            assert!(validate_request_id(value).is_ok(), "value={value}");
+        }
+        for value in ["", "request 1", "request\n1", &"r".repeat(129)] {
+            assert!(validate_request_id(value).is_err(), "value={value}");
+        }
+    }
+}
