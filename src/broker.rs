@@ -2212,13 +2212,6 @@ pub fn validate_request_id(value: &str) -> Result<(), String> {
     }
 }
 
-#[allow(dead_code)]
-fn path_is_private(path: &Path) -> bool {
-    fs::metadata(path)
-        .map(|metadata| metadata.permissions().mode() & 0o077 == 0)
-        .unwrap_or(false)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

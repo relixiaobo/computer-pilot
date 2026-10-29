@@ -382,7 +382,7 @@ Acceptance: every action command leaves the user's real cursor alone, doesn't st
 
 - [x] **D1** multi-monitor coordinate first-class handling (1d) ✅ 2026-04-27
   - **Approach**: new `src/display.rs` — `CGGetActiveDisplayList` + `CGDisplayBounds` + `CGMainDisplayID`, returns `Vec<DisplayInfo{id, main, x, y, width, height}>`. `cu snapshot` injects `displays` at top level on every JSON output path (plain / `--diff` first / `--diff` warm); agents can resolve element (x,y) to a display themselves.
-  - **API**: `display::list()` / `display::display_for_point(x, y, &displays)` (the latter is reserved for future mouse verification)
+  - **API**: `display::list()` for active display geometry
   - **Tests**: `tests/commands/test_displays.sh` 7 assertions (array shape, exactly-one-main, diff path, main-screen bounds plausibility)
 
 - [x] **D6** app launch + wait primitive (0.5d) ✅ 2026-04-27
@@ -391,13 +391,13 @@ Acceptance: every action command leaves the user's real cursor alone, doesn't st
   - **Tests**: `tests/commands/test_launch.sh` 16 assertions (name path, bundle-id path, warm/cold, no-wait, error, human mode)
 
 - [x] **D7** single-shot AXObserver wait replaces fixed 500ms (0.5d, new) ✅ 2026-04-27
-  - **Approach**: new `src/observer.rs` (~180 lines FFI), `maybe_attach_snapshot` entry switches to `observer::wait_for_settle(pid, POST_ACTION_DELAY_MS)`: `AXObserverCreate` → subscribe to `AXValueChanged` / `AXFocusedUIElementChanged` / `AXMainWindowChanged` / `AXSelectedChildrenChanged` → `CFRunLoopRunInMode` 50ms slices, return on first notification; on timeout, fall back to sleep. Observer lives only for the call (no daemon).
+  - **Approach**: new `src/observer.rs` (~180 lines FFI), `capture_and_maybe_attach_snapshot` switches to `observer::wait_for_settle(pid, POST_ACTION_DELAY_MS)`: `AXObserverCreate` → subscribe to `AXValueChanged` / `AXFocusedUIElementChanged` / `AXMainWindowChanged` / `AXSelectedChildrenChanged` → `CFRunLoopRunInMode` 50ms slices, return on first notification; on timeout, fall back to sleep. Observer lives only for the call (no daemon).
   - **Response**: every action response gains `settle_ms` recording the actual wait
   - **Value**: typical `settle_ms` ≈ 50–200ms (vs the old fixed 500ms), still capped at 500ms to avoid runaway
   - **Tests**: `tests/commands/test_settle.sh` 6 assertions (present, integer, ≤cap, max-of-3 sample, omitted with --no-snapshot)
 
 - [x] **C4** action `method` gains `confidence` + `advice` fields (0.2d) ✅ 2026-04-27
-  - **Approach**: `src/main.rs::method_meta(method)` → `(confidence, advice)` table, applied by `annotate_method` in `maybe_attach_snapshot` to every action response. `ax-action`/`ax-set-value`/`ax-perform`/`*-pid` = high; `ocr-text-pid` = medium + verify advice; `*-global` = low + "pass --app" advice.
+  - **Approach**: `src/main.rs::method_meta(method)` → `(confidence, advice)` table, applied by `annotate_method` in `capture_and_maybe_attach_snapshot` to every action response. `ax-action`/`ax-set-value`/`ax-perform`/`*-pid` = high; `ocr-text-pid` = medium + verify advice; `*-global` = low + "pass --app" advice.
   - **Tests**: `tests/commands/test_method_meta.sh` +8 assertions (key with --app=high/no-advice, no-app=low/has-advice, set-value=ax-set-value/high)
 
 - [x] **F3** SKILL.md upgraded to cookbook + decision tree (0.5d) ✅ 2026-04-27
@@ -489,7 +489,7 @@ Acceptance: every action command leaves the user's real cursor alone, doesn't st
 - **vs Codex CU**: equivalent (Codex CU also uses ScreenCaptureKit)
 
 ### ✅ Auto-snapshot after action (C0)
-- **cu**: `maybe_attach_snapshot` is called from every action command, with single-shot AXObserver wait (D7) capping at 500ms
+- **cu**: `capture_and_maybe_attach_snapshot` is called from every action command, with single-shot AXObserver wait (D7) capping at 500ms
 - **vs Codex CU**:
   - Settle strategy: cu uses single-shot AXObserver via D7 (50–200ms typical, 500ms cap); Codex CU is presumed to use long-lived `AXObserverCreate` (faster on average)
   - Reverse opt-out: cu offers `--no-snapshot`, Codex CU doesn't expose one

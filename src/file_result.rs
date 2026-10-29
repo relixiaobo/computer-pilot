@@ -50,6 +50,8 @@ where
         }
     };
 
+    // ImageIO may replace the temporary inode and reset its mode while writing.
+    // Re-apply the private mode before publishing the completed file.
     fs::set_permissions(&temporary, fs::Permissions::from_mode(0o600)).map_err(|error| {
         cleanup_error(&temporary, format!("failed to secure output file: {error}"))
     })?;
