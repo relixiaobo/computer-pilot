@@ -2494,6 +2494,32 @@ fn is_text_input_role(role: &str) -> bool {
     matches!(role, "textfield" | "textarea" | "combobox")
 }
 
+fn prepare_ref_action(
+    app: &Option<String>,
+    ref_id: Option<usize>,
+    ax_path: Option<&str>,
+    limit: usize,
+) -> Result<(i32, String, ax::SnapshotResult), CuError> {
+    if ref_id.is_none() && ax_path.is_none() {
+        return Err("provide either <ref> or --ax-path".into());
+    }
+    if ref_id == Some(0) {
+        return Err("ref must be >= 1".into());
+    }
+
+    let (pid, name) = system::resolve_target_app(app)?;
+    let pre_snapshot = ax::snapshot(pid, &name, limit.max(50));
+    if let Some(ref_id) = ref_id {
+        broker::enforce_expected_observation(pid, &name, ref_id)?;
+    }
+    Ok((pid, name, pre_snapshot))
+}
+
+fn tree_changed(before: &[ax::Element], after: &[ax::Element]) -> bool {
+    let changes = diff::diff(before, after);
+    !changes.added.is_empty() || !changes.changed.is_empty() || !changes.removed.is_empty()
+}
+
 fn same_focused_element(before: &ax::FocusedSummary, after: &ax::FocusedSummary) -> bool {
     if let (Some(before_path), Some(after_path)) = (&before.ax_path, &after.ax_path) {
         if before_path == after_path {
@@ -2831,19 +2857,7 @@ fn cmd_set_value(
     ax_path: Option<String>,
     no_snapshot: bool,
 ) -> Result<(), CuError> {
-    if ref_id.is_none() && ax_path.is_none() {
-        return Err("provide either <ref> or --ax-path".into());
-    }
-    if let Some(r) = ref_id
-        && r == 0
-    {
-        return Err("ref must be >= 1".into());
-    }
-    let (pid, name) = system::resolve_target_app(&app)?;
-    let pre_snapshot = ax::snapshot(pid, &name, limit.max(50));
-    if let Some(ref_id) = ref_id {
-        broker::enforce_expected_observation(pid, &name, ref_id)?;
-    }
+    let (pid, name, pre_snapshot) = prepare_ref_action(&app, ref_id, ax_path.as_deref(), limit)?;
 
     let (selector_kind, selector_value) = if let Some(p) = ax_path.as_deref() {
         ax::ax_set_value_by_path(pid, p, &value)?;
@@ -2881,7 +2895,7 @@ fn cmd_set_value(
         result["confidence"] = "low".into();
         result["effect_advice"] = "The target is inside AXWebArea. AXValue may update only Chromium's accessibility shadow state without firing the controlled editor's input/onChange handlers. Do not use this result as proof that Send/Submit is enabled.".into();
     }
-    let _ = maybe_attach_snapshot(&mut result, json, no_snapshot, &app, limit);
+    let _ = capture_and_maybe_attach_snapshot(&mut result, json, no_snapshot, &app, limit, false);
     if json {
         ok(result)
     } else {
@@ -2903,19 +2917,7 @@ fn cmd_perform(
     ax_path: Option<String>,
     no_snapshot: bool,
 ) -> Result<(), CuError> {
-    if ref_id.is_none() && ax_path.is_none() {
-        return Err("provide either <ref> or --ax-path".into());
-    }
-    if let Some(r) = ref_id
-        && r == 0
-    {
-        return Err("ref must be >= 1".into());
-    }
-    let (pid, name) = system::resolve_target_app(&app)?;
-    let pre_snapshot = ax::snapshot(pid, &name, limit.max(50));
-    if let Some(ref_id) = ref_id {
-        broker::enforce_expected_observation(pid, &name, ref_id)?;
-    }
+    let (pid, name, pre_snapshot) = prepare_ref_action(&app, ref_id, ax_path.as_deref(), limit)?;
 
     let (selector_kind, selector_value, available) = if let Some(p) = ax_path.as_deref() {
         // Resolve via axPath, fire AXAction directly. We piggyback on
@@ -2937,10 +2939,9 @@ fn cmd_perform(
     };
 
     let captured = capture_action_snapshot(&app, limit);
-    let effect_verified = captured.as_ref().map(|(_, _, post)| {
-        let changes = diff::diff(&pre_snapshot.elements, &post.elements);
-        !(changes.added.is_empty() && changes.changed.is_empty() && changes.removed.is_empty())
-    });
+    let effect_verified = captured
+        .as_ref()
+        .map(|(_, _, post)| tree_changed(&pre_snapshot.elements, &post.elements));
     let must_change = matches!(
         action.as_str(),
         "AXPress"
@@ -3036,16 +3037,13 @@ fn cmd_key(
     };
     let effect_verified = match (pre_snapshot.as_ref(), captured.as_ref()) {
         (Some(before), Some((_, _, after))) => {
-            let changes = diff::diff(&before.elements, &after.elements);
-            let tree_changed = !(changes.added.is_empty()
-                && changes.changed.is_empty()
-                && changes.removed.is_empty());
+            let tree_changed_result = tree_changed(&before.elements, &after.elements);
             let focus_changed = match (&before.focused, &after.focused) {
                 (Some(before), Some(after)) => !same_focused_element(before, after),
                 (None, Some(_)) | (Some(_), None) => true,
                 (None, None) => false,
             };
-            if tree_changed || focus_changed {
+            if tree_changed_result || focus_changed {
                 Some(true)
             } else if combo.eq_ignore_ascii_case("enter")
                 && before
@@ -3152,7 +3150,7 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
     // --verify: capture the AX state before any action so we can diff it
     // against the post-action snapshot. We resolve the app once here and stash
     // the (pid, name, prev_elements) tuple; downstream code paths read it back
-    // through `attach_verification` after maybe_attach_snapshot has populated
+    // through `attach_verification` after the post-action snapshot has been populated
     // result["snapshot"].
     let pre_state: Option<(i32, String, ax::SnapshotResult)> = if verify {
         match system::resolve_target_app(&app) {
@@ -3500,7 +3498,7 @@ fn cmd_scroll(
         "ok": true, "method": method, "direction": direction,
         "amount": amount, "x": sx, "y": sy,
     });
-    let _ = maybe_attach_snapshot(&mut result, json, no_snapshot, &app, 50);
+    let _ = capture_and_maybe_attach_snapshot(&mut result, json, no_snapshot, &app, 50, false);
     if json {
         ok(result)
     } else {
@@ -3534,7 +3532,7 @@ fn cmd_hover(
         "cgevent-global"
     };
     let mut result = serde_json::json!({"ok": true, "method": method, "x": x, "y": y});
-    let _ = maybe_attach_snapshot(&mut result, json, no_snapshot, &app, 50);
+    let _ = capture_and_maybe_attach_snapshot(&mut result, json, no_snapshot, &app, 50, false);
     if json {
         ok(result)
     } else {
@@ -3575,7 +3573,7 @@ fn cmd_drag(
         "ok": true, "method": method,
         "from": {"x": x1, "y": y1}, "to": {"x": x2, "y": y2},
     });
-    let _ = maybe_attach_snapshot(&mut result, json, no_snapshot, &app, 50);
+    let _ = capture_and_maybe_attach_snapshot(&mut result, json, no_snapshot, &app, 50, false);
     if json {
         ok(result)
     } else {
@@ -4585,7 +4583,7 @@ fn print_diff_human(snap: &ax::SnapshotResult, d: &diff::Diff) {
 }
 
 /// Compares the pre-action AX state against the snapshot already attached to
-/// `result` by `maybe_attach_snapshot`, then enriches the response with a
+/// `result` by the post-action snapshot helper, then enriches the response with a
 /// `verified` flag and per-action diff stats. Used by `cu click --verify`.
 ///
 /// `verified=false` means the AX tree did not change after the action — most
@@ -4763,16 +4761,6 @@ fn capture_and_maybe_attach_snapshot(
     let captured = capture_action_snapshot(app, limit)?;
     attach_captured_snapshot(result, json, no_snapshot, &captured);
     Some(captured.2)
-}
-
-fn maybe_attach_snapshot(
-    result: &mut serde_json::Value,
-    json: bool,
-    no_snapshot: bool,
-    app: &Option<String>,
-    limit: usize,
-) -> Option<ax::SnapshotResult> {
-    capture_and_maybe_attach_snapshot(result, json, no_snapshot, app, limit, false)
 }
 
 #[cfg(test)]
