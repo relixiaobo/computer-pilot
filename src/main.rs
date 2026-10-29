@@ -3167,11 +3167,6 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
         };
     let target_pid = resolved_target.as_ref().map(|(pid, _)| *pid);
     let snapshot_app = fixed_target_selector(target_pid, &app);
-    let verification_skip_reason = if target_pid.is_none() {
-        "global HID input has no fixed target PID; default AX verification was skipped"
-    } else {
-        "pre-action AX state was unavailable for the fixed target PID"
-    };
 
     // --verify: capture the AX state before any action so we can diff it
     // against the post-action snapshot. Reuse the bound target and stash
@@ -3237,16 +3232,14 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
             limit,
             verify,
         );
-        if let Some((_, _, ref prev)) = pre_state {
-            attach_verification(
-                &mut result,
-                &prev.elements,
-                post.as_ref().map(|snapshot| snapshot.elements.as_slice()),
-                method,
-            );
-        } else if verify {
-            mark_verification_skipped(&mut result, verification_skip_reason);
-        }
+        attach_click_verification(
+            &mut result,
+            verify,
+            target_pid,
+            pre_state.as_ref().map(|(_, _, snapshot)| snapshot),
+            post.as_ref(),
+            method,
+        );
         enforce_text_input_focus(&mut result, focus_target.as_ref(), post.as_ref())?;
         return if json {
             ok(result)
@@ -3349,16 +3342,14 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
             limit,
             verify,
         );
-        if let Some((_, _, ref prev)) = pre_state {
-            attach_verification(
-                &mut result,
-                &prev.elements,
-                post.as_ref().map(|snapshot| snapshot.elements.as_slice()),
-                method,
-            );
-        } else if verify {
-            mark_verification_skipped(&mut result, verification_skip_reason);
-        }
+        attach_click_verification(
+            &mut result,
+            verify,
+            target_pid,
+            pre_state.as_ref().map(|(_, _, snapshot)| snapshot),
+            post.as_ref(),
+            method,
+        );
         enforce_text_input_focus(&mut result, focus_target.as_ref(), post.as_ref())?;
         return if json {
             ok(result)
@@ -3406,16 +3397,14 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
             limit,
             verify,
         );
-        if let Some((_, _, ref prev)) = pre_state {
-            attach_verification(
-                &mut result,
-                &prev.elements,
-                post.as_ref().map(|snapshot| snapshot.elements.as_slice()),
-                method,
-            );
-        } else if verify {
-            mark_verification_skipped(&mut result, verification_skip_reason);
-        }
+        attach_click_verification(
+            &mut result,
+            verify,
+            target_pid,
+            pre_state.as_ref().map(|(_, _, snapshot)| snapshot),
+            post.as_ref(),
+            method,
+        );
         enforce_text_input_focus(&mut result, focus_target.as_ref(), post.as_ref())?;
         return if json {
             ok(result)
@@ -3475,16 +3464,14 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
         limit,
         verify,
     );
-    if let Some((_, _, ref prev)) = pre_state {
-        attach_verification(
-            &mut result,
-            &prev.elements,
-            post.as_ref().map(|snapshot| snapshot.elements.as_slice()),
-            method,
-        );
-    } else if verify {
-        mark_verification_skipped(&mut result, verification_skip_reason);
-    }
+    attach_click_verification(
+        &mut result,
+        verify,
+        target_pid,
+        pre_state.as_ref().map(|(_, _, snapshot)| snapshot),
+        post.as_ref(),
+        method,
+    );
     enforce_text_input_focus(&mut result, focus_target.as_ref(), post.as_ref())?;
     if json {
         ok(result)
@@ -4619,6 +4606,37 @@ fn mark_verification_skipped(result: &mut serde_json::Value, reason: &str) {
     }
 }
 
+fn attach_click_verification(
+    result: &mut serde_json::Value,
+    verify: bool,
+    target_pid: Option<i32>,
+    pre: Option<&ax::SnapshotResult>,
+    post: Option<&ax::SnapshotResult>,
+    method: &str,
+) {
+    if !verify {
+        return;
+    }
+    if let Some(pre) = pre {
+        attach_verification(
+            result,
+            &pre.elements,
+            post.map(|snapshot| snapshot.elements.as_slice()),
+            method,
+        );
+    } else if target_pid.is_none() {
+        mark_verification_skipped(
+            result,
+            "global HID input has no fixed target PID; default AX verification was skipped",
+        );
+    } else {
+        mark_verification_skipped(
+            result,
+            "pre-action AX state was unavailable for the fixed target PID",
+        );
+    }
+}
+
 fn attach_verification(
     result: &mut serde_json::Value,
     pre: &[ax::Element],
@@ -4865,9 +4883,12 @@ mod tests {
     #[test]
     fn skipped_verification_is_explicit() {
         let mut result = serde_json::json!({"ok": true, "method": "cgevent-global"});
-        mark_verification_skipped(&mut result, "global target is not fixed");
+        attach_click_verification(&mut result, true, None, None, None, "cgevent-global");
         assert_eq!(result["verified"], serde_json::Value::Null);
-        assert_eq!(result["verification_skipped"], "global target is not fixed");
+        assert_eq!(
+            result["verification_skipped"],
+            "global HID input has no fixed target PID; default AX verification was skipped"
+        );
     }
 
     #[test]
