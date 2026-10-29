@@ -60,12 +60,8 @@ fi
 
 section "type — background PID paste fails loud"
 
-# Snapshot the current clipboard so we can verify cu's restore step.
-SAVED_CLIP=$(pbpaste 2>/dev/null || echo "")
-echo -n "cu-test-saved-clipboard-$$" | pbcopy
-sleep 0.1
-ORIGINAL_CLIP=$(pbpaste)
-
+# Clipboard fixture writes and fidelity checks live in the opt-in paste_auto
+# tests. This check uses cu's normal full-fidelity clipboard save/restore.
 # Clear through AX instead of relying on a pre-existing keyboard selection.
 "$CU" snapshot TextEdit --limit 5 >/dev/null
 cu_json set-value 1 "" --app TextEdit --no-snapshot
@@ -87,18 +83,6 @@ else
   _skip "background paste has a recoverable result code" "background precondition unavailable"
   _skip "background paste did not mutate TextEdit" "background precondition unavailable"
 fi
-
-# Verify clipboard was restored (not left set to the typed text).
-sleep 0.1
-RESTORED_CLIP=$(pbpaste)
-if [[ "$RESTORED_CLIP" == "$ORIGINAL_CLIP" ]]; then
-  _pass "clipboard restored after paste"
-else
-  _fail "clipboard restored after paste" "expected '$ORIGINAL_CLIP', got '$RESTORED_CLIP'"
-fi
-
-# Restore the user's original clipboard (best-effort).
-printf '%s' "$SAVED_CLIP" | pbcopy 2>/dev/null || true
 
 section "type — --no-snapshot flag"
 
