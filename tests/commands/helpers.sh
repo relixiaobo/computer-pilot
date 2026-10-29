@@ -7,9 +7,9 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CU="$ROOT_DIR/target/release/cu"
 
-# Default command tests must not take the user's foreground app or send global
-# HID events. Set this only when the desktop is intentionally dedicated to the
-# foreground/global compatibility tests.
+# Default command tests must not take the user's foreground app, send global
+# HID events, or send input to an implicit foreground PID. Set this only when
+# the desktop is dedicated to the foreground/global compatibility tests.
 COMPUTER_PILOT_TEST_INTERACTIVE="${COMPUTER_PILOT_TEST_INTERACTIVE:-0}"
 
 interactive_tests_enabled() {

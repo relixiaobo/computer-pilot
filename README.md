@@ -35,17 +35,18 @@ while you keep typing in your terminal.
 
 | | cu | Codex Computer Use | Anthropic CUA | kagete |
 |---|---|---|---|---|
-| Cursor stays put | **✓ with `--app`** | ✓ | ✗ (warps) | ✗ (warps) |
-| Frontmost app preserved | **✓ with `--app`** | ✓ | ✗ | ✗ |
+| Cursor stays put | **✓ by default** | ✓ | ✗ (warps) | ✗ (warps) |
+| Frontmost app preserved | **✓ by default** | ✓ | ✗ | ✗ |
 | Clipboard untouched | **✓ except explicit/automatic paste** | ✓ | n/a | ✗ (paste-based) |
 | IME bypassed | **✓ Unicode CGEvent** | ✓ | ✗ | ✗ |
 | Perception | AX tree + OCR + screenshot | screenshot | screenshot | AX tree |
 | AX action chain | **15-step fallback** | proprietary | n/a | basic AXPress |
 | Method audit field | **✓** in every response | ✗ | ✗ | ✗ |
 
-The mechanism is per-process event delivery: when `--app <selector>` is given,
-every CGEvent is posted via `CGEventPostToPid` to the resolved pid instead
-of through the global HID tap. The cursor and focus are not touched.
+The mechanism is per-process event delivery: actions target the resolved PID by
+default, including the current frontmost PID when `--app` is omitted. The
+cursor and focus are not touched. `--allow-global` is the explicit escape hatch
+for desktop-wide HID input.
 
 Selectors accept a unique app name, unique bundle ID, or `pid:<PID>`. When
 development and production instances share a name or bundle ID, `cu` returns
@@ -62,10 +63,11 @@ Every action response includes a `method` field documenting the routing:
 |---|---|
 | `ax-action`, `ax-set-value`, `ax-perform` | direct AX call, no cursor move at all |
 | `cgevent-pid`, `unicode-pid`, `key-pid`, `ocr-text-pid` | PID-targeted (non-disruptive) |
-| `cgevent-global`, `unicode-global`, `key-global`, `ocr-text-global` | global HID tap (disruptive — `--app` was missing) |
+| `cgevent-global`, `unicode-global`, `key-global`, `ocr-text-global` | explicit global HID tap (disruptive — `--allow-global`) |
 
-A `*-global` method in the response is the audit signal that the agent
-forgot `--app` and disrupted the user. Always pass `--app <selector>`.
+A `*-global` method in the response is the audit signal that the caller opted
+into desktop-wide input. Pass `--app <selector>` when targeting a background
+app; omit `--allow-global` for the current frontmost PID.
 
 PID-targeted `drag` and `hover` also preserve the real cursor; only their
 `*-global` variants move it. A small set of sandboxed Mac App Store apps

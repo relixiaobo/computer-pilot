@@ -4,8 +4,7 @@
 source "$(dirname "$0")/helpers.sh"
 trap 'textedit_cleanup; cleanup_run' EXIT
 
-# Remove documents leaked by interrupted/manual test runs, then create exactly
-# one target document. We do NOT activate — `cu type --app
+# Create a disposable target document. We do NOT activate — `cu type --app
 # TextEdit` is PID-targeted, so TextEdit doesn't need to be frontmost as long
 # as the document's textarea is its focused element.
 textedit_reset
@@ -117,8 +116,8 @@ fi
 section "type — frontmost-app safety check"
 
 # Use the test seam to inject a known-dangerous frontmost (deterministic across
-# environments). Without --app, cu should refuse to dump text into a terminal.
-OUT=$(CU_TEST_FRONTMOST_OVERRIDE=Terminal "$CU" type "rm -rf /" --no-snapshot 2>&1) || true
+# environments). Without --app, cu should still refuse to dump text into a terminal.
+OUT=$(CU_TEST_FRONTMOST_OVERRIDE=Terminal "$CU" type "cu-safety-probe" --no-snapshot 2>&1) || true
 if echo "$OUT" | grep -q "refusing to type"; then
   _pass "refuses type without --app when frontmost is dangerous"
 else

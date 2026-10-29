@@ -88,14 +88,12 @@ assert_fail "click with non-existent app fails"
 
 section "click — text mode (OCR)"
 
-# Ensure Finder has a clean window with the sidebar (Applications row visible).
-# OCR via CGWindowListCreateImage captures behind other windows, so Finder
-# does not have to be frontmost — but `make new Finder window` may briefly
-# pull it forward when it has to spawn a window.
+# Reuse Finder's existing window; never close the user's windows for a fixture.
 osascript -e 'tell application "Finder"
-  close every window
-  make new Finder window
-  set target of front Finder window to home
+  if (count of Finder windows) is 0 then
+    make new Finder window
+    set target of front Finder window to home
+  end if
 end tell' 2>/dev/null
 sleep 1
 
@@ -118,7 +116,8 @@ assert_contains "shows click info" "Clicked"
 
 section "click — frontmost-app safety check"
 
-# Coordinate and --text clicks without --app go through the global HID tap.
+# Coordinate and --text clicks without --app target the frontmost PID.
+# Dangerous frontmost apps still require an explicit selector.
 # Inject a dangerous frontmost via the test seam: cu must refuse.
 OUT=$(CU_TEST_FRONTMOST_OVERRIDE=Terminal "$CU" click 100 100 --no-snapshot 2>&1) || true
 if echo "$OUT" | grep -q "refusing to click"; then

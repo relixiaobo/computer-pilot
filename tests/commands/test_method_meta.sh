@@ -27,9 +27,19 @@ else
   [[ "$PARSED" == *"has_advice=True"* ]] && _pass "unverified PID dispatch carries advice" || _fail "unverified PID advice" "$PARSED"
 fi
 
-section "method meta — global tap → confidence=low + advice"
+section "method meta — foreground PID and global input (interactive only)"
 
 if interactive_tests_enabled; then
+  # The override changes only the safety-check name, not the destination PID.
+  # This sends Escape to the real foreground app and can cancel the agent
+  # running this test, so it requires a dedicated interactive test desktop.
+  OUT=$(CU_TEST_FRONTMOST_OVERRIDE=Safari "$CU" --json key escape --no-snapshot 2>&1) || true
+  if echo "$OUT" | grep -q '"method":"key-pid"'; then
+    _pass "selector-less input defaults to key-pid"
+  else
+    _fail "selector-less input defaults to key-pid" "got: ${OUT:0:240}"
+  fi
+
   # --allow-global opts past the frontmost-app safety check. This intentionally
   # sends a real event to the user's foreground app and is opt-in only.
   cu_json key escape --no-snapshot --allow-global
@@ -49,6 +59,7 @@ print('|'.join([
   [[ "$PARSED" == *"conf=low"* ]]              && _pass "confidence=low on global tap"    || _fail "confidence=low on global tap"    "$PARSED"
   [[ "$PARSED" == *"advice_has_app=True"* ]]   && _pass "advice mentions --app remediation" || _fail "advice mentions --app remediation" "$PARSED"
 else
+  _skip "selector-less input defaults to key-pid" "interactive desktop tests disabled"
   _skip "cu key escape (no --app)" "interactive desktop tests disabled"
   _skip "method=key-global" "interactive desktop tests disabled"
   _skip "confidence=low on global tap" "interactive desktop tests disabled"

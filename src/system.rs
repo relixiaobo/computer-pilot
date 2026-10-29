@@ -450,6 +450,37 @@ pub fn resolve_target_app(name: &Option<String>) -> Result<(i32, String), CuErro
     resolve_target_from_apps(&running_apps_native(), name)
 }
 
+/// Resolve the process that should receive an input action.
+///
+/// An omitted selector means "the current foreground app".  That still has a
+/// concrete PID, so use PID-targeted delivery by default and leave the global
+/// HID tap as an explicit escape hatch (`--allow-global`).  Resolving the PID
+/// here also makes a no-selector action safe if the user changes apps while a
+/// brokered command is waiting to run: the event remains scoped to the process
+/// selected at dispatch time instead of following the user's new focus.
+pub fn resolve_input_target(
+    selector: &Option<String>,
+    allow_global: bool,
+    verb: &str,
+) -> Result<Option<(i32, String)>, CuError> {
+    if selector.is_none() && allow_global {
+        return Ok(None);
+    }
+
+    if selector.is_none() {
+        check_global_frontmost_safety(verb)?;
+    }
+
+    let selector = match selector {
+        Some(selector) => selector.clone(),
+        None => format!(
+            "pid:{}",
+            frontmost_pid().ok_or_else(|| CuError::msg("no frontmost application found"))?
+        ),
+    };
+    resolve_target_app(&Some(selector)).map(Some)
+}
+
 /// Return running foreground-capable processes for native AX enumeration.
 pub fn running_app_processes() -> Vec<(i32, String)> {
     running_apps_native()
@@ -460,10 +491,14 @@ pub fn running_app_processes() -> Vec<(i32, String)> {
 
 /// Apps where stray keystrokes are most damaging — terminals execute every line as a
 /// command, IDEs interpret shortcuts as destructive operations (close tab, delete file).
-/// When `cu key` / `cu type` runs without `--app`, events go to whatever is frontmost
-/// via the global HID tap; if the user happens to have one of these focused, the agent
-/// silently types into the wrong window. Refuse early with a clear error instead.
+/// When an input command follows the current frontmost PID without an explicit
+/// `--app`, these applications still deserve an extra guard because stray text
+/// can execute commands and shortcuts can destroy work. Explicit app selectors
+/// remain allowed because they make the target intentional.
 pub const DANGEROUS_FRONTMOST: &[&str] = &[
+    // Agent hosts: Escape can cancel the very task sending the event.
+    "Codex",
+    "ChatGPT",
     // Terminal emulators
     "Terminal",
     "iTerm",
@@ -541,7 +576,7 @@ pub fn check_global_frontmost_safety(verb: &str) -> Result<(), String> {
     {
         return Err(format!(
             "refusing to {verb} without --app: frontmost is \"{front}\" \
-             (terminal/IDE — stray input would execute commands or destructive shortcuts). \
+             (terminal/IDE/agent — stray input could execute commands, cancel tasks, or trigger destructive shortcuts). \
              Pass --app <Name> to target a specific app, or --allow-global to override."
         ));
     }

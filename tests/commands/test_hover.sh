@@ -48,8 +48,8 @@ fi
 
 section "hover — frontmost-app safety check"
 
-# Without --app the move goes through the global HID tap (warps the user's
-# real cursor). Inject a dangerous frontmost via the test seam: cu must refuse.
+# A dangerous frontmost still requires an explicit selector. Inject one via
+# the test seam: cu must refuse the selector-less hover.
 OUT=$(CU_TEST_FRONTMOST_OVERRIDE=Terminal "$CU" hover 100 100 --no-snapshot 2>&1) || true
 if echo "$OUT" | grep -q "refusing to hover"; then
   _pass "refuses hover without --app when frontmost is dangerous"

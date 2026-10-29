@@ -85,6 +85,14 @@ fi
 
 section "paste — clipboard restored with full fidelity (image survives)"
 
+if ! interactive_tests_enabled; then
+  _skip "PNG clipboard survives the paste round-trip" "clipboard fixture writes require a dedicated desktop"
+  _skip "concurrent clipboard write preserved" "clipboard fixture writes require a dedicated desktop"
+  _skip "clipboard_hint emitted on mid-paste write" "clipboard fixture writes require a dedicated desktop"
+  summary
+  exit
+fi
+
 # These tests overwrite the clipboard. pbpaste can only save a text clipboard,
 # so if the runner's clipboard currently holds non-text content (image, files,
 # rich text), skip rather than destroy it — the exact failure mode the feature

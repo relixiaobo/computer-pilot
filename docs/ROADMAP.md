@@ -106,7 +106,7 @@ After the E3 wrap-up the user asked for a systematic review of "what information
 | Focus / modal summary | ✅ A4 + A6 | partial | aligned (A6 unique to cu) |
 | Path-audit field | ✅ `method` field with subdivisions (F2a) | ✗ | **cu only** |
 | Multi-monitor | 🟡 single-display OK | ✅ | medium (Sprint 2 D1) |
-| Soft-cursor overlay | ❌ | ✅ | won't ship (violates zero-dependency principle) |
+| Soft-cursor overlay | ❌ | ✅ | 🟡 planned as an optional Broker-owned macOS overlay; input and presentation stay separate |
 | Test infrastructure | ✅ 700+ command-test assertions + agent E2E (runs every release) + macOSWorld 133 tasks | closed-source | cu slight edge |
 
 **Key takeaway**: cu picked the right path. The remaining gap is the "last-mile craft" — Sprint 1 (3 days) covers the most user-felt portion. **Sprint 1 is complete (2026-04-27)**: every "no focus theft / no clipboard pollution / structured errors / focus + modal summary / set-value + perform first-class" gap is closed, and we surpass Codex CU on two axes (method-field audit, modal warning).
@@ -118,7 +118,7 @@ After the E3 wrap-up the user asked for a systematic review of "what information
 Acceptance: every action command leaves the user's real cursor alone, doesn't steal global frontmost, and doesn't pollute the clipboard; `set-value` / `perform` / `find` all ship as first-class commands.
 
 - [x] **B1** PID-targeted CGEvent path in `mouse.rs` (0.5d) — **done 2026-04-27**
-  - **Approach**: extend every `mouse::*` signature with `target_pid: Option<i32>`; `Some(pid)` goes through `CGEventPostToPid` + a freshly-built combined-session `CGEventSource` (RAII `EventSource` wrapper); `None` falls back to the global `cghidEventTap`. `cmd_click`'s three modes (OCR / coords / ref) all pass `Some(pid)` when the target pid is known.
+  - **Approach**: extend every `mouse::*` signature with `target_pid: Option<i32>`; `Some(pid)` goes through `CGEventPostToPid` + a freshly-built combined-session `CGEventSource` (RAII `EventSource` wrapper); `None` is reserved for the explicit global HID escape hatch. `cmd_click`'s three modes (OCR / coords / ref) all pass `Some(pid)` when the target pid is known.
   - **Files changed**: `src/mouse.rs` (FFI + EventSource RAII + 5 public signatures), `src/main.rs` (cmd_click 3-mode wiring; cmd_scroll/hover/drag pass None for now — picked up in B5)
   - **References landed**:
     - [iFurySt/open-codex-computer-use `InputSimulation.swift`](https://github.com/iFurySt/open-codex-computer-use/blob/main/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/InputSimulation.swift) — `clickTargeted()` + `.combinedSessionState`
@@ -130,7 +130,7 @@ Acceptance: every action command leaves the user's real cursor alone, doesn't st
   - **Tests**: 258/258 command tests green
 
 - [x] **B2** PID-targeted unicode path for `cu type` / `cu key` (0.5d) — **done 2026-04-27**
-  - **Approach**: `key.rs` gains `type_text(text, target_pid)` using `CGEventKeyboardSetUnicodeString` + `CGEventPostToPid`, UTF-16 char-by-char with a 3ms gap; `key::send` adds `target_pid`. `cmd_type` / `cmd_key` use the PID path when `--app` is set. The old `system::type_text` (clipboard paste) and `system::send_key` (AppleScript activate) are deleted — git history retains them as a future sandbox-app fallback reference.
+  - **Approach**: `key.rs` gains `type_text(text, target_pid)` using `CGEventKeyboardSetUnicodeString` + `CGEventPostToPid`, UTF-16 char-by-char with a 3ms gap; `key::send` adds `target_pid`. `cmd_type` / `cmd_key` use the PID path for an explicit app or the current frontmost PID; only `--allow-global` selects the global tap. The old `system::type_text` (clipboard paste) and `system::send_key` (AppleScript activate) are deleted — git history retains them as a future sandbox-app fallback reference.
   - **Files changed**: `src/key.rs` (FFI + EventSource RAII + `type_text` + signature extension on `send`), `src/main.rs` (cmd_type/cmd_key wiring), `src/system.rs` (-145 lines of dead code + unused-import cleanup)
   - **References landed**:
     - [iFurySt `InputSimulation.swift:typeText(_:pid:)` / `pressKey(_:pid:)`](https://github.com/iFurySt/open-codex-computer-use/blob/main/packages/OpenComputerUseKit/Sources/OpenComputerUseKit/InputSimulation.swift) — copy-paste-able
@@ -205,7 +205,7 @@ Acceptance: every action command leaves the user's real cursor alone, doesn't st
   - **Trade-off**: iFurySt uses an env var because their entire binary is PID-targeted-by-default and needs an opt-in to fall back. cu is a CLI tool that routes by call semantics — a global toggle isn't needed.
 
 - [x] **F2a** subdivide `method` field, distinguish PID vs global path (0.1d) — **done 2026-04-27**
-  - **Approach**: every action command's JSON `method` field gets a path suffix. `cmd_click` 3 modes: ref mode is always `ax-action` / `cgevent-pid` / `cgevent-right-pid` / `double-click-pid` (pid known); coord mode chooses between `cgevent-pid` / `cgevent-global` / `double-click-{pid,global}` / `cgevent-right-{pid,global}` based on `--app`; OCR mode chooses `ocr-text-pid` / `ocr-text-global`. `cmd_type` adds `unicode-pid` / `unicode-global`, `cmd_key` adds `key-pid` / `key-global`, `cmd_scroll` / `hover` / `drag` each add `cgevent-pid` / `cgevent-global`.
+  - **Approach**: every action command's JSON `method` field gets a path suffix. `cmd_click` 3 modes: ref mode is always `ax-action` / `cgevent-pid` / `cgevent-right-pid` / `double-click-pid` (pid known); coord mode chooses between `cgevent-pid` / `cgevent-global` / `double-click-{pid,global}` / `cgevent-right-{pid,global}` based on resolved PID vs explicit `--allow-global`; OCR mode chooses `ocr-text-pid` / `ocr-text-global`. `cmd_type` adds `unicode-pid` / `unicode-global`, `cmd_key` adds `key-pid` / `key-global`, `cmd_scroll` / `hover` / `drag` each add `cgevent-pid` / `cgevent-global`.
   - **Files changed**: `src/main.rs` (7 method-field add/rename sites), `tests/commands/test_click.sh` (accept new method names)
   - **Value**: agent can tell at a glance whether the call took the PID-targeted path; any `*-global` is the audit signal for "forgot `--app`, just disrupted the user."
   - **Tests**: 296/296 green (including click suite re-asserted)
@@ -522,7 +522,7 @@ Acceptance: every action command leaves the user's real cursor alone, doesn't st
 
 | Item | Codex CU has it? | Why we don't do it |
 |---|---|---|
-| Soft-cursor overlay (virtual cursor — user sees the agent operating but isn't interrupted) | ✅ signature UX | needs a SwiftUI/AppKit helper process, violates the "zero runtime dependencies" principle |
+| Soft-cursor overlay (virtual cursor — user sees the agent operating but isn't interrupted) | ✅ signature UX | 🟡 planned as an optional Broker-owned macOS overlay; keep it separate from input delivery and the CLI contract |
 | MCP server mode | ❌ (not MCP) | violates CLAUDE.md's explicit "CLI only, no MCP" rule |
 | ghost-os style record/replay self-learning recipes | ❌ | beyond current product scope, needs a separate product decision |
 | Built-in VLM fallback (cu calling a VLM directly) | 🟡 GPT-5.4 ships with one | our agents have their own vision (Claude / GPT); cu is the reusable "hand", shouldn't redundantly call a remote VLM |

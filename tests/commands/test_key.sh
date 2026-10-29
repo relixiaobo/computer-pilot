@@ -56,8 +56,12 @@ section "key — modifier combos with --app"
 cu_json "key cmd+a --app TextEdit --no-snapshot"
 assert_ok "key cmd+a (select all)"
 
-cu_json "key cmd+c --app TextEdit --no-snapshot"
-assert_ok "key cmd+c (copy)"
+if interactive_tests_enabled; then
+  cu_json "key cmd+c --app TextEdit --no-snapshot"
+  assert_ok "key cmd+c (copy)"
+else
+  _skip "key cmd+c (copy)" "overwrites the system clipboard; interactive desktop tests disabled"
+fi
 
 cu_json "key cmd+z --app TextEdit --no-snapshot"
 assert_ok "key cmd+z (undo)"
@@ -65,13 +69,13 @@ assert_ok "key cmd+z (undo)"
 cu_json "key cmd+shift+z --app TextEdit --no-snapshot"
 assert_ok "key cmd+shift+z (redo)"
 
-section "key — without --app (CGEvent to frontmost, requires --allow-global from terminal)"
+section "key — explicit global escape hatch"
 
 if interactive_tests_enabled; then
   cu_json "key escape --no-snapshot --allow-global"
-  assert_ok "key escape without --app (--allow-global)"
+  assert_ok "key escape with --allow-global"
 else
-  _skip "key escape without --app (--allow-global)" "interactive desktop tests disabled"
+  _skip "key escape with --allow-global" "interactive desktop tests disabled"
 fi
 
 section "key — with auto-snapshot"
