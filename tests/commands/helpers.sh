@@ -142,7 +142,7 @@ cu_human() {
 
 # Own only the document created by this suite. Existing user documents must
 # never be discarded, including when setup fails and the EXIT trap runs.
-TEXTEDIT_FIXTURE_ID=""
+TEXTEDIT_FIXTURE_NAME=""
 TEXTEDIT_FIXTURE_STARTED=0
 
 textedit_reset() {
@@ -161,11 +161,19 @@ textedit_reset() {
   done
   [[ "$opened" == "true" ]] || return 1
   TEXTEDIT_FIXTURE_STARTED=1
-  if [[ -n "$TEXTEDIT_FIXTURE_ID" ]]; then
+  if [[ -n "$TEXTEDIT_FIXTURE_NAME" ]]; then
     textedit_close_fixture || return 1
   fi
-  TEXTEDIT_FIXTURE_ID=$(_run_with_timeout 15 osascript -e 'tell application "TextEdit" to get id of (make new document)') || return 1
-  [[ -n "$TEXTEDIT_FIXTURE_ID" ]] || return 1
+  # TextEdit's dictionary advertises an `id` property, but recent macOS
+  # builds reject `id of (make new document)` with -1728. The document name is
+  # returned reliably and is unique for a newly-created untitled document, so
+  # retain that selector for cleanup instead of closing every user document.
+  TEXTEDIT_FIXTURE_NAME=$(_run_with_timeout 15 osascript -e '
+tell application "TextEdit"
+  set fixture to make new document
+  return name of fixture
+end tell') || return 1
+  [[ -n "$TEXTEDIT_FIXTURE_NAME" ]] || return 1
   marker="cu-textedit-fixture-$$"
   _run_with_timeout 15 osascript -e "tell application \"TextEdit\" to set text of front document to \"$marker\"" >/dev/null 2>&1
   for attempt in {1..30}; do
@@ -192,16 +200,16 @@ raise SystemExit(0 if focused.get("role") == "textarea" and "cu-textedit-fixture
 }
 
 textedit_close_fixture() {
-  [[ -n "$TEXTEDIT_FIXTURE_ID" ]] || return 0
+  [[ -n "$TEXTEDIT_FIXTURE_NAME" ]] || return 0
   _run_with_timeout 15 osascript -e '
 on run argv
   tell application "TextEdit"
-    if exists (document id (item 1 of argv)) then
-      close (document id (item 1 of argv)) saving no
+    if exists (document named (item 1 of argv)) then
+      close (document named (item 1 of argv)) saving no
     end if
   end tell
-end run' "$TEXTEDIT_FIXTURE_ID" >/dev/null 2>&1 || return 1
-  TEXTEDIT_FIXTURE_ID=""
+end run' "$TEXTEDIT_FIXTURE_NAME" >/dev/null 2>&1 || return 1
+  TEXTEDIT_FIXTURE_NAME=""
 }
 
 textedit_cleanup() {

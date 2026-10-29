@@ -66,22 +66,26 @@ run_test "wait" "Wait for known text" \
 echo ""
 echo "--- Actions ---"
 run_test "click-coord" "Click at coordinates" \
-  "$CU click 0 0 --no-snapshot | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d[\"ok\"]'"
+  "$CU click 0 0 --app Finder --no-snapshot | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d[\"ok\"]'"
 
 run_test "click-ref" "Click element by ref" \
   "$CU click 1 --app Finder --no-snapshot | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d[\"ok\"]'"
 
 run_test "key" "Send keyboard shortcut" \
-  "$CU key escape --no-snapshot | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d[\"ok\"]'"
+  "$CU key escape --app Finder --no-snapshot | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d[\"ok\"]'"
 
 run_test "scroll" "Scroll at coordinates" \
-  "$CU scroll down 3 --x 400 --y 400 | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d[\"ok\"]'"
+  "$CU scroll down 3 --x 400 --y 400 --app Finder | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d[\"ok\"]'"
 
 run_test "hover" "Hover at coordinates" \
-  "$CU hover 400 400 | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d[\"ok\"]'"
+  "$CU hover 400 400 --app Finder | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d[\"ok\"]'"
 
-run_test "clipboard" "Copy and paste via key+pbpaste" \
-  "echo -n 'test-cu-clip' | pbcopy && pbpaste | grep -q 'test-cu-clip'"
+if [[ "${COMPUTER_PILOT_TEST_INTERACTIVE:-0}" == "1" ]]; then
+  run_test "clipboard" "Copy and paste via key+pbpaste" \
+    "echo -n 'test-cu-clip' | pbcopy && pbpaste | grep -q 'test-cu-clip'"
+else
+  skip_test "clipboard" "clipboard fixture writes require a dedicated desktop"
+fi
 
 echo ""
 echo "--- Error handling ---"
@@ -107,10 +111,10 @@ run_test "screenshot-speed" "Screenshot completes" \
 echo ""
 echo "--- Auto-snapshot ---"
 run_test "auto-snap-key" "key returns snapshot in JSON" \
-  "$CU key escape | python3 -c 'import sys,json; d=json.load(sys.stdin); assert \"snapshot\" in d'"
+  "$CU key escape --app Finder | python3 -c 'import sys,json; d=json.load(sys.stdin); assert \"snapshot\" in d'"
 
 run_test "no-snap-flag" "--no-snapshot suppresses snapshot" \
-  "$CU key escape --no-snapshot | python3 -c 'import sys,json; d=json.load(sys.stdin); assert \"snapshot\" not in d'"
+  "$CU key escape --app Finder --no-snapshot | python3 -c 'import sys,json; d=json.load(sys.stdin); assert \"snapshot\" not in d'"
 
 # ── Summary ──────────────────────────────────────────────────────────────────
 
