@@ -1092,21 +1092,17 @@ impl Cmd {
 
     fn desktop_lock(&self) -> bool {
         match self {
-            Self::Hover {
-                app, allow_global, ..
+            Self::Hover { app, .. }
+            | Self::Drag { app, .. }
+            | Self::Click { app, .. }
+            | Self::Key { app, .. }
+            | Self::Scroll { app, .. } => {
+                // Selector-less input is routed to a fixed frontmost PID by
+                // the child, but the frontmost desktop still needs exclusion
+                // while that target is being resolved and acted on. Otherwise
+                // it can overlap an explicit PID mutation in another client.
+                app.is_none()
             }
-            | Self::Drag {
-                app, allow_global, ..
-            }
-            | Self::Click {
-                app, allow_global, ..
-            }
-            | Self::Key {
-                app, allow_global, ..
-            }
-            | Self::Scroll {
-                app, allow_global, ..
-            } => app.is_none() && *allow_global,
             Self::Setup | Self::Launch { .. } => true,
             Self::Type {
                 app,
@@ -2572,6 +2568,14 @@ fn focused_tree_value<'a>(
         .and_then(|element| element.value.as_deref())
 }
 
+/// Keep post-action observations on the PID that was bound before dispatch.
+/// The app fallback is used only by explicit global-input paths.
+fn fixed_target_selector(target_pid: Option<i32>, app: &Option<String>) -> Option<String> {
+    target_pid
+        .map(|pid| format!("pid:{pid}"))
+        .or_else(|| app.clone())
+}
+
 fn text_input_at(elements: &[ax::Element], x: f64, y: f64) -> Option<ax::Element> {
     elements
         .iter()
@@ -2677,7 +2681,7 @@ fn cmd_type(
     let resolved_target = system::resolve_input_target(&app, allow_global, "type")?;
     let target_pid = resolved_target.as_ref().map(|(pid, _)| *pid);
     let resolved_app = resolved_target.map(|(_, name)| name);
-    let snapshot_app = target_pid.map(|pid| format!("pid:{pid}"));
+    let snapshot_app = fixed_target_selector(target_pid, &app);
     let pre_input = if let (Some(pid), Some(name)) = (target_pid, resolved_app.as_deref()) {
         Some(focused_input_before_type(pid, name)?)
     } else {
@@ -2863,6 +2867,7 @@ fn cmd_set_value(
     no_snapshot: bool,
 ) -> Result<(), CuError> {
     let (pid, name, pre_snapshot) = prepare_ref_action(&app, ref_id, ax_path.as_deref(), limit)?;
+    let snapshot_app = fixed_target_selector(Some(pid), &app);
 
     let (selector_kind, selector_value) = if let Some(p) = ax_path.as_deref() {
         ax::ax_set_value_by_path(pid, p, &value)?;
@@ -2900,7 +2905,14 @@ fn cmd_set_value(
         result["confidence"] = "low".into();
         result["effect_advice"] = "The target is inside AXWebArea. AXValue may update only Chromium's accessibility shadow state without firing the controlled editor's input/onChange handlers. Do not use this result as proof that Send/Submit is enabled.".into();
     }
-    let _ = capture_and_maybe_attach_snapshot(&mut result, json, no_snapshot, &app, limit, false);
+    let _ = capture_and_maybe_attach_snapshot(
+        &mut result,
+        json,
+        no_snapshot,
+        &snapshot_app,
+        limit,
+        false,
+    );
     if json {
         ok(result)
     } else {
@@ -2923,6 +2935,7 @@ fn cmd_perform(
     no_snapshot: bool,
 ) -> Result<(), CuError> {
     let (pid, name, pre_snapshot) = prepare_ref_action(&app, ref_id, ax_path.as_deref(), limit)?;
+    let snapshot_app = fixed_target_selector(Some(pid), &app);
 
     let (selector_kind, selector_value, available) = if let Some(p) = ax_path.as_deref() {
         // Resolve via axPath, fire AXAction directly. We piggyback on
@@ -2943,7 +2956,7 @@ fn cmd_perform(
         ("ref", serde_json::Value::Number(r.into()), avail)
     };
 
-    let captured = capture_action_snapshot(&app, limit);
+    let captured = capture_action_snapshot(&snapshot_app, limit);
     let effect_verified = captured
         .as_ref()
         .map(|(_, _, post)| tree_changed(&pre_snapshot.elements, &post.elements));
@@ -3020,7 +3033,7 @@ fn cmd_key(
     // frontmost PID; --allow-global is the explicit desktop-wide escape hatch.
     let target = system::resolve_input_target(&app, allow_global, "send keys")?;
     let target_pid = target.as_ref().map(|(pid, _)| *pid);
-    let snapshot_app = target_pid.map(|pid| format!("pid:{pid}"));
+    let snapshot_app = fixed_target_selector(target_pid, &app);
     let pre_snapshot = target
         .as_ref()
         .map(|(pid, name)| ax::snapshot(*pid, name, 50));
@@ -3139,22 +3152,28 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
         allow_global,
     } = opts;
 
+    // Bind the input target before any observation. Every click mode reuses
+    // this PID for AX lookup, event delivery, verification, and the
+    // post-action snapshot.
+    let resolved_target = system::resolve_input_target(&app, allow_global, "click")?;
+    let target_pid = resolved_target.as_ref().map(|(pid, _)| *pid);
+    let snapshot_app = fixed_target_selector(target_pid, &app);
+
     // --verify: capture the AX state before any action so we can diff it
-    // against the post-action snapshot. We resolve the app once here and stash
+    // against the post-action snapshot. Reuse the bound target and stash
     // the (pid, name, prev_elements) tuple; downstream code paths read it back
     // through `attach_verification` after the post-action snapshot has been populated
     // result["snapshot"].
     let pre_state: Option<(i32, String, ax::SnapshotResult)> = if verify {
-        match system::resolve_target_app(&app) {
-            Ok((pid, name)) => {
-                let snap = ax::snapshot(pid, &name, limit);
-                if snap.ok {
-                    Some((pid, name, snap))
-                } else {
-                    None
-                }
+        if let Some((pid, name)) = resolved_target.as_ref() {
+            let snap = ax::snapshot(*pid, name, limit);
+            if snap.ok {
+                Some((*pid, name.clone(), snap))
+            } else {
+                None
             }
-            Err(_) => None,
+        } else {
+            None
         }
     } else {
         None
@@ -3164,7 +3183,9 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
     // action chain (or CGEvent fallback). Same code path as ref click but the
     // resolver is path-based instead of DFS-counter-based.
     if let Some(p) = ax_path.as_deref() {
-        let (pid, name) = system::resolve_target_app(&app)?;
+        let (pid, name) = resolved_target
+            .clone()
+            .ok_or("--ax-path requires a target application; omit --allow-global")?;
         let focus_target = pre_state.as_ref().and_then(|(_, _, snapshot)| {
             snapshot
                 .elements
@@ -3194,8 +3215,14 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
         let mut result = serde_json::json!({
             "ok": true, "ax_path": p, "app": name, "method": method, "x": cx, "y": cy
         });
-        let post =
-            capture_and_maybe_attach_snapshot(&mut result, json, no_snapshot, &app, limit, verify);
+        let post = capture_and_maybe_attach_snapshot(
+            &mut result,
+            json,
+            no_snapshot,
+            &snapshot_app,
+            limit,
+            verify,
+        );
         if let Some((_, _, ref prev)) = pre_state {
             attach_verification(
                 &mut result,
@@ -3219,10 +3246,7 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
             Some(spec) => Some(parse_region(spec)?),
             None => None,
         };
-        let target = system::resolve_input_target(&app, allow_global, "click")?;
-        let (pid, _) = target.unwrap_or((0, String::new()));
-        let target_selector = (pid != 0).then(|| format!("pid:{pid}"));
-        let snapshot_app = target_selector.clone().or_else(|| app.clone());
+        let pid = target_pid.unwrap_or(0);
 
         let result = if pid != 0 {
             ocr::recognize(pid)
@@ -3280,7 +3304,6 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
 
         // Route to the target app's pid whenever a target was resolved; only
         // the explicit --allow-global path uses the desktop-wide tap.
-        let target_pid = if pid != 0 { Some(pid) } else { None };
         if double {
             mouse::double_click(cx, cy, mods, target_pid)?;
         } else {
@@ -3342,10 +3365,6 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
         // Resolve a concrete PID unless the caller explicitly requested the
         // global HID escape hatch. This keeps coordinate clicks from warping
         // the user's real cursor when --app is omitted.
-        let target_pid =
-            system::resolve_input_target(&app, allow_global, "click")?.map(|(pid, _)| pid);
-        let target_selector = target_pid.map(|pid| format!("pid:{pid}"));
-        let snapshot_app = target_selector.clone().or_else(|| app.clone());
         if double {
             mouse::double_click(x, y, mods, target_pid)?;
         } else {
@@ -3394,7 +3413,8 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
         return Err("ref must be >= 1".into());
     }
 
-    let (pid, name) = system::resolve_target_app(&app)?;
+    let (pid, name) =
+        resolved_target.ok_or("ref click requires a target application; omit --allow-global")?;
     broker::enforce_expected_observation(pid, &name, ref_id)?;
     let focus_target = pre_state.as_ref().and_then(|(_, _, snapshot)| {
         snapshot
@@ -3427,8 +3447,14 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
     };
 
     let mut result = serde_json::json!({"ok": true, "ref": ref_id, "app": name, "method": method, "x": cx, "y": cy});
-    let post =
-        capture_and_maybe_attach_snapshot(&mut result, json, no_snapshot, &app, limit, verify);
+    let post = capture_and_maybe_attach_snapshot(
+        &mut result,
+        json,
+        no_snapshot,
+        &snapshot_app,
+        limit,
+        verify,
+    );
     if let Some((_, _, ref prev)) = pre_state {
         attach_verification(
             &mut result,
@@ -3470,6 +3496,7 @@ fn cmd_scroll(
     let sy = y.ok_or("--y is required for scroll")?;
     let target_pid =
         system::resolve_input_target(&app, allow_global, "scroll")?.map(|(pid, _)| pid);
+    let snapshot_app = fixed_target_selector(target_pid, &app);
     mouse::scroll(sx, sy, dy, dx, target_pid)?;
     let method = if target_pid.is_some() {
         "cgevent-pid"
@@ -3480,7 +3507,8 @@ fn cmd_scroll(
         "ok": true, "method": method, "direction": direction,
         "amount": amount, "x": sx, "y": sy,
     });
-    let _ = capture_and_maybe_attach_snapshot(&mut result, json, no_snapshot, &app, 50, false);
+    let _ =
+        capture_and_maybe_attach_snapshot(&mut result, json, no_snapshot, &snapshot_app, 50, false);
     if json {
         ok(result)
     } else {
@@ -3498,6 +3526,7 @@ fn cmd_hover(
     allow_global: bool,
 ) -> Result<(), CuError> {
     let target_pid = system::resolve_input_target(&app, allow_global, "hover")?.map(|(pid, _)| pid);
+    let snapshot_app = fixed_target_selector(target_pid, &app);
     mouse::hover(x, y, target_pid)?;
     let method = if target_pid.is_some() {
         "cgevent-pid"
@@ -3505,7 +3534,8 @@ fn cmd_hover(
         "cgevent-global"
     };
     let mut result = serde_json::json!({"ok": true, "method": method, "x": x, "y": y});
-    let _ = capture_and_maybe_attach_snapshot(&mut result, json, no_snapshot, &app, 50, false);
+    let _ =
+        capture_and_maybe_attach_snapshot(&mut result, json, no_snapshot, &snapshot_app, 50, false);
     if json {
         ok(result)
     } else {
@@ -3527,6 +3557,7 @@ fn cmd_drag(
     allow_global: bool,
 ) -> Result<(), CuError> {
     let target_pid = system::resolve_input_target(&app, allow_global, "drag")?.map(|(pid, _)| pid);
+    let snapshot_app = fixed_target_selector(target_pid, &app);
     mouse::drag(x1, y1, x2, y2, mods, target_pid)?;
     let method = if target_pid.is_some() {
         "cgevent-pid"
@@ -3537,7 +3568,8 @@ fn cmd_drag(
         "ok": true, "method": method,
         "from": {"x": x1, "y": y1}, "to": {"x": x2, "y": y2},
     });
-    let _ = capture_and_maybe_attach_snapshot(&mut result, json, no_snapshot, &app, 50, false);
+    let _ =
+        capture_and_maybe_attach_snapshot(&mut result, json, no_snapshot, &snapshot_app, 50, false);
     if json {
         ok(result)
     } else {
@@ -4766,6 +4798,36 @@ mod tests {
             assert_eq!(actual.0, confidence, "method={method}");
             assert_eq!(!actual.1.is_empty(), has_advice, "method={method}");
         }
+    }
+
+    #[test]
+    fn selectorless_input_keeps_desktop_exclusion() {
+        let implicit = Cmd::Key {
+            combo: "escape".into(),
+            app: None,
+            no_snapshot: true,
+            allow_global: false,
+        };
+        assert!(implicit.desktop_lock());
+
+        let explicit = Cmd::Key {
+            combo: "escape".into(),
+            app: Some("pid:1234".into()),
+            no_snapshot: true,
+            allow_global: false,
+        };
+        assert!(!explicit.desktop_lock());
+    }
+
+    #[test]
+    fn fixed_target_selector_prefers_bound_pid() {
+        let app = Some("Finder".into());
+        assert_eq!(
+            fixed_target_selector(Some(1234), &app),
+            Some("pid:1234".into())
+        );
+        assert_eq!(fixed_target_selector(None, &app), Some("Finder".into()));
+        assert_eq!(fixed_target_selector(None, &None), None);
     }
 
     #[test]
