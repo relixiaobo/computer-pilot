@@ -3155,7 +3155,16 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
     // Bind the input target before any observation. Every click mode reuses
     // this PID for AX lookup, event delivery, verification, and the
     // post-action snapshot.
-    let resolved_target = system::resolve_input_target(&app, allow_global, "click")?;
+    let resolved_target =
+        if let Some(target) = system::resolve_input_target(&app, allow_global, "click")? {
+            Some(target)
+        } else if ax_path.is_some() || (text.is_none() && y.is_none() && target.is_some()) {
+            // AX path/ref clicks do not use the global HID path. Preserve their
+            // historical frontmost behavior while still binding that PID once.
+            Some(system::resolve_target_app(&app)?)
+        } else {
+            None
+        };
     let target_pid = resolved_target.as_ref().map(|(pid, _)| *pid);
     let snapshot_app = fixed_target_selector(target_pid, &app);
 
