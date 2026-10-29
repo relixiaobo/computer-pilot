@@ -3167,6 +3167,11 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
         };
     let target_pid = resolved_target.as_ref().map(|(pid, _)| *pid);
     let snapshot_app = fixed_target_selector(target_pid, &app);
+    let verification_skip_reason = if target_pid.is_none() {
+        "global HID input has no fixed target PID; default AX verification was skipped"
+    } else {
+        "pre-action AX state was unavailable for the fixed target PID"
+    };
 
     // --verify: capture the AX state before any action so we can diff it
     // against the post-action snapshot. Reuse the bound target and stash
@@ -3239,6 +3244,8 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
                 post.as_ref().map(|snapshot| snapshot.elements.as_slice()),
                 method,
             );
+        } else if verify {
+            mark_verification_skipped(&mut result, verification_skip_reason);
         }
         enforce_text_input_focus(&mut result, focus_target.as_ref(), post.as_ref())?;
         return if json {
@@ -3349,6 +3356,8 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
                 post.as_ref().map(|snapshot| snapshot.elements.as_slice()),
                 method,
             );
+        } else if verify {
+            mark_verification_skipped(&mut result, verification_skip_reason);
         }
         enforce_text_input_focus(&mut result, focus_target.as_ref(), post.as_ref())?;
         return if json {
@@ -3404,6 +3413,8 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
                 post.as_ref().map(|snapshot| snapshot.elements.as_slice()),
                 method,
             );
+        } else if verify {
+            mark_verification_skipped(&mut result, verification_skip_reason);
         }
         enforce_text_input_focus(&mut result, focus_target.as_ref(), post.as_ref())?;
         return if json {
@@ -3471,6 +3482,8 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
             post.as_ref().map(|snapshot| snapshot.elements.as_slice()),
             method,
         );
+    } else if verify {
+        mark_verification_skipped(&mut result, verification_skip_reason);
     }
     enforce_text_input_focus(&mut result, focus_target.as_ref(), post.as_ref())?;
     if json {
@@ -4596,6 +4609,16 @@ fn print_diff_human(snap: &ax::SnapshotResult, d: &diff::Diff) {
 /// We don't auto-retry: focus stealing is disruptive and AX-empty diffs have
 /// false positives (network roundtrips, animations not yet started). The
 /// agent reads the advice and chooses whether to recover.
+fn mark_verification_skipped(result: &mut serde_json::Value, reason: &str) {
+    if let Some(obj) = result.as_object_mut() {
+        obj.insert("verified".into(), serde_json::Value::Null);
+        obj.insert(
+            "verification_skipped".into(),
+            serde_json::Value::String(reason.into()),
+        );
+    }
+}
+
 fn attach_verification(
     result: &mut serde_json::Value,
     pre: &[ax::Element],
@@ -4837,6 +4860,14 @@ mod tests {
         );
         assert_eq!(fixed_target_selector(None, &app), Some("Finder".into()));
         assert_eq!(fixed_target_selector(None, &None), None);
+    }
+
+    #[test]
+    fn skipped_verification_is_explicit() {
+        let mut result = serde_json::json!({"ok": true, "method": "cgevent-global"});
+        mark_verification_skipped(&mut result, "global target is not fixed");
+        assert_eq!(result["verified"], serde_json::Value::Null);
+        assert_eq!(result["verification_skipped"], "global target is not fixed");
     }
 
     #[test]
