@@ -85,9 +85,8 @@ fi
 
 section "scroll — frontmost-app safety check"
 
-# Without --app the scroll goes through the global HID tap. Inject a dangerous
-# frontmost via the test seam: cu must refuse instead of scrolling the user's
-# terminal.
+# A dangerous frontmost still requires an explicit selector. Inject one via
+# the test seam: cu must refuse instead of scrolling the user's terminal.
 OUT=$(CU_TEST_FRONTMOST_OVERRIDE=Terminal "$CU" scroll down 3 --x 100 --y 100 --no-snapshot 2>&1) || true
 if echo "$OUT" | grep -q "refusing to scroll"; then
   _pass "refuses scroll without --app when frontmost is dangerous"

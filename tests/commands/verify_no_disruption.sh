@@ -7,8 +7,14 @@
 # global hover path so we have a stable baseline that's not affected by
 # the user's hand on the trackpad during the run.
 #
-# Run from repo root: bash tests/commands/verify_no_disruption.sh
+# Dedicated desktop only:
+# COMPUTER_PILOT_TEST_INTERACTIVE=1 bash tests/commands/verify_no_disruption.sh
 set -euo pipefail
+
+if [[ "${COMPUTER_PILOT_TEST_INTERACTIVE:-0}" != "1" ]]; then
+  echo "SKIP: this script moves the real cursor, activates apps, and overwrites the clipboard. Set COMPUTER_PILOT_TEST_INTERACTIVE=1 on a dedicated desktop."
+  exit 0
+fi
 
 CU="${CU:-./target/release/cu}"
 PARK_X=800

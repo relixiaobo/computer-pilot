@@ -7,9 +7,9 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CU="$ROOT_DIR/target/release/cu"
 
-# Default command tests must not take the user's foreground app or send global
-# HID events. Set this only when the desktop is intentionally dedicated to the
-# foreground/global compatibility tests.
+# Default command tests must not take the user's foreground app, send global
+# HID events, or send input to an implicit foreground PID. Set this only when
+# the desktop is dedicated to the foreground/global compatibility tests.
 COMPUTER_PILOT_TEST_INTERACTIVE="${COMPUTER_PILOT_TEST_INTERACTIVE:-0}"
 
 interactive_tests_enabled() {
@@ -140,11 +140,18 @@ cu_human() {
   fi
 }
 
-# Reset TextEdit to one disposable document without relying on AppleScript to
-# cold-launch the app. Test documents are intentionally discarded; every call
-# is time-bounded so a stuck Automation request cannot pin the whole suite.
+# Own only the document created by this suite. Existing user documents must
+# never be discarded, including when setup fails and the EXIT trap runs.
+TEXTEDIT_FIXTURE_NAME=""
+TEXTEDIT_FIXTURE_STARTED=0
+
 textedit_reset() {
   local attempt opened=false marker snapshot
+  if [[ "$TEXTEDIT_FIXTURE_STARTED" == "0" ]] && pgrep -x TextEdit >/dev/null 2>&1; then
+    _skip "TextEdit fixture" "TextEdit is already running; preserving the user's session"
+    summary
+    exit
+  fi
   for attempt in {1..20}; do
     if open -g -a TextEdit >/dev/null 2>&1; then
       opened=true
@@ -153,8 +160,20 @@ textedit_reset() {
     sleep 0.25
   done
   [[ "$opened" == "true" ]] || return 1
-  _run_with_timeout 15 osascript -e 'tell application "TextEdit" to close every document saving no' >/dev/null 2>&1
-  _run_with_timeout 15 osascript -e 'tell application "TextEdit" to make new document' >/dev/null 2>&1
+  TEXTEDIT_FIXTURE_STARTED=1
+  if [[ -n "$TEXTEDIT_FIXTURE_NAME" ]]; then
+    textedit_close_fixture || return 1
+  fi
+  # TextEdit's dictionary advertises an `id` property, but recent macOS
+  # builds reject `id of (make new document)` with -1728. The document name is
+  # returned reliably and is unique for a newly-created untitled document, so
+  # retain that selector for cleanup instead of closing every user document.
+  TEXTEDIT_FIXTURE_NAME=$(_run_with_timeout 15 osascript -e '
+tell application "TextEdit"
+  set fixture to make new document
+  return name of fixture
+end tell') || return 1
+  [[ -n "$TEXTEDIT_FIXTURE_NAME" ]] || return 1
   marker="cu-textedit-fixture-$$"
   _run_with_timeout 15 osascript -e "tell application \"TextEdit\" to set text of front document to \"$marker\"" >/dev/null 2>&1
   for attempt in {1..30}; do
@@ -180,16 +199,25 @@ raise SystemExit(0 if focused.get("role") == "textarea" and "cu-textedit-fixture
   return 1
 }
 
+textedit_close_fixture() {
+  [[ -n "$TEXTEDIT_FIXTURE_NAME" ]] || return 0
+  _run_with_timeout 15 osascript -e '
+on run argv
+  tell application "TextEdit"
+    if exists (document named (item 1 of argv)) then
+      close (document named (item 1 of argv)) saving no
+    end if
+  end tell
+end run' "$TEXTEDIT_FIXTURE_NAME" >/dev/null 2>&1 || return 1
+  TEXTEDIT_FIXTURE_NAME=""
+}
+
 textedit_cleanup() {
-  _run_with_timeout 15 osascript -e 'tell application "TextEdit" to close every document saving no' >/dev/null 2>&1 || true
-  _run_with_timeout 15 osascript -e 'tell application "TextEdit" to quit saving no' >/dev/null 2>&1 || true
-  while IFS= read -r textedit_pid; do
-    [[ "$textedit_pid" =~ ^[0-9]+$ ]] && kill "$textedit_pid" 2>/dev/null || true
-  done < <(pgrep -x TextEdit 2>/dev/null || true)
-  for _ in {1..50}; do
-    pgrep -x TextEdit >/dev/null 2>&1 || return 0
-    sleep 0.1
-  done
+  [[ "$TEXTEDIT_FIXTURE_STARTED" == "1" ]] || return 0
+  pgrep -x TextEdit >/dev/null 2>&1 || return 0
+  textedit_close_fixture || return 1
+  # If a user opened another document during the test, keep it and the app.
+  _run_with_timeout 15 osascript -e 'tell application "TextEdit" to if (count of documents) is 0 then quit' >/dev/null 2>&1 || true
 }
 
 # ── JSON helpers (require python3) ──────────────────────────────────────────

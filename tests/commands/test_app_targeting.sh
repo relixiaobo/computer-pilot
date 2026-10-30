@@ -52,7 +52,7 @@ for _ in 1 2; do
   if [[ $(printf '%s\n' "$CURRENT_PIDS" | awk 'NF { count++ } END { print count+0 }') -ge 2 ]]; then
     break
   fi
-  /usr/bin/open -n -b "$BUNDLE_ID" >/dev/null 2>&1 || true
+  /usr/bin/open -g -n -b "$BUNDLE_ID" >/dev/null 2>&1 || true
   for _ in 1 2 3 4 5 6 7 8 9 10; do
     sleep 0.2
     record_created_pids

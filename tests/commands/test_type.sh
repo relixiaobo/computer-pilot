@@ -4,8 +4,7 @@
 source "$(dirname "$0")/helpers.sh"
 trap 'textedit_cleanup; cleanup_run' EXIT
 
-# Remove documents leaked by interrupted/manual test runs, then create exactly
-# one target document. We do NOT activate — `cu type --app
+# Create a disposable target document. We do NOT activate — `cu type --app
 # TextEdit` is PID-targeted, so TextEdit doesn't need to be frontmost as long
 # as the document's textarea is its focused element.
 textedit_reset
@@ -61,12 +60,8 @@ fi
 
 section "type — background PID paste fails loud"
 
-# Snapshot the current clipboard so we can verify cu's restore step.
-SAVED_CLIP=$(pbpaste 2>/dev/null || echo "")
-echo -n "cu-test-saved-clipboard-$$" | pbcopy
-sleep 0.1
-ORIGINAL_CLIP=$(pbpaste)
-
+# Clipboard fixture writes and fidelity checks live in the opt-in paste_auto
+# tests. This check uses cu's normal full-fidelity clipboard save/restore.
 # Clear through AX instead of relying on a pre-existing keyboard selection.
 "$CU" snapshot TextEdit --limit 5 >/dev/null
 cu_json set-value 1 "" --app TextEdit --no-snapshot
@@ -89,18 +84,6 @@ else
   _skip "background paste did not mutate TextEdit" "background precondition unavailable"
 fi
 
-# Verify clipboard was restored (not left set to the typed text).
-sleep 0.1
-RESTORED_CLIP=$(pbpaste)
-if [[ "$RESTORED_CLIP" == "$ORIGINAL_CLIP" ]]; then
-  _pass "clipboard restored after paste"
-else
-  _fail "clipboard restored after paste" "expected '$ORIGINAL_CLIP', got '$RESTORED_CLIP'"
-fi
-
-# Restore the user's original clipboard (best-effort).
-printf '%s' "$SAVED_CLIP" | pbcopy 2>/dev/null || true
-
 section "type — --no-snapshot flag"
 
 cu_json "type test --app TextEdit --no-snapshot"
@@ -117,8 +100,8 @@ fi
 section "type — frontmost-app safety check"
 
 # Use the test seam to inject a known-dangerous frontmost (deterministic across
-# environments). Without --app, cu should refuse to dump text into a terminal.
-OUT=$(CU_TEST_FRONTMOST_OVERRIDE=Terminal "$CU" type "rm -rf /" --no-snapshot 2>&1) || true
+# environments). Without --app, cu should still refuse to dump text into a terminal.
+OUT=$(CU_TEST_FRONTMOST_OVERRIDE=Terminal "$CU" type "cu-safety-probe" --no-snapshot 2>&1) || true
 if echo "$OUT" | grep -q "refusing to type"; then
   _pass "refuses type without --app when frontmost is dangerous"
 else

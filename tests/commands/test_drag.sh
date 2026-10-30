@@ -65,9 +65,8 @@ fi
 
 section "drag — frontmost-app safety check"
 
-# Without --app the drag goes through the global HID tap (warps the user's
-# real cursor across the whole gesture). Inject a dangerous frontmost via the
-# test seam: cu must refuse.
+# A dangerous frontmost still requires an explicit selector. Inject one via
+# the test seam: cu must refuse the selector-less drag.
 OUT=$(CU_TEST_FRONTMOST_OVERRIDE=Terminal "$CU" drag 10 10 20 20 --no-snapshot 2>&1) || true
 if echo "$OUT" | grep -q "refusing to drag"; then
   _pass "refuses drag without --app when frontmost is dangerous"

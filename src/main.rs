@@ -55,11 +55,11 @@ fn method_meta(method: &str) -> (&'static str, &'static str) {
         // Global HID tap — disruptive (cursor warps, focus may steal).
         "cgevent-global" | "key-global" | "unicode-global" | "paste-global" => (
             "low",
-            "global HID tap was used (disruptive) — pass --app <selector> to keep cursor/focus put",
+            "global HID tap was used (disruptive) — omit --allow-global or pass --app <selector> for PID-targeted delivery",
         ),
         "ocr-text-global" => (
             "low",
-            "global tap + OCR coords — pass --app and verify with snapshot",
+            "global tap + OCR coords — omit --allow-global or pass --app and verify with snapshot",
         ),
         _ => ("medium", ""),
     }
@@ -234,8 +234,9 @@ enum Cmd {
         cu type 'hello' --app TextEdit --no-paste # force unicode events\n\n\
         With --app: the target pid must expose a focused text input before dispatch.\n\
         Events then go directly to that pid, and AXValue is checked afterward when exposed.\n\
-        Without --app: refused by default if the frontmost is a terminal or IDE\n\
-        (stray text would execute commands). Pass --allow-global to override.\n\n\
+        Without --app: targets the current frontmost PID without moving the cursor.\n\
+        Terminal/IDE targets still require an explicit --app; --allow-global opts\n\
+        into the disruptive desktop-wide HID tap.\n\n\
         Paste mode (auto, opt-in via --paste, opt-out via --no-paste):\n\
         Routes through pbcopy + ⌘V instead of N unicode events. Auto-enabled for\n\
         focused Chromium/AXWebArea inputs and the known chat-app list (WeChat,\n\
@@ -250,8 +251,8 @@ enum Cmd {
         /// Skip auto-snapshot in JSON output
         #[arg(long)]
         no_snapshot: bool,
-        /// Skip the frontmost-app safety check. Without --app, cu refuses by default
-        /// when the frontmost is a terminal or IDE — pass this to override.
+        /// Use the disruptive global HID tap instead of PID-targeted delivery.
+        /// Without --app, cu targets the current frontmost PID by default.
         #[arg(long = "allow-global")]
         allow_global: bool,
         /// Force clipboard paste (pbcopy + ⌘V) regardless of auto-detection.
@@ -347,8 +348,9 @@ enum Cmd {
         cu key cmd+space --allow-global       # open Spotlight (system-level)\n  \
         cu key enter --app Safari             # confirm\n  \
         cu key cmd+, --app Finder             # open Preferences\n\n\
-        Without --app: refused by default if frontmost is a terminal or IDE\n\
-        (stray keys would execute commands). Pass --allow-global to override.\n\n\
+        Without --app: targets the current frontmost PID without moving the cursor.\n\
+        Terminal/IDE targets still require an explicit --app; --allow-global opts\n\
+        into the disruptive desktop-wide HID tap.\n\n\
         Modifiers: cmd, shift, ctrl, alt (option)\n\
         Keys: a-z, 0-9, enter, tab, space, escape, delete, up/down/left/right, f1-f12")]
     Key {
@@ -360,8 +362,8 @@ enum Cmd {
         /// Skip auto-snapshot in JSON output
         #[arg(long)]
         no_snapshot: bool,
-        /// Skip the frontmost-app safety check. Without --app, cu refuses by default
-        /// when the frontmost is a terminal or IDE — pass this to override.
+        /// Use the disruptive global HID tap instead of PID-targeted delivery.
+        /// Without --app, cu targets the current frontmost PID by default.
         #[arg(long = "allow-global")]
         allow_global: bool,
     },
@@ -553,10 +555,10 @@ enum Cmd {
         Use --region 'x,y WxH' to constrain text matching to a pane/list/dialog\n\
         when the same label appears elsewhere in the window.\n\n\
         Ref mode tries AX actions first, falls back to CGEvent.\n\
-        Always use --app for reliability. Refs come from 'cu snapshot'.\n\n\
-        Coordinate and --text clicks without --app go through the global HID\n\
-        tap (moves the real cursor). Refused by default when the frontmost is\n\
-        a terminal or IDE; pass --allow-global to override.\n\n\
+        Pass --app when the target is not the current frontmost app. Refs come from 'cu snapshot'.\n\n\
+        Coordinate and --text clicks without --app target the current frontmost\n\
+        PID, so the real cursor stays put. Terminal/IDE targets still require\n\
+        an explicit --app; --allow-global opts into the global HID tap.\n\n\
         Verify (default ON): takes a pre-action AX snapshot and diffs after the click.\n\
         Returns `verified: bool` + `verify_diff` + remediation `verify_advice`.\n\
         Catches sandboxed apps that silently swallow PID-targeted CGEvents — the\n\
@@ -612,9 +614,8 @@ enum Cmd {
         /// know the target app is reliable.
         #[arg(long = "no-verify")]
         no_verify: bool,
-        /// Skip the frontmost-app safety check. Without --app, coordinate and
-        /// --text clicks go through the global HID tap; cu refuses by default
-        /// when the frontmost is a terminal or IDE — pass this to override.
+        /// Use the disruptive global HID tap instead of PID-targeted delivery.
+        /// Without --app, coordinate and --text clicks target the frontmost PID.
         #[arg(long = "allow-global")]
         allow_global: bool,
 
@@ -650,9 +651,8 @@ enum Cmd {
         /// Skip auto-snapshot in JSON output
         #[arg(long)]
         no_snapshot: bool,
-        /// Skip the frontmost-app safety check. Without --app, the scroll goes
-        /// through the global HID tap; cu refuses by default when the frontmost
-        /// is a terminal or IDE — pass this to override.
+        /// Use the disruptive global HID tap instead of PID-targeted delivery.
+        /// Without --app, scroll targets the current frontmost PID.
         #[arg(long = "allow-global")]
         allow_global: bool,
     },
@@ -669,9 +669,8 @@ enum Cmd {
         /// Skip auto-snapshot in JSON output
         #[arg(long)]
         no_snapshot: bool,
-        /// Skip the frontmost-app safety check. Without --app, the move goes
-        /// through the global HID tap; cu refuses by default when the frontmost
-        /// is a terminal or IDE — pass this to override.
+        /// Use the disruptive global HID tap instead of PID-targeted delivery.
+        /// Without --app, hover targets the current frontmost PID.
         #[arg(long = "allow-global")]
         allow_global: bool,
     },
@@ -703,9 +702,8 @@ enum Cmd {
         /// Skip auto-snapshot in JSON output
         #[arg(long)]
         no_snapshot: bool,
-        /// Skip the frontmost-app safety check. Without --app, the drag goes
-        /// through the global HID tap; cu refuses by default when the frontmost
-        /// is a terminal or IDE — pass this to override.
+        /// Use the disruptive global HID tap instead of PID-targeted delivery.
+        /// Without --app, drag targets the current frontmost PID.
         #[arg(long = "allow-global")]
         allow_global: bool,
     },
@@ -1094,10 +1092,18 @@ impl Cmd {
 
     fn desktop_lock(&self) -> bool {
         match self {
-            Self::Hover { .. } | Self::Drag { .. } | Self::Setup | Self::Launch { .. } => true,
-            Self::Click { app, .. } | Self::Key { app, .. } | Self::Scroll { app, .. } => {
+            Self::Hover { app, .. }
+            | Self::Drag { app, .. }
+            | Self::Click { app, .. }
+            | Self::Key { app, .. }
+            | Self::Scroll { app, .. } => {
+                // Selector-less input is routed to a fixed frontmost PID by
+                // the child, but the frontmost desktop still needs exclusion
+                // while that target is being resolved and acted on. Otherwise
+                // it can overlap an explicit PID mutation in another client.
                 app.is_none()
             }
+            Self::Setup | Self::Launch { .. } => true,
             Self::Type {
                 app,
                 paste,
@@ -1132,8 +1138,9 @@ impl Cmd {
             } if app.is_none() && !allow_global => {
                 system::check_global_frontmost_safety("send keys")?
             }
-            // Only coordinate (y) and OCR-text clicks can reach the global
-            // HID tap; ref/ax-path clicks stay PID-targeted even without --app.
+            // Ref/ax-path clicks are always PID-targeted. Other click modes
+            // use the same frontmost-PID default and reach the global HID tap
+            // only when --allow-global is explicit.
             Self::Click {
                 app,
                 allow_global,
@@ -2561,6 +2568,14 @@ fn focused_tree_value<'a>(
         .and_then(|element| element.value.as_deref())
 }
 
+/// Keep post-action observations on the PID that was bound before dispatch.
+/// The app fallback is used only by explicit global-input paths.
+fn fixed_target_selector(target_pid: Option<i32>, app: &Option<String>) -> Option<String> {
+    target_pid
+        .map(|pid| format!("pid:{pid}"))
+        .or_else(|| app.clone())
+}
+
 fn text_input_at(elements: &[ax::Element], x: f64, y: f64) -> Option<ax::Element> {
     elements
         .iter()
@@ -2660,19 +2675,13 @@ fn cmd_type(
     paste: bool,
     no_paste: bool,
 ) -> Result<(), CuError> {
-    // With --app: deliver Unicode events directly to the target pid (no focus
-    // theft, no clipboard pollution, IME bypassed). Without --app: events go
-    // to whatever app is frontmost via the global HID tap.
-    let resolved_target = if app.is_some() {
-        Some(system::resolve_target_app(&app)?)
-    } else {
-        if !allow_global {
-            system::check_global_frontmost_safety("type")?;
-        }
-        None
-    };
+    // Resolve the target once. With --app this is the requested process; with
+    // no selector it is the current frontmost PID. Only --allow-global opts
+    // into the desktop-wide HID tap.
+    let resolved_target = system::resolve_input_target(&app, allow_global, "type")?;
     let target_pid = resolved_target.as_ref().map(|(pid, _)| *pid);
     let resolved_app = resolved_target.map(|(_, name)| name);
+    let snapshot_app = fixed_target_selector(target_pid, &app);
     let pre_input = if let (Some(pid), Some(name)) = (target_pid, resolved_app.as_deref()) {
         Some(focused_input_before_type(pid, name)?)
     } else {
@@ -2718,7 +2727,7 @@ fn cmd_type(
         }
     };
     let mut captured = if target_pid.is_some() {
-        capture_action_snapshot(&app, 50)
+        capture_action_snapshot(&snapshot_app, 50)
     } else {
         None
     };
@@ -2858,6 +2867,7 @@ fn cmd_set_value(
     no_snapshot: bool,
 ) -> Result<(), CuError> {
     let (pid, name, pre_snapshot) = prepare_ref_action(&app, ref_id, ax_path.as_deref(), limit)?;
+    let snapshot_app = fixed_target_selector(Some(pid), &app);
 
     let (selector_kind, selector_value) = if let Some(p) = ax_path.as_deref() {
         ax::ax_set_value_by_path(pid, p, &value)?;
@@ -2895,7 +2905,14 @@ fn cmd_set_value(
         result["confidence"] = "low".into();
         result["effect_advice"] = "The target is inside AXWebArea. AXValue may update only Chromium's accessibility shadow state without firing the controlled editor's input/onChange handlers. Do not use this result as proof that Send/Submit is enabled.".into();
     }
-    let _ = capture_and_maybe_attach_snapshot(&mut result, json, no_snapshot, &app, limit, false);
+    let _ = capture_and_maybe_attach_snapshot(
+        &mut result,
+        json,
+        no_snapshot,
+        &snapshot_app,
+        limit,
+        false,
+    );
     if json {
         ok(result)
     } else {
@@ -2918,6 +2935,7 @@ fn cmd_perform(
     no_snapshot: bool,
 ) -> Result<(), CuError> {
     let (pid, name, pre_snapshot) = prepare_ref_action(&app, ref_id, ax_path.as_deref(), limit)?;
+    let snapshot_app = fixed_target_selector(Some(pid), &app);
 
     let (selector_kind, selector_value, available) = if let Some(p) = ax_path.as_deref() {
         // Resolve via axPath, fire AXAction directly. We piggyback on
@@ -2938,7 +2956,7 @@ fn cmd_perform(
         ("ref", serde_json::Value::Number(r.into()), avail)
     };
 
-    let captured = capture_action_snapshot(&app, limit);
+    let captured = capture_action_snapshot(&snapshot_app, limit);
     let effect_verified = captured
         .as_ref()
         .map(|(_, _, post)| tree_changed(&pre_snapshot.elements, &post.elements));
@@ -3011,16 +3029,11 @@ fn cmd_key(
     no_snapshot: bool,
     allow_global: bool,
 ) -> Result<(), CuError> {
-    // With --app: PID-targeted (no focus theft). Without --app: global HID tap.
-    let target = if app.is_some() {
-        Some(system::resolve_target_app(&app)?)
-    } else {
-        if !allow_global {
-            system::check_global_frontmost_safety("send keys")?;
-        }
-        None
-    };
+    // Resolve the target once. An omitted selector follows the current
+    // frontmost PID; --allow-global is the explicit desktop-wide escape hatch.
+    let target = system::resolve_input_target(&app, allow_global, "send keys")?;
     let target_pid = target.as_ref().map(|(pid, _)| *pid);
+    let snapshot_app = fixed_target_selector(target_pid, &app);
     let pre_snapshot = target
         .as_ref()
         .map(|(pid, name)| ax::snapshot(*pid, name, 50));
@@ -3031,7 +3044,7 @@ fn cmd_key(
         "key-global"
     };
     let captured = if target_pid.is_some() {
-        capture_action_snapshot(&app, 50)
+        capture_action_snapshot(&snapshot_app, 50)
     } else {
         None
     };
@@ -3139,30 +3152,37 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
         allow_global,
     } = opts;
 
-    // Coordinate and --text clicks without --app go through the global HID
-    // tap (moves the real cursor). Ref/ax-path clicks stay PID-targeted, so
-    // they are exempt. Re-check at execution time (frontmost can change while
-    // the command waits on the broker queue).
-    if app.is_none() && !allow_global && (y.is_some() || text.is_some()) {
-        system::check_global_frontmost_safety("click")?;
-    }
+    // Bind the input target before any observation. Every click mode reuses
+    // this PID for AX lookup, event delivery, verification, and the
+    // post-action snapshot.
+    let resolved_target =
+        if let Some(target) = system::resolve_input_target(&app, allow_global, "click")? {
+            Some(target)
+        } else if ax_path.is_some() || (text.is_none() && y.is_none() && target.is_some()) {
+            // AX path/ref clicks do not use the global HID path. Preserve their
+            // historical frontmost behavior while still binding that PID once.
+            Some(system::resolve_target_app(&app)?)
+        } else {
+            None
+        };
+    let target_pid = resolved_target.as_ref().map(|(pid, _)| *pid);
+    let snapshot_app = fixed_target_selector(target_pid, &app);
 
     // --verify: capture the AX state before any action so we can diff it
-    // against the post-action snapshot. We resolve the app once here and stash
+    // against the post-action snapshot. Reuse the bound target and stash
     // the (pid, name, prev_elements) tuple; downstream code paths read it back
     // through `attach_verification` after the post-action snapshot has been populated
     // result["snapshot"].
     let pre_state: Option<(i32, String, ax::SnapshotResult)> = if verify {
-        match system::resolve_target_app(&app) {
-            Ok((pid, name)) => {
-                let snap = ax::snapshot(pid, &name, limit);
-                if snap.ok {
-                    Some((pid, name, snap))
-                } else {
-                    None
-                }
+        if let Some((pid, name)) = resolved_target.as_ref() {
+            let snap = ax::snapshot(*pid, name, limit);
+            if snap.ok {
+                Some((*pid, name.clone(), snap))
+            } else {
+                None
             }
-            Err(_) => None,
+        } else {
+            None
         }
     } else {
         None
@@ -3172,7 +3192,9 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
     // action chain (or CGEvent fallback). Same code path as ref click but the
     // resolver is path-based instead of DFS-counter-based.
     if let Some(p) = ax_path.as_deref() {
-        let (pid, name) = system::resolve_target_app(&app)?;
+        let (pid, name) = resolved_target
+            .clone()
+            .ok_or("--ax-path requires a target application; omit --allow-global")?;
         let focus_target = pre_state.as_ref().and_then(|(_, _, snapshot)| {
             snapshot
                 .elements
@@ -3202,16 +3224,22 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
         let mut result = serde_json::json!({
             "ok": true, "ax_path": p, "app": name, "method": method, "x": cx, "y": cy
         });
-        let post =
-            capture_and_maybe_attach_snapshot(&mut result, json, no_snapshot, &app, limit, verify);
-        if let Some((_, _, ref prev)) = pre_state {
-            attach_verification(
-                &mut result,
-                &prev.elements,
-                post.as_ref().map(|snapshot| snapshot.elements.as_slice()),
-                method,
-            );
-        }
+        let post = capture_and_maybe_attach_snapshot(
+            &mut result,
+            json,
+            no_snapshot,
+            &snapshot_app,
+            limit,
+            verify,
+        );
+        attach_click_verification(
+            &mut result,
+            verify,
+            target_pid,
+            pre_state.as_ref().map(|(_, _, snapshot)| snapshot),
+            post.as_ref(),
+            method,
+        );
         enforce_text_input_focus(&mut result, focus_target.as_ref(), post.as_ref())?;
         return if json {
             ok(result)
@@ -3227,11 +3255,7 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
             Some(spec) => Some(parse_region(spec)?),
             None => None,
         };
-        let (pid, _) = if app.is_some() {
-            system::resolve_target_app(&app)?
-        } else {
-            (0, String::new()) // full screen OCR
-        };
+        let pid = target_pid.unwrap_or(0);
 
         let result = if pid != 0 {
             ocr::recognize(pid)
@@ -3287,15 +3311,8 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
             .as_ref()
             .and_then(|(_, _, snapshot)| text_input_at(&snapshot.elements, cx, cy));
 
-        // Route to the target app's pid when --app was given; falls back to global
-        // delivery for full-screen OCR (pid == 0 sentinel from resolve above).
-        let target_pid = if pid != 0 { Some(pid) } else { None };
-        // OCR takes long enough for the user to switch apps: the entry check
-        // may have seen a safe frontmost while the click would now land in a
-        // terminal/IDE. Recheck immediately before posting the global event.
-        if target_pid.is_none() && !allow_global {
-            system::check_global_frontmost_safety("click")?;
-        }
+        // Route to the target app's pid whenever a target was resolved; only
+        // the explicit --allow-global path uses the desktop-wide tap.
         if double {
             mouse::double_click(cx, cy, mods, target_pid)?;
         } else {
@@ -3317,16 +3334,22 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
                 "OCR text matching was restricted to text centers inside --region".into(),
             );
         }
-        let post =
-            capture_and_maybe_attach_snapshot(&mut result, json, no_snapshot, &app, limit, verify);
-        if let Some((_, _, ref prev)) = pre_state {
-            attach_verification(
-                &mut result,
-                &prev.elements,
-                post.as_ref().map(|snapshot| snapshot.elements.as_slice()),
-                method,
-            );
-        }
+        let post = capture_and_maybe_attach_snapshot(
+            &mut result,
+            json,
+            no_snapshot,
+            &snapshot_app,
+            limit,
+            verify,
+        );
+        attach_click_verification(
+            &mut result,
+            verify,
+            target_pid,
+            pre_state.as_ref().map(|(_, _, snapshot)| snapshot),
+            post.as_ref(),
+            method,
+        );
         enforce_text_input_focus(&mut result, focus_target.as_ref(), post.as_ref())?;
         return if json {
             ok(result)
@@ -3348,19 +3371,9 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
         let focus_target = pre_state
             .as_ref()
             .and_then(|(_, _, snapshot)| text_input_at(&snapshot.elements, x, y));
-        // When --app is given we know the target pid, so route the event directly
-        // to that process. Without --app the click goes through the global HID tap.
-        let target_pid = if app.is_some() {
-            Some(system::resolve_target_app(&app)?.0)
-        } else {
-            None
-        };
-        // The pre-action verify snapshot above can take hundreds of ms — long
-        // enough for the frontmost to change since the entry check. Recheck
-        // immediately before posting the global event.
-        if target_pid.is_none() && !allow_global {
-            system::check_global_frontmost_safety("click")?;
-        }
+        // Resolve a concrete PID unless the caller explicitly requested the
+        // global HID escape hatch. This keeps coordinate clicks from warping
+        // the user's real cursor when --app is omitted.
         if double {
             mouse::double_click(x, y, mods, target_pid)?;
         } else {
@@ -3376,16 +3389,22 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
         };
         let mut result =
             serde_json::json!({"ok": true, "method": method, "x": x, "y": y, "right": right});
-        let post =
-            capture_and_maybe_attach_snapshot(&mut result, json, no_snapshot, &app, limit, verify);
-        if let Some((_, _, ref prev)) = pre_state {
-            attach_verification(
-                &mut result,
-                &prev.elements,
-                post.as_ref().map(|snapshot| snapshot.elements.as_slice()),
-                method,
-            );
-        }
+        let post = capture_and_maybe_attach_snapshot(
+            &mut result,
+            json,
+            no_snapshot,
+            &snapshot_app,
+            limit,
+            verify,
+        );
+        attach_click_verification(
+            &mut result,
+            verify,
+            target_pid,
+            pre_state.as_ref().map(|(_, _, snapshot)| snapshot),
+            post.as_ref(),
+            method,
+        );
         enforce_text_input_focus(&mut result, focus_target.as_ref(), post.as_ref())?;
         return if json {
             ok(result)
@@ -3403,7 +3422,8 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
         return Err("ref must be >= 1".into());
     }
 
-    let (pid, name) = system::resolve_target_app(&app)?;
+    let (pid, name) =
+        resolved_target.ok_or("ref click requires a target application; omit --allow-global")?;
     broker::enforce_expected_observation(pid, &name, ref_id)?;
     let focus_target = pre_state.as_ref().and_then(|(_, _, snapshot)| {
         snapshot
@@ -3436,16 +3456,22 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
     };
 
     let mut result = serde_json::json!({"ok": true, "ref": ref_id, "app": name, "method": method, "x": cx, "y": cy});
-    let post =
-        capture_and_maybe_attach_snapshot(&mut result, json, no_snapshot, &app, limit, verify);
-    if let Some((_, _, ref prev)) = pre_state {
-        attach_verification(
-            &mut result,
-            &prev.elements,
-            post.as_ref().map(|snapshot| snapshot.elements.as_slice()),
-            method,
-        );
-    }
+    let post = capture_and_maybe_attach_snapshot(
+        &mut result,
+        json,
+        no_snapshot,
+        &snapshot_app,
+        limit,
+        verify,
+    );
+    attach_click_verification(
+        &mut result,
+        verify,
+        target_pid,
+        pre_state.as_ref().map(|(_, _, snapshot)| snapshot),
+        post.as_ref(),
+        method,
+    );
     enforce_text_input_focus(&mut result, focus_target.as_ref(), post.as_ref())?;
     if json {
         ok(result)
@@ -3466,12 +3492,6 @@ fn cmd_scroll(
     no_snapshot: bool,
     allow_global: bool,
 ) -> Result<(), CuError> {
-    // Without --app the scroll goes through the global HID tap. Re-check at
-    // execution time (the client preflight ran earlier; frontmost can change
-    // while the command waits on the broker queue).
-    if app.is_none() && !allow_global {
-        system::check_global_frontmost_safety("scroll")?;
-    }
     let (dx, dy) = match direction.to_lowercase().as_str() {
         "up" => (0, amount),
         "down" => (0, -amount),
@@ -3483,11 +3503,9 @@ fn cmd_scroll(
     };
     let sx = x.ok_or("--x is required for scroll")?;
     let sy = y.ok_or("--y is required for scroll")?;
-    let target_pid = if app.is_some() {
-        Some(system::resolve_target_app(&app)?.0)
-    } else {
-        None
-    };
+    let target_pid =
+        system::resolve_input_target(&app, allow_global, "scroll")?.map(|(pid, _)| pid);
+    let snapshot_app = fixed_target_selector(target_pid, &app);
     mouse::scroll(sx, sy, dy, dx, target_pid)?;
     let method = if target_pid.is_some() {
         "cgevent-pid"
@@ -3498,7 +3516,8 @@ fn cmd_scroll(
         "ok": true, "method": method, "direction": direction,
         "amount": amount, "x": sx, "y": sy,
     });
-    let _ = capture_and_maybe_attach_snapshot(&mut result, json, no_snapshot, &app, 50, false);
+    let _ =
+        capture_and_maybe_attach_snapshot(&mut result, json, no_snapshot, &snapshot_app, 50, false);
     if json {
         ok(result)
     } else {
@@ -3515,16 +3534,8 @@ fn cmd_hover(
     no_snapshot: bool,
     allow_global: bool,
 ) -> Result<(), CuError> {
-    // Without --app the move goes through the global HID tap (warps the real
-    // cursor). Re-check at execution time.
-    if app.is_none() && !allow_global {
-        system::check_global_frontmost_safety("hover")?;
-    }
-    let target_pid = if app.is_some() {
-        Some(system::resolve_target_app(&app)?.0)
-    } else {
-        None
-    };
+    let target_pid = system::resolve_input_target(&app, allow_global, "hover")?.map(|(pid, _)| pid);
+    let snapshot_app = fixed_target_selector(target_pid, &app);
     mouse::hover(x, y, target_pid)?;
     let method = if target_pid.is_some() {
         "cgevent-pid"
@@ -3532,7 +3543,8 @@ fn cmd_hover(
         "cgevent-global"
     };
     let mut result = serde_json::json!({"ok": true, "method": method, "x": x, "y": y});
-    let _ = capture_and_maybe_attach_snapshot(&mut result, json, no_snapshot, &app, 50, false);
+    let _ =
+        capture_and_maybe_attach_snapshot(&mut result, json, no_snapshot, &snapshot_app, 50, false);
     if json {
         ok(result)
     } else {
@@ -3553,16 +3565,8 @@ fn cmd_drag(
     no_snapshot: bool,
     allow_global: bool,
 ) -> Result<(), CuError> {
-    // Without --app the drag goes through the global HID tap (warps the real
-    // cursor across the whole gesture). Re-check at execution time.
-    if app.is_none() && !allow_global {
-        system::check_global_frontmost_safety("drag")?;
-    }
-    let target_pid = if app.is_some() {
-        Some(system::resolve_target_app(&app)?.0)
-    } else {
-        None
-    };
+    let target_pid = system::resolve_input_target(&app, allow_global, "drag")?.map(|(pid, _)| pid);
+    let snapshot_app = fixed_target_selector(target_pid, &app);
     mouse::drag(x1, y1, x2, y2, mods, target_pid)?;
     let method = if target_pid.is_some() {
         "cgevent-pid"
@@ -3573,7 +3577,8 @@ fn cmd_drag(
         "ok": true, "method": method,
         "from": {"x": x1, "y": y1}, "to": {"x": x2, "y": y2},
     });
-    let _ = capture_and_maybe_attach_snapshot(&mut result, json, no_snapshot, &app, 50, false);
+    let _ =
+        capture_and_maybe_attach_snapshot(&mut result, json, no_snapshot, &snapshot_app, 50, false);
     if json {
         ok(result)
     } else {
@@ -4591,6 +4596,47 @@ fn print_diff_human(snap: &ax::SnapshotResult, d: &diff::Diff) {
 /// We don't auto-retry: focus stealing is disruptive and AX-empty diffs have
 /// false positives (network roundtrips, animations not yet started). The
 /// agent reads the advice and chooses whether to recover.
+fn mark_verification_skipped(result: &mut serde_json::Value, reason: &str) {
+    if let Some(obj) = result.as_object_mut() {
+        obj.insert("verified".into(), serde_json::Value::Null);
+        obj.insert(
+            "verification_skipped".into(),
+            serde_json::Value::String(reason.into()),
+        );
+    }
+}
+
+fn attach_click_verification(
+    result: &mut serde_json::Value,
+    verify: bool,
+    target_pid: Option<i32>,
+    pre: Option<&ax::SnapshotResult>,
+    post: Option<&ax::SnapshotResult>,
+    method: &str,
+) {
+    if !verify {
+        return;
+    }
+    if let Some(pre) = pre {
+        attach_verification(
+            result,
+            &pre.elements,
+            post.map(|snapshot| snapshot.elements.as_slice()),
+            method,
+        );
+    } else if target_pid.is_none() {
+        mark_verification_skipped(
+            result,
+            "global HID input has no fixed target PID; default AX verification was skipped",
+        );
+    } else {
+        mark_verification_skipped(
+            result,
+            "pre-action AX state was unavailable for the fixed target PID",
+        );
+    }
+}
+
 fn attach_verification(
     result: &mut serde_json::Value,
     pre: &[ax::Element],
@@ -4802,6 +4848,47 @@ mod tests {
             assert_eq!(actual.0, confidence, "method={method}");
             assert_eq!(!actual.1.is_empty(), has_advice, "method={method}");
         }
+    }
+
+    #[test]
+    fn selectorless_input_keeps_desktop_exclusion() {
+        let implicit = Cmd::Key {
+            combo: "escape".into(),
+            app: None,
+            no_snapshot: true,
+            allow_global: false,
+        };
+        assert!(implicit.desktop_lock());
+
+        let explicit = Cmd::Key {
+            combo: "escape".into(),
+            app: Some("pid:1234".into()),
+            no_snapshot: true,
+            allow_global: false,
+        };
+        assert!(!explicit.desktop_lock());
+    }
+
+    #[test]
+    fn fixed_target_selector_prefers_bound_pid() {
+        let app = Some("Finder".into());
+        assert_eq!(
+            fixed_target_selector(Some(1234), &app),
+            Some("pid:1234".into())
+        );
+        assert_eq!(fixed_target_selector(None, &app), Some("Finder".into()));
+        assert_eq!(fixed_target_selector(None, &None), None);
+    }
+
+    #[test]
+    fn skipped_verification_is_explicit() {
+        let mut result = serde_json::json!({"ok": true, "method": "cgevent-global"});
+        attach_click_verification(&mut result, true, None, None, None, "cgevent-global");
+        assert_eq!(result["verified"], serde_json::Value::Null);
+        assert_eq!(
+            result["verification_skipped"],
+            "global HID input has no fixed target PID; default AX verification was skipped"
+        );
     }
 
     #[test]

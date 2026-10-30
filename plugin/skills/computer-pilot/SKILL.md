@@ -109,12 +109,12 @@ cu wait --modal --app "Mail" --timeout 5
 
 ## Targeting Rules
 
-Always pass `--app` to `click`, `type`, `key`, `scroll`, `hover`, `drag`,
-`set-value`, and `perform`. PID-targeted delivery avoids focus drift and keeps
-the user's frontmost app unchanged. Treat any `*-global` method as disruptive.
-Without `--app`, global-tap actions (type, key, coordinate/`--text` click,
-scroll, hover, drag) are refused when the user's frontmost app is a terminal
-or IDE; do not answer that refusal with `--allow-global` — pass `--app`.
+Pass `--app` to `click`, `type`, `key`, `scroll`, `hover`, `drag`, `set-value`,
+and `perform` when targeting a background app. Without `--app`, input is
+delivered to the current frontmost PID without moving the user's cursor. Treat
+any `*-global` method as disruptive: it appears only when `--allow-global` was
+explicitly supplied. Terminal and IDE frontmost targets still require an
+explicit `--app`; do not answer that refusal with `--allow-global`.
 Treat `cu window focus` as explicitly disruptive and user-visible; never use it
 as an automatic fallback. `cu launch` opens apps in the background and never
 takes the user's focus. `cu tell` refuses `activate` and System Events

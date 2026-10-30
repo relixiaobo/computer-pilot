@@ -36,13 +36,13 @@ SYSTEM_PROMPT = """You are a macOS desktop automation agent. You control a Mac t
 - `cu screenshot [app] --path /tmp/shot.png` — Capture window screenshot
 - `cu ocr [app]` — OCR text recognition
 - `cu click <ref> --app <name>` — Click element by ref (AX action first, CGEvent fallback)
-- `cu click <x> <y>` — Click by screen coordinates
+- `cu click <x> <y> --app <name>` — Click by screen coordinates
 - `cu click --text "label" --app <name>` — Click text via OCR (for AX-sparse UI)
-- `cu click <ref> --right` / `--double-click` — Right-click / double-click
+- `cu click <ref> --app <name> --right` / `--double-click` — Right-click / double-click
 - `cu key <combo> --app <name>` — Keyboard shortcut (e.g., cmd+c, enter)
 - `cu type <text> --app <name>` — Type text (clipboard paste, safe with any IME)
-- `cu scroll <direction> <amount> --x X --y Y` — Scroll
-- `cu drag <x1> <y1> <x2> <y2>` — Drag
+- `cu scroll <direction> <amount> --x X --y Y --app <name>` — Scroll
+- `cu drag <x1> <y1> <x2> <y2> --app <name>` — Drag
 - `cu wait --text <text> --app <name> --timeout N` — Wait for UI condition
 
 ## Strategy

@@ -48,6 +48,7 @@ unsafe extern "C" {
         count: u32,
         w1: i32,
     ) -> CFTypeRef;
+    fn CGEventSetLocation(event: CFTypeRef, point: CGPoint);
     fn CGEventPost(tap: u32, event: CFTypeRef);
     fn CGEventPostToPid(pid: i32, event: CFTypeRef);
     fn CGEventSourceCreate(state_id: i32) -> CFTypeRef;
@@ -240,20 +241,34 @@ pub fn scroll(x: f64, y: f64, dy: i32, dx: i32, target_pid: Option<i32>) -> Resu
     let p = pt(x, y)?;
     let source = EventSource::new(target_pid);
     unsafe {
-        post_plain(
-            CGEventCreateMouseEvent(source.raw(), CG_EVENT_MOUSE_MOVED, p, CG_MOUSE_BUTTON_LEFT),
-            target_pid,
-        )?;
-        if dy != 0 {
+        // A targeted scroll only needs the wheel event's location. Posting a
+        // separate mouseMoved event can still move the user's hardware cursor
+        // on some macOS releases even when the event is sent to a PID. The
+        // global path keeps the move because the real pointer must be placed
+        // at the requested coordinates for desktop-wide scrolling.
+        if target_pid.is_none() {
             post_plain(
-                CGEventCreateScrollWheelEvent(source.raw(), 0, 1, dy),
+                CGEventCreateMouseEvent(
+                    source.raw(),
+                    CG_EVENT_MOUSE_MOVED,
+                    p,
+                    CG_MOUSE_BUTTON_LEFT,
+                ),
                 target_pid,
             )?;
+        }
+        if dy != 0 {
+            let event = CGEventCreateScrollWheelEvent(source.raw(), 0, 1, dy);
+            if !event.is_null() {
+                CGEventSetLocation(event, p);
+            }
+            post_plain(event, target_pid)?;
         }
         if dx != 0 {
             let h = CGEventCreateScrollWheelEvent(source.raw(), 0, 1, 0);
             if !h.is_null() {
                 CGEventSetIntegerValueField(h, 96, dx as i64);
+                CGEventSetLocation(h, p);
             }
             post_plain(h, target_pid)?;
         }
