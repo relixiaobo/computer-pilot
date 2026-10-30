@@ -75,6 +75,13 @@ ignores PID-targeted events. `cu click` surfaces this as `verified:false`;
 observe again and try another targeted AX primitive. Do not drop `--app` as a
 workaround.
 
+For optional human-visible feedback, set `COMPUTER_PILOT_VISUAL_CURSOR=1`
+before the first `cu` command in a session. Pointer actions then show a small
+click-through software cursor owned by the private Broker. It follows the
+target window without moving the real cursor, is hidden after idle, and is
+never included in agent screenshots. The overlay is presentation-only; if it
+cannot be created, the action still uses the normal input path.
+
 ## Install
 
 `cu` installs into a fixed, user-owned path —

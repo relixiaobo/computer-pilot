@@ -120,6 +120,12 @@ as an automatic fallback. `cu launch` opens apps in the background and never
 takes the user's focus. `cu tell` refuses `activate` and System Events
 `keystroke`/`key code` — use PID-targeted `cu key`/`cu type` instead.
 
+The private Broker can optionally show a click-through software cursor for the
+human observer. Set `COMPUTER_PILOT_VISUAL_CURSOR=1` before the first `cu`
+command in a session. It applies to pointer actions only, follows the target
+window without moving the real cursor, and is never part of agent screenshots.
+The overlay is presentation-only and may fail open without changing the action.
+
 Use a unique application name, bundle identifier, or `pid:<PID>`. `cu apps`
 returns each process's `selector`. Ambiguous names/bundles fail without acting;
 choose from `diagnostics.candidates` and reuse that PID for the whole loop:

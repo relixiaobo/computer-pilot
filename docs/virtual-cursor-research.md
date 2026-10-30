@@ -51,25 +51,23 @@ PID-targeted delivery. `--allow-global` is the explicit opt-in for desktop-wide
 HID input. The terminal/IDE guard remains for selector-less input because those
 applications turn stray text and shortcuts into commands or destructive edits.
 
-## Smallest path to a matching experience
+## Implemented smallest path to a matching experience
 
-The next implementation should be staged so the visual layer does not become a
-second input system:
+The implementation is staged so the visual layer does not become a second
+input system:
 
-1. Keep the current targeted input and add a single optional visual-cursor
-   owner in the long-lived private Broker (or a small macOS UI companion). A
-   short-lived CLI process cannot reliably host an AppKit animation loop.
-2. Send only a `VisualCursorTarget` event to that owner: target PID, target
-   window ID, screen point, window-local point, and action phase (`move`,
-   `pulse`, `settle`, `hide`). Do not send raw mouse events through the overlay.
-3. Make the overlay opt-in and fail-open for the action: if the panel cannot be
-   shown, input still runs and the response reports no visual cursor.
-4. Start with one simple bounded cubic path and a click pulse. Add spring motion,
-   window-relative anchoring, and SkyLight only after the panel is stable.
+1. Keep the current targeted input and use one optional visual-cursor owner in
+   the long-lived private Broker. A short-lived CLI process cannot reliably
+   host an AppKit animation loop.
+2. Send only a private cursor event to that owner: target PID, target window
+   ID, screen point, window-local point, and pulse state. Do not send raw mouse
+   events through the overlay.
+3. Keep the overlay opt-in with `COMPUTER_PILOT_VISUAL_CURSOR=1` and fail-open:
+   if the panel cannot be shown, input still runs.
+4. Use a simple bounded cursor with a short click pulse and idle hide. Spring
+   motion, Fog mode, synthetic focus, and SkyLight remain outside this change.
 5. Do not bake the cursor into screenshots returned to the agent. It is for the
-   human observer; the agent should continue receiving the real target state.
+   human observer; the agent continues receiving the real target state.
 
-This requires a macOS UI owner and a main-thread event loop, which conflicts
-with the current single short-lived CLI process more than it conflicts with the
-private Broker. It should be a focused follow-up rather than another action
-fallback or another public command family.
+The macOS UI owner lives inside the private Broker. The event is private and
+presentation-only; it is not another public command family or action fallback.
