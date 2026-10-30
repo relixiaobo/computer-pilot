@@ -76,6 +76,9 @@ mod macos {
     type SendVoid = unsafe extern "C" fn(Obj, Obj);
     type SendBool = unsafe extern "C" fn(Obj, Obj, bool);
     type SendUsize = unsafe extern "C" fn(Obj, Obj, usize);
+    type SendObjArg = unsafe extern "C" fn(Obj, Obj, Obj) -> Obj;
+    type SendCString = unsafe extern "C" fn(Obj, Obj, *const c_char) -> Obj;
+    type SendU32 = unsafe extern "C" fn(Obj, Obj) -> u32;
     type SendCount = unsafe extern "C" fn(Obj, Obj) -> usize;
     type SendIndex = unsafe extern "C" fn(Obj, Obj, usize) -> Obj;
     type SendDouble = unsafe extern "C" fn(Obj, Obj, f64) -> Obj;
@@ -125,6 +128,21 @@ mod macos {
 
     unsafe fn send_count(receiver: Obj, selector: &CStr) -> usize {
         let send: SendCount = std::mem::transmute(objc_msgSend as *const ());
+        send(receiver, sel_registerName(selector.as_ptr()))
+    }
+
+    unsafe fn send_obj_arg(receiver: Obj, selector: &CStr, value: Obj) -> Obj {
+        let send: SendObjArg = std::mem::transmute(objc_msgSend as *const ());
+        send(receiver, sel_registerName(selector.as_ptr()), value)
+    }
+
+    unsafe fn send_cstring(receiver: Obj, selector: &CStr, value: *const c_char) -> Obj {
+        let send: SendCString = std::mem::transmute(objc_msgSend as *const ());
+        send(receiver, sel_registerName(selector.as_ptr()), value)
+    }
+
+    unsafe fn send_u32(receiver: Obj, selector: &CStr) -> u32 {
+        let send: SendU32 = std::mem::transmute(objc_msgSend as *const ());
         send(receiver, sel_registerName(selector.as_ptr()))
     }
 
@@ -418,16 +436,35 @@ mod macos {
         if let Some(display) = display
             && !screens.is_null()
         {
+            let string_class = objc_getClass(c"NSString".as_ptr());
+            let screen_number_key = if string_class.is_null() {
+                std::ptr::null_mut()
+            } else {
+                send_cstring(
+                    string_class,
+                    c"stringWithUTF8String:",
+                    c"NSScreenNumber".as_ptr(),
+                )
+            };
             let count = send_count(screens, c"count");
             for index in 0..count {
                 let screen = send_index(screens, c"objectAtIndex:", index);
-                let frame = send_rect(screen, c"frame");
-                if (frame.origin.x - display.x).abs() < 1.0
-                    && (frame.size.width - display.width).abs() < 1.0
-                    && (frame.size.height - display.height).abs() < 1.0
-                {
-                    return (frame, display.y);
+                let description = send_id(screen, c"deviceDescription");
+                let number = if description.is_null() || screen_number_key.is_null() {
+                    0
+                } else {
+                    let value = send_obj_arg(description, c"objectForKey:", screen_number_key);
+                    if value.is_null() {
+                        0
+                    } else {
+                        send_u32(value, c"unsignedIntValue")
+                    }
+                };
+                if number != display.id {
+                    continue;
                 }
+                let frame = send_rect(screen, c"frame");
+                return (frame, display.y);
             }
         }
         let main = send_rect(
