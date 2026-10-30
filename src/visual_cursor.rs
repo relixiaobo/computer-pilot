@@ -68,6 +68,7 @@ mod macos {
         fn objc_msgSend();
         fn objc_autoreleasePoolPush() -> Obj;
         fn objc_autoreleasePoolPop(pool: Obj);
+        static NSDefaultRunLoopMode: Obj;
     }
 
     type SendId = unsafe extern "C" fn(Obj, Obj) -> Obj;
@@ -75,6 +76,10 @@ mod macos {
     type SendVoid = unsafe extern "C" fn(Obj, Obj);
     type SendBool = unsafe extern "C" fn(Obj, Obj, bool);
     type SendUsize = unsafe extern "C" fn(Obj, Obj, usize);
+    type SendCount = unsafe extern "C" fn(Obj, Obj) -> usize;
+    type SendIndex = unsafe extern "C" fn(Obj, Obj, usize) -> Obj;
+    type SendDouble = unsafe extern "C" fn(Obj, Obj, f64) -> Obj;
+    type SendNextEvent = unsafe extern "C" fn(Obj, Obj, usize, Obj, Obj, bool) -> Obj;
     type SendI64 = unsafe extern "C" fn(Obj, Obj, i64);
     type SendRect = unsafe extern "C" fn(Obj, Obj) -> Rect;
     type SendRectArgs = unsafe extern "C" fn(Obj, Obj, Rect, usize, usize, bool) -> Obj;
@@ -89,6 +94,7 @@ mod macos {
     const NS_WINDOW_COLLECTION_STATIONARY: usize = 1 << 4;
     const NS_WINDOW_COLLECTION_IGNORES_CYCLE: usize = 1 << 6;
     const NS_WINDOW_COLLECTION_FULL_SCREEN_AUXILIARY: usize = 1 << 8;
+    const NS_WINDOW_SHARING_NONE: usize = 0;
     const CURSOR_SIZE: f64 = 22.0;
     const HIDE_AFTER: Duration = Duration::from_secs(12);
 
@@ -115,6 +121,21 @@ mod macos {
     unsafe fn send_usize(receiver: Obj, selector: &CStr, value: usize) {
         let send: SendUsize = std::mem::transmute(objc_msgSend as *const ());
         send(receiver, sel_registerName(selector.as_ptr()), value);
+    }
+
+    unsafe fn send_count(receiver: Obj, selector: &CStr) -> usize {
+        let send: SendCount = std::mem::transmute(objc_msgSend as *const ());
+        send(receiver, sel_registerName(selector.as_ptr()))
+    }
+
+    unsafe fn send_index(receiver: Obj, selector: &CStr, index: usize) -> Obj {
+        let send: SendIndex = std::mem::transmute(objc_msgSend as *const ());
+        send(receiver, sel_registerName(selector.as_ptr()), index)
+    }
+
+    unsafe fn send_double(receiver: Obj, selector: &CStr, value: f64) -> Obj {
+        let send: SendDouble = std::mem::transmute(objc_msgSend as *const ());
+        send(receiver, sel_registerName(selector.as_ptr()), value)
     }
 
     unsafe fn send_i64(receiver: Obj, selector: &CStr, value: i64) {
@@ -200,6 +221,7 @@ mod macos {
             send_bool(panel, c"setOpaque:", false);
             send_bool(panel, c"setIgnoresMouseEvents:", true);
             send_bool(panel, c"setHasShadow:", false);
+            send_usize(panel, c"setSharingType:", NS_WINDOW_SHARING_NONE);
             send_usize(
                 panel,
                 c"setCollectionBehavior:",
@@ -270,13 +292,10 @@ mod macos {
             let (screen_x, screen_y) = frame
                 .map(|window| (window.x + event.window_x, window.y + event.window_y))
                 .unwrap_or((event.x, event.y));
-            let screen = send_rect(
-                send_id(objc_getClass(c"NSScreen".as_ptr()), c"mainScreen"),
-                c"frame",
-            );
+            let (screen, display_y) = screen_for_point(screen_x, screen_y);
             let origin = Point {
                 x: screen_x,
-                y: screen.origin.y + screen.size.height - screen_y,
+                y: screen.origin.y + screen.size.height - (screen_y - display_y),
             };
             let size = if event.pulse {
                 CURSOR_SIZE * 1.6
@@ -387,11 +406,66 @@ mod macos {
         }
     }
 
+    unsafe fn screen_for_point(x: f64, y: f64) -> (Rect, f64) {
+        let displays = crate::display::list();
+        let display = displays.iter().find(|display| {
+            x >= display.x
+                && x < display.x + display.width
+                && y >= display.y
+                && y < display.y + display.height
+        });
+        let screens = send_id(objc_getClass(c"NSScreen".as_ptr()), c"screens");
+        if let Some(display) = display
+            && !screens.is_null()
+        {
+            let count = send_count(screens, c"count");
+            for index in 0..count {
+                let screen = send_index(screens, c"objectAtIndex:", index);
+                let frame = send_rect(screen, c"frame");
+                if (frame.origin.x - display.x).abs() < 1.0
+                    && (frame.size.width - display.width).abs() < 1.0
+                    && (frame.size.height - display.height).abs() < 1.0
+                {
+                    return (frame, display.y);
+                }
+            }
+        }
+        let main = send_rect(
+            send_id(objc_getClass(c"NSScreen".as_ptr()), c"mainScreen"),
+            c"frame",
+        );
+        (main, 0.0)
+    }
+
+    unsafe fn pump_events(app: Obj) {
+        let date_class = objc_getClass(c"NSDate".as_ptr());
+        if date_class.is_null() {
+            return;
+        }
+        let date = send_double(date_class, c"dateWithTimeIntervalSinceNow:", 0.0);
+        if date.is_null() {
+            return;
+        }
+        let next_event: SendNextEvent = std::mem::transmute(objc_msgSend as *const ());
+        let event = next_event(
+            app,
+            sel_registerName(c"nextEventMatchingMask:untilDate:inMode:dequeue:".as_ptr()),
+            usize::MAX,
+            date,
+            NSDefaultRunLoopMode,
+            true,
+        );
+        if !event.is_null() {
+            send_void_obj(app, c"sendEvent:", event);
+            send_void(app, c"updateWindows");
+        }
+    }
+
     pub fn run_loop(receiver: Receiver<Event>) {
         unsafe {
             let pool = objc_autoreleasePoolPush();
             let app_class = objc_getClass(c"NSApplication".as_ptr());
-            if !app_class.is_null() {
+            let app = if !app_class.is_null() {
                 let app = send_id(app_class, c"sharedApplication");
                 if !app.is_null() {
                     let send_bool_return: unsafe extern "C" fn(Obj, Obj, usize) -> bool =
@@ -402,7 +476,10 @@ mod macos {
                         2,
                     );
                 }
-            }
+                (!app.is_null()).then_some(app)
+            } else {
+                None
+            };
             let mut overlay = Overlay::create();
             objc_autoreleasePoolPop(pool);
 
@@ -420,6 +497,11 @@ mod macos {
                 }
                 if let Some(current) = overlay.as_mut() {
                     current.tick();
+                }
+                if let Some(app) = app {
+                    let pool = objc_autoreleasePoolPush();
+                    pump_events(app);
+                    objc_autoreleasePoolPop(pool);
                 }
             }
         }
