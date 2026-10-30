@@ -92,6 +92,11 @@ print(json.dumps(sorted(a), separators=(",", ":")))
 done
 
 if [[ -n "$PERFORM_REF" ]]; then
+  # Only this prefix establishes the probed ref. Finder can resize offscreen
+  # file-name cells while rendering; those unrelated cells must not make this
+  # action-identity test fail the full-observation freshness guard.
+  cu_json snapshot Finder --limit "$PERFORM_REF"
+  assert_ok "fresh observation covers the probed ref"
   cu_json perform "$PERFORM_REF" AXCanonicalProjectionProbe --app Finder --no-snapshot
   PERFORM_JSON="${OUT:-$ERR}"
   PERFORM_ACTIONS=$(echo "$PERFORM_JSON" | python3 -c '
@@ -105,34 +110,6 @@ print(json.dumps(sorted(d.get("diagnostics", {}).get("available_actions", [])), 
       "why=$WHY_ACTIONS perform=$PERFORM_ACTIONS exit=$EXIT output=${PERFORM_JSON:0:180}"
 else
   _skip "perform/why identity" "no Finder ref in the first 12 exposes an AX action"
-fi
-
-section "ref projection — TextEdit action paths use the same order"
-
-if textedit_reset; then
-  "$CU" snapshot TextEdit --limit 5 >/dev/null
-  cu_json set-value 1 "canonical-ref-test" --app TextEdit --no-snapshot
-  if [[ "$EXIT" -ne 0 ]]; then
-    # The command's preflight may observe a just-created TextEdit window at a
-    # different limit; refresh the observation once before treating it as a
-    # projection failure.
-    "$CU" snapshot TextEdit --limit 5 >/dev/null
-    cu_json set-value 1 "canonical-ref-test" --app TextEdit --no-snapshot
-  fi
-  assert_ok "set-value ref 1 resolves"
-  assert_json_field "set-value method" ".method" "ax-set-value"
-
-  "$CU" snapshot TextEdit --limit 5 >/dev/null
-  cu_json click 1 --app TextEdit --no-snapshot
-  if [[ "$EXIT" -ne 0 ]]; then
-    "$CU" snapshot TextEdit --limit 5 >/dev/null
-    cu_json click 1 --app TextEdit --no-snapshot
-  fi
-  assert_ok "click ref 1 resolves"
-  CLICK_REF=$(json_get '.ref' || echo "")
-  [[ "$CLICK_REF" == "1" ]] && _pass "click consumed canonical ref 1" || _fail "click ref" "got $CLICK_REF"
-else
-  _skip "TextEdit action identity" "TextEdit fixture unavailable"
 fi
 
 section "ref projection — static/zero-size nodes do not create gaps"
@@ -218,5 +195,34 @@ print(next((e["ref"] for e in es if e.get("role")=="statictext"), ""))
 else
   _skip "unreadable subtree fallback" "no AXRow subtree in Finder snapshot"
 fi
+
+section "ref projection — TextEdit action paths use the same order"
+
+if textedit_reset; then
+  "$CU" snapshot TextEdit --limit 5 >/dev/null
+  cu_json set-value 1 "canonical-ref-test" --app TextEdit --no-snapshot
+  if [[ "$EXIT" -ne 0 ]]; then
+    # The command's preflight may observe a just-created TextEdit window at a
+    # different limit; refresh the observation once before treating it as a
+    # projection failure.
+    "$CU" snapshot TextEdit --limit 5 >/dev/null
+    cu_json set-value 1 "canonical-ref-test" --app TextEdit --no-snapshot
+  fi
+  assert_ok "set-value ref 1 resolves"
+  assert_json_field "set-value method" ".method" "ax-set-value"
+
+  "$CU" snapshot TextEdit --limit 5 >/dev/null
+  cu_json click 1 --app TextEdit --no-snapshot
+  if [[ "$EXIT" -ne 0 ]]; then
+    "$CU" snapshot TextEdit --limit 5 >/dev/null
+    cu_json click 1 --app TextEdit --no-snapshot
+  fi
+  assert_ok "click ref 1 resolves"
+  CLICK_REF=$(json_get '.ref' || echo "")
+  [[ "$CLICK_REF" == "1" ]] && _pass "click consumed canonical ref 1" || _fail "click ref" "got $CLICK_REF"
+else
+  _skip "TextEdit action identity" "TextEdit fixture unavailable"
+fi
+
 
 summary

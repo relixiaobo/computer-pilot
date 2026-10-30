@@ -147,6 +147,24 @@ pub struct SnapshotResult {
     pub error: Option<String>,
 }
 
+impl SnapshotResult {
+    /// Project a larger freshness check back to the caller's requested limit.
+    pub fn restrict_limit(&mut self, limit: usize) {
+        self.elements.truncate(limit);
+        self.limit = limit;
+        self.truncated = self.elements.len() >= limit;
+        self.truncation_hint = self.truncated.then(|| truncation_hint(limit));
+    }
+}
+
+fn truncation_hint(limit: usize) -> String {
+    format!(
+        "snapshot stopped at {limit} elements — there are MORE elements past this point. \
+         Re-run with --limit {} (or higher) if the element you need isn't in this batch.",
+        limit.saturating_mul(2)
+    )
+}
+
 #[derive(Serialize, Clone)]
 pub struct FocusedSummary {
     #[serde(rename = "ref", skip_serializing_if = "Option::is_none")]
@@ -1068,6 +1086,7 @@ mod ref_projection_tests {
 /// node's descendants have been visited.
 struct RefNodeRead {
     role: Option<String>,
+    path_segment: String,
     title: Option<String>,
     value: Option<String>,
     position: Option<CGPoint>,
@@ -1114,6 +1133,7 @@ unsafe fn read_single_ref_node(element: CFTypeRef) -> RefNodeRead {
     let (children, owned) = retained_children(element);
     RefNodeRead {
         role,
+        path_segment: String::new(),
         title: None,
         value: None,
         position: None,
@@ -1158,9 +1178,14 @@ unsafe fn read_batch_ref_node(element: CFTypeRef, batch_keys: CFArrayRef) -> Ref
         } else {
             CGSize::default()
         };
+        let path_title =
+            ax_string(element, "AXTitle").or_else(|| ax_string(element, "AXDescription"));
+        let path_segment = build_path_segment(
+            role.as_deref().unwrap_or_default(),
+            path_title.as_deref().filter(|s| !s.is_empty()),
+        );
         let title = if projected {
-            ax_string(element, "AXTitle")
-                .or_else(|| ax_string(element, "AXDescription"))
+            path_title
                 .or_else(|| ax_string(element, "AXHelp"))
                 .or_else(|| ax_string(element, "AXIdentifier"))
                 .filter(|s| !s.is_empty())
@@ -1180,6 +1205,7 @@ unsafe fn read_batch_ref_node(element: CFTypeRef, batch_keys: CFArrayRef) -> Ref
         let (children, owned) = retained_children(element);
         return RefNodeRead {
             role,
+            path_segment,
             title,
             value,
             position,
@@ -1196,9 +1222,14 @@ unsafe fn read_batch_ref_node(element: CFTypeRef, batch_keys: CFArrayRef) -> Ref
     } else {
         CGSize::default()
     };
+    let path_title = batch_string_with_fallback(values, BA_TITLE, element, "AXTitle")
+        .or_else(|| batch_string_with_fallback(values, BA_DESC, element, "AXDescription"));
+    let path_segment = build_path_segment(
+        role.as_deref().unwrap_or_default(),
+        path_title.as_deref().filter(|s| !s.is_empty()),
+    );
     let title = if projected {
-        batch_string_with_fallback(values, BA_TITLE, element, "AXTitle")
-            .or_else(|| batch_string_with_fallback(values, BA_DESC, element, "AXDescription"))
+        path_title
             .or_else(|| batch_string_with_fallback(values, BA_HELP, element, "AXHelp"))
             .or_else(|| batch_string_with_fallback(values, BA_IDENTIFIER, element, "AXIdentifier"))
             .filter(|s| !s.is_empty())
@@ -1233,6 +1264,7 @@ unsafe fn read_batch_ref_node(element: CFTypeRef, batch_keys: CFArrayRef) -> Ref
 
     RefNodeRead {
         role,
+        path_segment,
         title,
         value,
         position,
@@ -1259,7 +1291,7 @@ unsafe fn traverse_ref_tree<T, Reader, Visitor>(
     counter: &mut usize,
     depth: usize,
     track_paths: bool,
-    my_segment: &str,
+    siblings: &mut std::collections::HashMap<String, usize>,
     parent_path: &str,
     depth_limited: &mut bool,
     reader: &mut Reader,
@@ -1277,10 +1309,19 @@ where
     let node = reader(element);
     let ref_id = RefProjection::from_parts(node.role.as_deref(), node.size).assign(counter);
     let self_path = if track_paths {
-        if parent_path.is_empty() {
-            my_segment.to_string()
+        // Role/title were already fetched by the reader. Do not issue a
+        // second set of AX IPCs just to build the path for this same node.
+        let index = siblings.entry(node.path_segment.clone()).or_default();
+        let segment = if *index == 0 {
+            node.path_segment.clone()
         } else {
-            format!("{parent_path}/{my_segment}")
+            format!("{}:{index}", node.path_segment)
+        };
+        *index += 1;
+        if parent_path.is_empty() {
+            segment
+        } else {
+            format!("{parent_path}/{segment}")
         }
     } else {
         String::new()
@@ -1299,17 +1340,12 @@ where
             if child.is_null() {
                 continue;
             }
-            let child_segment = if track_paths {
-                compute_child_segment(child, &mut seen)
-            } else {
-                String::new()
-            };
             if let Some(result) = traverse_ref_tree(
                 child,
                 counter,
                 depth + 1,
                 track_paths,
-                &child_segment,
+                &mut seen,
                 &self_path,
                 depth_limited,
                 reader,
@@ -1323,28 +1359,6 @@ where
 
     node.release();
     None
-}
-
-/// Compute the path segment for `child` (Role[Title]:N). `seen` tracks how
-/// many earlier siblings produced the same `Role[Title]` so we can append
-/// the `:N` disambiguator (omitted when `N == 0`). Mutates `seen` in place.
-unsafe fn compute_child_segment(
-    child: CFTypeRef,
-    seen: &mut std::collections::HashMap<String, usize>,
-) -> String {
-    let role = ax_string(child, "AXRole").unwrap_or_default();
-    let title = ax_string(child, "AXTitle")
-        .or_else(|| ax_string(child, "AXDescription"))
-        .filter(|s| !s.is_empty());
-    let base = build_path_segment(&role, title.as_deref());
-    let idx_ref = seen.entry(base.clone()).or_insert(0);
-    let idx = *idx_ref;
-    *idx_ref += 1;
-    if idx == 0 {
-        base
-    } else {
-        format!("{base}:{idx}")
-    }
 }
 
 // ── AX action helpers ───────────────────────────────────────────────────────
@@ -1564,7 +1578,7 @@ where
         &mut counter,
         0,
         false,
-        "",
+        &mut std::collections::HashMap::new(),
         "",
         &mut depth_limited,
         &mut reader,
@@ -2303,12 +2317,6 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
         let mut elements = Vec::new();
         let mut counter = 0usize;
         let mut depth_limited = false;
-        // Compute the root's own path segment so descendants get full paths.
-        let root_role = ax_string(walk_root, "AXRole").unwrap_or_default();
-        let root_title = ax_string(walk_root, "AXTitle")
-            .or_else(|| ax_string(walk_root, "AXDescription"))
-            .filter(|s| !s.is_empty());
-        let root_segment = build_path_segment(&root_role, root_title.as_deref());
         let mut reader = |element| read_batch_ref_node(element, batch_keys);
         let mut visitor = |element: CFTypeRef,
                            node: &RefNodeRead,
@@ -2347,7 +2355,7 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
             &mut counter,
             0,
             true,
-            &root_segment,
+            &mut std::collections::HashMap::new(),
             "",
             &mut depth_limited,
             &mut reader,
@@ -2356,15 +2364,7 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
         CFRelease(batch_keys);
 
         let truncated = elements.len() >= limit;
-        let truncation_hint = if truncated {
-            Some(format!(
-                "snapshot stopped at {limit} elements — there are MORE elements past this point. \
-                 Re-run with --limit {} (or higher) if the element you need isn't in this batch.",
-                limit * 2
-            ))
-        } else {
-            None
-        };
+        let truncation_hint = truncated.then(|| truncation_hint(limit));
 
         // A4: surface the currently focused UI element so the agent can skip
         //     a redundant click on a field that's already focused.

@@ -1,24 +1,12 @@
-//! Single-shot AXObserver wait — replaces unconditional 500ms POST_ACTION_DELAY
-//! with "wait for the first relevant AX notification, or `max_ms` ms, whichever
-//! comes first" (D7).
-//!
-//! The agent triggers an action (click / type / set-value) and we then attach
-//! an AXObserver to the app, listen for any of:
-//!
-//! - `AXValueChanged` (text fields update, checkboxes flip, ...)
-//! - `AXFocusedUIElementChanged` (focus shifted to a new field)
-//! - `AXMainWindowChanged` (a new window opened or main window switched)
-//! - `AXSelectedChildrenChanged` (lists / outlines / popups opened)
-//!
-//! When the first notification fires, we tear down and return immediately.
-//!
-//! This is *not* a daemon — the observer only lives for the duration of one
-//! `wait_for_settle` call. ~50ms median vs the old 500ms sleep.
+//! Single-action AX notification subscription, armed before dispatch so synchronous
+//! changes are not missed. The observer is removed on success and on early errors.
+//! Unsupported apps keep the bounded post-action fallback delay.
 
 #![allow(unsafe_op_in_unsafe_fn)]
 
 use std::ffi::c_void;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, Instant};
 
 type Boolean = u8;
 // Match the i64 width used by the FFI declaration in src/ax.rs so the linker
@@ -110,87 +98,93 @@ unsafe extern "C" fn fired_callback(
     }
 }
 
-/// Wait up to `max_ms` for any "UI-changed" AX notification from the app.
-/// Returns the actual elapsed milliseconds. If the notification fires earlier,
-/// returns immediately; if subscription fails or the runloop times out, returns
-/// `max_ms`. Always safe to call — never panics, never lingers past `max_ms`.
-pub fn wait_for_settle(pid: i32, max_ms: u64) -> u64 {
-    use std::time::Instant;
+pub struct ActionObserver {
+    observer: AXObserverRef,
+    app: AXUIElementRef,
+    subscribed: Vec<CFStringRef>,
+    fired: Box<AtomicBool>,
+}
 
-    let start = Instant::now();
-    let fired = Box::new(AtomicBool::new(false));
-    let fired_ptr: *const AtomicBool = &*fired;
-
-    unsafe {
-        let mut observer: AXObserverRef = std::ptr::null();
-        let err = AXObserverCreate(pid, fired_callback, &mut observer);
-        if err != AX_OK || observer.is_null() {
-            // Fall back to the legacy fixed sleep.
-            std::thread::sleep(std::time::Duration::from_millis(max_ms));
-            return start.elapsed().as_millis() as u64;
-        }
-
-        let app_el = AXUIElementCreateApplication(pid);
-        if app_el.is_null() {
-            CFRelease(observer);
-            std::thread::sleep(std::time::Duration::from_millis(max_ms));
-            return start.elapsed().as_millis() as u64;
-        }
-
-        // Subscribe to notifications likely to fire after a click/type/set-value.
-        let notifs = [
-            "AXValueChanged",
-            "AXFocusedUIElementChanged",
-            "AXMainWindowChanged",
-            "AXSelectedChildrenChanged",
-        ];
-        let mut subscribed: Vec<CFStringRef> = Vec::new();
-        for name in &notifs {
-            let cf = cfstr(name);
-            if !cf.is_null() {
-                let e = AXObserverAddNotification(observer, app_el, cf, fired_ptr as *mut c_void);
-                if e == AX_OK {
-                    subscribed.push(cf);
+impl ActionObserver {
+    /// Register before dispatch, on the same thread that will wait and drop.
+    pub fn new(pid: i32) -> Option<Self> {
+        unsafe {
+            let mut observer = std::ptr::null();
+            if AXObserverCreate(pid, fired_callback, &mut observer) != AX_OK || observer.is_null() {
+                return None;
+            }
+            let mut pending = Self {
+                observer,
+                app: AXUIElementCreateApplication(pid),
+                subscribed: Vec::new(),
+                fired: Box::new(AtomicBool::new(false)),
+            };
+            if pending.app.is_null() {
+                return None;
+            }
+            for name in [
+                "AXValueChanged",
+                "AXFocusedUIElementChanged",
+                "AXMainWindowChanged",
+                "AXSelectedChildrenChanged",
+            ] {
+                let cf = cfstr(name);
+                if cf.is_null() {
+                    continue;
+                }
+                let refcon = &*pending.fired as *const AtomicBool as *mut c_void;
+                if AXObserverAddNotification(observer, pending.app, cf, refcon) == AX_OK {
+                    pending.subscribed.push(cf);
                 } else {
                     CFRelease(cf);
                 }
             }
+            let source = AXObserverGetRunLoopSource(observer);
+            if pending.subscribed.is_empty() || source.is_null() {
+                return None;
+            }
+            CFRunLoopAddSource(CFRunLoopGetCurrent(), source, kCFRunLoopDefaultMode);
+            Some(pending)
         }
+    }
+}
 
-        if subscribed.is_empty() {
-            CFRelease(app_el);
-            CFRelease(observer);
-            std::thread::sleep(std::time::Duration::from_millis(max_ms));
-            return start.elapsed().as_millis() as u64;
+impl Drop for ActionObserver {
+    fn drop(&mut self) {
+        unsafe {
+            let source = AXObserverGetRunLoopSource(self.observer);
+            if !source.is_null() {
+                CFRunLoopRemoveSource(CFRunLoopGetCurrent(), source, kCFRunLoopDefaultMode);
+            }
+            for cf in &self.subscribed {
+                AXObserverRemoveNotification(self.observer, self.app, *cf);
+                CFRelease(*cf);
+            }
+            if !self.app.is_null() {
+                CFRelease(self.app);
+            }
+            CFRelease(self.observer);
         }
+    }
+}
 
-        let src = AXObserverGetRunLoopSource(observer);
-        let rl = CFRunLoopGetCurrent();
-        if !src.is_null() {
-            CFRunLoopAddSource(rl, src, kCFRunLoopDefaultMode);
-        }
-
-        // Run the runloop in 50ms slices so we can poll the fired flag and
-        // bail out as soon as it flips. Cap the total at `max_ms`.
-        let slice_secs: CFTimeInterval = 0.05;
-        let max_loops = (max_ms / 50).max(1);
-        for _ in 0..max_loops {
-            let _ = CFRunLoopRunInMode(kCFRunLoopDefaultMode, slice_secs, 1);
-            if fired.load(Ordering::SeqCst) {
+/// Wait for the already-armed notification, bounded by an actual deadline.
+/// A queued notification from a synchronous action is handled immediately.
+pub fn wait_for_settle(observer: Option<ActionObserver>, max_ms: u64) -> u64 {
+    let start = Instant::now();
+    let budget = Duration::from_millis(max_ms);
+    if let Some(observer) = observer {
+        while !observer.fired.load(Ordering::SeqCst) {
+            let remaining = budget.saturating_sub(start.elapsed());
+            if remaining.is_zero() {
                 break;
             }
+            unsafe {
+                CFRunLoopRunInMode(kCFRunLoopDefaultMode, remaining.as_secs_f64(), 1);
+            }
         }
-
-        if !src.is_null() {
-            CFRunLoopRemoveSource(rl, src, kCFRunLoopDefaultMode);
-        }
-        for cf in &subscribed {
-            AXObserverRemoveNotification(observer, app_el, *cf);
-            CFRelease(*cf);
-        }
-        CFRelease(app_el);
-        CFRelease(observer);
+    } else {
+        std::thread::sleep(budget);
     }
-
     start.elapsed().as_millis() as u64
 }

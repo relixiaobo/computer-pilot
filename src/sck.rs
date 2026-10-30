@@ -45,12 +45,9 @@ type ShareableContentWait = Arc<(Mutex<Option<Result<SafeContent, String>>>, Con
 type CaptureImageWait = Arc<(Mutex<Option<Result<usize, String>>>, Condvar)>;
 
 /// Capture a window via SCK and return a +1 retained CGImageRef plus its
-/// pixel width. Caller must `CFRelease` the returned pointer (or hand it
-/// off to `screenshot::save_image_ptr`, which does the release).
+/// pixel width. Caller must `CFRelease` the returned pointer.
 ///
-/// Used by both the plain capture path (`capture_window_to_png`) and the
-/// annotation path (`screenshot::annotate_window`) — same SCK pipeline,
-/// different downstream image processing.
+/// Used by the shared screenshot/annotation/OCR capture path.
 pub fn capture_window_to_cgimage(
     window_id: u32,
     target_pts_w: f64,
@@ -89,19 +86,6 @@ pub fn capture_window_to_cgimage(
         let image_ptr = capture_image(&filter, &config)?;
         Ok((image_ptr as *const c_void, px_w))
     }
-}
-
-/// Capture a window via SCK and write it to `path`. Returns the pixel
-/// width of the saved image.
-pub fn capture_window_to_png(
-    window_id: u32,
-    target_pts_w: f64,
-    target_pts_h: f64,
-    path: &str,
-) -> Result<usize, String> {
-    let (image_ptr, px_w) = capture_window_to_cgimage(window_id, target_pts_w, target_pts_h)?;
-    crate::screenshot::save_image_ptr(image_ptr, path)?;
-    Ok(px_w)
 }
 
 fn get_shareable_content() -> Result<Retained<SCShareableContent>, String> {

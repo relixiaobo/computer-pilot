@@ -1907,9 +1907,9 @@ fn cmd_snapshot(
     broker::publish_observation(pid, &result);
 
     // Capture the previous cache before overwriting — `--diff` reads it below.
-    // Cache is updated unconditionally so the stale-state guard in action
-    // commands sees the latest tree the agent saw, not just `--diff` calls.
-    let previous = diff::load_previous(pid);
+    // Every explicit snapshot remains the baseline for the next --diff.
+    // Stale-ref enforcement uses Broker observations, not this disk cache.
+    let previous = diff_mode.then(|| diff::load_previous(pid)).flatten();
     let _ = diff::save_current(pid, &result.elements);
 
     // --with-screenshot (skipped when --annotated is set since annotated already
@@ -2516,10 +2516,11 @@ fn prepare_ref_action(
     }
 
     let (pid, name) = system::resolve_target_app(app)?;
-    let pre_snapshot = ax::snapshot(pid, &name, limit.max(50));
-    if let Some(ref_id) = ref_id {
-        broker::enforce_expected_observation(pid, &name, ref_id)?;
-    }
+    let pre_snapshot = if let Some(ref_id) = ref_id {
+        broker::snapshot_for_ref_action(pid, &name, ref_id, limit)?
+    } else {
+        ax::snapshot(pid, &name, limit)
+    };
     Ok((pid, name, pre_snapshot))
 }
 
@@ -2682,7 +2683,6 @@ fn cmd_type(
     let resolved_target = system::resolve_input_target(&app, allow_global, "type")?;
     let target_pid = resolved_target.as_ref().map(|(pid, _)| *pid);
     let resolved_app = resolved_target.map(|(_, name)| name);
-    let snapshot_app = fixed_target_selector(target_pid, &app);
     let pre_input = if let (Some(pid), Some(name)) = (target_pid, resolved_app.as_deref()) {
         Some(focused_input_before_type(pid, name)?)
     } else {
@@ -2711,6 +2711,7 @@ fn cmd_type(
         (auto_reason.is_some(), auto_reason)
     };
 
+    let observer = target_pid.and_then(observer::ActionObserver::new);
     let mut clipboard_hint: Option<String> = None;
     let method = if use_paste {
         clipboard_hint = key::type_via_paste(&text, target_pid)?;
@@ -2727,29 +2728,20 @@ fn cmd_type(
             "unicode-global"
         }
     };
-    let mut captured = if target_pid.is_some() {
-        capture_action_snapshot(&snapshot_app, 50)
-    } else {
-        None
-    };
-    // Observer notifications can arrive before AXValue is readable. Chromium
-    // can also publish a transient value even when its renderer drops input.
-    // Confirm native fields after a short delay and use a longer window for
-    // AXWebArea before deciding success, failure, or unknown outcome.
-    if target_pid.is_some()
-        && let Some((pid, waited, _)) = captured.as_ref()
-        && let Some(name) = resolved_app.as_deref()
-    {
-        let pid = *pid;
-        let waited = *waited;
+    // Keep the native/Chromium stability window, but read the tree only once
+    // after it. The old first post-action snapshot was always discarded.
+    let captured = if let (Some(pid), Some(name)) = (target_pid, resolved_app.as_deref()) {
+        let waited = observer::wait_for_settle(observer, POST_ACTION_DELAY_MS);
         let stability_delay = if webarea_input {
             WEB_INPUT_STABILITY_DELAY_MS
         } else {
             NATIVE_INPUT_STABILITY_DELAY_MS
         };
         std::thread::sleep(Duration::from_millis(stability_delay));
-        captured = Some((pid, waited + stability_delay, ax::snapshot(pid, name, 50)));
-    }
+        Some((pid, waited + stability_delay, ax::snapshot(pid, name, 50)))
+    } else {
+        None
+    };
     let post_input = captured
         .as_ref()
         .and_then(|(_, _, snapshot)| snapshot.focused.as_ref());
@@ -2831,7 +2823,7 @@ fn cmd_type(
     });
     if webarea_input {
         result["effect_stability_ms"] = WEB_INPUT_STABILITY_DELAY_MS.into();
-        result["effect_advice"] = "The focused AXValue remained changed across a second Chromium snapshot. This verifies stable text input, but not every controlled-editor side effect; inspect the app's visible submit/search state before invoking it.".into();
+        result["effect_advice"] = "The focused AXValue was changed after the Chromium stability delay. This verifies stable text input, but not every controlled-editor side effect; inspect the app's visible submit/search state before invoking it.".into();
     }
     if let Some(reason) = paste_reason {
         result["paste_reason"] = serde_json::Value::String(reason);
@@ -2867,9 +2859,20 @@ fn cmd_set_value(
     ax_path: Option<String>,
     no_snapshot: bool,
 ) -> Result<(), CuError> {
-    let (pid, name, pre_snapshot) = prepare_ref_action(&app, ref_id, ax_path.as_deref(), limit)?;
+    // A path write has no ref freshness check or pre/post diff. Its path
+    // already identifies web inputs, so a pre-action tree would be unused.
+    let (pid, name, pre_snapshot) = if ax_path.is_some() {
+        let (pid, name) = system::resolve_target_app(&app)?;
+        (pid, name, None)
+    } else {
+        let (pid, name, snapshot) = prepare_ref_action(&app, ref_id, None, limit)?;
+        (pid, name, Some(snapshot))
+    };
     let snapshot_app = fixed_target_selector(Some(pid), &app);
 
+    let observer = (json && !no_snapshot)
+        .then(|| observer::ActionObserver::new(pid))
+        .flatten();
     let (selector_kind, selector_value) = if let Some(p) = ax_path.as_deref() {
         ax::ax_set_value_by_path(pid, p, &value)?;
         ("ax-path", serde_json::Value::String(p.to_string()))
@@ -2882,11 +2885,11 @@ fn cmd_set_value(
     let controlled_editor_risk = ax_path
         .as_deref()
         .is_some_and(|path| path.to_ascii_lowercase().contains("webarea"))
-        || ref_id.is_some_and(|target_ref| {
-            pre_snapshot
+        || pre_snapshot.as_ref().is_some_and(|snapshot| {
+            snapshot
                 .elements
                 .iter()
-                .find(|element| element.ref_id == target_ref)
+                .find(|element| Some(element.ref_id) == ref_id)
                 .and_then(|element| element.ax_path.as_deref())
                 .is_some_and(|path| path.to_ascii_lowercase().contains("webarea"))
         });
@@ -2913,6 +2916,7 @@ fn cmd_set_value(
         &snapshot_app,
         limit,
         false,
+        observer,
     );
     if json {
         ok(result)
@@ -2938,13 +2942,8 @@ fn cmd_perform(
     let (pid, name, pre_snapshot) = prepare_ref_action(&app, ref_id, ax_path.as_deref(), limit)?;
     let snapshot_app = fixed_target_selector(Some(pid), &app);
 
+    let observer = observer::ActionObserver::new(pid);
     let (selector_kind, selector_value, available) = if let Some(p) = ax_path.as_deref() {
-        // Resolve via axPath, fire AXAction directly. We piggyback on
-        // resolve_by_ax_path to validate the path first; then list actions
-        // and perform the named one via a focused AX descent.
-        let (_acted, _cx, _cy) = ax::resolve_by_ax_path(pid, p, false)?;
-        // For axPath we don't currently re-list actions — pass an empty list.
-        // The action attempt itself will fail with a clear error if not supported.
         ax::ax_perform_by_path(pid, p, &action)?;
         (
             "ax-path",
@@ -2957,7 +2956,7 @@ fn cmd_perform(
         ("ref", serde_json::Value::Number(r.into()), avail)
     };
 
-    let captured = capture_action_snapshot(&snapshot_app, limit);
+    let captured = capture_action_snapshot(&snapshot_app, limit, observer);
     let effect_verified = captured
         .as_ref()
         .map(|(_, _, post)| tree_changed(&pre_snapshot.elements, &post.elements));
@@ -3038,6 +3037,7 @@ fn cmd_key(
     let pre_snapshot = target
         .as_ref()
         .map(|(pid, name)| ax::snapshot(*pid, name, 50));
+    let observer = target_pid.and_then(observer::ActionObserver::new);
     key::send(&combo, target_pid)?;
     let method = if target_pid.is_some() {
         "key-pid"
@@ -3045,7 +3045,7 @@ fn cmd_key(
         "key-global"
     };
     let captured = if target_pid.is_some() {
-        capture_action_snapshot(&snapshot_app, 50)
+        capture_action_snapshot(&snapshot_app, 50, observer)
     } else {
         None
     };
@@ -3169,19 +3169,30 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
     let target_pid = resolved_target.as_ref().map(|(pid, _)| *pid);
     let snapshot_app = fixed_target_selector(target_pid, &app);
 
-    // --verify: capture the AX state before any action so we can diff it
-    // against the post-action snapshot. Reuse the bound target and stash
-    // the (pid, name, prev_elements) tuple; downstream code paths read it back
-    // through `attach_verification` after the post-action snapshot has been populated
-    // result["snapshot"].
-    let pre_state: Option<(i32, String, ax::SnapshotResult)> = if verify {
-        if let Some((pid, name)) = resolved_target.as_ref() {
+    let ref_id = if ax_path.is_none() && text.is_none() && y.is_none() {
+        let ref_id = target
+            .as_deref()
+            .ok_or("specify a ref, coordinates (x y), or --text")?
+            .parse::<usize>()
+            .map_err(|_| "ref must be a positive integer (for coordinates: cu click <x> <y>)")?;
+        if ref_id == 0 {
+            return Err("ref must be >= 1".into());
+        }
+        Some(ref_id)
+    } else {
+        None
+    };
+    // Stale-ref enforcement and effect verification share one pre-action tree.
+    let pre_state = if let Some((pid, name)) = resolved_target.as_ref() {
+        if let Some(ref_id) = ref_id {
+            Some((
+                *pid,
+                name.clone(),
+                broker::snapshot_for_ref_action(*pid, name, ref_id, limit)?,
+            ))
+        } else if verify {
             let snap = ax::snapshot(*pid, name, limit);
-            if snap.ok {
-                Some((*pid, name.clone(), snap))
-            } else {
-                None
-            }
+            snap.ok.then(|| (*pid, name.clone(), snap))
         } else {
             None
         }
@@ -3204,6 +3215,9 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
                 .cloned()
         });
         let target_pid = Some(pid);
+        let observer = target_pid
+            .filter(|_| verify || (json && !no_snapshot))
+            .and_then(observer::ActionObserver::new);
         let (method, cx, cy) = if right || double {
             let (_, cx, cy) = ax::resolve_by_ax_path(pid, p, false)?;
             if double {
@@ -3233,6 +3247,7 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
             &snapshot_app,
             limit,
             verify,
+            observer,
         );
         attach_click_verification(
             &mut result,
@@ -3313,6 +3328,9 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
             .as_ref()
             .and_then(|(_, _, snapshot)| text_input_at(&snapshot.elements, cx, cy));
 
+        let observer = target_pid
+            .filter(|_| verify || (json && !no_snapshot))
+            .and_then(observer::ActionObserver::new);
         // Route to the target app's pid whenever a target was resolved; only
         // the explicit --allow-global path uses the desktop-wide tap.
         if double {
@@ -3344,6 +3362,7 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
             &snapshot_app,
             limit,
             verify,
+            observer,
         );
         attach_click_verification(
             &mut result,
@@ -3374,6 +3393,9 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
         let focus_target = pre_state
             .as_ref()
             .and_then(|(_, _, snapshot)| text_input_at(&snapshot.elements, x, y));
+        let observer = target_pid
+            .filter(|_| verify || (json && !no_snapshot))
+            .and_then(observer::ActionObserver::new);
         // Resolve a concrete PID unless the caller explicitly requested the
         // global HID escape hatch. This keeps coordinate clicks from warping
         // the user's real cursor when --app is omitted.
@@ -3400,6 +3422,7 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
             &snapshot_app,
             limit,
             verify,
+            observer,
         );
         attach_click_verification(
             &mut result,
@@ -3419,27 +3442,26 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
     }
 
     // Mode 3: cu click <ref> → AX ref click
-    let ref_id: usize = target
-        .parse()
-        .map_err(|_| "ref must be a positive integer (for coordinates: cu click <x> <y>)")?;
-    if ref_id == 0 {
-        return Err("ref must be >= 1".into());
-    }
-
+    let ref_id = ref_id.expect("ref mode was parsed before observation");
     let (pid, name) =
         resolved_target.ok_or("ref click requires a target application; omit --allow-global")?;
-    broker::enforce_expected_observation(pid, &name, ref_id)?;
-    let focus_target = pre_state.as_ref().and_then(|(_, _, snapshot)| {
-        snapshot
-            .elements
-            .iter()
-            .find(|element| element.ref_id == ref_id)
-            .cloned()
-    });
+    let focus_target = pre_state
+        .as_ref()
+        .filter(|_| verify)
+        .and_then(|(_, _, snapshot)| {
+            snapshot
+                .elements
+                .iter()
+                .find(|element| element.ref_id == ref_id)
+                .cloned()
+        });
 
     // Mode 3 always knows the target pid, so all CGEvent fallbacks are PID-targeted —
     // no cursor warp, no focus theft.
     let target_pid = Some(pid);
+    let observer = target_pid
+        .filter(|_| verify || (json && !no_snapshot))
+        .and_then(observer::ActionObserver::new);
     let (method, cx, cy) = if right || double {
         let (_, cx, cy) = ax::ax_find_element(pid, ref_id, limit)?;
         if double {
@@ -3468,6 +3490,7 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
         &snapshot_app,
         limit,
         verify,
+        observer,
     );
     attach_click_verification(
         &mut result,
@@ -3511,6 +3534,9 @@ fn cmd_scroll(
     let target_pid =
         system::resolve_input_target(&app, allow_global, "scroll")?.map(|(pid, _)| pid);
     let snapshot_app = fixed_target_selector(target_pid, &app);
+    let observer = target_pid
+        .filter(|_| json && !no_snapshot)
+        .and_then(observer::ActionObserver::new);
     mouse::scroll(sx, sy, dy, dx, target_pid)?;
     broker::visual_cursor_move(target_pid, sx, sy, false);
     let method = if target_pid.is_some() {
@@ -3522,8 +3548,15 @@ fn cmd_scroll(
         "ok": true, "method": method, "direction": direction,
         "amount": amount, "x": sx, "y": sy,
     });
-    let _ =
-        capture_and_maybe_attach_snapshot(&mut result, json, no_snapshot, &snapshot_app, 50, false);
+    let _ = capture_and_maybe_attach_snapshot(
+        &mut result,
+        json,
+        no_snapshot,
+        &snapshot_app,
+        50,
+        false,
+        observer,
+    );
     if json {
         ok(result)
     } else {
@@ -3542,6 +3575,9 @@ fn cmd_hover(
 ) -> Result<(), CuError> {
     let target_pid = system::resolve_input_target(&app, allow_global, "hover")?.map(|(pid, _)| pid);
     let snapshot_app = fixed_target_selector(target_pid, &app);
+    let observer = target_pid
+        .filter(|_| json && !no_snapshot)
+        .and_then(observer::ActionObserver::new);
     mouse::hover(x, y, target_pid)?;
     broker::visual_cursor_move(target_pid, x, y, false);
     let method = if target_pid.is_some() {
@@ -3550,8 +3586,15 @@ fn cmd_hover(
         "cgevent-global"
     };
     let mut result = serde_json::json!({"ok": true, "method": method, "x": x, "y": y});
-    let _ =
-        capture_and_maybe_attach_snapshot(&mut result, json, no_snapshot, &snapshot_app, 50, false);
+    let _ = capture_and_maybe_attach_snapshot(
+        &mut result,
+        json,
+        no_snapshot,
+        &snapshot_app,
+        50,
+        false,
+        observer,
+    );
     if json {
         ok(result)
     } else {
@@ -3574,6 +3617,9 @@ fn cmd_drag(
 ) -> Result<(), CuError> {
     let target_pid = system::resolve_input_target(&app, allow_global, "drag")?.map(|(pid, _)| pid);
     let snapshot_app = fixed_target_selector(target_pid, &app);
+    let observer = target_pid
+        .filter(|_| json && !no_snapshot)
+        .and_then(observer::ActionObserver::new);
     mouse::drag(x1, y1, x2, y2, mods, target_pid)?;
     broker::visual_cursor_move(target_pid, x2, y2, false);
     let method = if target_pid.is_some() {
@@ -3585,8 +3631,15 @@ fn cmd_drag(
         "ok": true, "method": method,
         "from": {"x": x1, "y": y1}, "to": {"x": x2, "y": y2},
     });
-    let _ =
-        capture_and_maybe_attach_snapshot(&mut result, json, no_snapshot, &snapshot_app, 50, false);
+    let _ = capture_and_maybe_attach_snapshot(
+        &mut result,
+        json,
+        no_snapshot,
+        &snapshot_app,
+        50,
+        false,
+        observer,
+    );
     if json {
         ok(result)
     } else {
@@ -4774,9 +4827,10 @@ fn compact_action_snapshot(snap: &ax::SnapshotResult) -> serde_json::Value {
 fn capture_action_snapshot(
     app: &Option<String>,
     limit: usize,
+    observer: Option<observer::ActionObserver>,
 ) -> Option<(i32, u64, ax::SnapshotResult)> {
     let (pid, name) = system::resolve_target_app(app).ok()?;
-    let waited = observer::wait_for_settle(pid, POST_ACTION_DELAY_MS);
+    let waited = observer::wait_for_settle(observer, POST_ACTION_DELAY_MS);
     let snap = ax::snapshot(pid, &name, limit);
     Some((pid, waited, snap))
 }
@@ -4805,6 +4859,7 @@ fn capture_and_maybe_attach_snapshot(
     app: &Option<String>,
     limit: usize,
     force_capture: bool,
+    observer: Option<observer::ActionObserver>,
 ) -> Option<ax::SnapshotResult> {
     // Annotate every action result with confidence/advice derived from its
     // `method` field, regardless of snapshot attachment (C4).
@@ -4812,7 +4867,7 @@ fn capture_and_maybe_attach_snapshot(
     if !force_capture && (!json || no_snapshot) {
         return None;
     }
-    let captured = capture_action_snapshot(app, limit)?;
+    let captured = capture_action_snapshot(app, limit, observer)?;
     attach_captured_snapshot(result, json, no_snapshot, &captured);
     Some(captured.2)
 }

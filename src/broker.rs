@@ -1918,13 +1918,14 @@ fn same_element(left: &ObservedElement, right: &ObservedElement) -> bool {
 }
 
 /// Validate the Broker-selected Observation immediately before a ref action.
-pub fn enforce_expected_observation(
+pub fn snapshot_for_ref_action(
     pid: i32,
     app_name: &str,
     ref_id: usize,
-) -> Result<(), CuError> {
+    limit: usize,
+) -> Result<crate::ax::SnapshotResult, CuError> {
     let Some(encoded) = std::env::var_os(EXPECTED_OBSERVATION) else {
-        return Ok(());
+        return Ok(crate::ax::snapshot(pid, app_name, limit));
     };
     let expected: ObservationExpectation = serde_json::from_str(&encoded.to_string_lossy())
         .map_err(|_| CuError::msg("invalid private Observation expectation"))?;
@@ -1958,7 +1959,10 @@ pub fn enforce_expected_observation(
             expected.window_id
         )));
     }
-    let snapshot = crate::ax::snapshot(pid, app_name, expected.limit);
+    // One fresh tree serves both stale-ref enforcement and effect verification.
+    // Validate the original observation prefix even when the action asks for
+    // a different output limit.
+    let mut snapshot = crate::ax::snapshot(pid, app_name, expected.limit.max(limit));
     if !snapshot.ok {
         return Err(stale(
             snapshot
@@ -1966,7 +1970,8 @@ pub fn enforce_expected_observation(
                 .unwrap_or_else(|| "could not refresh target UI".into()),
         ));
     }
-    let elements = current_elements(&snapshot.elements);
+    let elements =
+        current_elements(&snapshot.elements[..snapshot.elements.len().min(expected.limit)]);
     if observed_generation(&elements) != expected.ax_generation {
         return Err(stale(
             "UI changed after the selected Observation; the ref was not dispatched".into(),
@@ -1981,7 +1986,8 @@ pub fn enforce_expected_observation(
             "ref [{ref_id}] now identifies a different element"
         )));
     }
-    Ok(())
+    snapshot.restrict_limit(limit);
+    Ok(snapshot)
 }
 
 fn finish_child(
