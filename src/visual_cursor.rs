@@ -500,8 +500,9 @@ mod macos {
             assert!(!context.is_null());
             CGContextScaleCTM(context, 2.0, 2.0);
             send_void_obj(layer, c"renderInContext:", context.cast_mut());
-            let visible = pixels.chunks_exact(4).filter(|p| p[3] > 0).count();
-            let opaque = pixels.chunks_exact(4).filter(|p| p[3] > 220).count();
+            let rgba = pixels.as_chunks::<4>().0;
+            let visible = rgba.iter().filter(|p| p[3] > 0).count();
+            let opaque = rgba.iter().filter(|p| p[3] > 220).count();
             assert!(visible > 1000, "fog must rasterize: {visible}");
             assert!(opaque > 200, "pointer must rasterize: {opaque}");
             CFRelease(context);
