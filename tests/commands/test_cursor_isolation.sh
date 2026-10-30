@@ -6,7 +6,7 @@ cursor_position() {
   swift -e 'import CoreGraphics; if let e = CGEvent(source: nil) { print("\(e.location.x),\(e.location.y)") }'
 }
 
-section "cursor isolation — PID-targeted hover"
+section "cursor isolation — PID-targeted hover with optional software cursor"
 
 BEFORE=$(cursor_position 2>/dev/null || true)
 if [[ -z "$BEFORE" ]]; then
@@ -15,17 +15,17 @@ if [[ -z "$BEFORE" ]]; then
   exit 0
 fi
 
-cu_json hover 377 299 --app Finder --no-snapshot
+COMPUTER_PILOT_VISUAL_CURSOR=1 cu_json hover 377 299 --app Finder --no-snapshot
 assert_ok "targeted hover dispatches"
 assert_json_field "targeted hover method" ".method" "cgevent-pid"
 
 AFTER=$(cursor_position 2>/dev/null || true)
 if [[ "$AFTER" == "$BEFORE" ]]; then
-  _pass "targeted hover preserves the real cursor"
+  _pass "targeted hover and software cursor preserve the real cursor"
 elif [[ "$AFTER" == "377.0,299.0" || "$AFTER" == "377,299" ]]; then
-  _fail "targeted hover preserves the real cursor" "cursor warped from $BEFORE to $AFTER"
+  _fail "targeted hover and software cursor preserve the real cursor" "cursor warped from $BEFORE to $AFTER"
 else
-  _skip "targeted hover preserves the real cursor" "cursor changed independently during the test ($BEFORE -> $AFTER)"
+  _skip "targeted hover and software cursor preserve the real cursor" "cursor changed independently during the test ($BEFORE -> $AFTER)"
 fi
 
 summary

@@ -106,7 +106,7 @@ After the E3 wrap-up the user asked for a systematic review of "what information
 | Focus / modal summary | ✅ A4 + A6 | partial | aligned (A6 unique to cu) |
 | Path-audit field | ✅ `method` field with subdivisions (F2a) | ✗ | **cu only** |
 | Multi-monitor | 🟡 single-display OK | ✅ | medium (Sprint 2 D1) |
-| Soft-cursor overlay | ❌ | ✅ | 🟡 planned as an optional Broker-owned macOS overlay; input and presentation stay separate |
+| Soft-cursor overlay | ✅ optional | ✅ | aligned; Broker-owned presentation layer, input and presentation stay separate |
 | Test infrastructure | ✅ 700+ command-test assertions + agent E2E (runs every release) + macOSWorld 133 tasks | closed-source | cu slight edge |
 
 **Key takeaway**: cu picked the right path. The remaining gap is the "last-mile craft" — Sprint 1 (3 days) covers the most user-felt portion. **Sprint 1 is complete (2026-04-27)**: every "no focus theft / no clipboard pollution / structured errors / focus + modal summary / set-value + perform first-class" gap is closed, and we surpass Codex CU on two axes (method-field audit, modal warning).
@@ -522,7 +522,7 @@ Acceptance: every action command leaves the user's real cursor alone, doesn't st
 
 | Item | Codex CU has it? | Why we don't do it |
 |---|---|---|
-| Soft-cursor overlay (virtual cursor — user sees the agent operating but isn't interrupted) | ✅ signature UX | 🟡 planned as an optional Broker-owned macOS overlay; keep it separate from input delivery and the CLI contract |
+| Soft-cursor overlay (virtual cursor — user sees the agent operating but isn't interrupted) | ✅ | implemented as an optional Broker-owned presentation layer; keep it separate from input delivery and the CLI contract |
 | MCP server mode | ❌ (not MCP) | violates CLAUDE.md's explicit "CLI only, no MCP" rule |
 | ghost-os style record/replay self-learning recipes | ❌ | beyond current product scope, needs a separate product decision |
 | Built-in VLM fallback (cu calling a VLM directly) | 🟡 GPT-5.4 ships with one | our agents have their own vision (Claude / GPT); cu is the reusable "hand", shouldn't redundantly call a remote VLM |

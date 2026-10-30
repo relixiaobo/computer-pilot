@@ -5,6 +5,7 @@
 //! coordination.
 
 use crate::error::{CuError, ErrorCode};
+use crate::visual_cursor;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, OpenOptions};
@@ -16,7 +17,7 @@ use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::{Arc, Condvar, Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -28,7 +29,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 /// CLIs never restart each other's Broker; an older one is retired through
 /// StopIfIdle so a bug fix that did not change the wire format still takes
 /// effect. The machine therefore converges on the newest installed version.
-const INTERNAL_PROTOCOL: u32 = 2;
+const INTERNAL_PROTOCOL: u32 = 3;
 const DEFAULT_TIMEOUT_MS: u64 = 60_000;
 const MAX_TIMEOUT_MS: u64 = 300_000;
 const MAX_RECORDS: usize = 2048;
@@ -44,6 +45,8 @@ const OUTPUT_DIR: &str = "COMPUTER_PILOT_OUTPUT_DIR";
 const TEST_FRONTMOST_OVERRIDE: &str = "CU_TEST_FRONTMOST_OVERRIDE";
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(1);
+static VISUAL_CURSOR_SENDER: OnceLock<std::sync::mpsc::Sender<visual_cursor::Event>> =
+    OnceLock::new();
 
 unsafe extern "C" {
     fn setsid() -> i32;
@@ -257,6 +260,10 @@ enum Request {
     StopIfIdle {
         token: String,
     },
+    VisualCursor {
+        token: String,
+        event: visual_cursor::Event,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -272,6 +279,8 @@ enum Response {
         // replaced rather than trusted.
         #[serde(default)]
         version: String,
+        #[serde(default)]
+        visual_cursor: bool,
     },
     Run {
         result: RunResult,
@@ -285,6 +294,7 @@ enum Response {
     Command {
         command: CommandRecord,
     },
+    VisualCursor,
     Stopping,
     Error {
         code: String,
@@ -573,7 +583,7 @@ fn send_request(request: &Request, timeout_ms: u64) -> Result<Response, String> 
         .map_err(|error| format!("private Broker returned an invalid response: {error}"))
 }
 
-fn ping(token: &str) -> Option<(u32, String, u32)> {
+fn ping(token: &str) -> Option<(u32, String, u32, bool)> {
     match send_request(
         &Request::Ping {
             token: token.into(),
@@ -584,7 +594,8 @@ fn ping(token: &str) -> Option<(u32, String, u32)> {
             protocol,
             version,
             pid,
-        }) => Some((protocol, version, pid)),
+            visual_cursor,
+        }) => Some((protocol, version, pid, visual_cursor)),
         _ => None,
     }
 }
@@ -606,8 +617,13 @@ fn parse_version(value: &str) -> Option<(u64, u64, u64)> {
 /// Broker that already speaks its wire format. Older (or unidentifiable, which
 /// means it predates the version field): retire it, so a Broker-side fix that
 /// did not change the wire format actually takes effect after an upgrade.
-fn broker_is_current(protocol: u32, version: &str) -> bool {
+fn broker_is_current(protocol: u32, version: &str, visual_cursor: bool) -> bool {
     if protocol != INTERNAL_PROTOCOL {
+        return false;
+    }
+    // An enabled client needs a Broker with the presentation loop. Disabling
+    // the optional cursor does not make an otherwise compatible Broker stale.
+    if visual_cursor::enabled() && !visual_cursor {
         return false;
     }
     match (parse_version(version), parse_version(crate::VERSION)) {
@@ -623,8 +639,8 @@ fn ensure_running() -> Result<String, BrokerError> {
     let token = create_token_if_missing()
         .or_else(|_| read_token())
         .map_err(BrokerError::internal)?;
-    if let Some((protocol, version, _pid)) = ping(&token)
-        && broker_is_current(protocol, &version)
+    if let Some((protocol, version, _pid, cursor)) = ping(&token)
+        && broker_is_current(protocol, &version, cursor)
     {
         return Ok(token);
     }
@@ -636,8 +652,8 @@ fn ensure_running() -> Result<String, BrokerError> {
         .open(start_lock_path());
     let owns_start_lock = lock.is_ok();
     if owns_start_lock {
-        if let Some((protocol, version, pid)) = ping(&token) {
-            if broker_is_current(protocol, &version) {
+        if let Some((protocol, version, pid, cursor)) = ping(&token) {
+            if broker_is_current(protocol, &version, cursor) {
                 let _ = fs::remove_file(start_lock_path());
                 return Ok(token);
             }
@@ -678,8 +694,9 @@ fn ensure_running() -> Result<String, BrokerError> {
 
     let deadline = now_ms().saturating_add(START_WAIT_MS);
     while now_ms() < deadline {
-        if ping(&token).is_some_and(|(protocol, version, _)| broker_is_current(protocol, &version))
-        {
+        if ping(&token).is_some_and(|(protocol, version, _, cursor)| {
+            broker_is_current(protocol, &version, cursor)
+        }) {
             if owns_start_lock {
                 let _ = fs::remove_file(start_lock_path());
             }
@@ -692,7 +709,7 @@ fn ensure_running() -> Result<String, BrokerError> {
     }
     // Another CLI may have kept an older but wire-compatible Broker alive
     // because it was busy. Serve this command through it rather than failing.
-    if ping(&token).is_some_and(|(protocol, _version, _)| protocol == INTERNAL_PROTOCOL) {
+    if ping(&token).is_some_and(|(protocol, _version, _, _)| protocol == INTERNAL_PROTOCOL) {
         return Ok(token);
     }
     Err(BrokerError::internal("private Broker did not become ready"))
@@ -950,6 +967,38 @@ pub fn run(options: RunOptions) -> Result<RunResult, BrokerError> {
     }
 }
 
+/// Send a presentation-only cursor event to an already-running Broker.
+/// Errors are intentionally ignored so a missing overlay can never fail an
+/// action. The caller is always a Broker child, so starting or upgrading a
+/// Broker here would only add latency to the input path.
+fn send_visual_cursor(event: visual_cursor::Event) {
+    if !visual_cursor::enabled() {
+        return;
+    }
+    let Ok(token) = read_token() else {
+        return;
+    };
+    let _ = send_request(&Request::VisualCursor { token, event }, 100);
+}
+
+pub fn visual_cursor_move(pid: i32, x: f64, y: f64, pulse: bool) {
+    if !visual_cursor::enabled() || !x.is_finite() || !y.is_finite() {
+        return;
+    }
+    let Some(window) = crate::ax::focused_window_geom(pid) else {
+        return;
+    };
+    send_visual_cursor(visual_cursor::Event {
+        pid,
+        window_id: window.window_id,
+        x,
+        y,
+        window_x: x - window.x,
+        window_y: y - window.y,
+        pulse,
+    });
+}
+
 pub fn status(client_key: String) -> Result<BrokerStatus, BrokerError> {
     let token = ensure_running()?;
     match unwrap_response(
@@ -1039,17 +1088,32 @@ pub fn serve() -> Result<(), String> {
         .map_err(|error| format!("failed to secure private Broker socket: {error}"))?;
     let _ = fs::remove_file(start_lock_path());
     let shared = Arc::new((Mutex::new(load_state()?), Condvar::new()));
+    if visual_cursor::enabled() {
+        let (sender, receiver) = visual_cursor::channel();
+        VISUAL_CURSOR_SENDER
+            .set(sender)
+            .map_err(|_| "visual cursor Broker state was initialized twice")?;
+        let state = Arc::clone(&shared);
+        let expected_token = token.clone();
+        thread::spawn(move || accept_connections(listener, state, expected_token));
+        visual_cursor::run_loop(receiver);
+        return Ok(());
+    }
+    accept_connections(listener, shared, token);
+    Ok(())
+}
+
+fn accept_connections(listener: UnixListener, shared: SharedState, expected_token: String) {
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
                 let state = Arc::clone(&shared);
-                let expected_token = token.clone();
+                let expected_token = expected_token.clone();
                 thread::spawn(move || handle_connection(stream, state, expected_token));
             }
             Err(_) => thread::sleep(Duration::from_millis(10)),
         }
     }
-    Ok(())
 }
 
 fn handle_connection(mut stream: UnixStream, shared: SharedState, expected_token: String) {
@@ -1104,7 +1168,8 @@ fn request_token(request: &Request) -> &str {
         | Request::Commands { token, .. }
         | Request::Command { token, .. }
         | Request::Cancel { token, .. }
-        | Request::StopIfIdle { token } => token,
+        | Request::StopIfIdle { token }
+        | Request::VisualCursor { token, .. } => token,
     }
 }
 
@@ -1123,6 +1188,7 @@ fn route(request: Request, shared: SharedState) -> Response {
             protocol: INTERNAL_PROTOCOL,
             pid: std::process::id(),
             version: crate::VERSION.into(),
+            visual_cursor: visual_cursor::enabled(),
         },
         Request::Run {
             executable,
@@ -1175,6 +1241,12 @@ fn route(request: Request, shared: SharedState) -> Response {
             ..
         } => cancel_command(&shared, &client_key, &command_id),
         Request::StopIfIdle { .. } => stop_if_idle(&shared),
+        Request::VisualCursor { event, .. } => {
+            if let Some(sender) = VISUAL_CURSOR_SENDER.get() {
+                let _ = sender.send(event);
+            }
+            Response::VisualCursor
+        }
     }
 }
 
@@ -2280,13 +2352,27 @@ mod tests {
     #[test]
     fn broker_reuse_requires_matching_protocol_and_current_or_newer_version() {
         let current_with_metadata = format!("{}+other-build", crate::VERSION);
-        assert!(broker_is_current(INTERNAL_PROTOCOL, crate::VERSION));
-        assert!(broker_is_current(INTERNAL_PROTOCOL, "999.0.0"));
-        assert!(broker_is_current(INTERNAL_PROTOCOL, &current_with_metadata));
-        assert!(!broker_is_current(INTERNAL_PROTOCOL + 1, crate::VERSION));
-        assert!(!broker_is_current(INTERNAL_PROTOCOL, "0.0.0"));
-        assert!(!broker_is_current(INTERNAL_PROTOCOL, "unknown"));
-        assert!(!broker_is_current(INTERNAL_PROTOCOL, ""));
+        let cursor = visual_cursor::enabled();
+        assert!(broker_is_current(INTERNAL_PROTOCOL, crate::VERSION, cursor));
+        assert!(broker_is_current(INTERNAL_PROTOCOL, "999.0.0", cursor));
+        assert!(broker_is_current(
+            INTERNAL_PROTOCOL,
+            &current_with_metadata,
+            cursor
+        ));
+        if cursor {
+            assert!(!broker_is_current(INTERNAL_PROTOCOL, crate::VERSION, false));
+        } else {
+            assert!(broker_is_current(INTERNAL_PROTOCOL, crate::VERSION, true));
+        }
+        assert!(!broker_is_current(
+            INTERNAL_PROTOCOL + 1,
+            crate::VERSION,
+            cursor
+        ));
+        assert!(!broker_is_current(INTERNAL_PROTOCOL, "0.0.0", cursor));
+        assert!(!broker_is_current(INTERNAL_PROTOCOL, "unknown", cursor));
+        assert!(!broker_is_current(INTERNAL_PROTOCOL, "", cursor));
     }
 
     #[test]
