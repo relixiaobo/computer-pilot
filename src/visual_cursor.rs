@@ -6,9 +6,14 @@
 
 #![allow(unsafe_op_in_unsafe_fn)]
 
+#[cfg(target_os = "macos")]
+mod glyph;
+#[cfg(any(target_os = "macos", test))]
+mod motion;
+
 use serde::{Deserialize, Serialize};
 use std::ffi::{CStr, c_char, c_void};
-use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -28,22 +33,13 @@ pub fn enabled() -> bool {
         .is_some_and(|value| matches!(value.as_str(), "1" | "true" | "on"))
 }
 
-pub fn channel() -> (Sender<Event>, Receiver<Event>) {
-    mpsc::channel()
-}
-
 #[cfg(target_os = "macos")]
 mod macos {
     use super::*;
 
-    type Obj = *mut c_void;
+    use super::motion::{Bounds, Path, Point, Pose, RenderPose, Spring};
 
-    #[repr(C)]
-    #[derive(Clone, Copy, Default)]
-    struct Point {
-        x: f64,
-        y: f64,
-    }
+    type Obj = *mut c_void;
 
     #[repr(C)]
     #[derive(Clone, Copy, Default)]
@@ -88,7 +84,7 @@ mod macos {
     type SendRectArgs = unsafe extern "C" fn(Obj, Obj, Rect, usize, usize, bool) -> Obj;
     type SendRectArg = unsafe extern "C" fn(Obj, Obj, Rect) -> Obj;
     type SendVoidRect = unsafe extern "C" fn(Obj, Obj, Rect);
-    type SendRectBool = unsafe extern "C" fn(Obj, Obj, Rect, bool);
+
     type SendRelative = unsafe extern "C" fn(Obj, Obj, i64, i64);
 
     const NS_NONACTIVATING_PANEL_MASK: usize = 1 << 7;
@@ -98,7 +94,10 @@ mod macos {
     const NS_WINDOW_COLLECTION_IGNORES_CYCLE: usize = 1 << 6;
     const NS_WINDOW_COLLECTION_FULL_SCREEN_AUXILIARY: usize = 1 << 8;
     const NS_WINDOW_SHARING_NONE: usize = 0;
-    const CURSOR_SIZE: f64 = 22.0;
+    const CURSOR_SIZE: Size = Size {
+        width: glyph::SIZE,
+        height: glyph::SIZE,
+    };
     const HIDE_AFTER: Duration = Duration::from_secs(12);
 
     unsafe fn send_id(receiver: Obj, selector: &CStr) -> Obj {
@@ -195,17 +194,81 @@ mod macos {
         send(receiver, sel_registerName(selector.as_ptr()), rect);
     }
 
-    unsafe fn send_rect_bool(receiver: Obj, selector: &CStr, rect: Rect, display: bool) {
-        let send: SendRectBool = std::mem::transmute(objc_msgSend as *const ());
-        send(receiver, sel_registerName(selector.as_ptr()), rect, display);
+    unsafe fn glyph_layer() -> Option<Obj> {
+        let layer = send_id(objc_getClass(c"CALayer".as_ptr()), c"layer");
+        if layer.is_null() {
+            return None;
+        }
+        let data_send: unsafe extern "C" fn(Obj, Obj, *const u8, usize) -> Obj =
+            std::mem::transmute(objc_msgSend as *const ());
+        let data = data_send(
+            objc_getClass(c"NSData".as_ptr()),
+            sel_registerName(c"dataWithBytes:length:".as_ptr()),
+            glyph::IMAGE.as_ptr(),
+            glyph::IMAGE.len(),
+        );
+        let image = send_obj_arg(
+            send_id(objc_getClass(c"NSImage".as_ptr()), c"alloc"),
+            c"initWithData:",
+            data,
+        );
+        if image.is_null() {
+            return None;
+        }
+        let cg_send: unsafe extern "C" fn(Obj, Obj, *mut Rect, Obj, Obj) -> Obj =
+            std::mem::transmute(objc_msgSend as *const ());
+        let cg = cg_send(
+            image,
+            sel_registerName(c"CGImageForProposedRect:context:hints:".as_ptr()),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+        );
+        if !cg.is_null() {
+            send_void_obj(layer, c"setContents:", cg);
+        }
+        send_void(image, c"release");
+        if cg.is_null() {
+            return None;
+        }
+        send_void_rect(
+            layer,
+            c"setFrame:",
+            Rect {
+                origin: Point::default(),
+                size: CURSOR_SIZE,
+            },
+        );
+        Some(layer)
+    }
+
+    unsafe fn draw_glyph(layer: Obj, pose: &RenderPose, pulse: f64) {
+        let send: unsafe extern "C" fn(Obj, Obj, glyph::Transform) =
+            std::mem::transmute(objc_msgSend as *const ());
+        send(
+            layer,
+            sel_registerName(c"setAffineTransform:".as_ptr()),
+            glyph::transform(pose.rotation, pose.body, pulse),
+        );
+    }
+
+    const PULSE_TIME: Duration = Duration::from_millis(160);
+
+    struct Motion {
+        path: Path,
+        progress: Spring,
     }
 
     struct Overlay {
         panel: Obj,
-        view: Obj,
+        arrow: Obj,
+        pose: Pose,
+        target: Point,
+        epoch: Instant,
+        motion: Option<Motion>,
         last_move: Instant,
-        pulse_until: Option<Instant>,
-        center: Point,
+        pulse_start: Option<Instant>,
+        window_id: u32,
         visible: bool,
     }
 
@@ -224,10 +287,7 @@ mod macos {
                         x: -1000.0,
                         y: -1000.0,
                     },
-                    size: Size {
-                        width: CURSOR_SIZE,
-                        height: CURSOR_SIZE,
-                    },
+                    size: CURSOR_SIZE,
                 },
                 NS_NONACTIVATING_PANEL_MASK,
                 NS_BACKING_STORE_BUFFERED,
@@ -239,6 +299,7 @@ mod macos {
             send_bool(panel, c"setOpaque:", false);
             send_bool(panel, c"setIgnoresMouseEvents:", true);
             send_bool(panel, c"setHasShadow:", false);
+            send_bool(panel, c"setHidesOnDeactivate:", false);
             send_usize(panel, c"setSharingType:", NS_WINDOW_SHARING_NONE);
             send_usize(
                 panel,
@@ -249,178 +310,203 @@ mod macos {
                     | NS_WINDOW_COLLECTION_FULL_SCREEN_AUXILIARY,
             );
             send_i64(panel, c"setLevel:", 0);
+            let colors = objc_getClass(c"NSColor".as_ptr());
+            send_void_obj(
+                panel,
+                c"setBackgroundColor:",
+                send_id(colors, c"clearColor"),
+            );
 
             let view = send_rect_arg(
                 send_id(view_class, c"alloc"),
                 c"initWithFrame:",
                 Rect {
-                    origin: Point { x: 0.0, y: 0.0 },
-                    size: Size {
-                        width: CURSOR_SIZE,
-                        height: CURSOR_SIZE,
-                    },
+                    origin: Point::default(),
+                    size: CURSOR_SIZE,
                 },
             );
             if view.is_null() {
                 return None;
             }
-            send_bool(view, c"setWantsLayer:", true);
-            let layer = send_id(view, c"layer");
-            if !layer.is_null() {
-                let color_class = objc_getClass(c"NSColor".as_ptr());
-                if !color_class.is_null() {
-                    let blue = send_id(color_class, c"systemBlueColor");
-                    let white = send_id(color_class, c"whiteColor");
-                    if !blue.is_null() {
-                        let cg = send_id(blue, c"CGColor");
-                        if !cg.is_null() {
-                            send_void_obj(layer, c"setBackgroundColor:", cg);
-                        }
-                    }
-                    if !white.is_null() {
-                        let cg = send_id(white, c"CGColor");
-                        if !cg.is_null() {
-                            send_void_obj(layer, c"setBorderColor:", cg);
-                        }
-                    }
-                }
-                let send_float: unsafe extern "C" fn(Obj, Obj, f64) =
-                    std::mem::transmute(objc_msgSend as *const ());
-                send_float(
-                    layer,
-                    sel_registerName(c"setCornerRadius:".as_ptr()),
-                    CURSOR_SIZE / 2.0,
-                );
-                send_float(layer, sel_registerName(c"setBorderWidth:".as_ptr()), 2.0);
+            let layer = send_id(objc_getClass(c"CALayer".as_ptr()), c"layer");
+            if layer.is_null() {
+                return None;
             }
+            let arrow = glyph_layer()?;
+            send_void_obj(layer, c"addSublayer:", arrow);
+            send_void_obj(view, c"setLayer:", layer);
+            send_bool(view, c"setWantsLayer:", true);
             send_void_obj(panel, c"setContentView:", view);
             Some(Self {
                 panel,
-                view,
+                arrow,
+                pose: Pose::new(Point::default(), 0.0),
+                target: Point::default(),
+                epoch: Instant::now(),
+                motion: None,
                 last_move: Instant::now(),
-                pulse_until: None,
-                center: Point::default(),
+                pulse_start: None,
+                window_id: 0,
                 visible: false,
             })
         }
 
-        unsafe fn move_to(&mut self, event: &Event) {
-            let frame = crate::screenshot::find_window(event.pid)
-                .filter(|window| window.window_id == event.window_id);
-            let (screen_x, screen_y) = frame
-                .map(|window| (window.x + event.window_x, window.y + event.window_y))
-                .unwrap_or((event.x, event.y));
-            let (screen, display_y) = screen_for_point(screen_x, screen_y);
-            let origin = Point {
-                x: screen_x,
-                y: screen.origin.y + screen.size.height - (screen_y - display_y),
-            };
-            let size = if event.pulse {
-                CURSOR_SIZE * 1.6
-            } else {
-                CURSOR_SIZE
-            };
-            let panel_frame = Rect {
-                origin: Point {
-                    x: origin.x - size / 2.0,
-                    y: origin.y - size / 2.0,
-                },
-                size: Size {
-                    width: size,
-                    height: size,
-                },
-            };
-            send_rect_bool(self.panel, c"setFrame:display:", panel_frame, true);
-            send_void_rect(
-                self.view,
-                c"setFrame:",
-                Rect {
-                    origin: Point { x: 0.0, y: 0.0 },
-                    size: panel_frame.size,
-                },
+        // Constant-size local fog and pointer: never a path/trail layer.
+        unsafe fn render(&self, pose: &RenderPose, pulse: f64) {
+            let transaction = objc_getClass(c"CATransaction".as_ptr());
+            send_void(transaction, c"begin");
+            send_bool(transaction, c"setDisableActions:", true);
+            let move_panel: unsafe extern "C" fn(Obj, Obj, Point) =
+                std::mem::transmute(objc_msgSend as *const ());
+            move_panel(
+                self.panel,
+                sel_registerName(c"setFrameOrigin:".as_ptr()),
+                pose.tip - glyph::ANCHOR,
             );
-            let layer = send_id(self.view, c"layer");
-            if !layer.is_null() {
-                let send_float: unsafe extern "C" fn(Obj, Obj, f64) =
-                    std::mem::transmute(objc_msgSend as *const ());
-                send_float(
-                    layer,
-                    sel_registerName(c"setCornerRadius:".as_ptr()),
-                    size / 2.0,
-                );
-            }
-            self.center = origin;
+            draw_glyph(self.arrow, pose, pulse);
+            send_void(transaction, c"commit");
+        }
+
+        unsafe fn order_above_target(&self) {
             let send: SendRelative = std::mem::transmute(objc_msgSend as *const ());
             send(
                 self.panel,
                 sel_registerName(c"orderWindow:relativeTo:".as_ptr()),
                 1,
-                event.window_id as i64,
+                self.window_id as i64,
             );
-            if !self.visible {
-                send_void(self.panel, c"orderFrontRegardless");
-                self.visible = true;
-            }
-            send_void(self.panel, c"displayIfNeeded");
-            self.last_move = Instant::now();
-            self.pulse_until = event
-                .pulse
-                .then(|| Instant::now() + Duration::from_millis(160));
         }
 
-        unsafe fn hide(&mut self) {
-            if self.visible {
-                send_void_obj(self.panel, c"orderOut:", std::ptr::null_mut());
-                self.visible = false;
+        unsafe fn move_to(&mut self, event: &Event) {
+            let frame = crate::ax::focused_window_geom(event.pid)
+                .filter(|window| window.window_id == event.window_id);
+            let (screen_x, screen_y) = frame
+                .map(|window| (window.x + event.window_x, window.y + event.window_y))
+                .unwrap_or((event.x, event.y));
+            let (screen, display_y) = screen_for_point(screen_x, screen_y);
+            let destination = Point {
+                x: screen_x,
+                y: screen.origin.y + screen.size.height - (screen_y - display_y),
+            };
+            let now = Instant::now();
+            // The first event has no prior agent position. Never invent a route
+            // from the user's hardware pointer, or across unrelated windows.
+            let tip = self.pose.tip();
+            let animate = self.window_id == event.window_id && (tip - destination).length() > 1.0;
+            self.motion = animate.then(|| Motion {
+                path: motion::select_path(
+                    tip,
+                    destination,
+                    Bounds {
+                        min: screen.origin,
+                        max: screen.origin
+                            + Point {
+                                x: screen.size.width,
+                                y: screen.size.height,
+                            },
+                    },
+                ),
+                progress: Spring::default(),
+            });
+            if !animate {
+                self.pose = Pose::new(destination, self.epoch.elapsed().as_secs_f64());
             }
+            self.target = destination;
+            self.window_id = event.window_id;
+            self.last_move = now;
+            self.pulse_start = event.pulse.then_some(
+                now + if animate {
+                    Duration::from_secs_f64(motion::TRAVEL_TIME)
+                } else {
+                    Duration::ZERO
+                },
+            );
+            self.visible = true;
         }
 
         unsafe fn tick(&mut self) {
-            if self
-                .pulse_until
-                .is_some_and(|until| Instant::now() >= until)
-            {
-                self.pulse_until = None;
-                send_rect_bool(
-                    self.panel,
-                    c"setFrame:display:",
-                    Rect {
-                        origin: Point {
-                            x: self.center.x - CURSOR_SIZE / 2.0,
-                            y: self.center.y - CURSOR_SIZE / 2.0,
-                        },
-                        size: Size {
-                            width: CURSOR_SIZE,
-                            height: CURSOR_SIZE,
-                        },
-                    },
-                    true,
-                );
-                send_void_rect(
-                    self.view,
-                    c"setFrame:",
-                    Rect {
-                        origin: Point { x: 0.0, y: 0.0 },
-                        size: Size {
-                            width: CURSOR_SIZE,
-                            height: CURSOR_SIZE,
-                        },
-                    },
-                );
-                let layer = send_id(self.view, c"layer");
-                if !layer.is_null() {
-                    let send_float: unsafe extern "C" fn(Obj, Obj, f64) =
-                        std::mem::transmute(objc_msgSend as *const ());
-                    send_float(
-                        layer,
-                        sel_registerName(c"setCornerRadius:".as_ptr()),
-                        CURSOR_SIZE / 2.0,
-                    );
+            if !self.visible {
+                return;
+            }
+            if self.last_move.elapsed() >= HIDE_AFTER {
+                send_void_obj(self.panel, c"orderOut:", std::ptr::null_mut());
+                self.visible = false;
+                self.motion = None;
+                self.pulse_start = None;
+                return;
+            }
+            let now = Instant::now();
+            let mut target = self.target;
+            if let Some(motion) = self.motion.as_mut() {
+                let elapsed = now.duration_since(self.last_move).as_secs_f64();
+                motion
+                    .progress
+                    .advance(elapsed.min(motion::TRAVEL_TIME), 1.0, 1.4, 0.9);
+                target = motion.path.sample(motion.progress.value);
+                if elapsed >= motion::TRAVEL_TIME || motion.progress.close_enough() {
+                    target = self.target;
+                    self.motion = None;
                 }
             }
-            if self.visible && self.last_move.elapsed() >= HIDE_AFTER {
-                self.hide();
+            let mut pulse = 0.0;
+            if let Some(start) = self.pulse_start
+                && let Some(elapsed) = now.checked_duration_since(start)
+            {
+                if elapsed < PULSE_TIME {
+                    pulse = (std::f64::consts::PI * elapsed.as_secs_f64()
+                        / PULSE_TIME.as_secs_f64())
+                    .sin();
+                } else {
+                    self.pulse_start = None;
+                }
             }
+            let time = self.epoch.elapsed().as_secs_f64();
+            let pose = self.pose.advance(target, time);
+            self.render(&pose, pulse);
+            self.order_above_target();
+        }
+    }
+
+    #[test]
+    fn reference_glyph_rasterizes() {
+        type CF = *const c_void;
+        #[link(name = "CoreGraphics", kind = "framework")]
+        unsafe extern "C" {
+            fn CGColorSpaceCreateDeviceRGB() -> CF;
+            fn CGBitmapContextCreate(
+                data: *mut c_void,
+                width: usize,
+                height: usize,
+                bits: usize,
+                row: usize,
+                space: CF,
+                info: u32,
+            ) -> CF;
+            fn CGContextScaleCTM(context: CF, x: f64, y: f64);
+        }
+        #[link(name = "CoreFoundation", kind = "framework")]
+        unsafe extern "C" {
+            fn CFRelease(value: CF);
+        }
+        unsafe {
+            let pool = objc_autoreleasePoolPush();
+            let layer = glyph_layer().unwrap();
+            let pose = Pose::new(Point::default(), 0.0).advance(Point::default(), 0.0);
+            draw_glyph(layer, &pose, 0.0);
+            let mut pixels = vec![0u8; 252 * 252 * 4];
+            let space = CGColorSpaceCreateDeviceRGB();
+            let context =
+                CGBitmapContextCreate(pixels.as_mut_ptr().cast(), 252, 252, 8, 252 * 4, space, 1);
+            assert!(!context.is_null());
+            CGContextScaleCTM(context, 2.0, 2.0);
+            send_void_obj(layer, c"renderInContext:", context.cast_mut());
+            let visible = pixels.chunks_exact(4).filter(|p| p[3] > 0).count();
+            let opaque = pixels.chunks_exact(4).filter(|p| p[3] > 220).count();
+            assert!(visible > 1000, "fog must rasterize: {visible}");
+            assert!(opaque > 200, "pointer must rasterize: {opaque}");
+            CFRelease(context);
+            CFRelease(space);
+            objc_autoreleasePoolPop(pool);
         }
     }
 
@@ -521,25 +607,22 @@ mod macos {
             objc_autoreleasePoolPop(pool);
 
             loop {
-                match receiver.recv_timeout(Duration::from_millis(16)) {
-                    Ok(event) => {
-                        let pool = objc_autoreleasePoolPush();
-                        if let Some(current) = overlay.as_mut() {
-                            current.move_to(&event);
-                        }
-                        objc_autoreleasePoolPop(pool);
-                    }
-                    Err(mpsc::RecvTimeoutError::Timeout) => {}
-                    Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                let event = match receiver.recv_timeout(Duration::from_millis(16)) {
+                    Ok(event) => Some(event),
+                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) => None,
+                    Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
+                };
+                let pool = objc_autoreleasePoolPush();
+                if let (Some(event), Some(current)) = (event, overlay.as_mut()) {
+                    current.move_to(&event);
                 }
                 if let Some(current) = overlay.as_mut() {
                     current.tick();
                 }
                 if let Some(app) = app {
-                    let pool = objc_autoreleasePoolPush();
                     pump_events(app);
-                    objc_autoreleasePoolPop(pool);
                 }
+                objc_autoreleasePoolPop(pool);
             }
         }
     }
@@ -556,26 +639,4 @@ mod macos {
 
 pub fn run_loop(receiver: Receiver<Event>) {
     macos::run_loop(receiver);
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn move_event_preserves_window_anchor_and_pulse() {
-        let event = Event {
-            pid: 42,
-            window_id: 7,
-            x: 120.0,
-            y: 80.0,
-            window_x: 20.0,
-            window_y: 30.0,
-            pulse: true,
-        };
-        let json = serde_json::to_value(event).expect("cursor event is serializable");
-        assert_eq!(json["window_id"], 7);
-        assert_eq!(json["window_x"], 20.0);
-        assert_eq!(json["pulse"], true);
-    }
 }

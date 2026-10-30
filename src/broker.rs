@@ -971,24 +971,17 @@ pub fn run(options: RunOptions) -> Result<RunResult, BrokerError> {
 /// Errors are intentionally ignored so a missing overlay can never fail an
 /// action. The caller is always a Broker child, so starting or upgrading a
 /// Broker here would only add latency to the input path.
-fn send_visual_cursor(event: visual_cursor::Event) {
-    if !visual_cursor::enabled() {
-        return;
-    }
-    let Ok(token) = read_token() else {
-        return;
-    };
-    let _ = send_request(&Request::VisualCursor { token, event }, 100);
-}
-
-pub fn visual_cursor_move(pid: i32, x: f64, y: f64, pulse: bool) {
+pub fn visual_cursor_move(target_pid: Option<i32>, x: f64, y: f64, pulse: bool) {
     if !visual_cursor::enabled() || !x.is_finite() || !y.is_finite() {
         return;
     }
+    let Some(pid) = target_pid else {
+        return;
+    };
     let Some(window) = crate::ax::focused_window_geom(pid) else {
         return;
     };
-    send_visual_cursor(visual_cursor::Event {
+    let event = visual_cursor::Event {
         pid,
         window_id: window.window_id,
         x,
@@ -996,7 +989,11 @@ pub fn visual_cursor_move(pid: i32, x: f64, y: f64, pulse: bool) {
         window_x: x - window.x,
         window_y: y - window.y,
         pulse,
-    });
+    };
+    let Ok(token) = read_token() else {
+        return;
+    };
+    let _ = send_request(&Request::VisualCursor { token, event }, 100);
 }
 
 pub fn status(client_key: String) -> Result<BrokerStatus, BrokerError> {
@@ -1089,7 +1086,7 @@ pub fn serve() -> Result<(), String> {
     let _ = fs::remove_file(start_lock_path());
     let shared = Arc::new((Mutex::new(load_state()?), Condvar::new()));
     if visual_cursor::enabled() {
-        let (sender, receiver) = visual_cursor::channel();
+        let (sender, receiver) = std::sync::mpsc::channel();
         VISUAL_CURSOR_SENDER
             .set(sender)
             .map_err(|_| "visual cursor Broker state was initialized twice")?;
