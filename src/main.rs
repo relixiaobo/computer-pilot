@@ -2577,12 +2577,6 @@ fn fixed_target_selector(target_pid: Option<i32>, app: &Option<String>) -> Optio
         .or_else(|| app.clone())
 }
 
-fn show_visual_cursor(target_pid: Option<i32>, x: f64, y: f64, pulse: bool) {
-    if let Some(pid) = target_pid {
-        broker::visual_cursor_move(pid, x, y, pulse);
-    }
-}
-
 fn text_input_at(elements: &[ax::Element], x: f64, y: f64) -> Option<ax::Element> {
     elements
         .iter()
@@ -3228,7 +3222,7 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
                 ("ax-action", cx, cy)
             }
         };
-        show_visual_cursor(target_pid, cx, cy, true);
+        broker::visual_cursor_move(target_pid, cx, cy, true);
         let mut result = serde_json::json!({
             "ok": true, "ax_path": p, "app": name, "method": method, "x": cx, "y": cy
         });
@@ -3326,7 +3320,7 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
         } else {
             mouse::click(cx, cy, right, mods, target_pid)?;
         }
-        show_visual_cursor(target_pid, cx, cy, true);
+        broker::visual_cursor_move(target_pid, cx, cy, true);
 
         let method = if target_pid.is_some() {
             "ocr-text-pid"
@@ -3388,7 +3382,7 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
         } else {
             mouse::click(x, y, right, mods, target_pid)?;
         }
-        show_visual_cursor(target_pid, x, y, true);
+        broker::visual_cursor_move(target_pid, x, y, true);
         let method = match (target_pid.is_some(), double, right) {
             (true, true, _) => "double-click-pid",
             (false, true, _) => "double-click-global",
@@ -3465,7 +3459,7 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
         }
     };
 
-    show_visual_cursor(target_pid, cx, cy, true);
+    broker::visual_cursor_move(target_pid, cx, cy, true);
     let mut result = serde_json::json!({"ok": true, "ref": ref_id, "app": name, "method": method, "x": cx, "y": cy});
     let post = capture_and_maybe_attach_snapshot(
         &mut result,
@@ -3518,7 +3512,7 @@ fn cmd_scroll(
         system::resolve_input_target(&app, allow_global, "scroll")?.map(|(pid, _)| pid);
     let snapshot_app = fixed_target_selector(target_pid, &app);
     mouse::scroll(sx, sy, dy, dx, target_pid)?;
-    show_visual_cursor(target_pid, sx, sy, false);
+    broker::visual_cursor_move(target_pid, sx, sy, false);
     let method = if target_pid.is_some() {
         "cgevent-pid"
     } else {
@@ -3549,7 +3543,7 @@ fn cmd_hover(
     let target_pid = system::resolve_input_target(&app, allow_global, "hover")?.map(|(pid, _)| pid);
     let snapshot_app = fixed_target_selector(target_pid, &app);
     mouse::hover(x, y, target_pid)?;
-    show_visual_cursor(target_pid, x, y, false);
+    broker::visual_cursor_move(target_pid, x, y, false);
     let method = if target_pid.is_some() {
         "cgevent-pid"
     } else {
@@ -3581,7 +3575,7 @@ fn cmd_drag(
     let target_pid = system::resolve_input_target(&app, allow_global, "drag")?.map(|(pid, _)| pid);
     let snapshot_app = fixed_target_selector(target_pid, &app);
     mouse::drag(x1, y1, x2, y2, mods, target_pid)?;
-    show_visual_cursor(target_pid, x2, y2, false);
+    broker::visual_cursor_move(target_pid, x2, y2, false);
     let method = if target_pid.is_some() {
         "cgevent-pid"
     } else {

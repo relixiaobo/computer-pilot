@@ -52,6 +52,7 @@ ARCHIVE_ROOT="$STAGING/$BINARY_ARCHIVE_ROOT"
 mkdir -p "$ARCHIVE_ROOT"
 cp "$BINARY" "$ARCHIVE_ROOT/cu"
 cp "$ROOT_DIR/README.md" "$ARCHIVE_ROOT/README.md"
+cp "$ROOT_DIR/THIRD_PARTY_NOTICES.md" "$ARCHIVE_ROOT/THIRD_PARTY_NOTICES.md"
 cp "$MANIFEST" "$ARCHIVE_ROOT/compatibility.json"
 
 SKILL_ARCHIVE="computer-pilot-skill-v$VERSION.tar.gz"
@@ -61,6 +62,7 @@ tar -C "$STAGING" -czf "$OUTPUT_DIR/$BINARY_ARCHIVE" "$BINARY_ARCHIVE_ROOT"
 tar -C "$ROOT_DIR/plugin/skills" -czf "$OUTPUT_DIR/$SKILL_ARCHIVE" computer-pilot
 tar -C "$ROOT_DIR" -czf "$OUTPUT_DIR/$PLUGIN_ARCHIVE" plugin
 cp "$BINARY" "$OUTPUT_DIR/cu-arm64"
+cp "$ROOT_DIR/THIRD_PARTY_NOTICES.md" "$OUTPUT_DIR/THIRD_PARTY_NOTICES.md"
 
 checksum() {
   local filename="$1"

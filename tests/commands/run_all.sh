@@ -72,13 +72,20 @@ for test_file in "${TESTS[@]}"; do
   echo -e "\n${CYAN}${BOLD}━━━ $name ━━━${RESET}"
 
   # Run in subshell to isolate failures
-  output=$(bash "$test_file" 2>&1) || true
+  suite_exit=0
+  output=$(bash "$test_file" 2>&1) || suite_exit=$?
   echo "$output"
 
   # Extract counts from the Results line
   pass=$(echo "$output" | grep -oE '[0-9]+ passed' | grep -oE '[0-9]+' || echo "0")
   fail=$(echo "$output" | grep -oE '[0-9]+ failed' | grep -oE '[0-9]+' || echo "0")
   skip=$(echo "$output" | grep -oE '[0-9]+ skipped' | grep -oE '[0-9]+' || echo "0")
+
+  # A crashed suite may never print Results. Do not count that as zero failures.
+  if [[ "$output" != *"Results:"* ]] || [[ $suite_exit -ne 0 && $fail -eq 0 ]]; then
+    echo "  FAIL $name exited with status $suite_exit without a successful summary"
+    fail=$((fail + 1))
+  fi
 
   TOTAL_PASS=$((TOTAL_PASS + pass))
   TOTAL_FAIL=$((TOTAL_FAIL + fail))
