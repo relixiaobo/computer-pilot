@@ -2524,22 +2524,15 @@ fn is_text_input_role(role: &str) -> bool {
 fn prepare_ref_action(
     app: &Option<String>,
     ref_id: Option<usize>,
-    ax_path: Option<&str>,
     limit: usize,
 ) -> Result<(i32, String, ax::SnapshotResult), CuError> {
-    if ref_id.is_none() && ax_path.is_none() {
-        return Err("provide either <ref> or --ax-path".into());
-    }
-    if ref_id == Some(0) {
+    let ref_id = ref_id.ok_or("provide either <ref> or --ax-path")?;
+    if ref_id == 0 {
         return Err("ref must be >= 1".into());
     }
 
     let (pid, name) = system::resolve_target_app(app)?;
-    let pre_snapshot = if let Some(ref_id) = ref_id {
-        broker::snapshot_for_ref_action(pid, &name, ref_id, limit)?
-    } else {
-        ax::snapshot(pid, &name, limit)
-    };
+    let pre_snapshot = broker::snapshot_for_ref_action(pid, &name, ref_id, limit)?;
     Ok((pid, name, pre_snapshot))
 }
 
@@ -2634,16 +2627,26 @@ fn enforce_text_input_focus(
     let Some(target) = target.filter(|element| is_text_input_role(&element.role)) else {
         return Ok(());
     };
-    let focus_verified = post
-        .and_then(|snapshot| snapshot.focused.as_ref())
-        .is_some_and(|focused| {
-            target
-                .ax_path
-                .as_ref()
-                .zip(focused.ax_path.as_ref())
-                .is_some_and(|(target_path, focused_path)| target_path == focused_path)
-                || (focused.ref_id == Some(target.ref_id) && focused.role == target.role)
-        });
+    let Some(post) = post.filter(|snapshot| snapshot.ok) else {
+        return Err(CuError::msg(
+            "unknown outcome: click was dispatched, but target focus could not be observed",
+        )
+        .with_code(ErrorCode::UnknownOutcome)
+        .with_hint("inspect the target state before typing or retrying the click")
+        .with_diagnostics(serde_json::json!({
+            "dispatched": true,
+            "target": target,
+            "action_result": result,
+        })));
+    };
+    let focus_verified = post.focused.as_ref().is_some_and(|focused| {
+        target
+            .ax_path
+            .as_ref()
+            .zip(focused.ax_path.as_ref())
+            .is_some_and(|(target_path, focused_path)| target_path == focused_path)
+            || (focused.ref_id == Some(target.ref_id) && focused.role == target.role)
+    });
     if let Some(obj) = result.as_object_mut() {
         obj.insert("focus_verified".into(), focus_verified.into());
         if focus_verified {
@@ -2667,7 +2670,7 @@ fn enforce_text_input_focus(
     .with_diagnostics(serde_json::json!({
         "dispatched": true,
         "target": target,
-        "focused": post.and_then(|snapshot| snapshot.focused.as_ref()),
+        "focused": post.focused,
         "action_result": result,
     })))
 }
@@ -2676,7 +2679,7 @@ fn focused_input_before_type(
     pid: i32,
     name: &str,
 ) -> Result<(ax::FocusedSummary, Vec<ax::Element>), CuError> {
-    let snapshot = ax::snapshot(pid, name, 100);
+    let snapshot = ax::snapshot(pid, name, 200);
     let focused = snapshot.focused.clone();
     let valid = focused
         .as_ref()
@@ -2909,7 +2912,7 @@ fn cmd_set_value(
         let (pid, name) = system::resolve_target_app(&app)?;
         (pid, name, None)
     } else {
-        let (pid, name, snapshot) = prepare_ref_action(&app, ref_id, None, limit)?;
+        let (pid, name, snapshot) = prepare_ref_action(&app, ref_id, limit)?;
         (pid, name, Some(snapshot))
     };
     let snapshot_app = fixed_target_selector(Some(pid), &app);
@@ -2981,7 +2984,7 @@ fn cmd_perform(
     let (pid, name) = if ax_path.is_some() {
         system::resolve_target_app(&app)?
     } else {
-        let (pid, name, _) = prepare_ref_action(&app, ref_id, None, limit)?;
+        let (pid, name, _) = prepare_ref_action(&app, ref_id, limit)?;
         (pid, name)
     };
     let snapshot_app = fixed_target_selector(Some(pid), &app);
@@ -3030,6 +3033,28 @@ fn cmd_perform(
     }
 }
 
+fn enter_effect_verified(before: &ax::SnapshotResult, after: &ax::SnapshotResult) -> Option<bool> {
+    if !before.ok || !after.ok {
+        return None;
+    }
+    let focus_changed = match (&before.focused, &after.focused) {
+        (Some(before), Some(after)) => !same_focused_element(before, after),
+        (None, Some(_)) | (Some(_), None) => true,
+        (None, None) => false,
+    };
+    if tree_changed(&before.elements, &after.elements) || focus_changed {
+        Some(true)
+    } else if before
+        .focused
+        .as_ref()
+        .is_some_and(|focused| is_text_input_role(&focused.role))
+    {
+        Some(false)
+    } else {
+        None
+    }
+}
+
 fn cmd_key(
     json: bool,
     combo: String,
@@ -3063,29 +3088,10 @@ fn cmd_key(
     } else {
         None
     };
-    let effect_verified = match (pre_snapshot.as_ref(), captured.as_ref()) {
-        (Some(before), Some((_, _, after))) => {
-            let tree_changed_result = tree_changed(&before.elements, &after.elements);
-            let focus_changed = match (&before.focused, &after.focused) {
-                (Some(before), Some(after)) => !same_focused_element(before, after),
-                (None, Some(_)) | (Some(_), None) => true,
-                (None, None) => false,
-            };
-            if tree_changed_result || focus_changed {
-                Some(true)
-            } else if combo.eq_ignore_ascii_case("enter")
-                && before
-                    .focused
-                    .as_ref()
-                    .is_some_and(|focused| is_text_input_role(&focused.role))
-            {
-                Some(false)
-            } else {
-                None
-            }
-        }
-        _ => None,
-    };
+    let effect_verified = pre_snapshot
+        .as_ref()
+        .zip(captured.as_ref())
+        .and_then(|(before, (_, _, after))| enter_effect_verified(before, after));
     if effect_verified == Some(false) {
         return Err(CuError::msg(
             "verification failed: Enter was dispatched, but the focused input and target UI did not change",
@@ -4696,7 +4702,7 @@ fn print_diff_human(snap: &ax::SnapshotResult, d: &diff::Diff) {
 
 /// Compares the pre-action AX state against the snapshot already attached to
 /// `result` by the post-action snapshot helper, then enriches the response with a
-/// `verified` flag and per-action diff stats. Used by `cu click --verify`.
+/// `verified` flag and per-action diff stats. Used by default click verification.
 ///
 /// `verified=false` means the AX tree did not change after the action — most
 /// often a sandboxed/Electron app silently ignored a PID-targeted CGEvent.
@@ -4724,11 +4730,12 @@ fn attach_click_verification(
     if !verify {
         return;
     }
-    if let Some(pre) = pre {
+    if let Some(pre) = pre.filter(|snapshot| snapshot.ok) {
         attach_verification(
             result,
             &pre.elements,
-            post.map(|snapshot| snapshot.elements.as_slice()),
+            post.filter(|snapshot| snapshot.ok)
+                .map(|snapshot| snapshot.elements.as_slice()),
             method,
         );
     } else if target_pid.is_none() {
@@ -4882,10 +4889,18 @@ fn attach_captured_snapshot(
     no_snapshot: bool,
     captured: &(i32, u64, ax::SnapshotResult),
 ) {
+    let (pid, waited, snap) = captured;
+    if !snap.ok {
+        result["snapshot_error"] = snap
+            .error
+            .as_deref()
+            .unwrap_or("post-action AX state was unavailable")
+            .into();
+        return;
+    }
     if !json || no_snapshot {
         return;
     }
-    let (pid, waited, snap) = captured;
     broker::publish_observation(*pid, snap);
     if let Some(obj) = result.as_object_mut() {
         obj.insert("settle_ms".into(), (*waited).into());
@@ -4995,6 +5010,89 @@ mod tests {
             result["verification_skipped"],
             "global HID input has no fixed target PID; default AX verification was skipped"
         );
+    }
+
+    fn verification_snapshot(ok: bool) -> ax::SnapshotResult {
+        ax::SnapshotResult {
+            ok,
+            app: "Fixture".into(),
+            window: "Test".into(),
+            window_frame: None,
+            focused: ok.then(|| focused(Some(1), "textfield", Some("window/textfield"))),
+            modal: None,
+            elements: if ok {
+                vec![
+                    serde_json::from_value(serde_json::json!({
+                        "ref": 1, "role": "textfield", "value": "before",
+                        "x": 0, "y": 0, "width": 100, "height": 20
+                    }))
+                    .unwrap(),
+                ]
+            } else {
+                vec![]
+            },
+            limit: 200,
+            truncated: false,
+            truncation_hint: None,
+            depth_limited: false,
+            error: (!ok).then(|| "target exited during observation".into()),
+        }
+    }
+
+    #[test]
+    fn failed_observation_does_not_verify_a_click() {
+        let good = verification_snapshot(true);
+        let failed = verification_snapshot(false);
+        for (pre, post) in [(&good, &failed), (&failed, &good)] {
+            let mut result = serde_json::json!({"ok": true});
+            attach_click_verification(
+                &mut result,
+                true,
+                Some(123),
+                Some(pre),
+                Some(post),
+                "cgevent-pid",
+            );
+            assert_eq!(result["verified"], serde_json::Value::Null);
+            assert!(result.get("verify_diff").is_none());
+            assert!(result["verification_skipped"].is_string());
+        }
+    }
+
+    #[test]
+    fn enter_effect_requires_readable_observations() {
+        let good = verification_snapshot(true);
+        let failed = verification_snapshot(false);
+        assert_eq!(enter_effect_verified(&good, &failed), None);
+        assert_eq!(enter_effect_verified(&failed, &good), None);
+        assert_eq!(enter_effect_verified(&good, &good), Some(false));
+        let mut changed = verification_snapshot(true);
+        changed.elements[0].value = Some("submitted".into());
+        assert_eq!(enter_effect_verified(&good, &changed), Some(true));
+    }
+
+    #[test]
+    fn unreadable_focus_is_unknown_not_a_failed_click() {
+        let good = verification_snapshot(true);
+        let failed = verification_snapshot(false);
+        for post in [None, Some(&failed)] {
+            let mut result = serde_json::json!({"ok": true});
+            let error =
+                enforce_text_input_focus(&mut result, good.elements.first(), post).unwrap_err();
+            assert!(error.error.starts_with("unknown outcome:"));
+            assert!(result.get("focus_verified").is_none());
+        }
+    }
+
+    #[test]
+    fn failed_observation_is_reported_without_publishing_a_snapshot() {
+        let captured = (123, 10, verification_snapshot(false));
+        for no_snapshot in [false, true] {
+            let mut result = serde_json::json!({"ok": true});
+            attach_captured_snapshot(&mut result, true, no_snapshot, &captured);
+            assert_eq!(result["snapshot_error"], "target exited during observation");
+            assert!(result.get("snapshot").is_none());
+        }
     }
 
     #[test]

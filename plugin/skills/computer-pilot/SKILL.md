@@ -229,6 +229,10 @@ Actions return `method`, `dispatched`, and sometimes `effect_verified`.
 the expected state is visible or `effect_verified:true`; unobservable targeted
 typing returns `unknown_outcome`.
 
+If a post-action AX read fails, `snapshot_error` explains the missing state.
+It does not become a new Observation or prove an effect; inspect the current
+state before retrying.
+
 `cu click` verifies AX change by default. Read `verified`, `verify_diff`, and
 `verify_advice`. `verified:true` means the tree changed, not that the intended
 business outcome occurred. Confirm the attached snapshot. Use `--no-verify`

@@ -84,7 +84,7 @@ try:
     # Unrelated content changes must not invalidate the selected input.
     snap = run("snapshot", app, "--limit", "200")
     other = next(e for e in snap["elements"] if e.get("title") == "other-input")
-    assert other["ref"] > 50, other
+    assert other["ref"] > 100, other
     run("set-value", "unrelated-change", "--ax-path", other["axPath"],
         "--app", app, "--no-snapshot")
     clicked = run("click", ref, "--app", app, "--observation", snap["observation_id"])
@@ -158,6 +158,14 @@ try:
     full = json.loads(fresh.stdout)["snapshot"]
     assert "base_observation_id" not in full and len(full["elements"]) > 50, full
     assert any(e.get("title") == "other-input" for e in full["elements"]), full
+
+    # A focused input beyond ref 100 must have the same identity in the
+    # pre-type scan and the final snapshot, without falsely rejecting input.
+    run("set-value", "", "--ax-path", other["axPath"], "--app", app, "--no-snapshot")
+    run("click", "--ax-path", other["axPath"], "--app", app)
+    typed = run("type", "late-field", "--app", app, "--no-paste")
+    assert typed["effect_verified"] is True, typed
+    assert typed["snapshot"]["focused"]["value"] == "late-field", typed
 
 finally:
     fixture.terminate()

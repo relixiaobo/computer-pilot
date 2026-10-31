@@ -19,11 +19,11 @@ final class Delegate: NSObject, NSApplicationDelegate {
         let label = NSTextField(labelWithString: "unchanged")
         label.frame = NSRect(x: 20, y: 360, width: 350, height: 25)
         window.contentView!.addSubview(label)
-        // More than 50 interactive elements exercise action snapshot coverage.
-        for index in 0..<60 {
+        // More than 100 elements exercise both action and pre-type coverage.
+        for index in 0..<120 {
             let button = NSButton(title: "Item \(index)", target: nil, action: nil)
-            button.frame = NSRect(x: 10 + (index % 6) * 64, y: 20 + (index / 6) * 30,
-                                  width: 60, height: 24)
+            button.frame = NSRect(x: 10 + (index % 6) * 64, y: 20 + (index / 6) * 15,
+                                  width: 60, height: 12)
             window.contentView!.addSubview(button)
         }
         let other = Field(frame: NSRect(x: 20, y: 330, width: 350, height: 26))
