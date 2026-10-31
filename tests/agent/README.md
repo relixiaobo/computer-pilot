@@ -39,11 +39,12 @@ Computer Use comparisons. The older experiments below remain historical records;
 do not combine their samples with a new experiment. Deterministic tool replay
 measures dispatch overhead separately and is not an agent completion-time result.
 
-Start with one question: after the session/wait changes, does cu still take longer
-on ticket triage under the same model/settings? Run four paired datasets (eight
-fresh tasks), with native/cu and cu/native orders alternating. Choose the scope
-and repeat count before seeing any result. This is a diagnostic sample, not a
-statistical guarantee. Expand to document/wizard only after this comparison.
+The first standardized block asks: after the session/wait changes, does cu still
+take longer on ticket triage under the same model/settings? It uses four paired
+datasets (eight fresh tasks), with native/cu and cu/native orders alternating;
+its results appear below under “Standardized triage block”. Choose scope and
+repeat count before seeing results. This is a diagnostic sample, not a statistical
+guarantee. Evaluate this block before expanding to document/wizard.
 
 ```bash
 cargo build --release
@@ -530,3 +531,68 @@ actionable timeout snapshots, exact Unicode contents after receipt compaction,
 ordinary JSON, and sourced sessions across sh/bash/zsh. Broker upgrade tests cover
 retirement of incompatible versions. No per-field effect checks, automatic retry
 framework or new configuration layer was added.
+
+## Standardized triage block (protocol v1)
+
+The first complete protocol-v1 block measured candidate `b2a4cfa` on 2026-10-31.
+All eight predeclared attempts ran in the manifest order, sequentially, using
+fresh tasks/apps/state and actual `gpt-6-astra / high`, no service-tier override.
+Every cu app call retained its isolated task configuration. All eight protocol
+and backend audits passed; there were no replacements or excluded attempts.
+
+**Exact outcomes: cu 3/4, built-in native 4/4.** cu dataset 4 reported DONE with
+zero tool errors but left Urgent enabled on T403 and T407 (both Normal severity).
+The independent verifier rejected both original and final records. Its short
+69.6-second duration is a failed outcome, not a successful speed result.
+
+| Dataset | Order | cu setup / GO / combined | Native setup / GO / combined | Exact outcome cu / native |
+| --- | --- | ---: | ---: | --- |
+| 1 | native → cu | 49.6 / 137.9 / 187.5 s | 23.9 / 183.7 / 207.6 s | pass / pass |
+| 2 | cu → native | 48.9 / 137.5 / 186.4 s | 23.0 / 166.0 / 189.0 s | pass / pass |
+| 3 | native → cu | 19.4 / 74.0 / 93.5 s | 14.6 / 102.5 / 117.1 s | pass / pass |
+| 4 | cu → native | 20.5 / **failed 69.6** / 90.1 s | 24.2 / 149.0 / 173.2 s | **fail** / pass |
+
+For the three jointly successful pairs, median paired cu/native ratios were
+**0.751 for GO** and **0.903 combined** (about 24.9% and 9.7% lower cu time).
+These conditional timing results do not offset the lower observed completion
+rate or include repair cost. The arm-wise success medians use different subsets
+(cu three, native four), so they should not replace the paired comparison.
+No causal speedup from the code change can be inferred by comparing this block
+with historical timings.
+
+Recorded GO model calls were cu `20 / 20 / 21 / 21` and native
+`34 / 23 / 22 / 22`. Recorded tool intervals were cu
+`5.14 / 5.12 / 4.87 / 4.43 s` and native `17.40 / 11.89 / 11.79 / 11.53 s`.
+The large remaining time includes model, network and scheduling. Similar call
+counts had very different durations, and cu setup used the same four shell
+calls while ranging from 19.4 to 49.6 seconds. Backend latency and strategy
+variation remain material even with matching model metadata. cu also returned
+more text than native in datasets 2–4; compact mode does not imply universally
+smaller observations across implementations.
+
+Two concrete findings guide the next work:
+
+- **Checkbox state is missing from cu's element value.** For T403 and T407,
+  cu returned a checkbox with title Urgent and no value; native returned
+  `checkbox Urgent, Value: 1`. cu did include adjacent `Urgent status: on` text,
+  so the evidence does not prove omission of the element value alone caused
+  the agent mistake. Both snapshot readers in `src/ax.rs` accept only string
+  AXValue; numeric checkbox state is lost before compact formatting. The next
+  targeted correction is to preserve scalar AXValue using the existing read,
+  with an on/off behavior regression. This requires no additional effect check
+  or per-action snapshot. It is not fixed or retested by this benchmark block.
+- **The READY/GO boundary adds native recovery overhead.** Every native first
+  GO action received “Computer Use is not active” and recovered with
+  `getAXState()`. All four errors and full recovery times remain included.
+  A future separately declared single-turn experiment should measure ordinary
+  uninterrupted task execution; do not silently subtract or exclude these
+  calls from protocol-v1 results, or generalize its ratios to that workflow.
+
+[Complete standardized records](benchmarks/triage-standardized-2026-10-31.json)
+retain every sample, actual order/settings, setup and GO usage/timing, independent
+checks, failure field differences, manual audit notes, evidence hashes and limits.
+Full tool-only traces remain local. The generated local JSON/Markdown report
+includes pending/unreviewed/excluded statuses when applicable; none occurred here.
+All owned apps and dedicated Brokers were stopped. No production code or benchmark
+inputs changed during the block. This update publishes evidence only, so the
+existing code/CI checks remain applicable; JSON and diff checks passed.

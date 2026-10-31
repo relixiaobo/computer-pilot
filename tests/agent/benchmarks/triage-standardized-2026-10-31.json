@@ -1,0 +1,931 @@
+{
+  "manifest": {
+    "protocol_version": 1,
+    "sequence": [
+      {
+        "label": "triage-1-native",
+        "mode": "triage",
+        "repeat": 1,
+        "arm": "native"
+      },
+      {
+        "label": "triage-1-cu",
+        "mode": "triage",
+        "repeat": 1,
+        "arm": "cu"
+      },
+      {
+        "label": "triage-2-cu",
+        "mode": "triage",
+        "repeat": 2,
+        "arm": "cu"
+      },
+      {
+        "label": "triage-2-native",
+        "mode": "triage",
+        "repeat": 2,
+        "arm": "native"
+      },
+      {
+        "label": "triage-3-native",
+        "mode": "triage",
+        "repeat": 3,
+        "arm": "native"
+      },
+      {
+        "label": "triage-3-cu",
+        "mode": "triage",
+        "repeat": 3,
+        "arm": "cu"
+      },
+      {
+        "label": "triage-4-cu",
+        "mode": "triage",
+        "repeat": 4,
+        "arm": "cu"
+      },
+      {
+        "label": "triage-4-native",
+        "mode": "triage",
+        "repeat": 4,
+        "arm": "native"
+      }
+    ],
+    "settings": {
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null
+    },
+    "fingerprints": {
+      "target/release/cu": "098e5a5bacf5736bfe3bc1b916f1b0857d3e037fb4bcb21fe519bdc93adb3e16",
+      "tests/fixtures/varied-workflows.swift": "5ac65cfd49a34286cb2292a8431434775ac24531b149be75566008dfe3857cb3",
+      "tests/agent/benchmark_varied_workflows.py": "08ea9dcc9bb526ad3878870f16cc67ce5e6770339aa5b87afc24e2c099024f47",
+      "tests/agent/collect_codex_benchmark.py": "304799b5a47f107803e77cc2dad5295baa0b31c0336c0354ab9ae92703b90f7c",
+      "plugin/skills/computer-pilot/SKILL.md": "dfabb7c55be67d912fba739446ef68185cc95c624a87a39ccab146b50334788e",
+      "plugin/skills/computer-pilot/scripts/session.sh": "8fe2a050a3e91844ba64ddf64bea38d011ea48f7254a073b48de4ef4cf14b937"
+    },
+    "cu_commit": "b2a4cfac0565cdd330856c78fed384025407f651"
+  },
+  "actual_order": [
+    "triage-1-native",
+    "triage-1-cu",
+    "triage-2-cu",
+    "triage-2-native",
+    "triage-3-native",
+    "triage-3-cu",
+    "triage-4-cu",
+    "triage-4-native"
+  ],
+  "attempts": [
+    {
+      "label": "triage-1-native",
+      "mode": "triage",
+      "repeat": 1,
+      "arm": "native",
+      "status": "passed",
+      "reasons": [],
+      "pid": 50289,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-v1/triage-1-native/VariedWorkflow.app",
+      "runtime_home": null,
+      "source_sha256": "48b49543deb77e7d8f987936c4ccd399f4cc1216b013cc53e13eae194aa3741d",
+      "client_key": "triage-1-native",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-v1/triage-1-native/output",
+      "thread_id": "01a1906c-3cfa-71e1-915e-ba5fd0ffb947",
+      "setup": [
+        {
+          "arm": "native",
+          "thread_id": "01a1906c-3cfa-71e1-915e-ba5fd0ffb947",
+          "turn_id": "01a1906c-3dc1-7830-b577-86285ff57eb2",
+          "started_at": "2026-10-31T05:26:15.269Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T05:26:39.144Z",
+          "elapsed_ms": 23880,
+          "final": "READY",
+          "model_calls": 3,
+          "tokens": {
+            "input_tokens": 88271,
+            "cached_input_tokens": 74880,
+            "output_tokens": 307,
+            "reasoning_output_tokens": 136,
+            "total_tokens": 88578
+          },
+          "tool_calls": 2,
+          "tool_output_chars": 28471,
+          "tool_errors": 0,
+          "tool_interval_ms": 796,
+          "non_tool_interval_ms": 23084
+        }
+      ],
+      "runs": [
+        {
+          "arm": "native",
+          "thread_id": "01a1906c-3cfa-71e1-915e-ba5fd0ffb947",
+          "turn_id": "01a1906c-b65f-7c40-8640-56d653e839a4",
+          "started_at": "2026-10-31T05:26:46.119Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "label": "native-1",
+          "completed_at": "2026-10-31T05:29:49.851Z",
+          "elapsed_ms": 183723,
+          "final": "DONE",
+          "model_calls": 34,
+          "tokens": {
+            "input_tokens": 1312428,
+            "cached_input_tokens": 1282432,
+            "output_tokens": 2615,
+            "reasoning_output_tokens": 971,
+            "total_tokens": 1315043
+          },
+          "tool_calls": 33,
+          "tool_output_chars": 22738,
+          "tool_errors": 1,
+          "tool_interval_ms": 17401,
+          "non_tool_interval_ms": 166322
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "filter_and_search_used": true
+        }
+      },
+      "setup_ms": 23880,
+      "execution_ms": 183723,
+      "combined_turn_ms": 207603,
+      "evidence_sha256": {
+        "brief.txt": "68f42a4a981f1f3a4a0e37489d6cb1bba84da0f0f50a10d79b1571383481b8c9",
+        "source.json": "48b49543deb77e7d8f987936c4ccd399f4cc1216b013cc53e13eae194aa3741d",
+        "saved.json": "2029111a3c5b0705f018ac413cc185ee331fe9616866245c0b21f4237c2b5b0e",
+        "trace.json": "8e1e8772a641e7cf81e9ec9019c6375a3b40273f814d1232f41eeed2305de70e",
+        "audit.json": "3e95c0bec7e3791ee96e32d452e670eec4856d4413b210022588b0070869d841"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Reviewed all setup/GO tools: fresh task, brief read plus native cua app only; no setup mutation, outside data, coaching or environment overlap. First GO action required reactivating Computer Use through getAXState; retained in timing."
+      }
+    },
+    {
+      "label": "triage-1-cu",
+      "mode": "triage",
+      "repeat": 1,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 52585,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-v1/triage-1-cu/VariedWorkflow.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-varied-dqv1lc3w",
+      "source_sha256": "48b49543deb77e7d8f987936c4ccd399f4cc1216b013cc53e13eae194aa3741d",
+      "client_key": "triage-1-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-v1/triage-1-cu/output",
+      "thread_id": "01a1906f-ba4c-7081-8109-7e537ad9c1d7",
+      "setup": [
+        {
+          "arm": "cu",
+          "thread_id": "01a1906f-ba4c-7081-8109-7e537ad9c1d7",
+          "turn_id": "01a1906f-bad5-77d1-a2df-f8c9424a120c",
+          "started_at": "2026-10-31T05:30:03.888Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T05:30:53.493Z",
+          "elapsed_ms": 49603,
+          "final": "READY",
+          "model_calls": 5,
+          "tokens": {
+            "input_tokens": 149160,
+            "cached_input_tokens": 138880,
+            "output_tokens": 1033,
+            "reasoning_output_tokens": 471,
+            "total_tokens": 150193
+          },
+          "tool_calls": 4,
+          "tool_output_chars": 17463,
+          "tool_errors": 0,
+          "tool_interval_ms": 466,
+          "non_tool_interval_ms": 49137
+        }
+      ],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a1906f-ba4c-7081-8109-7e537ad9c1d7",
+          "turn_id": "01a19070-aaa8-70c2-a0e1-1f30ded48814",
+          "started_at": "2026-10-31T05:31:05.277Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "label": "cu-1",
+          "completed_at": "2026-10-31T05:33:23.182Z",
+          "elapsed_ms": 137901,
+          "final": "DONE",
+          "model_calls": 20,
+          "tokens": {
+            "input_tokens": 750883,
+            "cached_input_tokens": 726784,
+            "output_tokens": 2937,
+            "reasoning_output_tokens": 864,
+            "total_tokens": 753820
+          },
+          "tool_calls": 19,
+          "tool_output_chars": 22398,
+          "tool_errors": 0,
+          "tool_interval_ms": 5141,
+          "non_tool_interval_ms": 132760
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "filter_and_search_used": true
+        }
+      },
+      "setup_ms": 49603,
+      "execution_ms": 137901,
+      "combined_turn_ms": 187504,
+      "evidence_sha256": {
+        "brief.txt": "432254b2c07f67726c5a88ff92e426db64712175ba505f6cbc18aa3d0855266b",
+        "source.json": "48b49543deb77e7d8f987936c4ccd399f4cc1216b013cc53e13eae194aa3741d",
+        "saved.json": "18cebf810369e86c56b23aa19bc2bbe0569378852cdf789ddccc88a1934f89c0",
+        "cu-env.sh": "3b7253e05b512a9fd1ca74741f08cc4c11f1acbbad0dd95ada37b5036cfb5289",
+        "trace.json": "07e850d85aa164e21658e7dd7bdc7b56be0dc9fb4a066a857e05e803ad0f4f2c",
+        "audit.json": "4569d1fd9713586467f20ec62374fd9996c5c8ceae87801771e34f9b682fe4a1"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Reviewed every setup/GO command and task config: correct PID, unique Broker/client/output paths, environment sourced on every app call. Only cu and live UI used; setup had one snapshot and no mutations. No coaching or concurrent participant."
+      }
+    },
+    {
+      "label": "triage-2-cu",
+      "mode": "triage",
+      "repeat": 2,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 54788,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-v1/triage-2-cu/VariedWorkflow.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-varied-uptjmmxr",
+      "source_sha256": "58b34388970f4cc3fba8f4b1fc86d4ae16674b2aaa428b7c466c57ee6e1530ef",
+      "client_key": "triage-2-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-v1/triage-2-cu/output",
+      "thread_id": "01a19073-00b0-79a3-af6f-fb3009a5619d",
+      "setup": [
+        {
+          "arm": "cu",
+          "thread_id": "01a19073-00b0-79a3-af6f-fb3009a5619d",
+          "turn_id": "01a19073-012b-7aa3-aed0-b2a8c1ff4a9b",
+          "started_at": "2026-10-31T05:33:38.488Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T05:34:27.369Z",
+          "elapsed_ms": 48880,
+          "final": "READY",
+          "model_calls": 5,
+          "tokens": {
+            "input_tokens": 149138,
+            "cached_input_tokens": 143104,
+            "output_tokens": 975,
+            "reasoning_output_tokens": 415,
+            "total_tokens": 150113
+          },
+          "tool_calls": 4,
+          "tool_output_chars": 17463,
+          "tool_errors": 0,
+          "tool_interval_ms": 9,
+          "non_tool_interval_ms": 48871
+        }
+      ],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a19073-00b0-79a3-af6f-fb3009a5619d",
+          "turn_id": "01a19073-d734-7c71-951d-711bd7547427",
+          "started_at": "2026-10-31T05:34:33.281Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "label": "cu-2",
+          "completed_at": "2026-10-31T05:36:50.787Z",
+          "elapsed_ms": 137502,
+          "final": "DONE",
+          "model_calls": 20,
+          "tokens": {
+            "input_tokens": 750146,
+            "cached_input_tokens": 723840,
+            "output_tokens": 2913,
+            "reasoning_output_tokens": 1055,
+            "total_tokens": 753059
+          },
+          "tool_calls": 19,
+          "tool_output_chars": 22373,
+          "tool_errors": 0,
+          "tool_interval_ms": 5119,
+          "non_tool_interval_ms": 132383
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "filter_and_search_used": true
+        }
+      },
+      "setup_ms": 48880,
+      "execution_ms": 137502,
+      "combined_turn_ms": 186382,
+      "evidence_sha256": {
+        "brief.txt": "2f7f9530134e5494ab3dd4db52248ad2f33202b3e5617bf2f7af041d2b403b31",
+        "source.json": "58b34388970f4cc3fba8f4b1fc86d4ae16674b2aaa428b7c466c57ee6e1530ef",
+        "saved.json": "f97bc6597b1955dd3911128ceb395da3f3b503346959e16a05e6ded83dd365d4",
+        "cu-env.sh": "a089c8cd962a05abe2e30ea7eed5e0ff4e4bf8df626589cc96558d48188cc21f",
+        "trace.json": "cd6c1aa2736b2a35b8ec6497b5aa8f376c8eb7f4f74b5c209564d464150f310c",
+        "audit.json": "9b6645acad7921f58b94890b800bc49df6bc20fb7cb3835c44928c50134a1a30"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Reviewed all setup/GO commands and config: correct PID and unique Broker/client/output; every app command sourced task config, used cu and live UI. Setup observation only; no coaching, task reuse or participant overlap."
+      }
+    },
+    {
+      "label": "triage-2-native",
+      "mode": "triage",
+      "repeat": 2,
+      "arm": "native",
+      "status": "passed",
+      "reasons": [],
+      "pid": 56646,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-v1/triage-2-native/VariedWorkflow.app",
+      "runtime_home": null,
+      "source_sha256": "58b34388970f4cc3fba8f4b1fc86d4ae16674b2aaa428b7c466c57ee6e1530ef",
+      "client_key": "triage-2-native",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-v1/triage-2-native/output",
+      "thread_id": "01a19076-236d-7991-8e17-f8139b65b3f6",
+      "setup": [
+        {
+          "arm": "native",
+          "thread_id": "01a19076-236d-7991-8e17-f8139b65b3f6",
+          "turn_id": "01a19076-23e5-76b2-8fe7-b79bc5136c75",
+          "started_at": "2026-10-31T05:37:03.987Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T05:37:26.965Z",
+          "elapsed_ms": 22978,
+          "final": "READY",
+          "model_calls": 3,
+          "tokens": {
+            "input_tokens": 88466,
+            "cached_input_tokens": 81280,
+            "output_tokens": 424,
+            "reasoning_output_tokens": 232,
+            "total_tokens": 88890
+          },
+          "tool_calls": 2,
+          "tool_output_chars": 28933,
+          "tool_errors": 0,
+          "tool_interval_ms": 1571,
+          "non_tool_interval_ms": 21407
+        }
+      ],
+      "runs": [
+        {
+          "arm": "native",
+          "thread_id": "01a19076-236d-7991-8e17-f8139b65b3f6",
+          "turn_id": "01a19076-9340-7022-9f34-4e42df40bbca",
+          "started_at": "2026-10-31T05:37:32.485Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "label": "native-2",
+          "completed_at": "2026-10-31T05:40:18.469Z",
+          "elapsed_ms": 165979,
+          "final": "DONE",
+          "model_calls": 23,
+          "tokens": {
+            "input_tokens": 867981,
+            "cached_input_tokens": 842496,
+            "output_tokens": 2445,
+            "reasoning_output_tokens": 1167,
+            "total_tokens": 870426
+          },
+          "tool_calls": 22,
+          "tool_output_chars": 16120,
+          "tool_errors": 1,
+          "tool_interval_ms": 11885,
+          "non_tool_interval_ms": 154094
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "filter_and_search_used": true
+        }
+      },
+      "setup_ms": 22978,
+      "execution_ms": 165979,
+      "combined_turn_ms": 188957,
+      "evidence_sha256": {
+        "brief.txt": "8988195b1d6011df3ddb2bd2f5a9f72819e96008f434697417d9f65d8b8e7281",
+        "source.json": "58b34388970f4cc3fba8f4b1fc86d4ae16674b2aaa428b7c466c57ee6e1530ef",
+        "saved.json": "f97bc6597b1955dd3911128ceb395da3f3b503346959e16a05e6ded83dd365d4",
+        "trace.json": "d17955b9f9ab878047971909730c0a4e061ee302700e0c04aa096c2b3311f50b",
+        "audit.json": "f5fb31c35d17ddb8be32e7c03eb2663382f82cf3aea09820e5cdd63b0eec9622"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Reviewed complete setup/GO tools: only brief read and native cua app; setup observation only, fresh task and no overlap/coaching/outside data. GO first action required getAXState to reactivate Computer Use; recovery and extra Search action retained."
+      }
+    },
+    {
+      "label": "triage-3-native",
+      "mode": "triage",
+      "repeat": 3,
+      "arm": "native",
+      "status": "passed",
+      "reasons": [],
+      "pid": 58416,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-v1/triage-3-native/VariedWorkflow.app",
+      "runtime_home": null,
+      "source_sha256": "a4ec2f2afb53912f0f95d4ceab917d43e1fd8349d2e11c0c90358f3c98674f33",
+      "client_key": "triage-3-native",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-v1/triage-3-native/output",
+      "thread_id": "01a19079-4df4-71b2-999d-903398fb9b4a",
+      "setup": [
+        {
+          "arm": "native",
+          "thread_id": "01a19079-4df4-71b2-999d-903398fb9b4a",
+          "turn_id": "01a19079-4e72-7f23-a19e-5969885cbcbc",
+          "started_at": "2026-10-31T05:40:31.486Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T05:40:46.080Z",
+          "elapsed_ms": 14594,
+          "final": "READY",
+          "model_calls": 3,
+          "tokens": {
+            "input_tokens": 88172,
+            "cached_input_tokens": 58368,
+            "output_tokens": 149,
+            "total_tokens": 88321
+          },
+          "tool_calls": 2,
+          "tool_output_chars": 28471,
+          "tool_errors": 0,
+          "tool_interval_ms": 369,
+          "non_tool_interval_ms": 14225
+        }
+      ],
+      "runs": [
+        {
+          "arm": "native",
+          "thread_id": "01a19079-4df4-71b2-999d-903398fb9b4a",
+          "turn_id": "01a19079-a22e-7183-9f3a-5c4d521b39d6",
+          "started_at": "2026-10-31T05:40:52.917Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "label": "native-3",
+          "completed_at": "2026-10-31T05:42:35.464Z",
+          "elapsed_ms": 102543,
+          "final": "DONE",
+          "model_calls": 22,
+          "tokens": {
+            "input_tokens": 805367,
+            "cached_input_tokens": 795136,
+            "output_tokens": 1188,
+            "total_tokens": 806555
+          },
+          "tool_calls": 21,
+          "tool_output_chars": 15824,
+          "tool_errors": 1,
+          "tool_interval_ms": 11792,
+          "non_tool_interval_ms": 90751
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "filter_and_search_used": true
+        }
+      },
+      "setup_ms": 14594,
+      "execution_ms": 102543,
+      "combined_turn_ms": 117137,
+      "evidence_sha256": {
+        "brief.txt": "a66d7b30692a0219a984437030d3a18c25acfd3480bf09757814814d533e4b6f",
+        "source.json": "a4ec2f2afb53912f0f95d4ceab917d43e1fd8349d2e11c0c90358f3c98674f33",
+        "saved.json": "1f547192eb1eb91f7fd7ada23edea0e29153e9c180045b58ec88bc2cf35ccd46",
+        "trace.json": "02e0c5b107da24c8b9447cd46c6d25b9bcb73c7e28bca1db5e98f983b2bd47e2",
+        "audit.json": "9117c65725e6318f5b5535607718d574f1fd6ee6d5ebbf9fb9152a4cce4939f2"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Reviewed complete setup/GO tools: brief read and actual native cua app only; fresh task, setup observation without mutation, no overlap/coaching/outside data. First GO action needed state refresh to reactivate Computer Use; all recovery retained."
+      }
+    },
+    {
+      "label": "triage-3-cu",
+      "mode": "triage",
+      "repeat": 3,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 59724,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-v1/triage-3-cu/VariedWorkflow.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-varied-xvrk05e4",
+      "source_sha256": "a4ec2f2afb53912f0f95d4ceab917d43e1fd8349d2e11c0c90358f3c98674f33",
+      "client_key": "triage-3-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-v1/triage-3-cu/output",
+      "thread_id": "01a1907b-701b-7e11-b65f-34cceeb46a33",
+      "setup": [
+        {
+          "arm": "cu",
+          "thread_id": "01a1907b-701b-7e11-b65f-34cceeb46a33",
+          "turn_id": "01a1907b-708e-7eb0-b0b6-316b0773db09",
+          "started_at": "2026-10-31T05:42:51.291Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T05:43:10.726Z",
+          "elapsed_ms": 19434,
+          "final": "READY",
+          "model_calls": 5,
+          "tokens": {
+            "input_tokens": 149145,
+            "cached_input_tokens": 120320,
+            "output_tokens": 917,
+            "reasoning_output_tokens": 403,
+            "total_tokens": 150062
+          },
+          "tool_calls": 4,
+          "tool_output_chars": 17463,
+          "tool_errors": 0,
+          "tool_interval_ms": 7,
+          "non_tool_interval_ms": 19427
+        }
+      ],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a1907b-701b-7e11-b65f-34cceeb46a33",
+          "turn_id": "01a1907b-d4b8-75a2-85f9-392f6a364a0c",
+          "started_at": "2026-10-31T05:43:16.928Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "label": "cu-3",
+          "completed_at": "2026-10-31T05:44:30.955Z",
+          "elapsed_ms": 74025,
+          "final": "DONE",
+          "model_calls": 21,
+          "tokens": {
+            "input_tokens": 810538,
+            "cached_input_tokens": 795392,
+            "output_tokens": 3135,
+            "reasoning_output_tokens": 1198,
+            "total_tokens": 813673
+          },
+          "tool_calls": 20,
+          "tool_output_chars": 25954,
+          "tool_errors": 0,
+          "tool_interval_ms": 4871,
+          "non_tool_interval_ms": 69154
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "filter_and_search_used": true
+        }
+      },
+      "setup_ms": 19434,
+      "execution_ms": 74025,
+      "combined_turn_ms": 93459,
+      "evidence_sha256": {
+        "brief.txt": "50bdb9f56edf2432f2317607ffc4735dcc3bdd69af68feceb265c2a95d7b505c",
+        "source.json": "a4ec2f2afb53912f0f95d4ceab917d43e1fd8349d2e11c0c90358f3c98674f33",
+        "saved.json": "1f547192eb1eb91f7fd7ada23edea0e29153e9c180045b58ec88bc2cf35ccd46",
+        "cu-env.sh": "ed4412b5dcb5c83692591719893f2258938ee5de53596f7c6ff6abc0de638f14",
+        "trace.json": "8ffd82f0bcd0c1e2823d79200fef769afe644a88906b568e60402d84fe96fde7",
+        "audit.json": "5afccd8e888d016e508378a3f00b5cbfd8338cbb0d29b57465a1df7e7e0b9fc7"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Reviewed complete setup/GO commands and config: correct PID, unique Broker/client/output, config sourced on every app call including explicit full JSON snapshot. Only cu/live UI, setup observation only, no task reuse/coaching/overlap. Extra full snapshot retained in timing."
+      }
+    },
+    {
+      "label": "triage-4-cu",
+      "mode": "triage",
+      "repeat": 4,
+      "arm": "cu",
+      "status": "failed",
+      "reasons": [
+        "Urgent remained true for T403 and T407; expected false. Participant reported DONE without tool errors."
+      ],
+      "pid": 60996,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-v1/triage-4-cu/VariedWorkflow.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-varied-pz9yazn8",
+      "source_sha256": "7dea6c96bd3defba2f6a01fb67254d928642bc02e65ea020952e0f0235adf34a",
+      "client_key": "triage-4-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-v1/triage-4-cu/output",
+      "thread_id": "01a1907d-253b-7f53-b3a4-44991c475584",
+      "setup": [
+        {
+          "arm": "cu",
+          "thread_id": "01a1907d-253b-7f53-b3a4-44991c475584",
+          "turn_id": "01a1907d-25bc-7722-9a96-9d61b4169e73",
+          "started_at": "2026-10-31T05:44:43.206Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T05:45:03.693Z",
+          "elapsed_ms": 20486,
+          "final": "READY",
+          "model_calls": 5,
+          "tokens": {
+            "input_tokens": 149338,
+            "cached_input_tokens": 119680,
+            "output_tokens": 1136,
+            "reasoning_output_tokens": 579,
+            "total_tokens": 150474
+          },
+          "tool_calls": 4,
+          "tool_output_chars": 17463,
+          "tool_errors": 0,
+          "tool_interval_ms": 4,
+          "non_tool_interval_ms": 20482
+        }
+      ],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a1907d-253b-7f53-b3a4-44991c475584",
+          "turn_id": "01a1907d-9550-7c12-aea1-1d07fd07767e",
+          "started_at": "2026-10-31T05:45:11.767Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "label": "cu-4",
+          "completed_at": "2026-10-31T05:46:21.375Z",
+          "elapsed_ms": 69606,
+          "final": "DONE",
+          "model_calls": 21,
+          "tokens": {
+            "input_tokens": 811451,
+            "cached_input_tokens": 789504,
+            "output_tokens": 3019,
+            "reasoning_output_tokens": 1090,
+            "total_tokens": 814470
+          },
+          "tool_calls": 20,
+          "tool_output_chars": 25906,
+          "tool_errors": 0,
+          "tool_interval_ms": 4425,
+          "non_tool_interval_ms": 65181
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": false,
+        "checks": {
+          "final_fields_exact": false,
+          "initial_versions_exact": false,
+          "order_exact": true,
+          "completed": true,
+          "filter_and_search_used": true
+        },
+        "field_mismatches": [
+          {
+            "id": "T403",
+            "field": "Urgent",
+            "expected": "false",
+            "actual": "true"
+          },
+          {
+            "id": "T407",
+            "field": "Urgent",
+            "expected": "false",
+            "actual": "true"
+          }
+        ]
+      },
+      "setup_ms": 20486,
+      "execution_ms": 69606,
+      "combined_turn_ms": 90092,
+      "evidence_sha256": {
+        "brief.txt": "8917e7304cb4f0cf28f8d8f2fd1b1541cb996051f5c50051a40f5be11ce2de1e",
+        "source.json": "7dea6c96bd3defba2f6a01fb67254d928642bc02e65ea020952e0f0235adf34a",
+        "saved.json": "5ca7c95088fd2a61fb6168d46a10f2c5cee77fc380df48d06584cb09d62ba8f0",
+        "cu-env.sh": "7426bf15e93fd747b3f19c72746c4222ddf89ec9fbbccf0a78a5b81edeba3856",
+        "trace.json": "53c7a3711c6695f2afd1fe000a670f19c63842db04f5e0ca989b080d32001537",
+        "audit.json": "52994076f3566c42096ea8a11d9b1a393ef5c6a544453d1b2c22ae1bd317775e"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Reviewed every setup/GO command and config: correct PID and unique Broker/client/output, all app calls sourced task config, cu/live UI only; setup observation only, no overlap/coaching/task reuse. Failed exact outcome is retained as a task failure, not a protocol exclusion."
+      }
+    },
+    {
+      "label": "triage-4-native",
+      "mode": "triage",
+      "repeat": 4,
+      "arm": "native",
+      "status": "passed",
+      "reasons": [],
+      "pid": 62296,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-v1/triage-4-native/VariedWorkflow.app",
+      "runtime_home": null,
+      "source_sha256": "7dea6c96bd3defba2f6a01fb67254d928642bc02e65ea020952e0f0235adf34a",
+      "client_key": "triage-4-native",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-v1/triage-4-native/output",
+      "thread_id": "01a1907e-f419-7970-bb0d-3e23be9c5c34",
+      "setup": [
+        {
+          "arm": "native",
+          "thread_id": "01a1907e-f419-7970-bb0d-3e23be9c5c34",
+          "turn_id": "01a1907e-f486-7dc2-a865-08ba609e07ea",
+          "started_at": "2026-10-31T05:46:41.682Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T05:47:05.887Z",
+          "elapsed_ms": 24196,
+          "final": "READY",
+          "model_calls": 3,
+          "tokens": {
+            "input_tokens": 88272,
+            "cached_input_tokens": 81280,
+            "output_tokens": 297,
+            "reasoning_output_tokens": 100,
+            "total_tokens": 88569
+          },
+          "tool_calls": 2,
+          "tool_output_chars": 28471,
+          "tool_errors": 0,
+          "tool_interval_ms": 379,
+          "non_tool_interval_ms": 23817
+        }
+      ],
+      "runs": [
+        {
+          "arm": "native",
+          "thread_id": "01a1907e-f419-7970-bb0d-3e23be9c5c34",
+          "turn_id": "01a1907f-8428-7c22-bdba-464bcb22aa02",
+          "started_at": "2026-10-31T05:47:18.446Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "label": "native-4",
+          "completed_at": "2026-10-31T05:49:47.430Z",
+          "elapsed_ms": 148979,
+          "final": "DONE",
+          "model_calls": 22,
+          "tokens": {
+            "input_tokens": 815680,
+            "cached_input_tokens": 791808,
+            "output_tokens": 1853,
+            "reasoning_output_tokens": 659,
+            "total_tokens": 817533
+          },
+          "tool_calls": 21,
+          "tool_output_chars": 15837,
+          "tool_errors": 1,
+          "tool_interval_ms": 11525,
+          "non_tool_interval_ms": 137454
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "filter_and_search_used": true
+        }
+      },
+      "setup_ms": 24196,
+      "execution_ms": 148979,
+      "combined_turn_ms": 173175,
+      "evidence_sha256": {
+        "brief.txt": "0737a854dfed3c16e87993433c20ad42209ea0b75e50b4af9207e78cc644c0c6",
+        "source.json": "7dea6c96bd3defba2f6a01fb67254d928642bc02e65ea020952e0f0235adf34a",
+        "saved.json": "faf55bd8ef8899cb047d44e67fe47ceccaa380f913c0ef1e598c8794d3124d35",
+        "trace.json": "5ab2d15684765c3df0f44c4fa7170cc0fc25fa30580ed6ad8d45be550dc863c9",
+        "audit.json": "7a67532ed35db305e48508da43a437a59c8576e41110f7835b64377f8f317013"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Reviewed complete setup/GO tools: fresh task, brief read and native cua app only; setup observation without mutation, no overlap/coaching/outside data. GO reactivation error and subsequent refresh retained. T403/T407 Urgent were explicitly toggled off."
+      }
+    }
+  ],
+  "groups": [
+    {
+      "mode": "triage",
+      "arms": {
+        "cu": {
+          "counts": {
+            "passed": 3,
+            "failed": 1,
+            "excluded": 0,
+            "unreviewed": 0,
+            "pending": 0
+          },
+          "success_medians_ms": {
+            "setup_ms": 48880,
+            "execution_ms": 137502,
+            "combined_turn_ms": 186382
+          }
+        },
+        "native": {
+          "counts": {
+            "passed": 4,
+            "failed": 0,
+            "excluded": 0,
+            "unreviewed": 0,
+            "pending": 0
+          },
+          "success_medians_ms": {
+            "setup_ms": 23429.0,
+            "execution_ms": 157479.0,
+            "combined_turn_ms": 181066.0
+          }
+        }
+      },
+      "successful_pairs": [
+        {
+          "repeat": 1,
+          "go_cu_over_native": 0.7505919237112392,
+          "combined_cu_over_native": 0.9031854067619447
+        },
+        {
+          "repeat": 2,
+          "go_cu_over_native": 0.8284301026033414,
+          "combined_cu_over_native": 0.9863725609530211
+        },
+        {
+          "repeat": 3,
+          "go_cu_over_native": 0.7218922793364735,
+          "combined_cu_over_native": 0.797860624738554
+        }
+      ],
+      "median_paired_go_ratio": 0.7505919237112392,
+      "median_paired_combined_ratio": 0.9031854067619447
+    }
+  ],
+  "date": "2026-10-31",
+  "local_report_sha256": "5202479707ba80d4c3bf819ef12d04700e1037e654dfade5845e2645d53e2fa0",
+  "findings": [
+    "All eight predeclared attempts ran sequentially in the exact manifest order with fresh task/app/state and matching actual model/settings. No exclusions, replacements or coaching.",
+    "Exact outcomes: cu 3/4; native 4/4. cu dataset 4 left T403 and T407 Urgent true instead of false, despite reporting DONE and no tool errors.",
+    "Among the three jointly successful pairs, median paired cu/native GO ratio is 0.750592 (about 24.9% lower cu time); combined ratio is 0.903185 (about 9.7% lower). Dataset 4 cu failure is retained and excluded only from success timing estimates.",
+    "cu checkbox elements lacked AXValue while adjacent live text stated Urgent status: on. Native output contained checkbox Urgent, Value: 1. src/ax.rs projects AXValue only through string readers; numeric state is omitted before compact formatting. This is an information gap, not proof of the sole cause of the agent omission.",
+    "All four native first GO actions failed because Computer Use was no longer active after the READY/GO turn boundary, then recovered with getAXState. Keep these errors and recovery time; this protocol-specific overhead limits extrapolation to uninterrupted tasks.",
+    "Runtime variability remains material: cu GO model calls were 20/20/21/21, but elapsed ranged 69.6–137.9 seconds; the shortest sample failed. Native GO model calls were 34/23/22/22 and elapsed ranged 102.5–183.7 seconds.",
+    "No per-action effect verification was added; independent final verification caught the wrong fields."
+  ],
+  "limits": [
+    "Four datasets on one custom native AppKit task; shared OS/caches and uncontrolled model/network/scheduling load. Not browser/Electron/commercial-app evidence.",
+    "Different task subsets enter each arm success median (cu 3, native 4). Prefer paired ratios for timing; neither timing estimate accounts for cost of failure/rework.",
+    "Setup and GO use separate turns. Combined sums participant turn durations, excluding compilation/launch/coordinator gaps/audit. Mandatory native state reactivation across the boundary is retained.",
+    "Text counts omit images, and recorded tool intervals need not have identical instrumentation across backends. Non-tool residual is not pure inference.",
+    "This candidate-only comparison cannot attribute differences from historical samples causally to the latest optimization."
+  ]
+}
