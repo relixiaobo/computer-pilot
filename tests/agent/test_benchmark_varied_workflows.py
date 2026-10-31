@@ -107,6 +107,27 @@ class ProtocolTests(unittest.TestCase):
         self.assertIn('Full task s', markdown)
         self.assertNotIn('GO s', markdown)
 
+    def test_cu_only_plan_retains_failures_without_fabricating_native_pairs(self):
+        target = self.root / 'cu-only'
+        with patch.object(bench.subprocess, 'run'), \
+                patch.object(bench.subprocess, 'check_output', return_value='commit\n'), \
+                patch.object(bench, 'fingerprints', return_value={'inputs': 'sha'}), \
+                contextlib.redirect_stdout(io.StringIO()):
+            bench.prepare(target, ['triage'], 2, 'test-model', 'high', None,
+                          single_turn=True, arms=['cu'])
+        self.root = target
+        self.sequence = json.loads((target / 'manifest.json').read_text())['sequence']
+        self.assertEqual([r['label'] for r in self.sequence], ['triage-1-cu', 'triage-2-cu'])
+        self.sample('triage-1-cu', setup=[], setup_ms=0, combined_turn_ms=2000)
+        self.sample('triage-2-cu', setup=[], setup_ms=0, passed=False, combined_turn_ms=500)
+        result = self.report()
+        self.assertEqual([r['status'] for r in result['attempts']], ['passed', 'failed'])
+        group = result['groups'][0]
+        self.assertEqual(list(group['arms']), ['cu'])
+        self.assertEqual(group['arms']['cu']['success_medians_ms']['combined_turn_ms'], 2000)
+        self.assertEqual(group['successful_pairs'], [])
+        self.assertIsNone(group['median_paired_combined_ratio'])
+
     def test_single_turn_collection_needs_no_go_marker(self):
         self.write(self.root / 'manifest.json', dict(sequence=self.sequence, settings=self.settings, single_turn=True))
         trial = self.root / 'triage-1-cu'

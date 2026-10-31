@@ -129,15 +129,16 @@ def fingerprints():
     return {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
 
 
-def prepare(root, modes, repeats, model, effort, service_tier, single_turn=False):
+def prepare(root, modes, repeats, model, effort, service_tier, single_turn=False, arms=('cu', 'native')):
     root.mkdir(parents=True, exist_ok=False)
     executable = root / 'VariedWorkflow'
     subprocess.run(['swiftc', str(ROOT / 'tests/fixtures/varied-workflows.swift'), '-o', str(executable)], check=True)
     sequence = []
     for mode_index, mode in enumerate(modes):
         for repeat in range(1, repeats + 1):
-            arms = ('native', 'cu') if (mode_index + repeat) % 2 else ('cu', 'native')
-            sequence.extend(dict(label=f'{mode}-{repeat}-{arm}', mode=mode, repeat=repeat, arm=arm) for arm in arms)
+            order = ('native', 'cu') if (mode_index + repeat) % 2 else ('cu', 'native')
+            sequence.extend(dict(label=f'{mode}-{repeat}-{arm}', mode=mode, repeat=repeat, arm=arm)
+                            for arm in order if arm in arms)
     manifest = dict(protocol_version=2 if single_turn else 1, single_turn=single_turn, sequence=sequence,
                     settings=dict(model=model, reasoning_effort=effort, service_tier=service_tier),
                     fingerprints=fingerprints(),
@@ -280,6 +281,8 @@ def report(root):
         pairs = []
         for repeat in dict.fromkeys(r['repeat'] for r in rows):
             pair = {r['arm']: r for r in rows if r['repeat'] == repeat}
+            if not all(a in pair for a in ('cu', 'native')):
+                continue
             if all('source_sha256' in pair[a] for a in ('cu', 'native')) and pair['cu']['source_sha256'] != pair['native']['source_sha256']:
                 for r in pair.values():
                     r['status'] = 'excluded'
@@ -289,7 +292,7 @@ def report(root):
                 pairs.append(dict(repeat=repeat, go_cu_over_native=None if single_turn else pair['cu']['execution_ms'] / pair['native']['execution_ms'],
                                   combined_cu_over_native=pair['cu']['combined_turn_ms'] / pair['native']['combined_turn_ms']))
         arms = {}
-        for arm in ('cu', 'native'):
+        for arm in dict.fromkeys(r['arm'] for r in rows):
             samples = [r for r in rows if r['arm'] == arm]
             passed = [r for r in samples if r['status'] == 'passed']
             arms[arm] = dict(counts={s: sum(r['status'] == s for r in samples)
@@ -359,6 +362,8 @@ def main():
     parser.add_argument('label', nargs='?')
     parser.add_argument('--rollouts', type=Path, default=Path.home() / '.codex/sessions')
     parser.add_argument('--modes', nargs='+', choices=MODES, default=list(MODES))
+    parser.add_argument('--arms', nargs='+', choices=['cu', 'native'], default=['cu', 'native'],
+                        help='Run selected arms only; historical controls are reported separately')
     parser.add_argument('--repeats', type=int, default=2)
     parser.add_argument('--model', default='gpt-6-astra')
     parser.add_argument('--effort', default='high')
@@ -369,7 +374,7 @@ def main():
         parser.error(f'{args.action} requires a label')
     if args.repeats < 1 or len(set(args.modes)) != len(args.modes):
         parser.error('Use positive repeats and unique modes')
-    if args.action == 'prepare': prepare(root, args.modes, args.repeats, args.model, args.effort, args.service_tier, args.single_turn)
+    if args.action == 'prepare': prepare(root, args.modes, args.repeats, args.model, args.effort, args.service_tier, args.single_turn, args.arms)
     elif args.action == 'report': report(root)
     elif args.action == 'start': start(root, args.label)
     elif args.action == 'stop': stop(root, args.label)

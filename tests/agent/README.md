@@ -90,6 +90,11 @@ that tier. These options record the design; they do not configure or invoke a
 model. `start` refuses changed experiment inputs. Do not edit the manifest, code
 or skill during an experiment; use a new root for a new candidate.
 
+For a cu-only retest, add `--arms cu`. Only those attempts are planned and
+reported; no native task runs or paired ratio is fabricated. Freeze the historical
+report references before running, match workflow/dataset/settings, and show all
+selected historical rounds separately as noncontemporaneous controls.
+
 For **each** manifest entry, sequentially:
 
 1. Run `ROOT start LABEL`. Create one new task from the exact generated brief,
