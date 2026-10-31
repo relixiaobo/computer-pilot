@@ -145,10 +145,10 @@ use the write alone as proof that Submit/Send is enabled.
 
 Invoke actions such as `AXPress`, `AXShowMenu`, `AXIncrement`,
 `AXDecrement`, `AXConfirm`, `AXCancel`, `AXOpen`, or `AXRaise`. Read
-`dispatched` and `effect_verified`; mutation actions whose AX state stays
-unchanged return `verification_failed`.
+`dispatched`, then verify the intended final state. An unchanged generic AX
+tree does not prove an arbitrary AX action failed.
 
-### `cu type <text> --app <app> [--paste|--no-paste] [--no-snapshot]`
+### `cu type <text> --app <app> [--paste|--no-paste] [--no-snapshot] [--no-verify]`
 
 Inject Unicode by PID. Automatically uses PID-targeted clipboard paste for
 known chat apps and focused inputs below `AXWebArea`; native controls keep
@@ -157,8 +157,10 @@ Unicode events, including CJK. Read `paste_reason`. Targeted typing requires a f
 An unobservable targeted result fails with `unknown_outcome`. Inputs below
 `AXWebArea` are checked after a 300ms stability delay and remain medium confidence:
 stable text does not generically prove every controlled-editor side effect.
+`--no-verify --no-snapshot` skips post-input observation for intermediate
+actions in a deterministic group; focus and target checks still run.
 
-### `cu key <combo> --app <app> [--no-snapshot]`
+### `cu key <combo> --app <app> [--no-snapshot] [--no-verify]`
 
 Send modifiers and keys through PID-targeted CGEvents. Event dispatch is
 reported separately from observable effect. Enter on a focused input returns

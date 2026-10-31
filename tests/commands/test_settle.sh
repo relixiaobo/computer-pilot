@@ -58,15 +58,15 @@ d = json.load(sys.stdin).get('snapshot', {})
 elements = d.get('elements', [])
 print('|'.join([
     'compact=' + str(d.get('action_snapshot_compact')),
-    'bounded=' + str(len(elements) <= 50),
+    'bounded=' + str(len(elements) <= d.get('limit', 200)),
     'paths_omitted=' + str(all('axPath' not in e for e in elements)),
-    'has_hint=' + str(bool(d.get('snapshot_hint'))),
+    'delta=' + str(bool(d.get('base_observation_id')) and isinstance(d.get('removed_refs'), list)),
 ]))
 " 2>/dev/null || echo "malformed")
 [[ "$COMPACT" == *"compact=True"* ]] && _pass "action snapshot marked compact" || _fail "action snapshot compact marker" "$COMPACT"
-[[ "$COMPACT" == *"bounded=True"* ]] && _pass "action snapshot capped at 50 elements" || _fail "action snapshot element cap" "$COMPACT"
+[[ "$COMPACT" == *"bounded=True"* ]] && _pass "action snapshot respects requested limit" || _fail "action snapshot element cap" "$COMPACT"
 [[ "$COMPACT" == *"paths_omitted=True"* ]] && _pass "action snapshot omits axPath" || _fail "action snapshot axPath omission" "$COMPACT"
-[[ "$COMPACT" == *"has_hint=True"* ]] && _pass "action snapshot explains explicit snapshot recovery" || _fail "action snapshot hint" "$COMPACT"
+[[ "$COMPACT" == *"delta=True"* ]] && _pass "repeated action observation returns a delta" || _fail "action snapshot delta" "$COMPACT"
 
 section "settle_ms — absent when --no-snapshot"
 

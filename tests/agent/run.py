@@ -29,6 +29,7 @@ import subprocess
 import sys
 import time
 from glob import glob
+from functools import cache
 from pathlib import Path
 
 # Load .env file from project root (if exists)
@@ -57,7 +58,7 @@ SYSTEM_PROMPT = f"""You are a macOS automation agent. You control a Mac through 
 {_skill_content}
 
 ## Agent Test Rules
-- Output `cu` commands one per line. They will be executed and you'll see the results.
+- Output `cu` commands one per line, without shell operators. A deterministic group runs in order, stopping on the first failure; you will receive all results together.
 - After completing the task, output: DONE
 - If stuck after multiple attempts, output: FAIL
 - ALWAYS read actual data before writing summaries. Never fabricate content.
@@ -68,10 +69,6 @@ SYSTEM_PROMPT = f"""You are a macOS automation agent. You control a Mac through 
 # shorter deadline here would kill legitimate commands. Matches the default in
 # tests/commands/helpers.sh.
 CU_TIMEOUT = int(os.environ.get("CU_TIMEOUT_SECS", "75"))
-
-# How much of a command's output the agent gets to see. Truncation is
-# announced in the text itself so a cut can never look like a short answer.
-RESULT_CHAR_LIMIT = int(os.environ.get("AGENT_RESULT_CHARS", "6000"))
 
 # SKILL.md's Initialize step requires both of these. Without them the agent
 # under test runs with the default client key and no task-owned output
@@ -155,11 +152,20 @@ def credential_error(model: str) -> str | None:
     return None
 
 
+@cache
+def llm_client(claude: bool):
+    """Reuse the provider connection pool across model rounds."""
+    if claude:
+        import anthropic
+        return anthropic.Anthropic()
+    import openai
+    return openai.OpenAI()
+
+
 def call_llm(model: str, messages: list[dict]) -> tuple[str, int, int]:
     """Call LLM, return (text, input_tokens, output_tokens)."""
     if is_claude_model(model):
-        import anthropic
-        client = anthropic.Anthropic()
+        client = llm_client(True)
         response = client.messages.create(
             model=model, max_tokens=MAX_TOKENS,
             system=SYSTEM_PROMPT, messages=messages,
@@ -167,10 +173,11 @@ def call_llm(model: str, messages: list[dict]) -> tuple[str, int, int]:
         text = next((b.text for b in response.content if b.type == "text"), "")
         return text, response.usage.input_tokens, response.usage.output_tokens
     else:
-        import openai
-        client = openai.OpenAI()
+        client = llm_client(False)
         response = client.chat.completions.create(
             model=model, max_completion_tokens=MAX_TOKENS,
+            **({"reasoning_effort": os.environ["AGENT_REASONING_EFFORT"]}
+               if os.environ.get("AGENT_REASONING_EFFORT") else {}),
             messages=[{"role": "system", "content": SYSTEM_PROMPT}] + messages,
         )
         return response.choices[0].message.content, response.usage.prompt_tokens, response.usage.completion_tokens
@@ -621,8 +628,8 @@ def run_agent_task(task: dict, model: str, max_steps: int = 25, verbose: bool = 
                 "check": "task fixture cleanup", "passed": False, "detail": detail
             })
         return result
-    time.sleep(1)
-
+    loop_started = time.perf_counter()
+    trace = []
     messages = []
     total_input = 0
     total_output = 0
@@ -633,20 +640,17 @@ def run_agent_task(task: dict, model: str, max_steps: int = 25, verbose: bool = 
     for step in range(1, max_steps + 1):
         steps = step
 
-        # Build prompt
-        apps_out = cu(["apps"])
+        # The agent requests discovery only when the task needs it.
         user_msg = f"""Task: {goal}
 
 Step {step}/{max_steps}.
-
-Running apps:
-{apps_out[:1500]}
 
 What cu commands should I run next? Output one command per line.
 When done, say DONE. If stuck, say FAIL."""
 
         messages.append({"role": "user", "content": user_msg})
 
+        model_started = time.perf_counter()
         try:
             response, inp, out = call_llm(model, messages)
         except Exception as e:
@@ -654,6 +658,9 @@ When done, say DONE. If stuck, say FAIL."""
             status = "error"
             break
 
+        finally:
+            trace.append({"step": step, "kind": "model",
+                          "ms": round((time.perf_counter() - model_started) * 1000, 1)})
         total_input += inp
         total_output += out
         messages.append({"role": "assistant", "content": response})
@@ -673,19 +680,20 @@ When done, say DONE. If stuck, say FAIL."""
             if verbose:
                 display = cmd_line[:120] + ("..." if len(cmd_line) > 120 else "")
                 print(f"    $ cu {' '.join(args[:5])}{'...' if len(args) > 5 else ''}")
-            r = cu(args)
-            # A snapshot easily exceeds 1000 chars; silently cutting it handed
-            # the agent invalid JSON with no indication anything was missing.
-            if len(r) > RESULT_CHAR_LIMIT:
-                shown = (r[:RESULT_CHAR_LIMIT]
-                         + f"\n[truncated by test harness at {RESULT_CHAR_LIMIT} "
-                           f"of {len(r)} chars — re-run with a narrower --limit]")
-            else:
-                shown = r
-            results.append(f"$ {cmd_line[:200]}\n{shown}")
+            command_started = time.perf_counter()
+            command_result = cu_result(args)
+            r = command_result["text"]
+            trace.append({"step": step, "kind": "command", "command": args[0] if args else "",
+                          "ms": round((time.perf_counter() - command_started) * 1000, 1),
+                          "ok": command_result["ok"], "output_chars": len(r)})
+            # Preserve valid, complete JSON. Product action snapshots already
+            # return compact deltas; truncating here loses refs and recovery data.
+            results.append(f"$ {cmd_line[:200]}\n{r}")
             if verbose:
                 print(f"      → {r[:150]}")
-            time.sleep(0.5)
+            if not command_result["ok"]:
+                results.append("Action group stopped after failure; remaining commands did not run.")
+                break
 
         if results:
             messages.append({"role": "user", "content": "Results:\n" + "\n---\n".join(results)})
@@ -710,7 +718,6 @@ When done, say DONE. If stuck, say FAIL."""
                 status = "no_commands"
                 break
 
-        time.sleep(0.3)
     else:
         # The loop ran out before the agent said DONE or FAIL: we cut it off
         # mid-task. That is our budget ending, not the agent failing — and
@@ -719,8 +726,9 @@ When done, say DONE. If stuck, say FAIL."""
         # machine, so the ceiling is a real hazard, not a hypothetical one.
         status = "budget_exhausted"
 
+    agent_loop_ms = round((time.perf_counter() - loop_started) * 1000, 1)
+
     # Verify
-    time.sleep(1)
     verify_results = verify_task(task, captured_sources)
     verification_passed = all(v["passed"] for v in verify_results)
 
@@ -756,6 +764,16 @@ When done, say DONE. If stuck, say FAIL."""
         "steps": steps,
         "input_tokens": total_input,
         "output_tokens": total_output,
+        "model": model,
+        "reasoning_effort": os.environ.get("AGENT_REASONING_EFFORT"),
+        "timings": {
+            "agent_loop_ms": agent_loop_ms,
+            "model_ms": round(sum(e["ms"] for e in trace if e["kind"] == "model"), 1),
+            "command_ms": round(sum(e["ms"] for e in trace if e["kind"] == "command"), 1),
+            "model_calls": sum(e["kind"] == "model" for e in trace),
+            "commands": sum(e["kind"] == "command" for e in trace),
+        },
+        "trace": trace,
     }
     if cleanup_failures:
         result["cleanup_error"] = " | ".join(cleanup_failures)

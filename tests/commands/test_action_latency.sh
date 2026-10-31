@@ -62,6 +62,7 @@ try:
                   "--observation", snap["observation_id"], "--limit", "50")
     assert changed["snapshot"]["focused"]["value"] == "queued-notification", changed
     assert changed["settle_ms"] < 250, changed
+    assert "effect_advice" not in changed and "advice" not in changed, changed
 
     # A smaller action limit must not make freshness checks compare a short
     # prefix against the hash of the original, larger observation.
@@ -80,19 +81,98 @@ try:
     run("click", ref, "--app", app, "--observation", snap["observation_id"],
         "--no-snapshot", "--no-verify")
 
-    # Exercise the single final post-type snapshot with real Unicode events.
-    run("set-value", ref, "", "--ax-path", path, "--app", app)
-    typed = run("type", "native中文😀", "--app", app, "--no-paste")
+    # Unrelated content changes must not invalidate the selected input.
+    snap = run("snapshot", app, "--limit", "200")
+    other = next(e for e in snap["elements"] if e.get("title") == "other-input")
+    assert other["ref"] > 100, other
+    run("set-value", "unrelated-change", "--ax-path", other["axPath"],
+        "--app", app, "--no-snapshot")
+    clicked = run("click", ref, "--app", app, "--observation", snap["observation_id"])
+    assert clicked["focus_verified"] is True, clicked
+    assert clicked["settle_ms"] < 250, clicked
+    delta = clicked["snapshot"]
+    assert delta["base_observation_id"] == snap["observation_id"], delta
+    assert len(delta["elements"]) == 1 and delta["elements"][0]["ref"] == other["ref"], delta
+    assert delta["elements"][0]["value"] == "unrelated-change", delta
+
+    # Reconstruct a complete state from a delta, including refs beyond 50.
+    reconstructed = {e["ref"]: e for e in snap["elements"]}
+    for removed in delta["removed_refs"]:
+        reconstructed.pop(removed)
+    reconstructed.update({e["ref"]: e for e in delta["elements"]})
+    current = run("snapshot", app, "--limit", "200")
+    assert {r: e.get("value") for r, e in reconstructed.items()} == {
+        e["ref"]: e.get("value") for e in current["elements"]}
+    # Act on an unchanged ref through the new delta observation.
+    run("set-value", ref, "", "--app", app, "--limit", "200",
+        "--observation", clicked["observation_id"])
+
+    # Long Unicode text crosses event boundaries and surrogate pairs. Require
+    # exact final content, not merely a changed value or an output field.
+    text = "x" * 19 + "😀" + "native中文😀" * 100
+    started = time.perf_counter()
+    typed = run("type", text, "--app", app, "--no-paste")
+    elapsed = (time.perf_counter() - started) * 1000
     assert typed["effect_verified"] is True, typed
-    assert typed["snapshot"]["focused"]["value"] == "native中文😀", typed
-    observed = run("snapshot", app)
-    assert observed["focused"]["value"] == "native中文😀", observed
+    assert typed["snapshot"]["focused"]["value"] == text, typed
+    observed = run("snapshot", app, "--limit", "200")
+    assert observed["focused"]["value"] == text, observed
+    print(f"Long Unicode input ({len(text)} scalars): {elapsed:.1f} ms; exact content verified")
+
+    # One shell invocation, fail-fast, and only one final observation.
+    run("set-value", "", "--ax-path", path, "--app", app, "--no-snapshot")
+    import shlex
+    group = [
+        [cu, "--json", "--client-key", "latency-fixture", "click", "--ax-path", path,
+         "--app", app, "--no-verify", "--no-snapshot"],
+        [cu, "--json", "--client-key", "latency-fixture", "key", "end",
+         "--app", app, "--no-verify", "--no-snapshot"],
+        [cu, "--json", "--client-key", "latency-fixture", "type", "group中文😀",
+         "--app", app, "--no-verify", "--no-snapshot"],
+        [cu, "--json", "--client-key", "latency-fixture", "snapshot", app, "--limit", "200"],
+    ]
+    grouped = subprocess.run(["/bin/sh", "-ec", "\n".join(shlex.join(command) for command in group)],
+                             capture_output=True, text=True, timeout=15)
+    assert grouped.returncode == 0, grouped.stderr
+    outputs = [json.loads(line) for line in grouped.stdout.splitlines()]
+    assert len(outputs) == 4 and all("snapshot" not in d for d in outputs[:3]), outputs
+    assert outputs[2]["effect_verified"] is None, outputs[2]
+    assert outputs[-1]["focused"]["value"] == "group中文😀", outputs[-1]
+
+    # Recovery options are accepted after the command too. Replaying an ID
+    # must return the original result, not overwrite a subsequent user edit.
+    command = ["set-value", str(other["ref"]), "once", "--ax-path", other["axPath"],
+               "--app", app, "--request-id", f"late-id-{fixture.pid}"]
+    first = run(*command)
+    run("set-value", str(other["ref"]), "later", "--ax-path", other["axPath"], "--app", app)
+    replay = run(*command)
+    assert replay["replayed"] is True and replay["command_id"] == first["command_id"], replay
+    final = run("snapshot", app, "--limit", "200")
+    assert next(e for e in final["elements"] if e.get("title") == "other-input")["value"] == "later", final
+
+    # A client without the baseline receives a full action snapshot, including
+    # the field after ref 50. No extra full snapshot is needed to discover it.
+    fresh = subprocess.run([cu, "--json", "--client-key", "latency-new-client",
+                            "key", "escape", "--app", app], capture_output=True, text=True)
+    assert fresh.returncode == 0, fresh.stderr
+    full = json.loads(fresh.stdout)["snapshot"]
+    assert "base_observation_id" not in full and len(full["elements"]) > 50, full
+    assert any(e.get("title") == "other-input" for e in full["elements"]), full
+
+    # A focused input beyond ref 100 must have the same identity in the
+    # pre-type scan and the final snapshot, without falsely rejecting input.
+    run("set-value", "", "--ax-path", other["axPath"], "--app", app, "--no-snapshot")
+    run("click", "--ax-path", other["axPath"], "--app", app)
+    typed = run("type", "late-field", "--app", app, "--no-paste")
+    assert typed["effect_verified"] is True, typed
+    assert typed["snapshot"]["focused"]["value"] == "late-field", typed
+
 finally:
     fixture.terminate()
     fixture.wait(timeout=5)
 PY
 then
-  _pass "queued change avoids timeout; limits, stale refs, and Unicode input remain correct"
+  _pass "grouping, exact Unicode input, target freshness, and complete snapshot deltas"
 else
   _fail "action latency behavior" "background fixture assertions failed"
 fi

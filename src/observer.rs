@@ -1,6 +1,7 @@
 //! Single-action AX notification subscription, armed before dispatch so synchronous
 //! changes are not missed. The observer is removed on success and on early errors.
-//! Unsupported apps keep the bounded post-action fallback delay.
+//! No subscription means no blind fallback sleep; the returned state or an
+//! explicit condition wait determines whether the action achieved its effect.
 
 #![allow(unsafe_op_in_unsafe_fn)]
 
@@ -183,8 +184,6 @@ pub fn wait_for_settle(observer: Option<ActionObserver>, max_ms: u64) -> u64 {
                 CFRunLoopRunInMode(kCFRunLoopDefaultMode, remaining.as_secs_f64(), 1);
             }
         }
-    } else {
-        std::thread::sleep(budget);
     }
     start.elapsed().as_millis() as u64
 }

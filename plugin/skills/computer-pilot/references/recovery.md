@@ -85,8 +85,8 @@ For `verified:false`, read `verify_advice` and the attached snapshot. Prefer:
 
 Do not recover by dropping `--app` or using `--allow-global`.
 
-For Electron/CEF or any target under `AXWebArea`, allow one exact-PID focus and
-one short prefix probe. Require `focus_verified:true` before type and
+For Electron/CEF or any target under `AXWebArea`, confirm exact-PID focus and
+type the intended text once. Require `focus_verified:true` before type and
 `effect_verified:true` afterward. If either check fails, stop UI retries. Use a
 development app's explicitly provided localhost CDP/Playwright endpoint when
 available; otherwise report the unsupported delivery instead of using global

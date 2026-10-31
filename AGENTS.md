@@ -241,15 +241,18 @@ Implemented in `screenshot::find_window` (commit shipping R1). When adding a
 new path that needs window identity, mirror this — never reach into
 CGWindowList directly.
 
-### Principle 2 — `ok=true` must mean it really happened
+### Principle 2 — Dispatch and effect must be distinguished
 
-State-mutating actions (click/type/key) default to verifying their effect
-via pre/post AX diff. Sandboxed and Electron apps return ok=true silently
+Clicks and typing default to verifying their observable effect. A generic
+shortcut or AX action cannot be judged by an arbitrary tree change; report
+dispatch and inspect the intended result at the action-group boundary. Sandboxed and Electron apps return ok=true silently
 when PID-targeted CGEvents are dropped — this is the #1 cause of "the agent
 thinks it succeeded but the UI didn't change" debugging sessions.
 
-Flag layout convention: `--no-verify` to opt out, **never** `--verify` to
-opt in. New state-mutating commands follow the same pattern.
+Flag layout convention: `--no-verify` defers effect checking for a known
+intermediate click/type/key action; it never disables target identity checks.
+Batch deterministic actions in one shell call, stop on failure, and verify the
+final state. Observe before planning a new target after navigation or dialogs.
 
 Implemented in `cu click` (R2 commit). When `verified=false`, attach a
 `verify_advice` string with concrete remediation, not a generic "it didn't

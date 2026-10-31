@@ -11,8 +11,9 @@ per-user Broker is a private `cu` implementation detail.
 
 ## Initialize
 
-Run this preflight before the first desktop action. Do not assume the host
-installed Computer Pilot. Put the managed install directory first on `PATH`
+If the caller has already verified the Computer Pilot binary and permissions,
+start directly with the task. Otherwise run this preflight once per session.
+Put the managed install directory first on `PATH`
 so every later `cu` in this skill resolves to Computer Pilot:
 
 ```bash
@@ -65,7 +66,8 @@ for each target app and is requested only by `cu tell`.
 
 Use the cheapest reliable tier:
 
-1. Use `cu apps` to discover running apps and the `S` scripting flag.
+1. If the target or its scripting support is unknown, use `cu apps` once.
+   For a known app, go directly to the relevant command.
 2. Use `cu tell` for data-level work in scriptable apps.
 3. Use AX observation and actions for ordinary UI work.
 4. Use OCR or screenshots only when AX is sparse or visual state matters.
@@ -76,28 +78,55 @@ For Browser UI, use Browser Pilot when available. Read
 
 ## Core State-Act-Verify Loop
 
-Start a desktop task with one state call:
+For ordinary UI work, start with one AX snapshot of the known app:
 
 ```bash
-cu state "Mail"
+cu snapshot "Mail" --limit 200
 ```
 
-It returns AX elements, windows, displays, frontmost state, an
-`observation_id`, and normally a screenshot. Use `--no-screenshot` when AX is
-sufficient.
+Use `cu state` only when window/display metadata or a screenshot is needed.
+Reuse the returned PID selector for actions. Prefer `set-value` for native
+fields that support it, avoiding click/select/type entirely.
 
-Inspect the returned state, then perform exactly one action with the same
-explicit app selector:
+Batch deterministic actions in one shell call. Stop the shell on errors and
+read the final result before deciding the next group:
 
 ```bash
-cu click 12 --app "Mail" --observation "<observation_id>"
-cu set-value 7 "Quarterly review" --app "Mail" --observation "<observation_id>"
-cu key cmd+enter --app "Mail"
-cu type "Hello" --app "Mail"
+set -e
+cu key cmd+a --app "pid:89806" --no-snapshot --no-verify
+cu type "Quarterly review" --app "pid:89806"
 ```
 
-Read the attached `snapshot` before the next action. Do not shell-chain UI
-mutations; state can change between them.
+This example requires that the intended editor is already focused. When
+focus is unknown, click the observed field with default verification first;
+the shell can then continue to typing if that command succeeds. Do not add a
+model round just to repeat a check the command already performed.
+
+For intermediate `click`, `key`, and `type`, `--no-verify --no-snapshot`
+defers effect observation to the group boundary. `set-value`, `perform`,
+`scroll`, `hover`, and `drag` need only `--no-snapshot`. Keep the final action's
+snapshot, or finish with `cu snapshot`. These opt-outs acknowledge dispatch,
+not task success; verify the expected final value/state before continuing.
+
+For several independent native fields already visible in the observation,
+write them together and inspect the final snapshot once:
+
+```bash
+set -e
+cu set-value 7 "Quarterly review" --app "pid:89806" --observation "<id>" --no-snapshot
+cu set-value 12 "Draft" --app "pid:89806" --observation "<id>"
+```
+
+The same observation remains valid for the second field when only the first
+field's content changed. Once the final snapshot contains the requested values,
+stop; do not add another observation to reconfirm those same values.
+
+Only group actions whose targets and dependencies are already known. Stop
+and observe after navigation, a new dialog, unknown focus, or any action whose
+result determines the next target. Do not reuse pre-group refs across layout
+changes. Never include a submit/send/delete after unverified input merely to
+save a round trip. No fixed sleeps or repeated unchanged observations: use a
+condition wait when a specific asynchronous result is expected.
 
 Use waits for asynchronous transitions:
 
@@ -141,8 +170,8 @@ new PID and create a fresh Observation.
 
 Prefer targeting in this order:
 
-1. Use `cu find` when role or label is known.
-2. Use a ref from the current Observation.
+1. Use a ref already present in the current Observation.
+2. Use `cu find` when the target is missing and its role or label is known.
 3. Use `axPath` for a known structural selector.
 4. Use `cu nearest` or `cu observe-region` for visual coordinates.
 5. Use `cu click --text` when only OCR can see the label.
@@ -162,10 +191,10 @@ Use this bounded path for Electron/CEF editors:
 
 1. Select the exact `pid:<PID>` and retain it across the loop.
 2. Click the editor and require `focus_verified:true` before typing.
-3. Type a short prefix of the intended text. Continue only when
-   `effect_verified:true`. `cu type` automatically uses PID-targeted paste for
+3. Type the intended text once with default verification. Continue only when
+   the final text is correct. `cu type` automatically uses PID-targeted paste for
    a focused input below `AXWebArea`; do not override it with `--no-paste`.
-4. After one focus attempt and one prefix probe, stop UI retries on
+4. Stop and inspect the current state on
    `verification_failed`, `effect_verified:false`, or missing focus.
 
 For a dev Electron app with an explicitly provided localhost CDP/Playwright
@@ -179,7 +208,8 @@ without firing its input/onChange handler or enabling Send.
 ## Observation And Ref Safety
 
 Refs are ephemeral and bind to one Observation's client, PID, bundle, window,
-AX generation, and element signatures.
+and target element signature. Unrelated elements may change without invalidating
+the target. A changed target, PID, or window still fails before dispatch.
 
 - Pass `--observation <id>` for explicit ref actions.
 - Without it, `cu` resolves the latest Observation for this client and target.
@@ -199,18 +229,32 @@ Actions return `method`, `dispatched`, and sometimes `effect_verified`.
 the expected state is visible or `effect_verified:true`; unobservable targeted
 typing returns `unknown_outcome`.
 
+If a post-action AX read fails, `snapshot_error` explains the missing state.
+It does not become a new Observation or prove an effect; inspect the current
+state before retrying.
+
 `cu click` verifies AX change by default. Read `verified`, `verify_diff`, and
 `verify_advice`. `verified:true` means the tree changed, not that the intended
 business outcome occurred. Confirm the attached snapshot. Use `--no-verify`
 only for a known reliable bulk workflow.
+
+`--no-snapshot` only suppresses output; use `--no-verify` as well on
+intermediate click/type/key actions to defer effect verification. A generic
+shortcut or AX action has no universal success predicate: `dispatched:true`
+requires checking its intended result at the group boundary.
 
 `cu type` may route through clipboard paste for a focused `AXWebArea` input or
 a known chat app. Native inputs keep Unicode events, including CJK. Read
 `paste_reason`; do not recreate typing with `osascript` or `pbcopy`. A targeted
 type requires a focused AX text input and fails before dispatch otherwise.
 
-Action snapshots omit `axPath`, cap text, and include at most 50 elements. Run
-`cu snapshot` when the next target is absent.
+Action snapshots omit `axPath` and cap long text, but retain the requested
+element limit. When `snapshot.base_observation_id` is present, `elements`
+contains only new or changed refs: apply them to that prior observation and
+remove `snapshot.removed_refs`. Unchanged refs retain their previous content;
+all refs now belong to the response's new `observation_id`. Focus/window
+metadata is always current. If the baseline is unavailable, request a full
+`cu snapshot`. Do not issue a new snapshot just because a delta is empty.
 
 Always react to top-level fields ending in `_hint`, `_reason`, `_advice`, or
 `_error`. They mark degraded, partial, or automatically corrected output.
@@ -226,7 +270,8 @@ symlink traversal. Read returned paths with the host's normal file capability.
 
 ## Recovery
 
-Assign `--request-id` before a mutation that may need idempotent recovery:
+Use `--request-id` when a consequential or long-running mutation needs
+idempotent recovery after a timeout. Ordinary local field edits do not need it:
 
 ```bash
 cu --request-id "send-draft-17" click 12 --app "Mail" --observation "<id>"
