@@ -179,7 +179,7 @@ This is a fresh task, app process and state directory. {'Initialize and execute 
 '''
     ending = 'Then execute the workflow above and reply DONE after observing completion.' if single_turn else 'Reply READY.'
     if entry['arm'] == 'cu':
-        common += f'''Your arm: use only the existing shell and {CU} for app reads/actions. Read plugin/skills/computer-pilot/SKILL.md and initialize its multi-round task configuration. CU_APP=pid:{app.pid}; COMPUTER_PILOT_CLIENT_KEY={label}; COMPUTER_PILOT_HOME={runtime}; COMPUTER_PILOT_OUTPUT_DIR={trial / 'output'}. Computer Pilot and permissions are already verified. Take one observation of this PID. Do not use another automation backend. {ending}'''
+        common += f'''Your arm: use only the existing shell and {CU} for app reads/actions. Read {ROOT / 'plugin/skills/computer-pilot/SKILL.md'} and initialize its multi-round task configuration. CU_APP=pid:{app.pid}; COMPUTER_PILOT_CLIENT_KEY={label}; COMPUTER_PILOT_HOME={runtime}; COMPUTER_PILOT_OUTPUT_DIR={trial / 'output'}. Computer Pilot and permissions are already verified. Take one observation of this PID. Do not use another automation backend. {ending}'''
     else:
         common += f'''Your arm: use only actual mcp__cua_repl native App APIs. This explicitly authorizes that API instead of the repository cu integration. Bind {bundle.parent} using cua.getApp, read its documentation and take the initial observation. Do not use cu or another backend. {ending}'''
     (trial / 'brief.txt').write_text(common)

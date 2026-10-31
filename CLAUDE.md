@@ -375,8 +375,7 @@ checklist exists so a future revert doesn't bring them back.
   stub (3840×30) instead of the real off-Space window for TextEdit.
 - **"Treat `AXTitle` as the user-visible label"** — Electron/CEF apps set
   AXTitle to internal IDs ("submit_btn_primary"). Walk
-  AXTitle → AXDescription → AXHelp → AXIdentifier (R5), skipping empty strings.
-  Unlabeled buttons use the system AXRoleDescription (for example, close button).
+  AXTitle → AXDescription → AXHelp → AXIdentifier (R5).
 - **"Return ok=true after a CGEvent click without verification"** —
   sandboxed apps silently drop PID-targeted events. Verify by AX diff (R2).
 - **"Send unicode CGEvents to chat apps"** — WeChat/Slack/Discord/Telegram/

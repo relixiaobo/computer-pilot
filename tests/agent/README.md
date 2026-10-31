@@ -94,6 +94,14 @@ For **each** manifest entry, sequentially:
 
 1. Run `ROOT start LABEL`. Create one new task from the exact generated brief,
    using the planned settings, and save its ID in `ROOT/LABEL/thread.txt`.
+   Start participant tasks in a neutral working directory outside this repository,
+   without the project's `AGENTS.md`/`CLAUDE.md` in their injected instructions.
+   Those files guide development; the skill (cu) or native API documentation
+   supplies computer-use instructions. The brief uses an absolute skill path.
+   Inspect actual initial context as part of the audit: a new task alone does
+   not prove a clean runtime context. If the host only inherits the coordinator's
+   repository directory, report a repository-context diagnostic, not a clean
+   skill-only performance comparison.
    The app bundle/process, source/saved state, and cu Broker/client/output paths
    are fresh. No other participant runs during setup or execution. Do not supply
    a solver, source files, earlier outcomes or strategy coaching.
@@ -114,6 +122,7 @@ For **each** manifest entry, sequentially:
    {"compliant": true, "note": "Reviewed setup and GO: fresh task, allowed backend, task environment retained on every app call, live UI sources only, no coaching."}
    ```
 
+   Also review initial injected instructions for repository development guidance.
    For cu, inspect the sourced task configuration and every app call, not merely
    setup; for native, require the actual native cua API. Check that setup did not
    mutate the app and that tasks did not overlap. Mark any violation
@@ -186,7 +195,18 @@ manifest fixed two paired datasets per workflow, alternating native/cu order:
 No benchmark solver or task-specific production branch was added. Inputs stayed
 frozen throughout; all timestamps confirm sequential, non-overlapping trials.
 
-**Eligible outcomes: native 6 passed; cu 3 passed and 3 excluded.** Independent
+**Runtime-context limitation:** the host's create-task tool inherited the
+repository working directory and automatically injected its development
+`AGENTS.md`. Initial-context inspection confirmed this after the block. These
+are repository-context diagnostics, **not a clean skill-only production
+comparison**. The timings below describe those runs only. The actual product
+integration and L2 system prompt use the skill, not development instructions.
+Future comparisons follow the neutral-directory requirement above; adding a
+prompt to ignore repository instructions does not remove their context cost.
+
+Under the original block's action-isolation audit, native had 6 passed;
+cu had 3 passed and 3 excluded. These counts do not waive the shared runtime
+context limitation. Independent
 saved-state checks passed in 11/12 attempts. The excluded document attempt saved
 the right fields and order but never completed the workflow. Exclusions are
 real integration failures, not evidence that cu is reliable on half the inputs.

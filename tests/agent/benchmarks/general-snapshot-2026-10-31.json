@@ -3759,5 +3759,11 @@
       "median_paired_go_ratio": null,
       "median_paired_combined_ratio": 0.8588318628918937
     }
-  ]
+  ],
+  "runtime_context": {
+    "working_directory": "repository",
+    "project_development_instructions_injected": true,
+    "classification": "repository-context diagnostic, not a clean skill-only production comparison",
+    "discovery": "Initial participant message inspected after the block contained the project AGENTS.md. create_thread inherited the coordinator working directory. No participant was coached to use AGENTS.md; runtime guidance belongs to the skill."
+  }
 }
