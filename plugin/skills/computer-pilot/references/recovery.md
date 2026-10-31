@@ -76,8 +76,11 @@ On `stale_observation`:
 
 ## Verification
 
-For `verified:false`, inspect the attached state and advice before deciding
-whether another action is needed. An unchanged tree alone does not prove failure.
+`verify_diff` and `value_changed` describe observations, not task completion.
+An arbitrary tree change leaves `verified:null`; an input-focus check can set
+`verified:true` with `verification_basis:focused_target`. Inspect the attached
+state and advice before deciding whether another action is needed. An unchanged
+value may already be correct; an unchanged tree alone does not prove failure.
 Keep the same target PID and reuse returned refs; do not recover by dropping
 `--app` or using `--allow-global`.
 

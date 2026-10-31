@@ -23,12 +23,17 @@ APPS = {
 }
 
 
-def source(mode):
+def source(mode, dataset='baseline'):
     if mode == 'textedit':
         text = '\n\n'.join(f'章节 {i} · {title}\n草案：{title}将于 2026-11-15 交付。负责人：{owner}。\n验收：保留中文、标点“样本 {i}”和本段换行。'
                            for i, (title, owner) in enumerate(zip(
                                ['目标', '范围', '交付', '质量', '风险', '结论'],
                                ['林', '陈', '周', '吴', '郑', '王']), 1)) + '\n'
+        if dataset == 'alternate':
+            for old, new in zip(['目标', '范围', '交付', '质量', '风险', '结论'],
+                                ['摘要', '指标', '部署', '审计', '依赖', '回滚']):
+                text = text.replace('· ' + old, '· ' + new)
+            text += '备注：批次 ZX-042；存档 https://archive.example.invalid/v2。\n'
         return dict(mode=mode, files={'brief.txt': text})
     if mode == 'vscode':
         files = {
@@ -38,12 +43,24 @@ def source(mode):
             'release.md': '# sandbox release\n\nDeploy to https://sandbox.example.test/api.\nTimeout: 30 seconds.\nStatus: draft\n\nKeep this note: “中文验收” — build 17.\n',
             'checklist.txt': 'sandbox deployment\n[ ] verify endpoint\n[ ] verify timeout\n[ ] disable debug\n[ ] confirm workers\n',
         }
+        if dataset == 'alternate':
+            files = {name: text.replace('https://sandbox.example.test/api',
+                         'https://sandbox.services.example.invalid/v3/events?tenant=atlas-29')
+                         .replace('build 17', 'build 29 / ZX-042')
+                     for name, text in files.items()}
+            config = json.loads(files['service.json'])
+            config.update(region='ap-southeast-2', releaseTag='v8.4.13-rc.2')
+            files['service.json'] = json.dumps(config, ensure_ascii=False, indent=2) + '\n'
         return dict(mode=mode, files=files)
-    return dict(mode=mode, rows=[['Item', 'Team', 'Quantity', 'Unit price', 'Total'],
+    rows = [['Item', 'Team', 'Quantity', 'Unit price', 'Total'],
         ['Monitor', 'Office', 2, 180, ''], ['Hosting', 'Platform', 12, 25, ''],
         ['Keyboard', 'Office', 4, 45, ''], ['Training', 'People', 3, 120, ''],
         ['Storage', 'Platform', 6, 30, ''], ['Adapter', 'Office', 5, 15, ''],
-        ['Grand total', '', '', '', '']])
+        ['Grand total', '', '', '', '']]
+    if dataset == 'alternate':
+        for row, quantity, price in zip(rows[1:7], [3, 14, 7, 2, 9, 8], [210, 31, 58, 145, 24, 19]):
+            row[2:4] = [quantity, price]
+    return dict(mode=mode, rows=rows)
 
 
 def verify(spec, saved):
@@ -59,7 +76,7 @@ def verify(spec, saved):
         except (ValueError, TypeError):
             result = None
         expected = json.loads(spec['files']['service.json'])
-        expected.update(environment='production', endpoint='https://production.example.test/api', timeoutSeconds=45, debug=False)
+        expected.update(environment='production', endpoint=expected['endpoint'].replace('sandbox', 'production'), timeoutSeconds=45, debug=False)
         for worker in expected['workers']:
             worker['retries'] = 4
         checks['config_exact'] = result == expected
@@ -77,6 +94,11 @@ def verify(spec, saved):
         checks['saved_file_exists'] = actual.get('saved_file_exists') is True
         checks['cells_exact'] = actual.get('values') == expected
         checks['formulas_present'] = len(actual.get('formulas', [])) == 7 and all(actual['formulas'])
+        # Constant formulas can produce today's totals without fulfilling the
+        # requested calculation. The coordinator perturbs the reopened document
+        # without saving, independently of the participant's completion claim.
+        recalculated = [(row[2] + 1) * (row[3] + 2) for row in rows]
+        checks['formulas_recalculate'] = actual.get('recalculated_totals') == recalculated + [sum(recalculated)]
         checks['sheet_name'] = actual.get('sheet') == 'Budget'
         checks['table_shape'] = (actual.get('row_count'), actual.get('column_count')) == (8, 5)
     return dict(passed=all(checks.values()), checks=checks, actual=actual)
@@ -87,19 +109,20 @@ def fingerprints():
              ROOT/'tests/agent/collect_codex_benchmark.py',
              ROOT/'plugin/skills/computer-pilot/SKILL.md',
              ROOT/'plugin/skills/computer-pilot/scripts/session.sh']
+    paths.extend(sorted((ROOT/'plugin/skills/computer-pilot/references').glob('*.md')))
     return {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
 
 
-def prepare(root):
+def prepare(root, dataset='baseline', cu_only=False):
     root.mkdir(parents=True, exist_ok=False)
     sequence = []
     for i, mode in enumerate(APPS):
-        for arm in (('native', 'cu') if i % 2 == 0 else ('cu', 'native')):
+        for arm in (('cu',) if cu_only else ('native', 'cu') if i % 2 == 0 else ('cu', 'native')):
             sequence.append(dict(label=f'{mode}-1-{arm}', mode=mode, repeat=1, arm=arm))
-    manifest = dict(protocol_version=2, single_turn=True, sequence=sequence,
+    manifest = dict(protocol_version=2, single_turn=True, sequence=sequence, dataset=dataset,
         settings=dict(model='gpt-6-astra', reasoning_effort='high', service_tier=None),
         fingerprints=fingerprints(), cu_commit=subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip(),
-        scope='One matched dataset per real app; six planned attempts, no replacements. TextEdit/VS Code share the user application process with dedicated test windows. Numbers starts separately. Fresh model profiles/cwd and cu runtimes. Normal documented app scripting is allowed through cu tell; native uses actual App APIs. No direct file edits, terminal commands inside apps, automation scripts outside the assigned backend, or task-specific solver. Report routes separately; not a pure AX speed comparison.',
+        scope=('Cu-only retest; historical native runs are not repeated. ' if cu_only else 'Matched native/cu trials. ') + f'Dataset: {dataset}; {len(sequence)} planned attempts, no replacements. TextEdit/VS Code share the user application process with dedicated test windows. Numbers starts separately. Fresh model profiles/cwd and cu runtimes. Normal documented app scripting is allowed through cu tell; native uses actual App APIs. No direct file edits, terminal commands inside apps, automation scripts outside the assigned backend, or task-specific solver. Report routes separately; changed datasets are not paired speed comparisons.',
         wall_timeout_seconds=600,
         app_versions={mode:plistlib.loads((Path(path)/'Contents/Info.plist').read_bytes()).get('CFBundleShortVersionString') for mode,(path,_) in APPS.items()})
     (root/'manifest.json').write_text(json.dumps(manifest, indent=2))
@@ -126,7 +149,7 @@ def start(root, label):
     mode=entry['mode'];trial=root/label;trial.mkdir()
     (trial/'output').mkdir()
     work=trial/('CP-'+root.name+'-'+label);work.mkdir()
-    spec=source(mode);(trial/'source.json').write_text(json.dumps(spec,ensure_ascii=False))
+    spec=source(mode,manifest.get('dataset','baseline'));(trial/'source.json').write_text(json.dumps(spec,ensure_ascii=False))
     files = {name: (work.name+'-'+name if mode=='textedit' else name) for name in spec.get('files', {})}
     if mode in ('textedit','vscode'):
         for name,text in spec['files'].items():(work/files[name]).write_text(text)
@@ -187,7 +210,12 @@ a.documents().filter(d=>names.includes(d.name())).forEach(d=>d.close({saving:'no
 var d=a.open(Path(OUTPUT));var s=d.sheets()[0];var t=s.tables()[0];
 var values=[];for(var r=1;r<=8;r++){var row=[];for(var c=0;c<5;c++)row.push(t.cells[String.fromCharCode(65+c)+r].value());values.push(row);}
 var formulas=[];for(var r=2;r<=8;r++)formulas.push(t.cells['E'+r].formula());
-JSON.stringify({values:values,formulas:formulas,sheet:s.name(),row_count:t.rowCount(),column_count:t.columnCount()});'''.replace('OUTPUT',json.dumps(str(output))).replace('NAMES',json.dumps([output.stem,output.name,output.with_suffix('.csv').name]))
+var result={values:values,formulas:formulas,sheet:s.name(),row_count:t.rowCount(),column_count:t.columnCount()};
+try {
+  for(var r=2;r<=7;r++){t.cells['C'+r].value=values[r-1][2]+1;t.cells['D'+r].value=values[r-1][3]+2;}
+  result.recalculated_totals=[];for(var r=2;r<=8;r++)result.recalculated_totals.push(t.cells['E'+r].value());
+} finally {d.close({saving:'no'});}
+JSON.stringify(result);'''.replace('OUTPUT',json.dumps(str(output))).replace('NAMES',json.dumps([output.stem,output.name,output.with_suffix('.csv').name]))
             try:result.update(json.loads(jxa(script)))
             except (subprocess.SubprocessError,ValueError) as e:result['verification_error']=str(e)
     (trial/'saved.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
@@ -230,16 +258,41 @@ def stop(root,label):
     meta['pid']=None;(trial/'meta.json').write_text(json.dumps(meta,indent=2))
 
 
+def accuracy_summary(attempts):
+    accepted = [row for row in attempts if row['status'] in ('passed', 'failed')]
+    reviewed = [row for row in accepted if type(row.get('audit', {}).get('claimed_complete')) is bool]
+    claims = [row for row in reviewed if row['audit']['claimed_complete']]
+    false_claims = sum(row['status'] == 'failed' for row in claims)
+    passed = sum(row['status'] == 'passed' for row in attempts)
+    return dict(planned_attempts=len(attempts), accepted_completed=len(accepted),
+                passed=passed, success_rate=passed / len(attempts) if attempts else None,
+                completion_claims_reviewed=len(reviewed), claimed_complete=len(claims),
+                false_completion_claims=false_claims,
+                false_completion_rate=false_claims / len(claims) if claims else None)
+
+
+def report(root):
+    shared.report(root)
+    path = root / 'report.json'
+    result = json.loads(path.read_text())
+    result['accuracy'] = accuracy_summary(result['attempts'])
+    path.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
+    print(json.dumps(result['accuracy']))
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('root',type=Path)
     p.add_argument('action',choices=['prepare','start','collect','stop','report']);p.add_argument('label',nargs='?')
-    p.add_argument('--rollouts',type=Path);args=p.parse_args();root=args.root.resolve()
-    if args.action=='prepare':prepare(root)
+    p.add_argument('--rollouts',type=Path)
+    p.add_argument('--dataset',choices=['baseline','alternate'],default='baseline')
+    p.add_argument('--cu-only',action='store_true')
+    args=p.parse_args();root=args.root.resolve()
+    if args.action=='prepare':prepare(root,args.dataset,args.cu_only)
     elif args.action=='start':start(root,args.label)
     elif args.action=='collect':
         capture_saved(root,args.label);shared.collect(root,args.label,args.rollouts,verify)
     elif args.action=='stop':stop(root,args.label)
-    else:shared.report(root)
+    else:report(root)
 
 
 if __name__=='__main__':main()

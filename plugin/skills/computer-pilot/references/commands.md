@@ -164,10 +164,11 @@ tree does not prove an arbitrary AX action failed.
 Inject Unicode by PID. Automatically uses PID-targeted clipboard paste for
 known chat apps and focused inputs below `AXWebArea`; native controls keep
 Unicode events, including CJK. Read `paste_reason`. Targeted typing requires a focused AX text input.
-`effect_verified:true` means the focused value changed;
-An unobservable targeted result fails with `unknown_outcome`. Inputs below
-`AXWebArea` are checked after a 300ms stability delay and remain medium confidence:
-stable text does not generically prove every controlled-editor side effect.
+`value_changed:true` means the same window's focused AX value changed;
+`effect_verified:null` means exact input content and saving were not verified.
+An unchanged or incomparable targeted result returns `unknown_outcome` with
+the captured state, not proof of failed input. Inputs below `AXWebArea` are
+observed after a 300ms stability delay; virtual editor text can be partial.
 `--no-verify --no-snapshot` skips post-input observation for intermediate
 actions in a deterministic group; focus and target checks still run.
 

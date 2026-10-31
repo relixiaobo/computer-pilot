@@ -19,6 +19,22 @@ python3 tests/agent/benchmark_real_apps.py test-results/real-apps-NEW stop LABEL
 python3 tests/agent/benchmark_real_apps.py test-results/real-apps-NEW report
 ```
 
+For a fresh cu-only accuracy check with different source content, prepare with
+`--cu-only --dataset alternate`. It freezes one attempt each for TextEdit, VS Code
+and Numbers; it does not rerun native or replace a failed attempt. The alternate
+dataset changes source literals, preserved config fields and spreadsheet inputs,
+while keeping the same task types. Historical timings on different data are
+context, not paired speed ratios. Referenced skill files are frozen too.
+
+Audit `claimed_complete` as a boolean alongside `compliant` after reading each
+final response and trace. The report counts saved-artifact successes over all
+planned attempts, and false completion claims over audited, compliant completed
+attempts that claimed success; it reports claim-audit coverage separately.
+Missing claim audits never count as honest reports. Per-app timing medians still
+include successful attempts only. Numbers evaluation also changes quantity and
+price in the reopened document, checks recalculated totals, then closes without
+saving; constant formulas cannot satisfy the calculation requirement.
+
 The manifest freezes six attempts, one matching dataset per application, with
 alternating arm order, gpt-6-astra/high, no tier override, application versions
 and binary/skill/coordinator hashes. The same fresh-profile procedure used below

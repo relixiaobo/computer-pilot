@@ -29,8 +29,7 @@ const WEB_INPUT_STABILITY_DELAY_MS: u64 = 300;
 
 /// Maps an action `method` string to a (confidence, advice) pair.
 ///
-/// `confidence` is one of "high" / "medium" / "low" — agents can use it to
-/// decide whether to verify with a fresh snapshot.
+/// `confidence` describes the delivery method, never task completion.
 /// `advice` is empty when the method is best-case; otherwise a one-line hint
 /// with the next-best action.
 fn method_meta(method: &str) -> (&'static str, &'static str) {
@@ -42,7 +41,7 @@ fn method_meta(method: &str) -> (&'static str, &'static str) {
         "ax-set-value" | "ax-perform" => ("medium", ""),
         "key-pid" | "unicode-pid" | "paste-pid" => (
             "medium",
-            "the event was dispatched to the target pid; inspect effect_verified before assuming the UI changed",
+            "the event was dispatched to the target pid; inspect the returned state for the intended result; dispatch alone does not establish it",
         ),
         "cgevent-pid" => ("high", ""),
         // OCR text click — visual coords; element may have moved/re-laid-out.
@@ -557,7 +556,7 @@ enum Cmd {
         cu click 500 300                       # by coordinates\n  \
         cu click --text 'Submit' --app Safari  # by OCR text (finds text on screen)\n  \
         cu click 3 --app WeChat                # verify is on by default (~50-150ms)\n\
-        cu click 3 --app Finder --no-verify    # opt out of verify when speed matters\n\n\
+        cu click 3 --app Finder --no-verify    # observe at the action-group boundary\n\n\
         Text mode (--text) uses OCR to find the text, then clicks its center.\n\
         Works for UI elements not in the AX tree (Notification Center, system panels).\n\
         Use --index N to click the Nth match (default: first).\n\
@@ -569,9 +568,9 @@ enum Cmd {
         PID, so the real cursor stays put. Terminal/IDE targets still require\n\
         an explicit --app; --allow-global opts into the global HID tap.\n\n\
         Verify (default ON): takes a pre-action AX snapshot and diffs after the click.\n\
-        Returns `verified: bool` + `verify_diff` + remediation `verify_advice`.\n\
-        Catches sandboxed apps that silently swallow PID-targeted CGEvents — the\n\
-        #1 cause of \"ok=true but the UI didn't change\" agent confusion.")]
+        Returns `verify_diff` and `verify_advice`; a generic tree change leaves `verified:null`.\n\
+        For text inputs, `focus_verified` checks the target in the same window. The\n\
+        caller checks the intended content and saved result at the group boundary.")]
     Click {
         /// Element ref number, or x coordinate
         target: Option<String>,
@@ -617,10 +616,8 @@ enum Cmd {
         /// Skip auto-snapshot in JSON output
         #[arg(long, overrides_with = "no_snapshot")]
         no_snapshot: bool,
-        /// Skip pre/post AX diff. Verify is ON by default to catch silent
-        /// failures (sandboxed apps that ignore PID-targeted CGEvents).
-        /// Use this when you've measured the verify cost (~50–150ms) and
-        /// know the target app is reliable.
+        /// Defer the AX diff and input-focus check to the action-group boundary.
+        /// Target identity checks still run.
         #[arg(long = "no-verify", overrides_with = "no_verify")]
         no_verify: bool,
         /// Use the disruptive global HID tap instead of PID-targeted delivery.
@@ -2481,8 +2478,16 @@ fn prepare_ref_action(
     Ok((pid, name, pre_snapshot, target))
 }
 
-fn same_focused_element(before: &ax::FocusedSummary, after: &ax::FocusedSummary) -> bool {
-    if let (Some(before_path), Some(after_path)) = (&before.ax_path, &after.ax_path) {
+fn same_control_path(
+    before_role: &str,
+    before_path: Option<&str>,
+    after_role: &str,
+    after_path: Option<&str>,
+) -> bool {
+    if before_role != after_role {
+        return false;
+    }
+    if let (Some(before_path), Some(after_path)) = (before_path, after_path) {
         if before_path == after_path {
             return true;
         }
@@ -2495,7 +2500,15 @@ fn same_focused_element(before: &ax::FocusedSummary, after: &ax::FocusedSummary)
             return true;
         }
     }
-    before.role == after.role && before.ref_id.is_some() && before.ref_id == after.ref_id
+    false
+}
+
+fn same_observed_window(before: &ax::SnapshotResult, after: &ax::SnapshotResult) -> bool {
+    before.ok
+        && after.ok
+        && before.pid == after.pid
+        && before.window_id != 0
+        && before.window_id == after.window_id
 }
 
 fn focused_inside_webarea(focused: &ax::FocusedSummary) -> bool {
@@ -2505,21 +2518,31 @@ fn focused_inside_webarea(focused: &ax::FocusedSummary) -> bool {
         .is_some_and(|path| path.to_ascii_lowercase().contains("webarea"))
 }
 
-fn focused_tree_value<'a>(
-    focused: &ax::FocusedSummary,
-    elements: &'a [ax::Element],
-) -> Option<&'a str> {
-    elements
+fn focused_tree_value(snapshot: &ax::SnapshotResult) -> Option<&str> {
+    let focused = snapshot.focused.as_ref()?;
+    let path = focused.ax_path.as_ref()?;
+    snapshot
+        .elements
         .iter()
-        .find(|element| {
-            focused
-                .ax_path
-                .as_ref()
-                .zip(element.ax_path.as_ref())
-                .is_some_and(|(focused_path, element_path)| focused_path == element_path)
-                || (focused.ref_id == Some(element.ref_id) && focused.role == element.role)
-        })
+        .find(|element| element.ax_path.as_ref() == Some(path) && element.role == focused.role)
         .and_then(|element| element.value.as_deref())
+}
+
+fn observed_input_change(before: &ax::SnapshotResult, after: &ax::SnapshotResult) -> Option<bool> {
+    if !same_observed_window(before, after) {
+        return None;
+    }
+    let first = before.focused.as_ref()?;
+    let last = after.focused.as_ref()?;
+    if !same_control_path(
+        &first.role,
+        first.ax_path.as_deref(),
+        &last.role,
+        last.ax_path.as_deref(),
+    ) {
+        return None;
+    }
+    Some(focused_tree_value(before)? != focused_tree_value(after)?)
 }
 
 /// Keep post-action observations on the PID that was bound before dispatch.
@@ -2562,6 +2585,7 @@ fn input_is_focused(target: Option<&ax::Element>, snapshot: Option<&ax::Snapshot
 fn enforce_text_input_focus(
     result: &mut serde_json::Value,
     target: Option<&ax::Element>,
+    pre: Option<&ax::SnapshotResult>,
     post: Option<&ax::SnapshotResult>,
 ) -> Result<(), CuError> {
     let Some(target) = target.filter(|element| is_text_input_role(&element.role)) else {
@@ -2579,14 +2603,15 @@ fn enforce_text_input_focus(
             "action_result": result,
         })));
     };
-    let focus_verified = post.focused.as_ref().is_some_and(|focused| {
-        target
-            .ax_path
-            .as_ref()
-            .zip(focused.ax_path.as_ref())
-            .is_some_and(|(target_path, focused_path)| target_path == focused_path)
-            || (focused.ref_id == Some(target.ref_id) && focused.role == target.role)
-    });
+    let focus_verified = pre.is_some_and(|pre| same_observed_window(pre, post))
+        && post.focused.as_ref().is_some_and(|focused| {
+            same_control_path(
+                &target.role,
+                target.ax_path.as_deref(),
+                &focused.role,
+                focused.ax_path.as_deref(),
+            )
+        });
     if let Some(obj) = result.as_object_mut() {
         obj.insert("focus_verified".into(), focus_verified.into());
         if focus_verified {
@@ -2615,12 +2640,9 @@ fn enforce_text_input_focus(
     })))
 }
 
-fn focused_input_before_type(
-    pid: i32,
-    name: &str,
-) -> Result<(ax::FocusedSummary, Vec<ax::Element>), CuError> {
+fn focused_input_before_type(pid: i32, name: &str) -> Result<ax::SnapshotResult, CuError> {
     let snapshot = ax::snapshot(pid, name, 200);
-    let focused = snapshot.focused.clone();
+    let focused = &snapshot.focused;
     let valid = focused
         .as_ref()
         .is_some_and(|element| is_text_input_role(&element.role));
@@ -2638,7 +2660,7 @@ fn focused_input_before_type(
             "snapshot": snapshot_value(&snapshot),
         })));
     }
-    Ok((focused.unwrap(), snapshot.elements))
+    Ok(snapshot)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -2665,7 +2687,8 @@ fn cmd_type(
     };
     let webarea_input = pre_input
         .as_ref()
-        .is_some_and(|(focused, _)| focused_inside_webarea(focused));
+        .and_then(|snapshot| snapshot.focused.as_ref())
+        .is_some_and(focused_inside_webarea);
 
     // Auto-route through paste for Chromium inputs and known chat apps that
     // drop PID unicode events. Native controls keep unicode events, including
@@ -2724,73 +2747,28 @@ fn cmd_type(
     let post_input = captured
         .as_ref()
         .and_then(|(_, snapshot)| snapshot.focused.as_ref());
-    let effect_verified =
-        pre_input
-            .as_ref()
-            .filter(|_| !no_verify)
-            .and_then(|(before, before_elements)| {
-                let values = if webarea_input {
-                    let after_elements = &captured.as_ref()?.1.elements;
-                    (
-                        focused_tree_value(before, before_elements),
-                        focused_tree_value(before, after_elements),
-                    )
-                } else {
-                    let after = post_input?;
-                    if !same_focused_element(before, after) {
-                        return Some(false);
-                    }
-                    (before.value.as_deref(), after.value.as_deref())
-                };
-                match values {
-                    (Some(before_value), Some(after_value)) => {
-                        Some(text.is_empty() || before_value != after_value)
-                    }
-                    (None, Some(after_value)) => Some(text.is_empty() || !after_value.is_empty()),
-                    _ => None,
-                }
-            });
+    let value_changed = pre_input
+        .as_ref()
+        .filter(|_| !no_verify)
+        .and_then(|before| observed_input_change(before, &captured.as_ref()?.1));
 
-    if effect_verified == Some(false) {
-        let snapshot = captured
-            .as_ref()
-            .map(|(_, snapshot)| snapshot_value(snapshot));
+    if !no_verify && !text.is_empty() && target_pid.is_some() && value_changed != Some(true) {
         return Err(CuError::msg(
-            "verification failed: text was dispatched, but the focused target did not change",
-        )
-        .with_code(ErrorCode::VerificationFailed)
-        .with_hint(
-            "do not repeat the full input; for Electron/CEF, perform at most one exact-PID focus plus a short probe, then use the app's development automation surface or stop with unknown outcome",
-        )
-        .with_diagnostics(serde_json::json!({
-            "dispatched": true,
-            "method": method,
-            "effect_verified": false,
-            "webarea_input": webarea_input,
-            "effect_stability_ms": webarea_input.then_some(WEB_INPUT_STABILITY_DELAY_MS),
-            "clipboard_hint": clipboard_hint,
-            "focused_before": pre_input.as_ref().map(|(focused, _)| focused),
-            "focused_after": post_input,
-            "snapshot": snapshot,
-        })));
-    }
-
-    if !no_verify && target_pid.is_some() && effect_verified.is_none() {
-        return Err(CuError::msg(
-            "unknown outcome: text was dispatched, but the target exposes no comparable effect",
+            "unknown outcome: text was dispatched, but no value change on the same focused target was established",
         )
         .with_code(ErrorCode::UnknownOutcome)
         .with_hint(
-            "inspect the current target state before any retry; never replay the full text merely because dispatch succeeded",
+            "inspect the attached state against the intended edit before any retry; an unchanged value may already be correct, and missing evidence does not prove input failed",
         )
         .with_diagnostics(serde_json::json!({
             "dispatched": true,
             "method": method,
             "effect_verified": serde_json::Value::Null,
+            "value_changed": value_changed,
             "webarea_input": webarea_input,
             "paste_reason": paste_reason,
             "clipboard_hint": clipboard_hint,
-            "focused_before": pre_input.as_ref().map(|(focused, _)| focused),
+            "focused_before": pre_input.as_ref().and_then(|snapshot| snapshot.focused.as_ref()),
             "focused_after": post_input,
             "snapshot": captured.as_ref().map(|(_, snapshot)| snapshot_value(snapshot)),
         })));
@@ -2801,7 +2779,8 @@ fn cmd_type(
         "text": text,
         "method": method,
         "dispatched": true,
-        "effect_verified": effect_verified,
+        "effect_verified": serde_json::Value::Null,
+        "value_changed": value_changed,
         "webarea_input": webarea_input,
     });
     if no_verify {
@@ -2810,7 +2789,9 @@ fn cmd_type(
     }
     if webarea_input && !no_verify {
         result["effect_stability_ms"] = WEB_INPUT_STABILITY_DELAY_MS.into();
-        result["effect_advice"] = "AX text changed after the stability delay. Virtual editors may expose a document slice or synthetic boundary newlines; this is not saved-file content. Resolve discrepancies using the editor's document view/cursor state before changing the text again.".into();
+    }
+    if value_changed == Some(true) {
+        result["effect_advice"] = "The focused AX value changed; exact input content and saving are not verified. Compare the returned state with the requested edit. Virtual editors may expose only a slice or synthetic boundary newlines; resolve discrepancies in the document view before editing again.".into();
     }
     if let Some(reason) = paste_reason {
         result["paste_reason"] = serde_json::Value::String(reason);
@@ -2819,12 +2800,6 @@ fn cmd_type(
         result["clipboard_hint"] = serde_json::Value::String(hint);
     }
     annotate_method(&mut result);
-    if effect_verified == Some(true) && !webarea_input {
-        result["confidence"] = "high".into();
-        if let Some(object) = result.as_object_mut() {
-            object.remove("advice");
-        }
-    }
     if let Some(captured) = captured.as_ref() {
         attach_captured_snapshot(&mut result, json, no_snapshot, captured);
     }
@@ -3181,7 +3156,12 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
             post.as_ref(),
             method,
         );
-        enforce_text_input_focus(&mut result, focus_target.as_ref(), post.as_ref())?;
+        enforce_text_input_focus(
+            &mut result,
+            focus_target.as_ref(),
+            pre_state.as_ref().map(|(_, _, snapshot)| snapshot),
+            post.as_ref(),
+        )?;
         return if json {
             ok(result)
         } else {
@@ -3304,7 +3284,12 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
             post.as_ref(),
             method,
         );
-        enforce_text_input_focus(&mut result, focus_target.as_ref(), post.as_ref())?;
+        enforce_text_input_focus(
+            &mut result,
+            focus_target.as_ref(),
+            pre_state.as_ref().map(|(_, _, snapshot)| snapshot),
+            post.as_ref(),
+        )?;
         return if json {
             ok(result)
         } else {
@@ -3372,7 +3357,12 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
             post.as_ref(),
             method,
         );
-        enforce_text_input_focus(&mut result, focus_target.as_ref(), post.as_ref())?;
+        enforce_text_input_focus(
+            &mut result,
+            focus_target.as_ref(),
+            pre_state.as_ref().map(|(_, _, snapshot)| snapshot),
+            post.as_ref(),
+        )?;
         return if json {
             ok(result)
         } else {
@@ -3454,7 +3444,12 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
         post.as_ref(),
         method,
     );
-    enforce_text_input_focus(&mut result, focus_target.as_ref(), post.as_ref())?;
+    enforce_text_input_focus(
+        &mut result,
+        focus_target.as_ref(),
+        pre_state.as_ref().map(|(_, _, snapshot)| snapshot),
+        post.as_ref(),
+    )?;
     if json {
         ok(result)
     } else {
@@ -4540,11 +4535,8 @@ fn print_snapshot_human(snap: &ax::SnapshotResult) {
 /// `result` by the post-action snapshot helper, then enriches the response with a
 /// `verified` flag and per-action diff stats. Used by default click verification.
 ///
-/// `verified=false` means the AX tree did not change after the action — most
-/// often a sandboxed/Electron app silently ignored a PID-targeted CGEvent.
-/// We don't auto-retry: focus stealing is disruptive and AX-empty diffs have
-/// false positives (network roundtrips, animations not yet started). The
-/// agent reads the advice and chooses whether to recover.
+/// A tree diff is observation evidence, not proof of a click's intended effect.
+/// Only the separate text-input focus check can set a scoped `verified` result.
 fn mark_verification_skipped(result: &mut serde_json::Value, reason: &str) {
     if let Some(obj) = result.as_object_mut() {
         obj.insert("verified".into(), serde_json::Value::Null);
@@ -4605,10 +4597,10 @@ fn attach_verification(
     };
 
     let d = diff::diff(pre, post);
-    let verified = d.added != 0 || d.changed != 0 || d.removed != 0;
+    let changed = d.added != 0 || d.changed != 0 || d.removed != 0;
 
     if let Some(obj) = result.as_object_mut() {
-        obj.insert("verified".to_string(), serde_json::Value::Bool(verified));
+        obj.insert("verified".to_string(), serde_json::Value::Null);
         obj.insert(
             "verify_diff".to_string(),
             serde_json::json!({
@@ -4617,11 +4609,13 @@ fn attach_verification(
                 "removed": d.removed,
             }),
         );
-        if !verified {
+        if changed {
+            obj.insert("verify_advice".into(), "The AX tree changed; this does not verify the intended click result. Inspect the returned state against the requested action.".into());
+        } else {
             let advice = if method == "ax-action" {
                 "AX accepted the click but the tree is unchanged. Inspect the attached state; use cu wait for a known asynchronous result. Do not repeat the action merely to obtain a changed tree."
             } else {
-                "The tree is unchanged after the click. Inspect the attached state before retrying; if the intended effect is absent, prefer an observed AX target/action over coordinates. Keep the same PID; do not switch to global input."
+                "The tree is unchanged after the click. Inspect the attached state before retrying; if the intended effect is absent, prefer an observed AX target/action over coordinates. Keep the same --app PID; do not switch to global input."
             };
             obj.insert(
                 "verify_advice".to_string(),
@@ -4831,7 +4825,8 @@ mod tests {
         for post in [None, Some(&failed)] {
             let mut result = serde_json::json!({"ok": true});
             let error =
-                enforce_text_input_focus(&mut result, good.elements.first(), post).unwrap_err();
+                enforce_text_input_focus(&mut result, good.elements.first(), Some(&good), post)
+                    .unwrap_err();
             assert!(error.error.starts_with("unknown outcome:"));
             assert!(result.get("focus_verified").is_none());
         }
@@ -4927,35 +4922,77 @@ mod tests {
     }
 
     #[test]
-    fn focused_identity_prefers_structural_path_then_ref() {
-        let original = focused(Some(3), "textfield", Some("window[A]/group/textfield"));
-        assert!(same_focused_element(&original, &original));
-        assert!(same_focused_element(
-            &original,
-            &focused(Some(9), "textfield", Some("window[B]/group/textfield"))
-        ));
-        assert!(same_focused_element(
-            &focused(Some(3), "textfield", None),
-            &focused(Some(3), "textfield", None)
-        ));
-        assert!(!same_focused_element(
-            &focused(None, "textfield", None),
-            &focused(None, "textfield", None)
-        ));
-        assert!(!same_focused_element(
-            &focused(Some(3), "textfield", None),
-            &focused(Some(3), "textarea", None)
-        ));
-        assert!(focused_inside_webarea(&focused(
+    fn input_observations_never_rebind_an_old_ref() {
+        let mut before = verification_snapshot(true);
+        before.elements[0].ax_path = Some("window[A]/webarea/textarea[editor]".into());
+        before.elements[0].role = "textarea".into();
+        before.focused = Some(focused(
             Some(1),
-            "textfield",
-            Some("window/AXWebArea/textfield")
-        )));
-        assert!(!focused_inside_webarea(&focused(
+            "textarea",
+            before.elements[0].ax_path.as_deref(),
+        ));
+        let mut after = verification_snapshot(true);
+        let mut neighbor = before.elements[0].clone();
+        neighbor.ax_path = Some("window[A]/webarea/textarea[neighbor]".into());
+        neighbor.value = Some("neighbor changed".into());
+        let mut intended = before.elements[0].clone();
+        intended.ref_id = 2;
+        after.elements = vec![neighbor, intended];
+        after.focused = Some(focused(
+            Some(2),
+            "textarea",
+            before.elements[0].ax_path.as_deref(),
+        ));
+        assert_eq!(focused_tree_value(&after), Some("before"));
+        assert_eq!(observed_input_change(&before, &after), Some(false));
+        after.elements[1].value = Some("new input".into());
+        assert_eq!(observed_input_change(&before, &after), Some(true));
+
+        // Reused ref/role cannot establish focus when its path changed.
+        after.focused = Some(focused(
             Some(1),
-            "textfield",
-            Some("window/group/textfield")
-        )));
+            "textarea",
+            after.elements[0].ax_path.as_deref(),
+        ));
+        assert_eq!(observed_input_change(&before, &after), None);
+        let mut result = serde_json::json!({"ok":true});
+        assert!(
+            enforce_text_input_focus(
+                &mut result,
+                before.elements.first(),
+                Some(&before),
+                Some(&after)
+            )
+            .is_err()
+        );
+        assert_eq!(result["focus_verified"], false);
+        after.focused = before.focused.clone();
+        after.focused.as_mut().unwrap().ax_path = None;
+        assert_eq!(observed_input_change(&before, &after), None);
+
+        // A title rename in the same window is allowed; another window with
+        // identical paths, values and refs never supplies verification evidence.
+        after.focused = Some(focused(
+            Some(2),
+            "textarea",
+            Some("window[B]/webarea/textarea[editor]"),
+        ));
+        after.elements[1].ax_path = after.focused.as_ref().unwrap().ax_path.clone();
+        assert_eq!(observed_input_change(&before, &after), Some(true));
+        after.window_id += 1;
+        assert_eq!(observed_input_change(&before, &after), None);
+        assert!(
+            enforce_text_input_focus(
+                &mut result,
+                before.elements.first(),
+                Some(&before),
+                Some(&after)
+            )
+            .is_err()
+        );
+        after.window_id = before.window_id;
+        after.ok = false;
+        assert_eq!(observed_input_change(&before, &after), None);
     }
 
     #[test]

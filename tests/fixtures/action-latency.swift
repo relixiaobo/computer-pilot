@@ -24,6 +24,7 @@ final class Delegate: NSObject, NSApplicationDelegate {
     var otherWindow: NSWindow?
     var choiceLabel: NSTextField!
     var urgentLabel: NSTextField!
+    var transformInput = false
     func applicationDidFinishLaunching(_ notification: Notification) {
         window = ReorderingWindow(contentRect: NSRect(x: 50, y: 360, width: 400, height: 440),
                           styleMask: [.titled, .closable], backing: .buffered, defer: false)
@@ -70,8 +71,17 @@ final class Delegate: NSObject, NSApplicationDelegate {
         let arm = NSButton(title: "Reorder on read", target: self, action: #selector(armReorder))
         arm.frame = NSRect(x: 200, y: 0, width: 180, height: 20)
         window.contentView!.addSubview(arm)
+        let transform = NSButton(title: "Transform next input", target: self, action: #selector(armTransform))
+        transform.frame = NSRect(x: 200, y: 30, width: 180, height: 20)
+        window.contentView!.addSubview(transform)
         var keyCount = 0
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if self.transformInput {
+                self.transformInput = false
+                input.stringValue = "changed-by-application"
+                NSAccessibility.post(element: NSApp!, notification: .valueChanged)
+                return nil
+            }
             if event.keyCode == 36 {
                 FileHandle.standardOutput.write(Data("enter handled\n".utf8))
                 return nil // A handled shortcut need not change the AX tree.
@@ -88,6 +98,7 @@ final class Delegate: NSObject, NSApplicationDelegate {
     @objc func armReorder() {
         (window as? ReorderingWindow)?.armed = true
     }
+    @objc func armTransform() { transformInput = true }
     @objc func selectRoute(_ sender: NSPopUpButton) {
         choiceLabel.stringValue = "Choice: \(sender.titleOfSelectedItem!)"
         NSAccessibility.post(element: NSApp!, notification: .valueChanged)

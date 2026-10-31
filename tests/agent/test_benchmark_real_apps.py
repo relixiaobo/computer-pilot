@@ -9,6 +9,42 @@ import benchmark_real_apps as bench
 
 
 class RealAppResults(unittest.TestCase):
+    def test_completion_claims_do_not_override_artifacts_or_exclusions(self):
+        rows = [dict(status='passed', audit=dict(claimed_complete=True)),
+                dict(status='failed', audit=dict(claimed_complete=True)),
+                dict(status='failed', audit=dict(claimed_complete=False)),
+                dict(status='failed', audit={}),
+                dict(status='excluded', audit=dict(claimed_complete=True))]
+        summary = bench.accuracy_summary(rows)
+        self.assertEqual(summary['success_rate'], 1/5)
+        self.assertEqual(summary['accepted_completed'], 4)
+        self.assertEqual(summary['completion_claims_reviewed'], 3)
+        self.assertEqual(summary['false_completion_claims'], 1)
+        self.assertEqual(summary['false_completion_rate'], 1/2)
+        self.assertIsNone(bench.accuracy_summary([])['false_completion_rate'])
+
+    def test_alternate_dataset_cannot_pass_with_baseline_or_familiar_url(self):
+        spec = bench.source('vscode', 'alternate')
+        config = json.loads(spec['files']['service.json'])
+        config.update(environment='production', timeoutSeconds=45, debug=False)
+        config['endpoint'] = config['endpoint'].replace('sandbox', 'production')
+        for worker in config['workers']: worker['retries'] = 4
+        files = {name: text.replace('sandbox', 'production').replace('30 seconds', '45 seconds')
+                 .replace('Status: draft', 'Status: ready').replace('[ ]', '[x]')
+                 for name, text in spec['files'].items()}
+        files['service.json'] = json.dumps(config)
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'saved.json'
+            path.write_text(json.dumps(dict(files=files)))
+            self.assertTrue(bench.verify(spec, path)['passed'])
+            self.assertFalse(bench.verify(bench.source('vscode'), path)['passed'])
+            config['endpoint'] = 'https://production.example.com/api'
+            files['service.json'] = json.dumps(config)
+            path.write_text(json.dumps(dict(files=files)))
+            self.assertFalse(bench.verify(spec, path)['checks']['config_exact'])
+        for mode in bench.APPS:
+            self.assertNotEqual(bench.source(mode), bench.source(mode, 'alternate'))
+
     def test_save_dialog_keeps_shared_window_ownership_for_cleanup(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder);trial=root/'vscode-1-cu';trial.mkdir()
@@ -52,8 +88,12 @@ class RealAppResults(unittest.TestCase):
                     ['Keyboard','Office',4,45,180],['Monitor','Office',2,195,390],
                     ['Storage','Platform',6,30,180],['Training','People',3,120,360],
                     ['Grand total',None,None,None,1435]],
-            formulas=[f'=C{i}*D{i}' for i in range(2,8)]+['=SUM(E2:E7)'])
+            formulas=[f'=C{i}*D{i}' for i in range(2,8)]+['=SUM(E2:E7)'],
+            recalculated_totals=[102,297,235,591,224,488,1937])
         self.assertTrue(self.check('numbers',result)['passed'])
+        result['recalculated_totals'][0]=75
+        self.assertFalse(self.check('numbers',result)['checks']['formulas_recalculate'])
+        result['recalculated_totals'][0]=102
         result['formulas'][0]=None
         self.assertFalse(self.check('numbers',result)['passed'])
         result['formulas'][0]='=C2*D2'

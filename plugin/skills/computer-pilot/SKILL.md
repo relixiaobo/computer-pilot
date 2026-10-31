@@ -156,6 +156,9 @@ or input failure. Omit the click when the intended editor is already focused:
 ```
 
 The click keeps its private focus check; typing returns the group's observation.
+`value_changed:true` reports an AX value change, not exact input or saving;
+`effect_verified` remains null. A click's `verify_diff` likewise reports tree
+changes; only `focus_verified` establishes the scoped input-focus result.
 Virtual editors can expose only a document slice or add boundary newlines in AX.
 Resolve text discrepancies using the editor's document view and cursor/line state
 before changing the content again; AX text is not a saved-file byte dump.
@@ -163,8 +166,8 @@ If AX lacks the text, inspect visible evidence before deciding input failed; do
 not replay it to obtain a verification flag. See
 [recovery.md](references/recovery.md#verification) for uncertain outcomes.
 
-Success receipts report dispatch; observations and explicit verification report
-effects. Read returned errors/advisories and false verification results. Reuse
+Success receipts report dispatch. Read returned errors/advisories and scoped
+verification results. Reuse
 attached state for recovery. A missing/failed snapshot is not permission to
 repeat a mutation. For timeout/unknown outcome, inspect current state before
 another mutation; use a request ID when a consequential action needs idempotent
@@ -174,6 +177,19 @@ Keep recovery within the authorized task. Do not change login-session
 environment or restart an app to work around a missing control. Report blocked
 when recovery needs setup or permissions outside that scope. See
 [recovery.md](references/recovery.md) for command inspection and error codes.
+
+## Complete The Requested Result
+
+For revisions, prefer literal edits to the observed source over regenerating
+unchanged content. Preserve identifiers, URLs, numbers and text outside the
+requested changes; do not substitute familiar values from memory.
+
+Before reporting completion, compare each deliverable's observed result with
+the original requirements, including unchanged content and saved state. Reuse
+the group's observations; obtain further evidence only for a missing or
+uncertain requirement, through the authorized backend. Correct observed
+discrepancies and recheck the affected result. If evidence remains unavailable,
+report what is complete and what is unverified instead of claiming full success.
 
 ## Output And Further Commands
 

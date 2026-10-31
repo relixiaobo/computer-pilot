@@ -123,13 +123,17 @@ try:
     run("set-value", ref, "", "--app", app, "--limit", "200",
         "--observation", clicked["observation_id"])
 
+    empty = run("snapshot", app, "--limit", "200")
+    assert empty["focused"]["value"] == "", empty
+    assert next(e for e in empty["elements"] if e["ref"] == int(ref))["value"] == "", empty
+
     # Long Unicode text crosses event boundaries and surrogate pairs. Require
     # exact final content, not merely a changed value or an output field.
     text = "x" * 19 + "😀" + "native中文😀" * 100
     started = time.perf_counter()
     typed = run("type", text, "--app", app, "--no-paste")
     elapsed = (time.perf_counter() - started) * 1000
-    assert typed["effect_verified"] is True, typed
+    assert typed["effect_verified"] is None and typed["value_changed"] is True, typed
     assert typed["snapshot"]["focused"]["value"] == text, typed
     observed = run("snapshot", app, "--limit", "200")
     assert observed["focused"]["value"] == text, observed
@@ -182,7 +186,7 @@ try:
     run("set-value", "", "--ax-path", other["axPath"], "--app", app, "--no-snapshot")
     run("click", "--ax-path", other["axPath"], "--app", app)
     typed = run("type", "late-field", "--app", app, "--no-paste")
-    assert typed["effect_verified"] is True, typed
+    assert typed["effect_verified"] is None and typed["value_changed"] is True, typed
     assert typed["snapshot"]["focused"]["value"] == "late-field", typed
 
     # Compact observations use the same private full tree and refs. A shell
@@ -370,6 +374,44 @@ try:
         assert untouched["value"] == second["value"], (second, untouched)
         if action == "click":
             assert reordered["focused"]["ref"] == intended["ref"], reordered
+
+    # Observation changes are not claims that the requested content landed.
+    current = run("snapshot", app, "--limit", "200")
+    first = next(e for e in current["elements"] if e.get("title") == "latency-input")
+    transform = next(e for e in current["elements"] if e.get("title") == "Transform next input")
+    run("click", "--ax-path", first["axPath"], "--app", app)
+    run("perform", "AXPress", "--ax-path", transform["axPath"], "--app", app)
+    typed = run("type", "X", "--app", app, "--no-paste")
+    assert typed["snapshot"]["focused"]["value"] == "changed-by-application", typed
+    assert typed["value_changed"] is True and typed["effect_verified"] is None, typed
+    assert typed["confidence"] == "medium" and typed["effect_advice"], typed
+    # Replacing the same text is not a proven delivery failure. No automatic
+    # retry may duplicate it, and the attached state remains available.
+    run("key", "cmd+a", "--app", app, "--no-snapshot")
+    unchanged = run("type", "changed-by-application", "--app", app, "--no-paste", ok=False)
+    assert unchanged["code"] == "unknown_outcome", unchanged
+    assert unchanged["diagnostics"]["value_changed"] is False, unchanged
+    assert unchanged["diagnostics"]["snapshot"]["focused"]["value"] == "changed-by-application", unchanged
+
+    # Default click reports actual checkbox state and diff, without equating
+    # a changed tree to completion. This also covers legacy --verify and
+    # private observation with --no-snapshot on an owned app, not user Finder.
+    for flags in ([], ["--verify", "--no-snapshot"]):
+        current = run("snapshot", app, "--limit", "200")
+        checkbox = next(e for e in current["elements"] if e.get("title") == "Urgent")
+        clicked = run("click", str(checkbox["ref"]), "--app", app, *flags)
+        assert clicked["verified"] is None and sum(clicked["verify_diff"].values()) > 0, clicked
+        assert clicked["verify_advice"], clicked
+        current = clicked.get("snapshot") or run("snapshot", app, "--limit", "200")
+        assert next(e for e in current["elements"] if e.get("title") == "Urgent")["value"] != checkbox["value"]
+        assert ("snapshot" in clicked) == ("--no-snapshot" not in flags), clicked
+    idle = next(e for e in current["elements"] if e.get("title") == "Item 0")
+    clicked = run("click", str(idle["ref"]), "--app", app)
+    assert clicked["verified"] is None and sum(clicked["verify_diff"].values()) == 0, clicked
+    assert "Do not repeat" in clicked["verify_advice"], clicked
+    assert "--allow-global" not in clicked["verify_advice"], clicked
+    skipped = run("click", str(idle["ref"]), "--app", app, "--no-verify")
+    assert "verified" not in skipped and "verify_diff" not in skipped, skipped
 
     # Root help/version use the bound binary without a separate setup path.
     for option, expected in (("--help", "Usage:"), ("--version", "cu ")):

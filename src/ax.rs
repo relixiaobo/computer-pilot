@@ -1276,11 +1276,7 @@ unsafe fn read_batch_ref_node(element: CFTypeRef, batch_keys: CFArrayRef) -> Ref
         } else {
             None
         };
-        let value = if projected {
-            ax_value(element).filter(|s| !s.is_empty())
-        } else {
-            None
-        };
+        let value = if projected { ax_value(element) } else { None };
         let position = if projected {
             ax_position(element)
         } else {
@@ -1335,9 +1331,7 @@ unsafe fn read_batch_ref_node(element: CFTypeRef, batch_keys: CFArrayRef) -> Ref
         None
     };
     let value = if projected {
-        batch_value(values)
-            .or_else(|| ax_value(element))
-            .filter(|s| !s.is_empty())
+        batch_value(values).or_else(|| ax_value(element))
     } else {
         None
     };
@@ -2024,7 +2018,7 @@ unsafe fn detect_focused(app_el: CFTypeRef, elements: &[Element]) -> Option<Focu
     let title = ax_string(fel, "AXTitle")
         .or_else(|| ax_string(fel, "AXDescription"))
         .filter(|s| !s.is_empty());
-    let value = ax_value(fel).filter(|s| !s.is_empty());
+    let value = ax_value(fel);
     let pos = ax_position(fel);
     CFRelease(fel);
 

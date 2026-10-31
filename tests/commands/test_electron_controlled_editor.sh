@@ -109,7 +109,7 @@ assert_json_field "editor focus verified" ".focus_verified" "true"
 
 cu_json type "Probe" --app "pid:$PID_A" --no-snapshot
 assert_ok "type prefix into fixture A"
-assert_json_field "prefix effect verified" ".effect_verified" "true"
+assert_json_field "prefix value changed" ".value_changed" "true"
 assert_json_field "WebArea input uses PID paste" ".method" "paste-pid"
 PASTE_REASON=$(json_get '.paste_reason' || echo "")
 [[ "$PASTE_REASON" == *"AXWebArea"* ]] \
