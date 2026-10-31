@@ -2,22 +2,19 @@
 //! ordinary JSON and error/recovery details keep their existing contract.
 use serde_json::Value;
 
-pub fn format(output: &str) -> String {
-    let Ok(mut value) = serde_json::from_str::<Value>(output.trim()) else {
-        return output.into();
-    };
+pub fn apply(value: &mut Value) {
     if value.get("ok") != Some(&Value::Bool(true)) {
-        return output.into();
+        return;
     }
     // Recovery and non-UI command output are already purpose-specific.
     if value.get("elements").is_none()
         && value.get("snapshot").is_none()
         && value.get("method").is_none()
     {
-        return output.into();
+        return;
     }
     let Some(object) = value.as_object_mut() else {
-        return output.into();
+        return;
     };
     for key in [
         "schema_version",
@@ -43,8 +40,7 @@ pub fn format(output: &str) -> String {
     if let Some(snapshot) = object.get_mut("snapshot") {
         compact_snapshot(snapshot);
     }
-    compact_snapshot(&mut value);
-    serde_json::to_string(&value).unwrap_or_else(|_| output.into())
+    compact_snapshot(value);
 }
 
 fn compact_snapshot(value: &mut Value) {
@@ -98,9 +94,13 @@ mod tests {
             "snapshot": {"truncated": true, "truncation_hint": "use --limit 200",
                          "elements": [{"ref": 1, "role": "textfield", "value": "中文😀"}]}
         });
-        let result: Value = serde_json::from_str(&format(&output.to_string())).unwrap();
+        let mut result = output.clone();
+        apply(&mut result);
         assert_eq!(result, output);
         let error = r#"{"ok":false,"code":"unknown_outcome","command_id":"command:1","diagnostics":{"dispatched":true}}"#;
-        assert_eq!(format(error), error);
+        let mut result: Value = serde_json::from_str(error).unwrap();
+        let original = result.clone();
+        apply(&mut result);
+        assert_eq!(result, original);
     }
 }

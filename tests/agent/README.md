@@ -202,18 +202,20 @@ despite longer recorded tool execution. This reproduces the product-level speed
 difference on this workload and locates it mainly outside tool execution.
 Component medians need not sum to the elapsed median.
 
-Trace review found six extra pre-save observation batches in cu-1. The current
-skill warns against submitting unverified input, whereas the native agent grouped
+Trace review found six extra pre-save observation batches in cu-1. The tested
+skill warned against submitting unverified input, whereas the native agent grouped
 field writes and Save. In cu-2/cu-3, the agent also grouped writes and Save,
 reducing its model calls to 13, while still taking 129.8/136.1 s. These later
 trials treated the local Save as batchable. This is observed strategy variation,
-not a controlled experiment proving the effect of that skill wording. All trials used the assigned backend and live UI only, and
+not a controlled experiment proving the effect of that skill wording. All trials
+used the assigned backend and live UI only, and
 all saved original fields, corrections and archive state passed independent
 checks. No tool errors were recorded.
 
 The remaining observed differences include repeated shell environment/argument
-text, full CLI snapshots versus native incremental state, and growing task
-history. Median returned text was 4.36x larger and model output tokens 2.40x
+text, verbose CLI metadata/acknowledgments, and growing task history. CLI action
+snapshots already returned ref deltas; the initial full snapshot and metadata
+still made the payload larger. Median returned text was 4.36x larger and model output tokens 2.40x
 higher for cu. These are optimization targets, not measured causal shares of
 the remaining latency: model output generation, context processing, networking,
 and scheduling were not isolated. Removing millisecond-scale native checks
@@ -225,5 +227,4 @@ same end-to-end measurement while retaining exact outcome checks.
 samples, setup timings, actual model metadata, usage, checks and evidence hashes.
 Only three trials per arm were run, with identical source records and retained
 history; this does not establish performance for browsers, Electron, asynchronous
-apps, fresh contexts, or other models. This comparison changes benchmark tooling
-and documentation only; it does not claim to have fixed the remaining gap.
+apps, fresh contexts, or other models. These initial measurements preceded the compact-output and skill changes below.

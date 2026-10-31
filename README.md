@@ -363,6 +363,13 @@ Three-tier control model — agent picks the cheapest layer for each task:
 
 Action commands auto-include a fresh snapshot in JSON mode. Use `--no-snapshot` to disable.
 
+Use `cu --compact snapshot <app> --limit 200` for agent ref-based work. It keeps
+labels, values and warnings, omits geometry/routine metadata, and returns changed
+refs after the first observation. Ordinary `--json` remains the complete machine
+interface. For multi-round tasks, the skill's `scripts/session.sh` reuses a chosen
+PID and task environment: batch known edits plus authorized Save/Next, then
+observe once with `cu_see`. No per-field or pre-save model round is required.
+
 ## Architecture
 
 Single Rust binary. Zero runtime dependencies.

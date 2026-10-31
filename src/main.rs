@@ -1368,12 +1368,8 @@ fn replay_broker_result(result: broker::RunResult, json: bool, compact: bool) {
     let mut stdout = result.stdout.clone();
     let mut stderr = result.stderr.clone();
     if json {
-        stdout = attach_command_metadata(&stdout, &result);
-        stderr = attach_command_metadata(&stderr, &result);
-    }
-    if compact {
-        stdout = compact::format(&stdout);
-        stderr = compact::format(&stderr);
+        stdout = attach_command_metadata(&stdout, &result, compact);
+        stderr = attach_command_metadata(&stderr, &result, compact);
     }
     if !stdout.is_empty() {
         let _ = std::io::stdout().write_all(stdout.as_bytes());
@@ -1392,7 +1388,7 @@ fn replay_broker_result(result: broker::RunResult, json: bool, compact: bool) {
     }
 }
 
-fn attach_command_metadata(output: &str, result: &broker::RunResult) -> String {
+fn attach_command_metadata(output: &str, result: &broker::RunResult, compact: bool) -> String {
     let Ok(mut value) = serde_json::from_str::<serde_json::Value>(output.trim()) else {
         return output.into();
     };
@@ -1406,6 +1402,9 @@ fn attach_command_metadata(output: &str, result: &broker::RunResult) -> String {
     );
     if result.replayed {
         object.insert("replayed".into(), true.into());
+    }
+    if compact {
+        compact::apply(&mut value);
     }
     serde_json::to_string(&value).unwrap_or_else(|_| output.into())
 }
