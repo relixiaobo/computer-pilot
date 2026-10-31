@@ -1,0 +1,562 @@
+{
+  "scope": "Actual Codex comparison of compact CLI workflow with native Computer Use, starting two fresh tasks after the fix. Earlier continued-history diagnostics are retained separately.",
+  "model": "gpt-6-astra",
+  "reasoning_effort": "high",
+  "service_tier": null,
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "candidate_commit": "0136c8b",
+  "cu_sha256": "faeac49345fa26521e872f3cbf69617f80846e6a04918ec545e5d8f265793de7",
+  "skill_sha256": "fdc704ea6a45004eb24acbe9d5ad5aa2626cd8b987248d61ea07b90e3e229192",
+  "session_helper_sha256": "a23b857b2c8ae6d73341affee3cbf4248050712cc80255ee048ced363f6af1d6",
+  "fixture_source_sha256": "0e7136894dc4781a1fe8f6717f28299ac3359cf50b16d5c259b395cfa403f95b",
+  "baseline_report": "codex-e2e-2026-10-31.json",
+  "trial_order": [
+    "native-1",
+    "cu-1",
+    "cu-2",
+    "native-2",
+    "native-3",
+    "cu-3"
+  ],
+  "protocol": [
+    "Two fresh actual Codex tasks after the fix, same recorded model/effort, no model setting changes. Each task retains history across its three trials.",
+    "Same workflow, fixture source data and independent verifier as the prior comparison; fresh PID each trial, one participant at a time.",
+    "Untimed setup reads the assigned skill/native documentation and observes once. The cu brief explicitly includes the multi-round task configuration from the current skill.",
+    "Each GO turn includes fresh-PID configuration changes, model, tools and completion message. Fixture setup, parent polling and independent verification are excluded.",
+    "Read source values from live UI; no fixture/source/saved file reads, prewritten solvers, other-task inspection or correctness/timing feedback.",
+    "All measured trials are retained. Recorded tool intervals and residual use the same collector; residual is not pure inference time.",
+    "Earlier continued-history attempts were stopped after they failed to isolate the changed workflow from old templates and growing context. Their data are retained as diagnostics, not pooled with the fresh-task series."
+  ],
+  "setup": [
+    {
+      "arm": "cu",
+      "thread_id": "01a18ff3-3a6a-7913-ba2b-34942db1b45e",
+      "turn_id": "01a18ff3-3af3-7171-8191-0341e9224a31",
+      "started_at": "2026-10-31T03:14:04.673Z",
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null,
+      "completed_at": "2026-10-31T03:14:26.853Z",
+      "elapsed_ms": 22180,
+      "final": "READY",
+      "model_calls": 4,
+      "tokens": {
+        "input_tokens": 116862,
+        "cached_input_tokens": 89088,
+        "output_tokens": 322,
+        "total_tokens": 117184,
+        "reasoning_output_tokens": 12
+      },
+      "tool_calls": 3,
+      "tool_output_chars": 15842,
+      "tool_errors": 0,
+      "tool_interval_ms": 1,
+      "non_tool_interval_ms": 22179
+    },
+    {
+      "arm": "native",
+      "thread_id": "01a18ff3-3b23-7653-84bb-9327720eccf6",
+      "turn_id": "01a18ff3-3b9f-7072-a2ca-2165435b3834",
+      "started_at": "2026-10-31T03:14:04.841Z",
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null,
+      "completed_at": "2026-10-31T03:14:24.207Z",
+      "elapsed_ms": 19366,
+      "final": "READY",
+      "model_calls": 3,
+      "tokens": {
+        "input_tokens": 88058,
+        "cached_input_tokens": 58496,
+        "output_tokens": 149,
+        "total_tokens": 88207
+      },
+      "tool_calls": 2,
+      "tool_output_chars": 28484,
+      "tool_errors": 0,
+      "tool_interval_ms": 429,
+      "non_tool_interval_ms": 18937
+    }
+  ],
+  "runs": [
+    {
+      "arm": "native",
+      "thread_id": "01a18ff3-3b23-7653-84bb-9327720eccf6",
+      "turn_id": "01a18ff3-ef4b-7142-8bda-ad789432e779",
+      "started_at": "2026-10-31T03:14:50.838Z",
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null,
+      "label": "native-1",
+      "completed_at": "2026-10-31T03:16:01.619Z",
+      "elapsed_ms": 70781,
+      "model_calls": 13,
+      "tokens": {
+        "input_tokens": 463842,
+        "cached_input_tokens": 458368,
+        "output_tokens": 1206,
+        "total_tokens": 465048
+      },
+      "tool_calls": 12,
+      "tool_output_chars": 8926,
+      "tool_errors": 0,
+      "tool_interval_ms": 7789,
+      "non_tool_interval_ms": 62992,
+      "verified": true,
+      "verification": {
+        "passed": true,
+        "checks": {
+          "all_initial_fields_exact": true,
+          "all_final_fields_exact": true,
+          "both_corrections_saved": true,
+          "archive_completed": true
+        }
+      },
+      "saved_sha256": "710c824c5233970ee9a86d0563316518a2503c3d6b23fd9d9c50ee395dabdb5f",
+      "trace_sha256": "cb1c0fd68bb3fd8316cefb2ab75a91e34367999f0e22b282f2c5112b0172699b"
+    },
+    {
+      "arm": "cu",
+      "thread_id": "01a18ff3-3a6a-7913-ba2b-34942db1b45e",
+      "turn_id": "01a18ff5-361f-77f0-b7de-33bd50b1ff4d",
+      "started_at": "2026-10-31T03:16:14.506Z",
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null,
+      "label": "cu-1",
+      "completed_at": "2026-10-31T03:17:14.239Z",
+      "elapsed_ms": 59733,
+      "model_calls": 13,
+      "tokens": {
+        "input_tokens": 459717,
+        "cached_input_tokens": 450816,
+        "output_tokens": 1259,
+        "total_tokens": 460976
+      },
+      "tool_calls": 12,
+      "tool_output_chars": 16276,
+      "tool_errors": 0,
+      "tool_interval_ms": 4455,
+      "non_tool_interval_ms": 55278,
+      "verified": true,
+      "verification": {
+        "passed": true,
+        "checks": {
+          "all_initial_fields_exact": true,
+          "all_final_fields_exact": true,
+          "both_corrections_saved": true,
+          "archive_completed": true
+        }
+      },
+      "saved_sha256": "710c824c5233970ee9a86d0563316518a2503c3d6b23fd9d9c50ee395dabdb5f",
+      "trace_sha256": "702d16c3fb160ae605d598817da7f92e870c9c38471ca48b9d01446a5de05d4f"
+    },
+    {
+      "arm": "cu",
+      "thread_id": "01a18ff3-3a6a-7913-ba2b-34942db1b45e",
+      "turn_id": "01a18ff6-5eb6-7670-bc32-c2b6cf9adddc",
+      "started_at": "2026-10-31T03:17:30.432Z",
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null,
+      "label": "cu-2",
+      "completed_at": "2026-10-31T03:18:36.241Z",
+      "elapsed_ms": 65786,
+      "model_calls": 13,
+      "tokens": {
+        "input_tokens": 558226,
+        "cached_input_tokens": 549504,
+        "output_tokens": 1260,
+        "total_tokens": 559486
+      },
+      "tool_calls": 12,
+      "tool_output_chars": 16284,
+      "tool_errors": 0,
+      "tool_interval_ms": 4586,
+      "non_tool_interval_ms": 61200,
+      "verified": true,
+      "verification": {
+        "passed": true,
+        "checks": {
+          "all_initial_fields_exact": true,
+          "all_final_fields_exact": true,
+          "both_corrections_saved": true,
+          "archive_completed": true
+        }
+      },
+      "saved_sha256": "710c824c5233970ee9a86d0563316518a2503c3d6b23fd9d9c50ee395dabdb5f",
+      "trace_sha256": "2bbe1d25fdb684ef3ef73e40cf2bfcf35e967c9793f745415ad069d456c439e9"
+    },
+    {
+      "arm": "native",
+      "thread_id": "01a18ff3-3b23-7653-84bb-9327720eccf6",
+      "turn_id": "01a18ff7-8e46-7132-90a7-4b7ee7e4c35a",
+      "started_at": "2026-10-31T03:18:48.146Z",
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null,
+      "label": "native-2",
+      "completed_at": "2026-10-31T03:19:52.569Z",
+      "elapsed_ms": 64422,
+      "model_calls": 13,
+      "tokens": {
+        "input_tokens": 520015,
+        "cached_input_tokens": 514432,
+        "output_tokens": 1190,
+        "total_tokens": 521205
+      },
+      "tool_calls": 12,
+      "tool_output_chars": 8926,
+      "tool_errors": 0,
+      "tool_interval_ms": 7997,
+      "non_tool_interval_ms": 56425,
+      "verified": true,
+      "verification": {
+        "passed": true,
+        "checks": {
+          "all_initial_fields_exact": true,
+          "all_final_fields_exact": true,
+          "both_corrections_saved": true,
+          "archive_completed": true
+        }
+      },
+      "saved_sha256": "710c824c5233970ee9a86d0563316518a2503c3d6b23fd9d9c50ee395dabdb5f",
+      "trace_sha256": "e5098b79de43cde606230fd7d8462622884fb440215fa332994ef3a4740df30e"
+    },
+    {
+      "arm": "native",
+      "thread_id": "01a18ff3-3b23-7653-84bb-9327720eccf6",
+      "turn_id": "01a18ff8-cde1-7001-8608-39997f4ab145",
+      "started_at": "2026-10-31T03:20:09.960Z",
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null,
+      "label": "native-3",
+      "completed_at": "2026-10-31T03:21:20.346Z",
+      "elapsed_ms": 70385,
+      "model_calls": 13,
+      "tokens": {
+        "input_tokens": 576115,
+        "cached_input_tokens": 570752,
+        "output_tokens": 1196,
+        "total_tokens": 577311
+      },
+      "tool_calls": 12,
+      "tool_output_chars": 8926,
+      "tool_errors": 0,
+      "tool_interval_ms": 7760,
+      "non_tool_interval_ms": 62625,
+      "verified": true,
+      "verification": {
+        "passed": true,
+        "checks": {
+          "all_initial_fields_exact": true,
+          "all_final_fields_exact": true,
+          "both_corrections_saved": true,
+          "archive_completed": true
+        }
+      },
+      "saved_sha256": "710c824c5233970ee9a86d0563316518a2503c3d6b23fd9d9c50ee395dabdb5f",
+      "trace_sha256": "1bf3e8afd1dc8ecc2ab74e27dc615868bbbb9eac9a1b859419128a3cf31691a5"
+    },
+    {
+      "arm": "cu",
+      "thread_id": "01a18ff3-3a6a-7913-ba2b-34942db1b45e",
+      "turn_id": "01a18ffa-2a37-7f22-83f0-e61ed5e1588f",
+      "started_at": "2026-10-31T03:21:39.137Z",
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null,
+      "label": "cu-3",
+      "completed_at": "2026-10-31T03:22:54.199Z",
+      "elapsed_ms": 75062,
+      "model_calls": 13,
+      "tokens": {
+        "input_tokens": 656865,
+        "cached_input_tokens": 605696,
+        "output_tokens": 1326,
+        "total_tokens": 658191,
+        "reasoning_output_tokens": 25
+      },
+      "tool_calls": 12,
+      "tool_output_chars": 16284,
+      "tool_errors": 0,
+      "tool_interval_ms": 4497,
+      "non_tool_interval_ms": 70565,
+      "verified": true,
+      "verification": {
+        "passed": true,
+        "checks": {
+          "all_initial_fields_exact": true,
+          "all_final_fields_exact": true,
+          "both_corrections_saved": true,
+          "archive_completed": true
+        }
+      },
+      "saved_sha256": "710c824c5233970ee9a86d0563316518a2503c3d6b23fd9d9c50ee395dabdb5f",
+      "trace_sha256": "68be2cc256f2c7307ebd123b75ded8bfd8e19bd23b6c9e3e355c83b82b513eaa"
+    }
+  ],
+  "summary": {
+    "previous_cu": {
+      "runs": 3,
+      "exact_successes": 3,
+      "medians": {
+        "elapsed_ms": 136076,
+        "tool_interval_ms": 4507,
+        "non_tool_interval_ms": 131750,
+        "model_calls": 13,
+        "tool_calls": 12,
+        "tool_output_chars": 38959
+      },
+      "median_tokens": {
+        "input_tokens": 917216,
+        "cached_input_tokens": 897664,
+        "output_tokens": 3328,
+        "reasoning_output_tokens": 323
+      }
+    },
+    "previous_native": {
+      "runs": 3,
+      "exact_successes": 3,
+      "medians": {
+        "elapsed_ms": 84970,
+        "tool_interval_ms": 8770,
+        "non_tool_interval_ms": 77006,
+        "model_calls": 13,
+        "tool_calls": 12,
+        "tool_output_chars": 8926
+      },
+      "median_tokens": {
+        "input_tokens": 530735,
+        "cached_input_tokens": 485376,
+        "output_tokens": 1389,
+        "reasoning_output_tokens": 168
+      }
+    },
+    "current_cu": {
+      "runs": 3,
+      "exact_successes": 3,
+      "medians": {
+        "elapsed_ms": 65786,
+        "tool_interval_ms": 4497,
+        "non_tool_interval_ms": 61200,
+        "model_calls": 13,
+        "tool_calls": 12,
+        "tool_output_chars": 16284
+      },
+      "median_tokens": {
+        "input_tokens": 558226,
+        "cached_input_tokens": 549504,
+        "output_tokens": 1260,
+        "reasoning_output_tokens": 0
+      }
+    },
+    "current_native": {
+      "runs": 3,
+      "exact_successes": 3,
+      "medians": {
+        "elapsed_ms": 70385,
+        "tool_interval_ms": 7789,
+        "non_tool_interval_ms": 62625,
+        "model_calls": 13,
+        "tool_calls": 12,
+        "tool_output_chars": 8926
+      },
+      "median_tokens": {
+        "input_tokens": 520015,
+        "cached_input_tokens": 514432,
+        "output_tokens": 1196,
+        "reasoning_output_tokens": 0
+      }
+    }
+  },
+  "continued_history_diagnostics": {
+    "runs": [
+      {
+        "arm": "native",
+        "thread_id": "01a18fcb-84ed-7381-9cbf-4e461b88edf8",
+        "turn_id": "01a18fe9-9835-7ad2-87c9-3cee51c342ef",
+        "started_at": "2026-10-31T03:03:33.181Z",
+        "model": "gpt-6-astra",
+        "reasoning_effort": "high",
+        "service_tier": null,
+        "label": "native-4",
+        "completed_at": "2026-10-31T03:05:04.631Z",
+        "elapsed_ms": 91449,
+        "model_calls": 13,
+        "tokens": {
+          "input_tokens": 647833,
+          "cached_input_tokens": 637696,
+          "output_tokens": 1398,
+          "reasoning_output_tokens": 178,
+          "total_tokens": 649231
+        },
+        "tool_calls": 12,
+        "tool_output_chars": 8926,
+        "tool_errors": 0,
+        "tool_interval_ms": 8140,
+        "non_tool_interval_ms": 83309,
+        "verified": true,
+        "verification": {
+          "passed": true,
+          "checks": {
+            "all_initial_fields_exact": true,
+            "all_final_fields_exact": true,
+            "both_corrections_saved": true,
+            "archive_completed": true
+          }
+        },
+        "saved_sha256": "710c824c5233970ee9a86d0563316518a2503c3d6b23fd9d9c50ee395dabdb5f",
+        "trace_sha256": "427310d67ad8c6fe0fd6a39da67699d46f2bea5d4fed28668aeca8b641d81918"
+      },
+      {
+        "arm": "cu",
+        "thread_id": "01a18fcb-6a2f-77b1-badd-7486b163aa21",
+        "turn_id": "01a18feb-57a6-7631-9188-da416724b67c",
+        "started_at": "2026-10-31T03:05:27.729Z",
+        "model": "gpt-6-astra",
+        "reasoning_effort": "high",
+        "service_tier": null,
+        "label": "cu-4",
+        "completed_at": "2026-10-31T03:08:14.304Z",
+        "elapsed_ms": 166575,
+        "model_calls": 13,
+        "tokens": {
+          "input_tokens": 1399497,
+          "cached_input_tokens": 1380864,
+          "output_tokens": 3489,
+          "reasoning_output_tokens": 485,
+          "total_tokens": 1402986
+        },
+        "tool_calls": 12,
+        "tool_output_chars": 35971,
+        "tool_errors": 0,
+        "tool_interval_ms": 4998,
+        "non_tool_interval_ms": 161577,
+        "verified": true,
+        "verification": {
+          "passed": true,
+          "checks": {
+            "all_initial_fields_exact": true,
+            "all_final_fields_exact": true,
+            "both_corrections_saved": true,
+            "archive_completed": true
+          }
+        },
+        "saved_sha256": "710c824c5233970ee9a86d0563316518a2503c3d6b23fd9d9c50ee395dabdb5f",
+        "trace_sha256": "090a2bfc652f8dad4fba53df9e823f1272f9c632b76b5fec276394a01a40ef2c"
+      },
+      {
+        "arm": "cu",
+        "thread_id": "01a18fcb-6a2f-77b1-badd-7486b163aa21",
+        "turn_id": "01a18fee-fa43-7cd0-8973-94392ed1e59d",
+        "started_at": "2026-10-31T03:09:25.967Z",
+        "model": "gpt-6-astra",
+        "reasoning_effort": "high",
+        "service_tier": null,
+        "label": "cu-5",
+        "completed_at": "2026-10-31T03:12:24.715Z",
+        "elapsed_ms": 178748,
+        "model_calls": 14,
+        "tokens": {
+          "input_tokens": 1687564,
+          "cached_input_tokens": 1676672,
+          "output_tokens": 2457,
+          "reasoning_output_tokens": 658,
+          "total_tokens": 1690021
+        },
+        "tool_calls": 13,
+        "tool_output_chars": 16358,
+        "tool_errors": 1,
+        "tool_interval_ms": 4708,
+        "non_tool_interval_ms": 174040,
+        "verified": true,
+        "verification": {
+          "passed": true,
+          "checks": {
+            "all_initial_fields_exact": true,
+            "all_final_fields_exact": true,
+            "both_corrections_saved": true,
+            "archive_completed": true
+          }
+        },
+        "saved_sha256": "710c824c5233970ee9a86d0563316518a2503c3d6b23fd9d9c50ee395dabdb5f",
+        "trace_sha256": "dcfbe2c27bc6c713661d0b772eacb74aa2fe8e7993a1b2f05275746c410084a2"
+      }
+    ],
+    "setup": [
+      {
+        "arm": "cu",
+        "thread_id": "01a18fcb-6a2f-77b1-badd-7486b163aa21",
+        "turn_id": "01a18fe8-e769-7653-9b04-0747994bbabb",
+        "started_at": "2026-10-31T03:02:47.924Z",
+        "model": "gpt-6-astra",
+        "reasoning_effort": "high",
+        "service_tier": null,
+        "completed_at": "2026-10-31T03:03:15.048Z",
+        "elapsed_ms": 27124,
+        "final": "READY",
+        "model_calls": 3,
+        "tokens": {
+          "input_tokens": 293916,
+          "cached_input_tokens": 289536,
+          "output_tokens": 371,
+          "reasoning_output_tokens": 144,
+          "total_tokens": 294287
+        },
+        "tool_calls": 2,
+        "tool_output_chars": 13604,
+        "tool_errors": 0,
+        "tool_interval_ms": 0,
+        "non_tool_interval_ms": 27124
+      },
+      {
+        "arm": "cu",
+        "thread_id": "01a18fcb-6a2f-77b1-badd-7486b163aa21",
+        "turn_id": "01a18fee-17cb-7911-8125-9b33dbb9afe2",
+        "started_at": "2026-10-31T03:08:27.987Z",
+        "model": "gpt-6-astra",
+        "reasoning_effort": "high",
+        "service_tier": null,
+        "completed_at": "2026-10-31T03:08:54.279Z",
+        "elapsed_ms": 26292,
+        "final": "READY",
+        "model_calls": 2,
+        "tokens": {
+          "input_tokens": 232214,
+          "cached_input_tokens": 231168,
+          "output_tokens": 493,
+          "reasoning_output_tokens": 267,
+          "total_tokens": 232707
+        },
+        "tool_calls": 1,
+        "tool_output_chars": 0,
+        "tool_errors": 0,
+        "tool_interval_ms": 0,
+        "non_tool_interval_ms": 26292
+      }
+    ],
+    "observations": [
+      "native-4: unchanged built-in workflow, 91.449 s, exact outcome.",
+      "cu-4: new binary and refreshed skill, but compact used only for initial observation; reused previous verbose action template, 166.575 s, exact outcome.",
+      "cu-5: after explicit untimed configuration guidance, helper adopted; 178.748 s, exact outcome, one self-corrected BSD sed invocation error included.",
+      "cu-5 returned 16358 text characters, but cumulative input was 1687564 tokens across 14 calls (about 120540 per call). Reduced output did not make this existing long-context task faster."
+    ]
+  },
+  "limitations": [
+    "Three fresh-task-start series trials per arm; later trials retain their own history and identical source records. Not six independent contexts.",
+    "The candidate brief explicitly initializes the configured workflow. Continuing an old task can retain old action templates despite rereading the skill.",
+    "Historical before/after timing is not a randomized paired causal estimate. The contemporary native control is reported alongside it.",
+    "One synchronous native fixture; no claim for browsers, Electron, asynchronous apps or general product speed.",
+    "Skill, shell grouping and output changes are measured together; their individual causal shares are not isolated.",
+    "Baseline action snapshots already had ref deltas. This fix reduces verbose payloads and extends existing Broker deltas to compact explicit snapshots."
+  ],
+  "trace_audit": {
+    "assigned_backends_only": true,
+    "live_ui_source_only": true,
+    "prewritten_solver_used": false,
+    "all_six_outcomes_exact": true,
+    "fresh_series_tool_errors": 0
+  }
+}

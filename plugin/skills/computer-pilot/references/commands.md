@@ -82,6 +82,7 @@ to the current client and UI generation.
 For ordinary agent work, `cu --compact snapshot <app> --limit 200` omits
 geometry/paths and routine metadata. After the first full observation it returns
 ref deltas: merge `elements` and remove `removed_refs` from `base_observation_id`.
+No extra `--diff` is needed; that flag selects the legacy position-based diff.
 Use `cu --json snapshot` for a full tree or coordinates. Compact mode preserves
 full explicit-snapshot text, advisories, errors and recovery output.
 

@@ -228,3 +228,66 @@ samples, setup timings, actual model metadata, usage, checks and evidence hashes
 Only three trials per arm were run, with identical source records and retained
 history; this does not establish performance for browsers, Electron, asynchronous
 apps, fresh contexts, or other models. These initial measurements preceded the compact-output and skill changes below.
+
+## Compact workflow after the fix
+
+The candidate at `0136c8b` adds `--compact`, reuses Broker deltas for explicit
+compact snapshots, removes unused geometry/display/cache work on that route,
+and supplies a task-local shell helper. The skill groups native field edits and
+an authorized Save/Next before one boundary observation; it no longer asks for
+an extra pre-save model round. Ordinary JSON and error/recovery contracts remain
+unchanged. Full snapshots and exact field values remain available.
+
+The first attempt reused the earlier task histories. Native took 91.4 s;
+cu took 166.6 s while reverting to its old verbose action template, then 178.7 s
+with the helper after explicit setup guidance. That latter run included one
+self-corrected BSD `sed` error and returned only 16,358 text characters, but
+its 14 model calls cumulatively consumed 1,687,564 input tokens. All three
+outcomes were exact. Reduced output did not speed up that existing long-context
+task. These samples and setup turns are retained in the result artifact.
+
+The final comparison starts two fresh Codex tasks using the same recorded
+`gpt-6-astra / high` settings. The cu setup explicitly initializes the multi-round
+configuration described by the current skill; neither participant receives a
+solver or expected data. The native setup loads the actual App API. Both observe
+once during untimed initialization, then run three interleaved GO turns with
+fresh fixture processes, retaining their respective history between trials.
+Fresh-PID configuration changes are timed. There is no timing/correctness feedback
+between trials. This measures the configured workflow, not guaranteed migration
+of an existing task away from its old command templates.
+
+| Fresh-task series | Compact cu | Built-in native App API |
+| --- | ---: | ---: |
+| Trial 1 | 59.7 s | 70.8 s |
+| Trial 2 | 65.8 s | 64.4 s |
+| Trial 3 | 75.1 s | 70.4 s |
+| Median elapsed | **65.8 s** | **70.4 s** |
+| Median recorded tool time | 4.50 s | 7.79 s |
+| Model calls per trial | 13 / 13 / 13 | 13 / 13 / 13 |
+| Median returned text characters | 16,284 | 8,926 |
+| Median cumulative input tokens | 558,226 | 520,015 |
+| Median model output tokens | 1,260 | 1,196 |
+| Exact task success | 3/3 | 3/3 |
+
+The configured CLI workflow is now comparable with the contemporary native
+control on this fixture. Against the earlier recorded CLI series, median
+returned text fell **58%** and model output tokens **62%**; observed elapsed
+changed from 136.1 to 65.8 s. That historical time difference is not a randomized
+causal estimate: the native control also changed from 85.0 to 70.4 s, and
+contexts, prompts, setup and backend load can affect latency. The remaining
+per-trial ranges overlap. No inference-speed or general app-speed guarantee is
+implied, and these changes do not erase existing task history.
+
+[Complete post-fix results](benchmarks/compact-workflow-2026-10-31.json) include
+all six fresh-series samples, all three continued-history diagnostics, actual
+settings, setup timings, exact outcome checks and evidence hashes. Tool traces
+confirm the assigned backends and live UI use; no expected/source/saved files or
+prewritten solvers supplied action values. The fresh series had no tool errors.
+
+Validation for this implementation: 43 Rust tests, clippy, release build, skill
+validation, version synchronization and 82 command-test assertions passed.
+Two existing TextEdit-dependent cases were skipped to preserve the user's open
+session. The owned fixture test covers long exact Unicode values, compact delta
+reconstruction, unchanged-ref use, fail-fast shell grouping, complete errors,
+and unchanged ordinary JSON geometry/path output. Private Broker protocol 5
+ensures old Brokers cannot silently omit compact explicit-snapshot deltas.
