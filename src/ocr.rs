@@ -84,13 +84,13 @@ impl OcrResult {
 pub fn recognize(pid: i32) -> OcrResult {
     let win = match screenshot::find_window(pid) {
         Some(w) => w,
-        None => return err("no on-screen window found"),
+        None => return err("AX could not identify a target window"),
     };
 
-    let cg_image = screenshot::capture_window_raw(win.window_id);
-    if cg_image.is_null() {
-        return err("failed to capture window image");
-    }
+    let cg_image = match screenshot::capture_window_raw(&win) {
+        Ok(image) => image,
+        Err(error) => return err(&error),
+    };
 
     let result = unsafe { run_ocr(cg_image, &win) };
     unsafe {

@@ -155,7 +155,7 @@ known chat apps and focused inputs below `AXWebArea`; native controls keep
 Unicode events, including CJK. Read `paste_reason`. Targeted typing requires a focused AX text input.
 `effect_verified:true` means the focused value changed;
 An unobservable targeted result fails with `unknown_outcome`. Inputs below
-`AXWebArea` get a second stability snapshot and remain medium confidence:
+`AXWebArea` are checked after a 300ms stability delay and remain medium confidence:
 stable text does not generically prove every controlled-editor side effect.
 
 ### `cu key <combo> --app <app> [--no-snapshot]`

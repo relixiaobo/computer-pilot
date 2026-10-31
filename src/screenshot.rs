@@ -1,4 +1,4 @@
-//! Screenshot via CGWindowListCreateImage — captures window content without activation.
+//! Window capture via ScreenCaptureKit with a CGWindowList fallback, without activation.
 #![allow(unsafe_op_in_unsafe_fn)]
 
 use std::ffi::{c_long, c_void};
@@ -186,22 +186,6 @@ unsafe fn cfstr(s: &str) -> Option<CFTypeRef> {
     if ptr.is_null() { None } else { Some(ptr) }
 }
 
-unsafe fn dict_f64(dict: CFTypeRef, key: &str) -> Option<f64> {
-    let k = cfstr(key)?;
-    let v = CFDictionaryGetValue(dict, k);
-    CFRelease(k);
-    if v.is_null() {
-        return None;
-    }
-    let mut val: f64 = 0.0;
-    if CFNumberGetValue(v, 6, &mut val as *mut _ as *mut c_void) != 0 {
-        // kCFNumberFloat64Type = 6
-        Some(val)
-    } else {
-        None
-    }
-}
-
 unsafe fn dict_i64(dict: CFTypeRef, key: &str) -> Option<i64> {
     let k = cfstr(key)?;
     let v = CFDictionaryGetValue(dict, k);
@@ -246,19 +230,7 @@ unsafe fn dict_string(dict: CFTypeRef, key: &str) -> Option<String> {
     }
 }
 
-/// Save an arbitrary `CGImageRef` (passed as `*const c_void`) to a PNG file.
-/// CFReleases the image after writing — caller must hand off a +1 reference.
-pub fn save_image_ptr(image: *const c_void, path: &str) -> Result<(), String> {
-    if image.is_null() {
-        return Err("save_image_ptr: null image".into());
-    }
-    unsafe {
-        let result = save_cgimage_as_png(image, path);
-        CFRelease(image);
-        result
-    }
-}
-
+/// Write a borrowed CGImageRef to PNG; the caller retains ownership.
 unsafe fn save_cgimage_as_png(image: CFTypeRef, path: &str) -> Result<(), String> {
     let path_cf = cfstr(path).ok_or("failed to create path string")?;
     let url = CFURLCreateWithFileSystemPath(std::ptr::null(), path_cf, CF_URL_POSIX_PATH_STYLE, 0);
@@ -323,34 +295,19 @@ pub struct WindowInfo {
 /// helpers, palette stubs, and minimized stand-ins, with no semantic way
 /// to distinguish them.
 ///
-/// Fallback (AX unavailable / no a11y / app exposes no AX windows): try
-/// CGWindowList with OnScreenOnly first, then unfiltered + largest area.
-/// The fallback is a heuristic — but every command that uses ref/coords
-/// (snapshot/click/find) goes through AX too, so when AX is unavailable
-/// those commands fail anyway, and the fallback is just a best-effort.
+/// Refuse when AX cannot identify the window; CG enumeration has no semantic
+/// way to distinguish the app's document from palettes and menu-bar proxies.
 pub fn find_window(pid: i32) -> Option<WindowInfo> {
-    if let Some(geom) = crate::ax::focused_window_geom(pid) {
-        // sharing_state isn't an AX attribute — read it from CGWindowList
-        // by ID. If the lookup fails we assume sharable (1) since that's
-        // the common case and capture will produce a real error if not.
-        let sharing_state = sharing_state_for_window_id(geom.window_id).unwrap_or(1);
-        return Some(WindowInfo {
-            window_id: geom.window_id,
-            x: geom.x,
-            y: geom.y,
-            width: geom.width,
-            height: geom.height,
-            sharing_state,
-        });
-    }
-
-    if let Some(w) = find_window_with_options(
-        pid,
-        CG_WINDOW_LIST_ON_SCREEN_ONLY | CG_WINDOW_LIST_EXCLUDE_DESKTOP,
-    ) {
-        return Some(w);
-    }
-    find_window_with_options(pid, CG_WINDOW_LIST_EXCLUDE_DESKTOP)
+    let geom = crate::ax::focused_window_geom(pid)?;
+    let sharing_state = sharing_state_for_window_id(geom.window_id).unwrap_or(1);
+    Some(WindowInfo {
+        window_id: geom.window_id,
+        x: geom.x,
+        y: geom.y,
+        width: geom.width,
+        height: geom.height,
+        sharing_state,
+    })
 }
 
 /// Enumerate currently-running apps that own at least one capture-protected
@@ -415,96 +372,6 @@ fn sharing_state_for_window_id(window_id: u32) -> Option<i64> {
     }
 }
 
-fn find_window_with_options(pid: i32, options: u32) -> Option<WindowInfo> {
-    unsafe {
-        let list = CGWindowListCopyWindowInfo(options, 0);
-        if list.is_null() {
-            return None;
-        }
-
-        let count = CFArrayGetCount(list);
-
-        let bounds_key = match cfstr("kCGWindowBounds") {
-            Some(k) => k,
-            None => {
-                CFRelease(list);
-                return None;
-            }
-        };
-
-        // Collect every layer-0 PID match, then pick the largest by area —
-        // many apps own multiple layer-0 windows (full-width menu-bar
-        // stubs, palettes, dropper helpers) at typical heights of 30pt or
-        // less. The actual content window is the one with real area.
-        let mut best: Option<(WindowInfo, f64)> = None;
-
-        for i in 0..count {
-            let w = CFArrayGetValueAtIndex(list, i);
-            let w_pid = dict_i64(w, "kCGWindowOwnerPID");
-            let layer = dict_i64(w, "kCGWindowLayer");
-            let wid = dict_i64(w, "kCGWindowNumber");
-
-            if w_pid != Some(pid as i64) || layer != Some(0) {
-                continue;
-            }
-            let Some(id) = wid else { continue };
-
-            let bounds_dict = CFDictionaryGetValue(w, bounds_key);
-            if bounds_dict.is_null() {
-                continue;
-            }
-            let x = dict_f64(bounds_dict, "X").unwrap_or(0.0);
-            let y = dict_f64(bounds_dict, "Y").unwrap_or(0.0);
-            let width = dict_f64(bounds_dict, "Width").unwrap_or(0.0);
-            let height = dict_f64(bounds_dict, "Height").unwrap_or(0.0);
-
-            if width <= 1.0 || height <= 1.0 {
-                continue;
-            }
-
-            let area = width * height;
-            let sharing_state = dict_i64(w, "kCGWindowSharingState").unwrap_or(1);
-            let candidate = WindowInfo {
-                window_id: id as u32,
-                x,
-                y,
-                width,
-                height,
-                sharing_state,
-            };
-
-            best = match best {
-                Some((cur, cur_area)) if cur_area >= area => Some((cur, cur_area)),
-                _ => Some((candidate, area)),
-            };
-        }
-
-        CFRelease(bounds_key);
-        CFRelease(list);
-        best.map(|(w, _)| w)
-    }
-}
-
-/// Capture a window as a raw CGImageRef (caller must CFRelease).
-#[allow(dead_code)]
-pub fn capture_window_raw(window_id: u32) -> CFTypeRef {
-    unsafe {
-        CGWindowListCreateImage(
-            CG_RECT_NULL,
-            CG_WINDOW_LIST_INCLUDING_WINDOW,
-            window_id,
-            CG_WINDOW_IMAGE_BOUNDS_IGNORE_FRAMING,
-        )
-    }
-}
-
-/// Capture a window and return the pixel-to-point Retina scale (typically 2.0 on Apple Silicon
-/// displays, 1.0 on standard). Like `capture_window` but exposes the scale so the caller can
-/// translate image pixels back to screen-space points.
-/// Pre-capture sanity check: if the target window has opted out of being
-/// captured (sharing state = None), refuse with a structured error rather
-/// than producing a blank PNG that misleads the agent. Common case: WeChat,
-/// some Microsoft Office Mac App Store builds, and other privacy-conscious apps.
 fn capture_protected_check(window: &WindowInfo) -> Result<(), String> {
     if window.sharing_state == 0 {
         return Err(
@@ -519,28 +386,15 @@ fn capture_protected_check(window: &WindowInfo) -> Result<(), String> {
     Ok(())
 }
 
-pub fn capture_window_with_scale(window: &WindowInfo, path: &str) -> Result<f64, String> {
+/// Shared capture path for screenshots, annotations, and OCR. Returns a +1
+/// CGImageRef; the caller must release it. Window identity always comes from AX.
+pub fn capture_window_raw(window: &WindowInfo) -> Result<CFTypeRef, String> {
     capture_protected_check(window)?;
-
-    // Primary path: ScreenCaptureKit (cross-Space capable; CGWindowList
-    // returns blank for windows on a non-active Space on macOS 14+).
-    match crate::sck::capture_window_to_png(window.window_id, window.width, window.height, path) {
-        Ok(px_w) => {
-            let scale = if window.width > 0.0 {
-                px_w as f64 / window.width
-            } else {
-                1.0
-            };
-            return Ok(scale);
-        }
-        Err(_sck_err) => {
-            // Fall through to CGWindowListCreateImage. SCK can fail on
-            // pre-13 macOS, when the window is gone, or when SCK's TCC
-            // bucket isn't authorized (separate from regular Screen
-            // Recording, in some configurations).
-        }
+    if let Ok((image, _)) =
+        crate::sck::capture_window_to_cgimage(window.window_id, window.width, window.height)
+    {
+        return Ok(image);
     }
-
     unsafe {
         let image = CGWindowListCreateImage(
             CG_RECT_NULL,
@@ -549,11 +403,18 @@ pub fn capture_window_with_scale(window: &WindowInfo, path: &str) -> Result<f64,
             CG_WINDOW_IMAGE_BOUNDS_IGNORE_FRAMING,
         );
         if image.is_null() {
-            return Err("failed to capture window image (SCK + CGWindowList both failed)".into());
+            Err("failed to capture window image (SCK + CGWindowList both failed)".into())
+        } else {
+            Ok(image)
         }
-        let img_w = CGImageGetWidth(image);
+    }
+}
+
+pub fn capture_window_with_scale(window: &WindowInfo, path: &str) -> Result<f64, String> {
+    let image = capture_window_raw(window)?;
+    unsafe {
         let scale = if window.width > 0.0 {
-            img_w as f64 / window.width
+            CGImageGetWidth(image) as f64 / window.width
         } else {
             1.0
         };
@@ -581,33 +442,8 @@ pub fn annotate_window(
     annotations: &[Annotation],
     path: &str,
 ) -> Result<f64, String> {
-    capture_protected_check(window)?;
+    let image = capture_window_raw(window)?;
     unsafe {
-        // Try SCK first so cross-Space windows annotate correctly. SCK
-        // returns a +1 retained CGImage; if it fails, fall back to
-        // CGWindowListCreateImage.
-        let image: CFTypeRef = match crate::sck::capture_window_to_cgimage(
-            window.window_id,
-            window.width,
-            window.height,
-        ) {
-            Ok((ptr, _)) => ptr as CFTypeRef,
-            Err(_) => {
-                let img = CGWindowListCreateImage(
-                    CG_RECT_NULL,
-                    CG_WINDOW_LIST_INCLUDING_WINDOW,
-                    window.window_id,
-                    CG_WINDOW_IMAGE_BOUNDS_IGNORE_FRAMING,
-                );
-                if img.is_null() {
-                    return Err(
-                        "failed to capture window image for annotation (SCK + CGWindowList both failed)".into()
-                    );
-                }
-                img
-            }
-        };
-
         let img_w = CGImageGetWidth(image);
         let img_h = CGImageGetHeight(image);
         if img_w == 0 || img_h == 0 {
