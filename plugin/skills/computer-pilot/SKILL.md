@@ -145,12 +145,20 @@ use the app's saved/modified state at the final group boundary.
 
 ## Controlled Editors And Recovery
 
-For Electron/CEF or an `AXWebArea` input, read the
-[verified-input path](references/recovery.md#verification). Use the verified
-binary directly with an explicit app: require exact editor focus before typing
-and inspect the result after typing. A successful AXValue write alone does not
-prove the application handled input. When AX lacks the text, use visual evidence
-before continuing or deciding that delivery is unsupported.
+For Electron/CEF or an `AXWebArea` input, use verified click/type instead of
+AXValue writes. Group the known edit in one shell call; the CLI stops on focus
+or input failure. Omit the click when the intended editor is already focused:
+
+```bash
+. ./cu-env.sh
+"$CU_BIN" --compact click <editor-ref> --app "$CU_APP" --limit 200 --no-snapshot
+"$CU_BIN" --compact type "<intended text>" --app "$CU_APP"
+```
+
+The click keeps its private focus check; typing returns the group's observation.
+If AX lacks the text, inspect visible evidence before deciding input failed; do
+not replay it to obtain a verification flag. See
+[recovery.md](references/recovery.md#verification) for uncertain outcomes.
 
 Success receipts report dispatch; observations and explicit verification report
 effects. Read returned errors/advisories and false verification results. Reuse

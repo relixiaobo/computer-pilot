@@ -8,6 +8,7 @@ cu() {
         --compact|--json|--human) cu_format="$1"; shift ;;
     esac
     case "$1" in
+        --help|-h|--version|-V) ;;
         --*)
             printf '%s\n' 'Use "$CU_BIN" with explicit app targeting for other root options.' >&2
             return 2

@@ -60,7 +60,9 @@ that genuinely require user-visible foreground activation.
 ## Automation Permission
 
 Automation is granted separately for every target app. `cu setup` cannot report
-one global Automation boolean. The first `cu tell <app>` may trigger macOS TCC;
+one global Automation boolean. `cu apps` reads local metadata only; `cu sdef`
+may request dynamic terminology for a legacy dictionary. That request or the
+first `cu tell <app>` may trigger macOS TCC;
 read [permissions.md](permissions.md) when access is denied.
 
 Do not replace `cu tell` with direct `osascript`. Direct calls bypass Computer

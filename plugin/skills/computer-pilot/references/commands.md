@@ -174,8 +174,9 @@ actions in a deterministic group; focus and target checks still run.
 ### `cu key <combo> --app <app> [--no-snapshot] [--no-verify]`
 
 Send modifiers and keys through PID-targeted CGEvents. Event dispatch is
-reported separately from observable effect. Enter on a focused input returns
-`verification_failed` when neither the input nor surrounding AX state changes.
+reported separately from observable effect, including Enter. A generic tree
+change cannot prove what a shortcut did. Inspect the returned snapshot or the
+final group state; `--no-snapshot` skips the action snapshot.
 
 ### `cu scroll <direction> [amount] --x <x> --y <y> --app <app>`
 

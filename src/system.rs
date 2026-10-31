@@ -585,19 +585,10 @@ pub fn check_global_frontmost_safety(verb: &str) -> Result<(), String> {
 
 // ── List apps ──────────────────────────────────────────────────────────────
 
-pub fn list_apps() -> Result<String, String> {
+pub fn list_apps() -> serde_json::Value {
     let mut apps: Vec<serde_json::Value> = Vec::new();
     for app in running_apps_native() {
-        let bundle = if app.bundle_path.ends_with('/') {
-            app.bundle_path.clone()
-        } else {
-            format!("{}/", app.bundle_path)
-        };
-        let sdef_classes = if !app.bundle_path.is_empty() {
-            crate::sdef::count_classes(&bundle)
-        } else {
-            None
-        };
+        let (scriptable, sdef_classes) = crate::sdef::dictionary_info(&app.bundle_path);
         let mut entry = serde_json::json!({
             "name": app.name,
             "pid": app.pid,
@@ -606,7 +597,7 @@ pub fn list_apps() -> Result<String, String> {
             "bundle_path": app.bundle_path,
             "active": app.active,
             "activation_policy": app.activation_policy,
-            "scriptable": sdef_classes.is_some()
+            "scriptable": scriptable
         });
         if let Some(n) = sdef_classes {
             entry["sdef_classes"] = serde_json::json!(n);
@@ -622,8 +613,7 @@ pub fn list_apps() -> Result<String, String> {
             .then_with(|| a["pid"].as_i64().cmp(&b["pid"].as_i64()))
     });
 
-    Ok(serde_json::to_string(&serde_json::json!({"apps": apps}))
-        .unwrap_or_else(|_| r#"{"apps":[]}"#.to_string()))
+    serde_json::json!({"apps": apps})
 }
 
 /// Resolve app bundle path — running apps first, then filesystem search.

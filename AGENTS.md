@@ -126,6 +126,9 @@ After `click`, `type`, `key`, the CLI automatically returns a fresh snapshot in 
 - **Sequential integers** `[1]`, `[2]`, `[3]` in DFS order (roughly top-to-bottom, left-to-right).
 - **Only interactive elements** get refs: button, textfield, textarea, statictext, row, cell, checkbox, radiobutton, popupbutton, combobox, link, menuitem, menubutton, tab, slider, image.
 - **Refs are ephemeral.** They refresh with every snapshot. Don't try to keep stable refs across actions.
+- Ref actions retain the selected AX object during the freshness scan and act on
+  that object. Do not resolve the DFS number a second time or cache AX handles
+  across commands.
 
 ### 4. AX-first, CGEvent as fallback
 

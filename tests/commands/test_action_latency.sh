@@ -37,8 +37,10 @@ def run(*args, ok=True):
         assert p.returncode != 0 and d.get("ok") is False, d
     return d
 
-fixture = subprocess.Popen([str(bundle / "MacOS/LatencyFixture")],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+events = bundle.parent / "events.log"
+with events.open("w") as output:
+    fixture = subprocess.Popen([str(bundle / "MacOS/LatencyFixture")],
+                               stdout=output, stderr=subprocess.DEVNULL)
 try:
     app = f"pid:{fixture.pid}"
     for attempt in range(40):
@@ -62,6 +64,13 @@ try:
         run("key", "cmd+a", "--app", app, "--no-snapshot", "--no-verify")
     delivered = run("snapshot", app, "--limit", "200")
     assert any(e.get("value") == "Key events: 10" for e in delivered["elements"]), delivered
+
+    # Enter is handled without a visible change. A tree-diff heuristic must
+    # neither reject it nor report an unrelated AX change as successful submit.
+    enter = run("key", "enter", "--app", app)
+    assert enter["dispatched"] and enter["effect_verified"] is None, enter
+    assert events.read_text() == "enter handled\n", events.read_text()
+    assert enter["snapshot"]["focused"]["value"] == "initial", enter
 
     # The fixture changes its value and posts AXValueChanged during the AX
     # setter. A subscription created after dispatch misses this notification.
@@ -339,6 +348,35 @@ try:
     found = session("find", "--role", "popupbutton", "--first")
     rejected = session("perform", found["match"]["ref"], "AXBogusAction", ok=False)
     assert "AXPress" in rejected["diagnostics"]["available_actions"], rejected
+
+    # A control can move to another DFS number after the freshness read.
+    # Dispatch must use the retained object, never resolve that number again.
+    current = session("--json", "snapshot")
+    arm = next(e for e in current["elements"] if e.get("title") == "Reorder on read")
+    for action in ("set-value", "click"):
+        current = session("--json", "snapshot")
+        first = next(e for e in current["elements"] if e.get("title") == "latency-input")
+        second = next(e for e in current["elements"] if e.get("title") == "other-input")
+        session("perform", "AXPress", "--ax-path", arm["axPath"])
+        if action == "set-value":
+            session("set-value", first["ref"], "retained-target")
+        else:
+            session("click", first["ref"])
+        reordered = session("--json", "snapshot")
+        intended = next(e for e in reordered["elements"] if e.get("title") == "latency-input")
+        untouched = next(e for e in reordered["elements"] if e.get("title") == "other-input")
+        assert intended["ref"] != first["ref"], (first, intended)
+        assert intended["value"] == "retained-target", intended
+        assert untouched["value"] == second["value"], (second, untouched)
+        if action == "click":
+            assert reordered["focused"]["ref"] == intended["ref"], reordered
+
+    # Root help/version use the bound binary without a separate setup path.
+    for option, expected in (("--help", "Usage:"), ("--version", "cu ")):
+        script = ". " + shlex.quote(str(config)) + "\ncu " + option
+        p = subprocess.run(["/bin/sh", "-c", script], env=session_env,
+                           capture_output=True, text=True, timeout=15)
+        assert p.returncode == 0 and expected in p.stdout, (p.stdout, p.stderr)
 
     # Replace the entire view asynchronously. Refs returned by wait must be
     # usable directly, without a redundant snapshot to register them first.

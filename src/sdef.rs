@@ -4,7 +4,7 @@
 use quick_xml::events::Event;
 use quick_xml::reader::Reader;
 use std::ffi::c_void;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(serde::Serialize)]
 pub struct SdefResult {
@@ -69,25 +69,29 @@ unsafe extern "C" {
     fn CFRelease(value: *const c_void);
 }
 
-fn read_definition(bundle_path: &str) -> Result<String, String> {
-    let resources = Path::new(bundle_path).join("Contents/Resources");
-    let mut legacy = false;
-    if let Ok(entries) = std::fs::read_dir(resources) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            match path.extension().and_then(|value| value.to_str()) {
-                Some("sdef") => {
-                    return std::fs::read_to_string(path)
-                        .map_err(|e| format!("failed to read sdef: {e}"));
-                }
-                Some("scriptSuite") => legacy = true,
-                _ => {}
-            }
+fn definition_path(bundle_path: &str) -> Option<PathBuf> {
+    let mut legacy = None;
+    for entry in std::fs::read_dir(Path::new(bundle_path).join("Contents/Resources"))
+        .ok()?
+        .flatten()
+    {
+        let path = entry.path();
+        match path.extension().and_then(|value| value.to_str()) {
+            Some("sdef") => return Some(path),
+            Some("scriptSuite") => legacy = Some(path),
+            _ => {}
         }
     }
-    if !legacy {
-        return Err("not scriptable (no scripting dictionary)".into());
+    legacy
+}
+
+fn read_definition(bundle_path: &str) -> Result<String, String> {
+    let path = definition_path(bundle_path).ok_or("not scriptable (no scripting dictionary)")?;
+    if path.extension().is_some_and(|ext| ext == "sdef") {
+        return std::fs::read_to_string(path).map_err(|e| format!("failed to read sdef: {e}"));
     }
+    // OSA may request dynamic terminology from the app. Only explicit sdef
+    // discovery uses it; listing apps must remain a local metadata read.
     unsafe {
         let url = CFURLCreateFromFileSystemRepresentation(
             std::ptr::null(),
@@ -122,25 +126,33 @@ fn read_definition(bundle_path: &str) -> Result<String, String> {
     }
 }
 
-/// Count classes in sdef without full parse (for cu apps).
-pub fn count_classes(bundle_path: &str) -> Option<usize> {
-    let xml = read_definition(bundle_path).ok()?;
+/// Detect scripting support without launching or sending events to an app.
+/// A legacy dictionary has no XML class count until explicitly converted.
+pub fn dictionary_info(bundle_path: &str) -> (bool, Option<usize>) {
+    let Some(path) = definition_path(bundle_path) else {
+        return (false, None);
+    };
+    if path.extension().is_some_and(|ext| ext == "scriptSuite") {
+        return (true, None);
+    }
+    let Ok(xml) = std::fs::read_to_string(path) else {
+        return (false, None);
+    };
     let mut reader = Reader::from_str(&xml);
     let mut count = 0usize;
     loop {
         match reader.read_event() {
             Ok(Event::Empty(ref e) | Event::Start(ref e)) => {
-                let name = e.name();
-                if name.as_ref() == b"class" || name.as_ref() == b"class-extension" {
+                if matches!(e.name().as_ref(), b"class" | b"class-extension") {
                     count += 1;
                 }
             }
             Ok(Event::Eof) => break,
-            Err(_) => return None,
+            Err(_) => return (false, None),
             _ => {}
         }
     }
-    Some(count)
+    (true, Some(count))
 }
 
 /// Parse the full sdef and return structured result.
@@ -373,24 +385,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn legacy_cocoa_dictionary_exposes_document_operations() {
-        let path = "/System/Applications/TextEdit.app";
-        let result = parse("TextEdit", path);
-        assert!(result.ok, "{:?}", result.error);
-        let suites = result.suites.unwrap();
-        assert!(suites.iter().flat_map(|suite| &suite.classes).any(|class| {
-            class.name == "document"
-                && class
-                    .properties
-                    .iter()
-                    .any(|property| property.name == "modified")
-        }));
-        assert!(
-            suites
-                .iter()
-                .flat_map(|suite| &suite.commands)
-                .any(|command| command.name == "save")
+    fn legacy_discovery_does_not_request_dynamic_app_terminology() {
+        // This app has only Cocoa metadata; scanning it must not invoke OSA.
+        assert_eq!(
+            dictionary_info("/System/Applications/TextEdit.app"),
+            (true, None)
         );
-        assert!(count_classes(path).is_some_and(|count| count > 0));
+        let (scriptable, classes) = dictionary_info("/System/Library/CoreServices/Finder.app");
+        assert!(scriptable && classes.is_some_and(|count| count > 0));
+        assert_eq!(dictionary_info("/nonexistent.app"), (false, None));
     }
 }

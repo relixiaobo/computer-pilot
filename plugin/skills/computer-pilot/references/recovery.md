@@ -76,15 +76,10 @@ On `stale_observation`:
 
 ## Verification
 
-For `verified:false`, read `verify_advice` and the attached snapshot. Prefer:
-
-1. `cu set-value` for native AX fields outside `AXWebArea`.
-2. `cu perform <ref> AXPress` for an exposed native action.
-3. `--ax-path` when structure is known.
-4. A fresh ref from a new Observation.
-5. OCR or visual targeting when AX is sparse.
-
-Do not recover by dropping `--app` or using `--allow-global`.
+For `verified:false`, inspect the attached state and advice before deciding
+whether another action is needed. An unchanged tree alone does not prove failure.
+Keep the same target PID and reuse returned refs; do not recover by dropping
+`--app` or using `--allow-global`.
 
 For Electron/CEF or any target under `AXWebArea`, confirm exact-PID focus and
 type the intended text once. `focus_verified:true` confirms the editor's AX
@@ -97,14 +92,10 @@ remains uncertain. Do not repeat the full input to obtain a verification flag,
 change app settings to expose AX text, or switch to global input. A development
 app's explicitly provided CDP/Playwright endpoint is another option when available.
 
-The session helper skips effect verification for grouped native edits. For
-controlled input, use the verified binary directly with an explicit target:
-
-```bash
-"$CU_BIN" --compact click <editor-ref> --app "$CU_APP"
-# Read the focus result before typing.
-"$CU_BIN" --compact type "<intended text>" --app "$CU_APP"
-```
+Use the grouped verified click/type path in [SKILL.md](../SKILL.md#controlled-editors-and-recovery).
+It stops on command errors without requiring an extra model round between focus
+and typing. The ordinary session helper defers effect verification to the group's
+final observation.
 
 `type` requires a focused AX text input and automatically uses PID-targeted
 clipboard paste below `AXWebArea` or in known chat apps. Do not override that

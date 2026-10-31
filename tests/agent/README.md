@@ -182,6 +182,31 @@ shortcut advice identifies background menu handling. These changes have function
 verification, not a replacement performance sample. CI moves from retired/brownout
 macOS 14 hosting to macOS 15; the desktop permission tests remain local.
 
+### Execution-path cleanup after the retest
+
+Ref actions and `why` now retain the exact AX object during their state scan,
+instead of traversing DFS refs again. An owned AppKit fixture changes its child
+order after the scan: the archived binary wrote the other field; the corrected
+binary writes the intended field and leaves its neighbor unchanged. Handles live
+only for one command. Client/PID/window/signature checks remain; there is no
+cross-command cache or automatic ref rebinding. The unused single-node reader
+and generic traversal modes were deleted with the second resolver.
+
+Enter no longer runs a special pre/post tree-diff check: a handled Enter can have
+no visible effect, and an unrelated change cannot prove submission. It uses the
+same dispatch/snapshot contract as other keys. The fixture consumes Enter without
+changing AX state and independently records delivery. Click recovery now reuses
+attached state rather than recommending another snapshot; unreachable typing
+advice was removed. The skill groups verified editor click/type in one shell call,
+and the helper accepts ordinary root help/version flags.
+
+A repeat unit run exposed OSA's dynamic terminology AppleEvent waiting in legacy
+script discovery. `apps` now detects legacy dictionaries from local metadata,
+without conversion or a guessed class count; only explicit `sdef` calls convert
+them. App listing also returns structured data directly instead of serializing,
+reparsing and silently falling back to an empty list. The discovery test now
+checks metadata without issuing AppleEvents from a test thread.
+
 ## Architecture
 
 ```
