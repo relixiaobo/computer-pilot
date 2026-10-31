@@ -140,3 +140,90 @@ the private built-in API to an external model.
 samples per arm, per-method timing arrays, fixture/binary hashes, controls, and
 independent verification. Native parser/REPL calibration failures occurred before
 the measured series and are explicitly excluded from that report.
+
+## Actual Codex agent comparison
+
+Two isolated Codex tasks also completed the workflow using their ordinary agent
+loops: one through the actual built-in native App API, the other through the
+current Computer Pilot skill and shell. Each task retained its own history for
+three sequential trials; repetitions are warmed runs, not fresh contexts.
+Actual per-turn metadata recorded `gpt-6-astra`, reasoning `high`, and no explicit
+service-tier override. These samples are separate from both comparisons above.
+
+Initialization (tool documentation/skill reading and one app observation) was
+untimed. Each subsequent `GO` turn used a fresh fixture process. Timing runs
+from Codex's task-start to task-complete event, including the model and tools;
+parent polling delay, fixture setup, and independent field checking are excluded.
+The tasks received identical workflow instructions and could batch known actions
+or generate code, but could not read fixture source/saved data, other tasks,
+previous results, or prewritten solvers. No trial received correctness feedback.
+Only one participant acted at a time, in order: native-1, cu-1, cu-2, native-2,
+native-3, cu-3.
+
+The offline collector reads only the selected task rollouts. It counts unique
+response usage records, sums their token usage, and unions recorded shell/MCP
+execution intervals. The remaining time includes model, network, and scheduling;
+it is **not** a direct measurement of inference time. Tool calls here count
+shell batches or REPL invocations, not individual clicks/field writes. Cumulative
+input tokens include repeated cached context and are not a cost estimate.
+
+To collect an owned experiment, place its two task IDs in `threads.json`
+(`{"cu": "...", "native": "..."}`) beside each `LABEL-saved.json`, then run:
+
+```bash
+python3 tests/agent/collect_codex_benchmark.py /path/to/session \
+  "$HOME/.codex/sessions/YYYY/MM/DD"
+```
+
+The collector writes `results.json` and local per-trial tool traces without
+reasoning text. Use `benchmark_builtin_tools.py SESSION start LABEL` to reset
+the owned fixture before each GO turn and `SESSION stop` after the series. Do
+not use that helper's deterministic `cu` action for model-driven trials.
+
+Measured results (2026-10-31):
+
+| End-to-end trial | cu | Built-in native App API |
+| --- | ---: | ---: |
+| 1 | 180.4 s | 97.9 s |
+| 2 | 129.8 s | 81.0 s |
+| 3 | 136.1 s | 85.0 s |
+| Median elapsed | **136.1 s** | **85.0 s** |
+| Median recorded tool time | 4.51 s | 8.77 s |
+| Median time outside tool intervals | 131.75 s | 77.01 s |
+| Model calls per trial | 19 / 13 / 13 | 13 / 13 / 13 |
+| Median returned text characters | 38,959 | 8,926 |
+| Median cumulative input tokens | 917,216 | 530,735 |
+| Median cached input tokens | 897,664 | 485,376 |
+| Median model output tokens | 3,328 | 1,389 |
+| Exact task success | 3/3 | 3/3 |
+
+The native arm used **38% less median elapsed time** (cu took 1.60x as long),
+despite longer recorded tool execution. This reproduces the product-level speed
+difference on this workload and locates it mainly outside tool execution.
+Component medians need not sum to the elapsed median.
+
+Trace review found six extra pre-save observation batches in cu-1. The current
+skill warns against submitting unverified input, whereas the native agent grouped
+field writes and Save. In cu-2/cu-3, the agent also grouped writes and Save,
+reducing its model calls to 13, while still taking 129.8/136.1 s. These later
+trials treated the local Save as batchable. This is observed strategy variation,
+not a controlled experiment proving the effect of that skill wording. All trials used the assigned backend and live UI only, and
+all saved original fields, corrections and archive state passed independent
+checks. No tool errors were recorded.
+
+The remaining observed differences include repeated shell environment/argument
+text, full CLI snapshots versus native incremental state, and growing task
+history. Median returned text was 4.36x larger and model output tokens 2.40x
+higher for cu. These are optimization targets, not measured causal shares of
+the remaining latency: model output generation, context processing, networking,
+and scheduling were not isolated. Removing millisecond-scale native checks
+alone cannot account for this observed gap. Future changes should shorten the
+agent interaction and remove unnecessary observation rounds, then repeat the
+same end-to-end measurement while retaining exact outcome checks.
+
+[Recorded end-to-end results](benchmarks/codex-e2e-2026-10-31.json) contain all
+samples, setup timings, actual model metadata, usage, checks and evidence hashes.
+Only three trials per arm were run, with identical source records and retained
+history; this does not establish performance for browsers, Electron, asynchronous
+apps, fresh contexts, or other models. This comparison changes benchmark tooling
+and documentation only; it does not claim to have fixed the remaining gap.
