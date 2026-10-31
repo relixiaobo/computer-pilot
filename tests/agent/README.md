@@ -612,3 +612,76 @@ includes pending/unreviewed/excluded statuses when applicable; none occurred her
 All owned apps and dedicated Brokers were stopped. No production code or benchmark
 inputs changed during the block. This update publishes evidence only, so the
 existing code/CI checks remain applicable; JSON and diff checks passed.
+
+## Scalar values and continuous triage (protocol v2)
+
+Candidate `22f8e7a` fixes the observation gap found above. Snapshots and focused
+summaries now decode text, boolean and numeric AXValue into the existing `value`
+string. Checkboxes expose `0`/`1` (and mixed state `2`); integer values retain
+precision rather than round-tripping through floating point. The decoder uses
+the already-read batch slot or existing attribute fallback. No extra AX query,
+action-effect check, retry or new CLI output field was added.
+
+The real-control regression failed against the old binary because `value` was
+absent, then passed after the fix. It toggles an owned checkbox off and on,
+checks the application's independent callback label, reconstructs compact
+observations, and exercises the single-attribute fallback. Rust coverage also
+checks booleans, mixed state, an integer above 2^53, fractional values, Unicode
+and unsupported objects. Validation passed: 44 Rust tests, Clippy with warnings
+denied, release build, formatting/version checks, the native action-latency
+behavior suite, and eight offline benchmark-protocol tests.
+
+The next experiment used the same four paired triage datasets and alternating
+order, but **one uninterrupted turn per task**, including initialization.
+Every actual turn used `gpt-6-astra / high`, no tier override. All eight attempts
+were retained; no replacement or coaching occurred, and code/inputs stayed
+fixed throughout the block. The full single-turn time is the only comparable
+latency metric here; do not pool it with protocol-v1 GO measurements.
+
+**Eligible exact outcomes: cu 4/4; native 3/3, with one native attempt excluded.**
+The excluded native dataset-1 task was affected by a coordinator mistake: its
+app was stopped after the saved workflow said complete, while the task itself
+was still active. Its task later reported DONE at 229.8 seconds. The pre-stop
+saved fields already left T103/T107 Urgent incorrectly on. Both the wrong fields
+and full timing remain in the artifact, along with pre-stop trace/result hashes;
+it contributes neither a success nor a failure to the eligible comparison.
+This is an experiment deviation, not a reason to silently replace the sample.
+
+| Dataset | Order | cu full task | Native full task | Eligible exact outcome cu / native |
+| --- | --- | ---: | ---: | --- |
+| 1 | native → cu | 174.8 s | **excluded 229.8 s** | pass / excluded |
+| 2 | cu → native | 177.0 s | 99.4 s | pass / pass |
+| 3 | native → cu | 106.1 s | 108.8 s | pass / pass |
+| 4 | cu → native | 153.7 s | 105.6 s | pass / pass |
+
+For eligible datasets 2–4, the median paired cu/native full-task ratio is
+**1.455**: cu took about **45.5% longer** in this block. This block does not demonstrate a general speed
+win. The previously incorrect cu dataset-4 Urgent fields were both correct this
+time, including original and correction states, but a small cross-protocol
+comparison cannot establish a causal agent-accuracy gain from the value fix.
+
+All eight tasks reported zero tool errors; none of the native tasks needed the
+activation recovery seen after READY/GO in protocol v1. The task-boundary error
+did not recur, but code, protocol and runtime latency also changed, so the timing
+difference between blocks cannot be attributed solely to removing the boundary.
+Native dataset 4 additionally listed its own trial filenames and Git status;
+it did not read source/saved contents. That metadata-read cost is retained.
+
+cu datasets 1/2/4 switched from compact output to full ordinary JSON snapshots,
+returning **83–84k text characters** and generating about **4.1–4.3k output
+tokens** per task. Dataset 3 retained compact observations: **38.9k characters**,
+**1,961 output tokens**, and 106.1 seconds versus native's 108.8. All these counts
+include initialization. Recorded cu tool intervals were only 4.9–5.3 seconds;
+eligible native intervals were 11.6–13.1 seconds. Extra model interaction and
+context size are useful next investigation targets, but these strategy/latency
+associations are not a controlled causal comparison. In particular, requiring
+full state should not force a return to verbose metadata; that is a proposed
+follow-up, not a change measured in this block.
+
+[Complete continuous-task records](benchmarks/triage-continuous-2026-10-31.json)
+include all attempts, the coordinator deviation, field differences, model usage,
+actual order, audit notes and evidence hashes. Traces remain local and contain
+no exported reasoning. All owned apps and Brokers were stopped. Limits remain:
+three eligible pairs, one custom AppKit task, shared OS/caches, uncontrolled
+backend load, and differing backend instrumentation. This does not establish
+browser/Electron or commercial-app performance.
