@@ -237,6 +237,70 @@ success. An interrupted turn's zero completed-turn sum is **not** its elapsed
 time: report the interruption duration separately and omit it from successful
 timing comparisons.
 
+## Task setup and known transitions follow-up (2026-10-31)
+
+The six-attempt retest exposed two distinct costs: repeated observations of known
+asynchronous transitions, and a generated config that omitted its helper. Candidate
+`0a688a6` addresses these in the packaged skill, without changing the Rust binary:
+
+- Copy the existing helper into the task config and append the supplied values.
+  Every later shell sources that one file, which contains both target binding
+  and stop-on-error. No generated wrapper, extra startup command or validation.
+- End a known asynchronous action group with `wait`, which already returns the
+  next snapshot. Observe an unfamiliar flow first, then reuse it on later items.
+- Use the existing default wait timeout; custom `wait --timeout` values are seconds.
+  No invented milliseconds flag or compatibility alias.
+
+The owned command fixture now uses the copied config. Independent sh/bash/zsh
+processes run with a competing `cu` on PATH and without a shell `-e` option:
+the configured binary edits the exact fixture, and a rejected action stops later
+edits instead of being hidden by a successful final snapshot. The suite, skill
+validation and hosted CI passed. The helper's runtime logic is unchanged.
+
+Two cu-only wizard tasks were predeclared in fresh profiles, neutral workspaces,
+independent fixture states and private runtimes. Actual contexts contained no
+global/project AGENTS; model/settings match earlier blocks. Both passed every
+independent original/final/correction check. Native was not rerun, and no attempt
+was replaced or coached. All observed owned app/Broker PIDs stopped.
+
+| Dataset | Full task s | Tool calls | Tool errors | Tool interval s | Output tokens |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 1 | 157.040 | 31 | 0 | 10.010 | 3,343 |
+| 2 | 275.523 | 31 | 0 | 11.220 | 3,395 |
+
+Both copied the helper without reading its source, kept the supplied binding on
+every call, and used default wait timeouts. Dataset 1 observed the first unfamiliar
+saving state, then combined each of the next three confirmations with its wait.
+This removed the three repeated round trips present in the preceding accepted
+wizard-1 trace (34 calls, 180.765 s). Dataset 2 combined all four confirmations and
+waits. Four required menu selections exposed their updated controls without stale
+errors. One unnecessary opening of an already-correct dropdown remains in dataset
+2; the skill already says to leave correct values alone, so no duplicate rule or
+task-specific exception was added for that deviation.
+
+End-to-end speed is **not consistently improved**. Dataset 1 matches the latest
+historical native time (156.766 s), but dataset 2 exceeds the latest valid cu/native
+times (182.350/126.096 s). The immediately preceding 240.218-second cu dataset 2
+remains excluded for reading the wrong app and is not a valid speed baseline.
+Earlier rounds and their hashes are retained in the
+[follow-up artifact](benchmarks/cu-flow-2026-10-31.json).
+
+The two new tasks differ by 118.483 s despite identical call counts and almost
+equal output tokens; 117.273 s of that difference is outside tools. Median gaps
+between tools are 4.260 versus 7.902 s (maxima 7.868/12.710 s), so the slower run
+has broadly slower rounds, not one large UI stall. The rollout cannot separate
+inference, provider queues, transport and host scheduling. Historical cu snapshots
+also generally returned less text than native, so these traces do not support
+blaming verbose cu observations for the slowdown.
+
+The practical next performance measurement is request/first-token/completion
+timing at the model host, if that host exposes it, or another predeclared matched
+block when native reruns are authorized. Neither belongs in the public cu CLI.
+Do not add caches, fixed sleeps, more automatic inspections or remove target/ref
+identity checks to compensate for unexplained time outside tools. The supported
+improvement here is fewer repeated decisions and successful initialization in
+both trials, not a universal latency win.
+
 ## cu-only retest with historical controls (2026-10-31)
 
 Predeclared six cu attempts (three workflows, two datasets); **5 accepted passes,
