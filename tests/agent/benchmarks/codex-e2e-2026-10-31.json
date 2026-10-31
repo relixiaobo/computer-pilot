@@ -1,0 +1,362 @@
+{
+  "scope": "Actual Codex end-to-end native App API versus cu CLI; separate from deterministic tool timings and external API agent runs.",
+  "date": "2026-10-31",
+  "model": "gpt-6-astra",
+  "reasoning_effort": "high",
+  "service_tier": null,
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "cu_commit": "1f3d307 (production tree also present in merged bd1d754)",
+  "benchmark_commit_before_collection": "c400c67",
+  "cu_sha256": "72a94924e9b03174bf1781dceaef81e858349d74e8414cef57e53f6c43920713",
+  "fixture_source_sha256": "0e7136894dc4781a1fe8f6717f28299ac3359cf50b16d5c259b395cfa403f95b",
+  "fixture_executable_sha256": "61486be715cbbcc723c25f28e01e43a665d90d8ffb7f9c62a6ff8a50a97976b4",
+  "skill_sha256": "58f2aace9ae7d72e46a4cb88d0c95fe25ff02b38767ed5042a717e82b98bd726",
+  "task": "Enter six visible source orders exactly, set quantity-dependent priorities, save originals, correct order 2 city and order 5 quantity/priority, and archive.",
+  "protocol": "Two isolated actual Codex tasks, shared model/settings, sequential GO turns after untimed initialization. Repetitions retain each arm task history. Only one arm acts at a time.",
+  "controls": [
+    "Same Codex runtime and actual per-turn model/effort/service-tier metadata; no model-setting changes.",
+    "One isolated task per arm; skill/native documentation and initial observation loaded in untimed setup.",
+    "Fresh fixture PID per measured GO turn; same source records; each task retains its own previous trials.",
+    "Only one arm acts at a time. Parent polling, fixture setup, independent verification and cleanup are outside elapsed_ms.",
+    "Normal generated batching allowed. No supplied solver, expected/source/saved file access, other-thread inspection or correctness feedback.",
+    "Whole-turn timing from task_complete.duration_ms; unique response usage records count model calls.",
+    "Tool intervals are unioned recorded CommandExecution/McpToolCall intervals. Residual includes model, network and orchestration, not pure inference.",
+    "Tool calls count shell/REPL batches, not primitive UI actions. Output chars count returned text (Unicode characters, not tokens)."
+  ],
+  "trial_order": [
+    "native-1",
+    "cu-1",
+    "cu-2",
+    "native-2",
+    "native-3",
+    "cu-3"
+  ],
+  "setup": [
+    {
+      "arm": "cu",
+      "thread_id": "01a18fcb-6a2f-77b1-badd-7486b163aa21",
+      "turn_id": "01a18fcb-6ae7-7fa2-995e-64195799a8e4",
+      "started_at": "2026-10-31T02:30:35.526Z",
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null,
+      "completed_at": "2026-10-31T02:31:24.591Z",
+      "elapsed_ms": 49072,
+      "final": "READY",
+      "model_calls": 4,
+      "tokens": {
+        "input_tokens": 118138,
+        "cached_input_tokens": 105344,
+        "output_tokens": 613,
+        "reasoning_output_tokens": 304,
+        "total_tokens": 118751
+      },
+      "tool_calls": 3,
+      "tool_output_chars": 20441,
+      "tool_errors": 0,
+      "tool_interval_ms": 13,
+      "non_tool_interval_ms": 49059
+    },
+    {
+      "arm": "native",
+      "thread_id": "01a18fcb-84ed-7381-9cbf-4e461b88edf8",
+      "turn_id": "01a18fcb-8568-7f00-a8b8-dd8d7eaa62d2",
+      "started_at": "2026-10-31T02:30:42.289Z",
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null,
+      "completed_at": "2026-10-31T02:31:29.395Z",
+      "elapsed_ms": 47106,
+      "final": "READY",
+      "model_calls": 3,
+      "tokens": {
+        "input_tokens": 88003,
+        "cached_input_tokens": 58112,
+        "output_tokens": 428,
+        "reasoning_output_tokens": 238,
+        "total_tokens": 88431
+      },
+      "tool_calls": 2,
+      "tool_output_chars": 28570,
+      "tool_errors": 0,
+      "tool_interval_ms": 570,
+      "non_tool_interval_ms": 46536
+    }
+  ],
+  "runs": [
+    {
+      "arm": "native",
+      "thread_id": "01a18fcb-84ed-7381-9cbf-4e461b88edf8",
+      "turn_id": "01a18fcd-159d-70e2-98ab-e02834450273",
+      "started_at": "2026-10-31T02:32:24.757Z",
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null,
+      "label": "native-1",
+      "completed_at": "2026-10-31T02:34:02.660Z",
+      "elapsed_ms": 97900,
+      "model_calls": 13,
+      "tokens": {
+        "input_tokens": 470636,
+        "cached_input_tokens": 463360,
+        "output_tokens": 1778,
+        "reasoning_output_tokens": 554,
+        "total_tokens": 472414
+      },
+      "tool_calls": 12,
+      "tool_output_chars": 8926,
+      "tool_errors": 0,
+      "tool_interval_ms": 8770,
+      "non_tool_interval_ms": 89130,
+      "verified": true,
+      "verification": {
+        "passed": true,
+        "checks": {
+          "all_initial_fields_exact": true,
+          "all_final_fields_exact": true,
+          "both_corrections_saved": true,
+          "archive_completed": true
+        }
+      },
+      "saved_sha256": "710c824c5233970ee9a86d0563316518a2503c3d6b23fd9d9c50ee395dabdb5f",
+      "trace_sha256": "17c07555d9e145aa6e36eb3cf283526cbd41654adfe7d29205f48b39ef0b702a"
+    },
+    {
+      "arm": "cu",
+      "thread_id": "01a18fcb-6a2f-77b1-badd-7486b163aa21",
+      "turn_id": "01a18fd1-43d2-7173-9b34-1367d559a0aa",
+      "started_at": "2026-10-31T02:36:58.725Z",
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null,
+      "label": "cu-1",
+      "completed_at": "2026-10-31T02:39:59.159Z",
+      "elapsed_ms": 180435,
+      "model_calls": 19,
+      "tokens": {
+        "input_tokens": 914647,
+        "cached_input_tokens": 882304,
+        "output_tokens": 4704,
+        "reasoning_output_tokens": 923,
+        "total_tokens": 919351
+      },
+      "tool_calls": 18,
+      "tool_output_chars": 68606,
+      "tool_errors": 0,
+      "tool_interval_ms": 4556,
+      "non_tool_interval_ms": 175879,
+      "verified": true,
+      "verification": {
+        "passed": true,
+        "checks": {
+          "all_initial_fields_exact": true,
+          "all_final_fields_exact": true,
+          "both_corrections_saved": true,
+          "archive_completed": true
+        }
+      },
+      "saved_sha256": "710c824c5233970ee9a86d0563316518a2503c3d6b23fd9d9c50ee395dabdb5f",
+      "trace_sha256": "398836ed35570c33b8e8c3b89e45ec90dfdb22c7810a6b0112662fff368eaa8a"
+    },
+    {
+      "arm": "cu",
+      "thread_id": "01a18fcb-6a2f-77b1-badd-7486b163aa21",
+      "turn_id": "01a18fd4-30d3-71e1-8ba1-c6532cfa868f",
+      "started_at": "2026-10-31T02:40:10.460Z",
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null,
+      "label": "cu-2",
+      "completed_at": "2026-10-31T02:42:20.214Z",
+      "elapsed_ms": 129754,
+      "model_calls": 13,
+      "tokens": {
+        "input_tokens": 917216,
+        "cached_input_tokens": 897664,
+        "output_tokens": 3328,
+        "reasoning_output_tokens": 323,
+        "total_tokens": 920544
+      },
+      "tool_calls": 12,
+      "tool_output_chars": 38959,
+      "tool_errors": 0,
+      "tool_interval_ms": 4507,
+      "non_tool_interval_ms": 125247,
+      "verified": true,
+      "verification": {
+        "passed": true,
+        "checks": {
+          "all_initial_fields_exact": true,
+          "all_final_fields_exact": true,
+          "both_corrections_saved": true,
+          "archive_completed": true
+        }
+      },
+      "saved_sha256": "710c824c5233970ee9a86d0563316518a2503c3d6b23fd9d9c50ee395dabdb5f",
+      "trace_sha256": "0b93a8f6b403be8c7701855b84e75737f00527ca4fa4a4bc75b31c5a7d69cb72"
+    },
+    {
+      "arm": "native",
+      "thread_id": "01a18fcb-84ed-7381-9cbf-4e461b88edf8",
+      "turn_id": "01a18fd6-5940-7910-acfe-0bae814f0b3c",
+      "started_at": "2026-10-31T02:42:31.884Z",
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null,
+      "label": "native-2",
+      "completed_at": "2026-10-31T02:43:52.910Z",
+      "elapsed_ms": 81022,
+      "model_calls": 13,
+      "tokens": {
+        "input_tokens": 530735,
+        "cached_input_tokens": 485376,
+        "output_tokens": 1389,
+        "reasoning_output_tokens": 168,
+        "total_tokens": 532124
+      },
+      "tool_calls": 12,
+      "tool_output_chars": 8926,
+      "tool_errors": 0,
+      "tool_interval_ms": 9852,
+      "non_tool_interval_ms": 71170,
+      "verified": true,
+      "verification": {
+        "passed": true,
+        "checks": {
+          "all_initial_fields_exact": true,
+          "all_final_fields_exact": true,
+          "both_corrections_saved": true,
+          "archive_completed": true
+        }
+      },
+      "saved_sha256": "710c824c5233970ee9a86d0563316518a2503c3d6b23fd9d9c50ee395dabdb5f",
+      "trace_sha256": "845e90e4fa17ef6aea377aad5eedaf755146a2e3852f2be64f8de392b620525e"
+    },
+    {
+      "arm": "native",
+      "thread_id": "01a18fcb-84ed-7381-9cbf-4e461b88edf8",
+      "turn_id": "01a18fd7-c4fd-7b81-8979-de8051b269e1",
+      "started_at": "2026-10-31T02:44:05.023Z",
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null,
+      "label": "native-3",
+      "completed_at": "2026-10-31T02:45:29.993Z",
+      "elapsed_ms": 84970,
+      "model_calls": 13,
+      "tokens": {
+        "input_tokens": 589134,
+        "cached_input_tokens": 578176,
+        "output_tokens": 1340,
+        "reasoning_output_tokens": 120,
+        "total_tokens": 590474
+      },
+      "tool_calls": 12,
+      "tool_output_chars": 8926,
+      "tool_errors": 0,
+      "tool_interval_ms": 7964,
+      "non_tool_interval_ms": 77006,
+      "verified": true,
+      "verification": {
+        "passed": true,
+        "checks": {
+          "all_initial_fields_exact": true,
+          "all_final_fields_exact": true,
+          "both_corrections_saved": true,
+          "archive_completed": true
+        }
+      },
+      "saved_sha256": "710c824c5233970ee9a86d0563316518a2503c3d6b23fd9d9c50ee395dabdb5f",
+      "trace_sha256": "91cd02fa4a2a22746101cdade3cb8a0f42d4d40a399237e0e0f61316c83edea8"
+    },
+    {
+      "arm": "cu",
+      "thread_id": "01a18fcb-6a2f-77b1-badd-7486b163aa21",
+      "turn_id": "01a18fd9-3882-7002-b094-283d560a8bcd",
+      "started_at": "2026-10-31T02:45:40.108Z",
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null,
+      "label": "cu-3",
+      "completed_at": "2026-10-31T02:47:56.184Z",
+      "elapsed_ms": 136076,
+      "model_calls": 13,
+      "tokens": {
+        "input_tokens": 1138186,
+        "cached_input_tokens": 1118976,
+        "output_tokens": 3121,
+        "reasoning_output_tokens": 119,
+        "total_tokens": 1141307
+      },
+      "tool_calls": 12,
+      "tool_output_chars": 38959,
+      "tool_errors": 0,
+      "tool_interval_ms": 4326,
+      "non_tool_interval_ms": 131750,
+      "verified": true,
+      "verification": {
+        "passed": true,
+        "checks": {
+          "all_initial_fields_exact": true,
+          "all_final_fields_exact": true,
+          "both_corrections_saved": true,
+          "archive_completed": true
+        }
+      },
+      "saved_sha256": "710c824c5233970ee9a86d0563316518a2503c3d6b23fd9d9c50ee395dabdb5f",
+      "trace_sha256": "c828071d7bf99038391c535e5b57537cc15c4330c231028ee2f3f025fef6d3e4"
+    }
+  ],
+  "summary": {
+    "cu": {
+      "runs": 3,
+      "exact_successes": 3,
+      "medians": {
+        "elapsed_ms": 136076,
+        "tool_interval_ms": 4507,
+        "non_tool_interval_ms": 131750,
+        "model_calls": 13,
+        "tool_calls": 12,
+        "tool_output_chars": 38959
+      },
+      "median_tokens": {
+        "input_tokens": 917216,
+        "cached_input_tokens": 897664,
+        "output_tokens": 3328,
+        "reasoning_output_tokens": 323
+      }
+    },
+    "native": {
+      "runs": 3,
+      "exact_successes": 3,
+      "medians": {
+        "elapsed_ms": 84970,
+        "tool_interval_ms": 8770,
+        "non_tool_interval_ms": 77006,
+        "model_calls": 13,
+        "tool_calls": 12,
+        "tool_output_chars": 8926
+      },
+      "median_tokens": {
+        "input_tokens": 530735,
+        "cached_input_tokens": 485376,
+        "output_tokens": 1389,
+        "reasoning_output_tokens": 168
+      }
+    }
+  },
+  "trace_audit": {
+    "measured_backends": "Native tools use only cua_repl with the owned app; cu tools use only shell plus the specified release CLI and target PID.",
+    "source_access": "All six trials observed live pages; no fixture/source/saved file reads or benchmark solver calls in measured tool traces.",
+    "batching": "Native uses 12 batches in every trial. cu-1 uses six additional pre-save observation batches; cu-2 and cu-3 batch writes with saves.",
+    "policy_difference": "The skill warns against submitting unverified input. cu-1 inspected before saving originals; cu-2/cu-3 treated local Save as batchable. This observed strategy variation is not a controlled ablation of the skill wording."
+  },
+  "limitations": [
+    "Three trials per arm, one task and synchronous native fixture; no claim about browser/Electron or general product performance.",
+    "Warmed repetitions share history and identical source data; not independent fresh contexts. Increasing context sizes differ between arms.",
+    "Tool descriptions, skill and generated commands differ by integration; model identity does not imply equal prompts/context.",
+    "The run identifies where elapsed time accumulates; it does not isolate causal shares of context length, output generation, network or scheduler latency.",
+    "No explicit service-tier override was recorded; backend routing/load was not controlled.",
+    "Local Codex rollout schema is an offline telemetry source, not a public Agent API."
+  ]
+}

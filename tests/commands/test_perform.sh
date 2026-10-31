@@ -10,17 +10,6 @@ cu_json perform 1 AXShowDefaultUI --app Finder --no-snapshot
 assert_ok "perform AXShowDefaultUI on Finder ref 1"
 assert_json_field "method is ax-perform" ".method" "ax-perform"
 assert_json_field "action echoed" ".action" "AXShowDefaultUI"
-HAS_AVAIL=$(echo "$OUT" | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-print('yes' if isinstance(d.get('available_actions'), list) else 'no')
-" 2>/dev/null || echo "error")
-if [[ "$HAS_AVAIL" == "yes" ]]; then
-  _pass "available_actions returned on success"
-else
-  _fail "available_actions returned on success" "missing"
-fi
-
 section "perform — failure carries structured hint + suggested_next"
 
 # Use an action the element does not support — should fail with diagnostics.

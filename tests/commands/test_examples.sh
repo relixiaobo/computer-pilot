@@ -36,7 +36,7 @@ section "examples — by topic"
 # Each topic should produce a non-empty recipe
 for TOPIC in launch-app fill-form dismiss-modal read-app-data wait-for-ui \
              vlm-click-by-image vlm-coord-to-ref vlm-region-candidates \
-             diff-after-action menu-click region-screenshot system-pref; do
+             menu-click region-screenshot system-pref; do
   cu_json examples "$TOPIC"
   assert_ok "examples $TOPIC ok"
   RECIPE=$(json_get '.recipe' || echo "")

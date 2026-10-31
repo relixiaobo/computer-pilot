@@ -16,6 +16,8 @@ type CFTypeID = u64;
 type Boolean = u8;
 
 const CF_STRING_ENCODING_UTF8: u32 = 0x0800_0100;
+const CF_NUMBER_SINT64: isize = 4;
+const CF_NUMBER_FLOAT64: isize = 6;
 
 #[link(name = "CoreFoundation", kind = "framework")]
 unsafe extern "C" {
@@ -43,6 +45,9 @@ unsafe extern "C" {
     fn CFArrayGetValueAtIndex(the_array: CFArrayRef, idx: CFIndex) -> CFTypeRef;
 
     fn CFBooleanGetTypeID() -> CFTypeID;
+    fn CFNumberGetTypeID() -> CFTypeID;
+    fn CFNumberIsFloatType(number: CFTypeRef) -> Boolean;
+    fn CFNumberGetValue(number: CFTypeRef, number_type: isize, value: *mut c_void) -> Boolean;
 }
 
 // ── Accessibility FFI ───────────────────────────────────────────────────────
@@ -119,8 +124,12 @@ struct CGSize {
 #[derive(Serialize)]
 pub struct SnapshotResult {
     pub ok: bool,
+    pub pid: i32,
     pub app: String,
     pub window: String,
+    /// Identity of the exact AX window walked; private Broker metadata.
+    #[serde(skip)]
+    pub window_id: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub window_frame: Option<WindowFrame>,
     /// The currently focused element (where the next keystroke would go).
@@ -215,7 +224,7 @@ pub struct MenuItem {
     pub enabled: bool,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Element {
     #[serde(rename = "ref")]
     pub ref_id: usize,
@@ -358,6 +367,89 @@ unsafe fn ax_string(element: CFTypeRef, name: &str) -> Option<String> {
     };
     CFRelease(value);
     result
+}
+
+/// AXValue can be text, a checkbox boolean/integer, or a numeric control value.
+/// Decode the value already read; no additional AX query is needed.
+unsafe fn scalar_to_string(value: CFTypeRef) -> Option<String> {
+    let kind = CFGetTypeID(value);
+    if kind == CFStringGetTypeID() {
+        cfstring_to_string(value)
+    } else if kind == CFBooleanGetTypeID() {
+        Some(if value == kCFBooleanTrue { "1" } else { "0" }.into())
+    } else if kind == CFNumberGetTypeID() {
+        if CFNumberIsFloatType(value) != 0 {
+            let mut number: f64 = 0.0;
+            (CFNumberGetValue(
+                value,
+                CF_NUMBER_FLOAT64,
+                &mut number as *mut _ as *mut c_void,
+            ) != 0)
+                .then(|| number.to_string())
+        } else {
+            let mut number: i64 = 0;
+            (CFNumberGetValue(
+                value,
+                CF_NUMBER_SINT64,
+                &mut number as *mut _ as *mut c_void,
+            ) != 0)
+                .then(|| number.to_string())
+        }
+    } else {
+        None
+    }
+}
+
+unsafe fn ax_value(element: CFTypeRef) -> Option<String> {
+    let value = ax_attr(element, "AXValue")?;
+    let result = scalar_to_string(value);
+    CFRelease(value);
+    result
+}
+
+#[cfg(test)]
+mod scalar_value_tests {
+    use super::*;
+
+    unsafe extern "C" {
+        fn CFNumberCreate(allocator: CFTypeRef, kind: isize, value: *const c_void) -> CFTypeRef;
+    }
+
+    #[test]
+    fn preserves_checkbox_states_and_numeric_precision() {
+        unsafe {
+            assert_eq!(scalar_to_string(kCFBooleanTrue).as_deref(), Some("1"));
+            assert_eq!(scalar_to_string(kCFBooleanFalse).as_deref(), Some("0"));
+            for number in [0_i64, 1, 2, 9_007_199_254_740_993] {
+                let value = CFNumberCreate(
+                    std::ptr::null(),
+                    CF_NUMBER_SINT64,
+                    &number as *const _ as *const c_void,
+                );
+                assert_eq!(scalar_to_string(value), Some(number.to_string()));
+                CFRelease(value);
+            }
+            let number = 0.25_f64;
+            let value = CFNumberCreate(
+                std::ptr::null(),
+                CF_NUMBER_FLOAT64,
+                &number as *const _ as *const c_void,
+            );
+            assert_eq!(scalar_to_string(value).as_deref(), Some("0.25"));
+            CFRelease(value);
+            let text = cfstr("中文😀").unwrap();
+            assert_eq!(scalar_to_string(text).as_deref(), Some("中文😀"));
+            CFRelease(text);
+            let array = CFArrayCreate(
+                std::ptr::null(),
+                std::ptr::null(),
+                0,
+                &kCFTypeArrayCallBacks as *const _ as CFTypeRef,
+            );
+            assert_eq!(scalar_to_string(array), None);
+            CFRelease(array);
+        }
+    }
 }
 
 /// Get the position (AXPosition → CGPoint).
@@ -835,6 +927,17 @@ unsafe fn batch_string(values: CFArrayRef, idx: usize) -> Option<String> {
     cfstring_to_string(val)
 }
 
+unsafe fn batch_value(values: CFArrayRef) -> Option<String> {
+    if BA_VALUE >= CFArrayGetCount(values) as usize {
+        return None;
+    }
+    let value = CFArrayGetValueAtIndex(values, BA_VALUE as CFIndex);
+    if value.is_null() {
+        return None;
+    }
+    scalar_to_string(value)
+}
+
 /// Extract position (CGPoint) from batch values.
 unsafe fn batch_position(values: CFArrayRef, idx: usize) -> Option<CGPoint> {
     let count = CFArrayGetCount(values) as usize;
@@ -1178,22 +1281,27 @@ unsafe fn read_batch_ref_node(element: CFTypeRef, batch_keys: CFArrayRef) -> Ref
         } else {
             CGSize::default()
         };
-        let path_title =
-            ax_string(element, "AXTitle").or_else(|| ax_string(element, "AXDescription"));
-        let path_segment = build_path_segment(
-            role.as_deref().unwrap_or_default(),
-            path_title.as_deref().filter(|s| !s.is_empty()),
-        );
+        let path_title = ax_string(element, "AXTitle")
+            .filter(|s| !s.is_empty())
+            .or_else(|| ax_string(element, "AXDescription").filter(|s| !s.is_empty()));
+        let path_segment =
+            build_path_segment(role.as_deref().unwrap_or_default(), path_title.as_deref());
         let title = if projected {
             path_title
-                .or_else(|| ax_string(element, "AXHelp"))
-                .or_else(|| ax_string(element, "AXIdentifier"))
-                .filter(|s| !s.is_empty())
+                .or_else(|| ax_string(element, "AXHelp").filter(|s| !s.is_empty()))
+                .or_else(|| ax_string(element, "AXIdentifier").filter(|s| !s.is_empty()))
+                .or_else(|| {
+                    if role.as_deref() == Some("AXButton") {
+                        ax_string(element, "AXRoleDescription").filter(|s| !s.is_empty())
+                    } else {
+                        None
+                    }
+                })
         } else {
             None
         };
         let value = if projected {
-            ax_string(element, "AXValue").filter(|s| !s.is_empty())
+            ax_value(element).filter(|s| !s.is_empty())
         } else {
             None
         };
@@ -1223,21 +1331,37 @@ unsafe fn read_batch_ref_node(element: CFTypeRef, batch_keys: CFArrayRef) -> Ref
         CGSize::default()
     };
     let path_title = batch_string_with_fallback(values, BA_TITLE, element, "AXTitle")
-        .or_else(|| batch_string_with_fallback(values, BA_DESC, element, "AXDescription"));
-    let path_segment = build_path_segment(
-        role.as_deref().unwrap_or_default(),
-        path_title.as_deref().filter(|s| !s.is_empty()),
-    );
+        .filter(|s| !s.is_empty())
+        .or_else(|| {
+            batch_string_with_fallback(values, BA_DESC, element, "AXDescription")
+                .filter(|s| !s.is_empty())
+        });
+    let path_segment =
+        build_path_segment(role.as_deref().unwrap_or_default(), path_title.as_deref());
     let title = if projected {
         path_title
-            .or_else(|| batch_string_with_fallback(values, BA_HELP, element, "AXHelp"))
-            .or_else(|| batch_string_with_fallback(values, BA_IDENTIFIER, element, "AXIdentifier"))
-            .filter(|s| !s.is_empty())
+            .or_else(|| {
+                batch_string_with_fallback(values, BA_HELP, element, "AXHelp")
+                    .filter(|s| !s.is_empty())
+            })
+            .or_else(|| {
+                batch_string_with_fallback(values, BA_IDENTIFIER, element, "AXIdentifier")
+                    .filter(|s| !s.is_empty())
+            })
+            .or_else(|| {
+                if role.as_deref() == Some("AXButton") {
+                    ax_string(element, "AXRoleDescription").filter(|s| !s.is_empty())
+                } else {
+                    None
+                }
+            })
     } else {
         None
     };
     let value = if projected {
-        batch_string_with_fallback(values, BA_VALUE, element, "AXValue").filter(|s| !s.is_empty())
+        batch_value(values)
+            .or_else(|| ax_value(element))
+            .filter(|s| !s.is_empty())
     } else {
         None
     };
@@ -1375,7 +1499,7 @@ where
 ///  13:   Keyboard spacebar (universal button trigger)
 ///  14:   Ancestor press/confirm (walk up)
 ///  15:   CGEvent mouse click (handled by caller)
-unsafe fn try_ax_actions(element: CFTypeRef) -> Option<&'static str> {
+unsafe fn try_ax_actions(pid: i32, element: CFTypeRef) -> Option<&'static str> {
     // Text inputs are focus targets, not buttons. Chromium exposes AXPress on
     // contenteditable elements and returns AX_OK even when that action does
     // not move AXFocusedUIElement. Prefer the semantic AXFocused write and
@@ -1390,7 +1514,7 @@ unsafe fn try_ax_actions(element: CFTypeRef) -> Option<&'static str> {
 
     // Steps 1-4: Direct actions
     for action in &["AXPress", "AXConfirm", "AXOpen", "AXPick"] {
-        if try_action(element, action) {
+        if try_action_with_menu_wait(pid, element, Some(&role), action) {
             return Some("ax-action");
         }
     }
@@ -1508,6 +1632,22 @@ unsafe fn try_action(element: CFTypeRef, action: &str) -> bool {
     err == AX_OK
 }
 
+unsafe fn try_action_with_menu_wait(
+    pid: i32,
+    element: CFTypeRef,
+    role: Option<&str>,
+    action: &str,
+) -> bool {
+    let observer = (role == Some("AXMenuItem") && action == "AXPress")
+        .then(|| crate::observer::ActionObserver::menu_transition(pid))
+        .flatten();
+    let accepted = try_action(element, action);
+    if accepted && observer.is_some() {
+        crate::observer::wait_for_settle(observer, crate::POST_ACTION_DELAY_MS);
+    }
+    accepted
+}
+
 unsafe fn try_set_value(element: CFTypeRef, attr: &str, val: CFTypeRef) -> bool {
     let Some(key) = cfstr(attr) else { return false };
     let err = AXUIElementSetAttributeValue(element, key, val);
@@ -1612,7 +1752,7 @@ fn resolve_ref(pid: i32, ref_id: usize, perform_actions: bool) -> Result<(bool, 
             let cx = pos.x + node.size.width / 2.0;
             let cy = pos.y + node.size.height / 2.0;
             let acted = if perform_actions {
-                try_ax_actions(element).is_some()
+                try_ax_actions(pid, element).is_some()
             } else {
                 false
             };
@@ -1677,8 +1817,8 @@ unsafe fn child_matches_segment(child: CFTypeRef, role: &str, title: Option<&str
         return false;
     }
     let child_title = ax_string(child, "AXTitle")
-        .or_else(|| ax_string(child, "AXDescription"))
-        .filter(|s| !s.is_empty());
+        .filter(|s| !s.is_empty())
+        .or_else(|| ax_string(child, "AXDescription").filter(|s| !s.is_empty()));
     match (title, child_title.as_deref()) {
         (Some(want), Some(got)) => {
             // Compare via the same sanitization the writer used so titles
@@ -1867,7 +2007,7 @@ pub fn resolve_by_ax_path(
         let pos = ax_position(element).unwrap_or_default();
         let size = ax_size(element).unwrap_or_default();
         let acted = if perform_actions {
-            try_ax_actions(element).is_some()
+            try_ax_actions(pid, element).is_some()
         } else {
             false
         };
@@ -1885,7 +2025,10 @@ pub fn resolve_by_ax_path(
 /// `cu perform --ax-path X` — fire the named AX action on the matched element.
 pub fn ax_perform_by_path(pid: i32, ax_path: &str, action: &str) -> Result<(), CuError> {
     let ok = with_ax_path(pid, ax_path, |element| unsafe {
-        try_action(element, action)
+        let role = (action == "AXPress")
+            .then(|| ax_string(element, "AXRole"))
+            .flatten();
+        try_action_with_menu_wait(pid, element, role.as_deref(), action)
     })
     .map_err(|e| {
         CuError::msg(e).with_hint("axPath did not resolve — re-snapshot to refresh paths")
@@ -1979,12 +2122,7 @@ pub fn ax_set_value(pid: i32, ref_id: usize, _limit: usize, value: &str) -> Resu
 /// Find element by ref and perform a named AX action (e.g. AXShowMenu,
 /// AXIncrement, AXScrollToVisible). On failure, the hint includes the list
 /// of actions the element actually supports — feed that back to the agent.
-pub fn ax_perform(
-    pid: i32,
-    ref_id: usize,
-    _limit: usize,
-    action: &str,
-) -> Result<Vec<String>, CuError> {
+pub fn ax_perform(pid: i32, ref_id: usize, _limit: usize, action: &str) -> Result<(), CuError> {
     unsafe {
         let app_el = create_app_element(pid);
         if app_el.is_null() {
@@ -1998,10 +2136,12 @@ pub fn ax_perform(
         }
         let walk_root = window_el.unwrap_or(app_el);
 
-        let (result, counter) = resolve_ref_with(walk_root, ref_id, |element, _, _| {
-            let success = try_action(element, action);
-            let available = copy_action_names(element);
-            (success, available)
+        let (result, counter) = resolve_ref_with(walk_root, ref_id, |element, node, _| {
+            if try_action_with_menu_wait(pid, element, node.role.as_deref(), action) {
+                Ok(())
+            } else {
+                Err(copy_action_names(element))
+            }
         });
 
         if let Some(w) = window_el {
@@ -2010,8 +2150,8 @@ pub fn ax_perform(
         CFRelease(app_el);
 
         match result {
-            Some((true, available)) => Ok(available),
-            Some((false, available)) => {
+            Some(Ok(())) => Ok(()),
+            Some(Err(available)) => {
                 let mut err = CuError::msg(format!(
                     "element [{ref_id}] does not support {action}"
                 ));
@@ -2100,7 +2240,7 @@ unsafe fn detect_focused(app_el: CFTypeRef, elements: &[Element]) -> Option<Focu
     let title = ax_string(fel, "AXTitle")
         .or_else(|| ax_string(fel, "AXDescription"))
         .filter(|s| !s.is_empty());
-    let value = ax_string(fel, "AXValue").filter(|s| !s.is_empty());
+    let value = ax_value(fel).filter(|s| !s.is_empty());
     let pos = ax_position(fel);
     CFRelease(fel);
 
@@ -2224,8 +2364,10 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
         if app_el.is_null() {
             return SnapshotResult {
                 ok: false,
+                pid,
                 app: app_name.to_string(),
                 window: String::new(),
+                window_id: 0,
                 window_frame: None,
                 elements: vec![],
                 limit,
@@ -2253,8 +2395,10 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
             CFRelease(app_el);
             return SnapshotResult {
                 ok: false,
+                pid,
                 app: app_name.to_string(),
                 window: String::new(),
+                window_id: 0,
                 window_frame: None,
                 elements: vec![],
                 limit,
@@ -2290,6 +2434,15 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
             })
         });
 
+        let window_id = window_el.map_or(0, |window| {
+            let mut id = 0;
+            if _AXUIElementGetWindow(window, &mut id) == AX_OK {
+                id
+            } else {
+                0
+            }
+        });
+
         let walk_root = window_el.unwrap_or(app_el);
 
         // Walk the element tree with batch attribute reading
@@ -2301,8 +2454,10 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
             CFRelease(app_el);
             return SnapshotResult {
                 ok: false,
+                pid,
                 app: app_name.to_string(),
                 window: window_title,
+                window_id: 0,
                 window_frame: None,
                 elements: vec![],
                 limit,
@@ -2382,8 +2537,10 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
 
         SnapshotResult {
             ok: true,
+            pid,
             app: app_name.to_string(),
             window: window_title,
+            window_id,
             window_frame,
             focused,
             modal,

@@ -75,6 +75,10 @@ required.
 
 ## File Safety
 
+For human observation, `COMPUTER_PILOT_VISUAL_CURSOR=1` before the first command
+shows an optional click-through software cursor. It does not move the real
+pointer and is excluded from agent screenshots.
+
 Paths must be absolute and must not traverse symlinks. Existing files are not
 overwritten. Files are atomically published with mode `0600`. Generate a new
 path or omit `--output` when a previous artifact already exists.

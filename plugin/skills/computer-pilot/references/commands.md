@@ -12,6 +12,7 @@ All commands emit JSON when piped; use `--human` only for interactive reading.
 --timeout <milliseconds> Broker acceptance-to-completion deadline
 --json                   Force machine output
 --human                  Force human output
+--compact                Concise JSON: complete snapshots without geometry/paths
 ```
 
 Environment equivalents:
@@ -62,7 +63,7 @@ Print built-in recipes from the installed CLI.
 
 ### `cu state <app> [--limit N] [--no-screenshot] [--output /abs/file.png]`
 
-Canonical first call. Returns app/PID, windows, displays, AX elements,
+Use when window/display metadata or an image is needed. Returns app/PID, windows, displays, AX elements,
 frontmost state, `observation_id`, and normally a screenshot.
 
 File fields:
@@ -72,13 +73,17 @@ File fields:
 - `image_scale`: legacy pixel-to-point scale.
 - `screenshot_error`: capture failed while AX state remains usable.
 
-### `cu snapshot [app] [--limit N] [--diff] [--annotated] [--with-screenshot] [--output /abs/file.png]`
+### `cu snapshot [app] [--limit N] [--annotated] [--with-screenshot] [--output /abs/file.png]`
 
 Return interactive AX elements. Each element includes an ephemeral `ref`, role,
 label/value, geometry, and often `axPath`. Top-level `observation_id` binds refs
 to the current client and UI generation.
 
-- `--diff`: compare with this client's private, TTL-bounded prior snapshot.
+For ordinary agent work, `cu --compact snapshot <app> --limit 200` omits
+geometry/paths and routine metadata while returning the complete tree within
+the requested limit every time. It preserves full text, advisories, errors and
+recovery output. Use `cu --json snapshot` when coordinates or axPaths are needed.
+
 - `--annotated`: draw ref labels over a captured image.
 - `--with-screenshot`: return tree and plain image in one call.
 - `truncation_hint`: increase `--limit` before assuming an element is absent.
@@ -118,13 +123,18 @@ Poll until `--text`, `--ref`, `--gone`, `--new-window`, `--modal`,
 `--focused-changed`, or `--app-running` succeeds. Prefer semantic text/window
 conditions over ref conditions.
 
+`--text` is a substring match across all element labels/values, including
+navigation buttons. Use a distinguishing destination condition. Successful and
+timed-out waits return a fresh snapshot; its refs are ready for the next action.
+
 ### `cu why <ref> --app <app>`
 
 Explain target enabled state, bounds, supported AX actions, and recovery advice.
 
 ## Act
 
-Always pass `--app`. Ref actions should also pass `--observation`.
+Always pass `--app` outside the session helper. Ordinary ref actions use the
+client's latest observation; pass `--observation` only to select an earlier one.
 
 ### `cu click <ref|x y> --app <app> [options]`
 

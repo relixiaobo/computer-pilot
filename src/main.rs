@@ -1,5 +1,6 @@
 mod ax;
 mod broker;
+mod compact;
 mod diff;
 mod display;
 mod error;
@@ -122,7 +123,7 @@ fn annotate_method(result: &mut serde_json::Value) {
         • cu click --text \"label\" finds and clicks text via OCR\n\
         • Always use --app to target a specific app (avoids focus issues)\n\
         • If names/bundle IDs repeat, use the pid:<PID> selector from cu apps\n\
-        • Use refs from the latest snapshot or delta; observe again when the next target is unknown"
+        • Use refs from the latest snapshot; observe again when the next target is unknown"
 )]
 pub(crate) struct Cli {
     /// Force human-readable output (default: JSON when piped, human when TTY)
@@ -132,6 +133,10 @@ pub(crate) struct Cli {
     /// Force the stable JSON machine envelope even when stdout is a TTY
     #[arg(long, conflicts_with = "human")]
     json: bool,
+
+    /// Concise JSON for agents: complete snapshots without geometry or routine metadata
+    #[arg(long, conflicts_with_all = ["human", "json"])]
+    compact: bool,
 
     /// Stable namespace for this logical Agent's observations and commands
     #[arg(long, value_name = "KEY")]
@@ -198,11 +203,6 @@ enum Cmd {
         /// Max elements to return
         #[arg(long, default_value = "50")]
         limit: usize,
-        /// Return only elements that changed since the last snapshot of this app.
-        /// First call (no cache) returns the full snapshot with `first_snapshot:true`.
-        /// Element identity is (role, round(x), round(y)); content change = title/value/size.
-        #[arg(long)]
-        diff: bool,
         /// Save a window screenshot with each ref's bounding box + number drawn on it.
         /// VLM agent flow: look at the PNG, identify element visually, then `cu click <ref>`.
         /// Defaults to COMPUTER_PILOT_OUTPUT_DIR or the private runtime output directory.
@@ -1227,7 +1227,7 @@ fn main() {
         }
         Err(error) => error.exit(),
     };
-    let json = cli.json || (!cli.human && !std::io::stdout().is_terminal());
+    let json = cli.json || cli.compact || (!cli.human && !std::io::stdout().is_terminal());
     let client_key = cli
         .client_key
         .or_else(|| std::env::var("COMPUTER_PILOT_CLIENT_KEY").ok())
@@ -1286,7 +1286,7 @@ fn main() {
             test_frontmost_override: std::env::var("CU_TEST_FRONTMOST_OVERRIDE").ok(),
         };
         match broker::run(options) {
-            Ok(result) => replay_broker_result(result, json),
+            Ok(result) => replay_broker_result(result, json, cli.compact),
             Err(error) => fail_main(error.into_cu_error(), json),
         }
         return;
@@ -1350,18 +1350,21 @@ fn broker_child_argv_from(raw: &[String], json: bool) -> Vec<String> {
         argv.push(arg.clone());
         index += 1;
     }
-    if !argv.iter().any(|arg| arg == "--json" || arg == "--human") {
+    if !argv
+        .iter()
+        .any(|arg| matches!(arg.as_str(), "--json" | "--human" | "--compact"))
+    {
         argv.insert(0, if json { "--json" } else { "--human" }.into());
     }
     argv
 }
 
-fn replay_broker_result(result: broker::RunResult, json: bool) {
+fn replay_broker_result(result: broker::RunResult, json: bool, compact: bool) {
     let mut stdout = result.stdout.clone();
     let mut stderr = result.stderr.clone();
     if json {
-        stdout = attach_command_metadata(&stdout, &result);
-        stderr = attach_command_metadata(&stderr, &result);
+        stdout = attach_command_metadata(&stdout, &result, compact);
+        stderr = attach_command_metadata(&stderr, &result, compact);
     }
     if !stdout.is_empty() {
         let _ = std::io::stdout().write_all(stdout.as_bytes());
@@ -1380,7 +1383,7 @@ fn replay_broker_result(result: broker::RunResult, json: bool) {
     }
 }
 
-fn attach_command_metadata(output: &str, result: &broker::RunResult) -> String {
+fn attach_command_metadata(output: &str, result: &broker::RunResult, compact: bool) -> String {
     let Ok(mut value) = serde_json::from_str::<serde_json::Value>(output.trim()) else {
         return output.into();
     };
@@ -1394,6 +1397,18 @@ fn attach_command_metadata(output: &str, result: &broker::RunResult) -> String {
     );
     if result.replayed {
         object.insert("replayed".into(), true.into());
+    }
+    if compact {
+        compact::apply(&mut value);
+    } else if value.get("ok") == Some(&serde_json::Value::Bool(true)) {
+        let snapshot = if value.get("snapshot").is_some() {
+            &mut value["snapshot"]
+        } else {
+            &mut value
+        };
+        if snapshot.get("elements").is_some() {
+            snapshot["displays"] = serde_json::to_value(display::list()).unwrap_or_default();
+        }
     }
     serde_json::to_string(&value).unwrap_or_else(|_| output.into())
 }
@@ -1473,11 +1488,10 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
         Cmd::Snapshot {
             app,
             limit,
-            diff,
             annotated,
             with_screenshot,
             output,
-        } => cmd_snapshot(json, app, limit, diff, annotated, with_screenshot, output),
+        } => cmd_snapshot(json, app, limit, annotated, with_screenshot, output),
         Cmd::ObserveRegion {
             x,
             y,
@@ -1905,12 +1919,10 @@ fn cmd_apps(json: bool) -> Result<(), CuError> {
     Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
 fn cmd_snapshot(
     json: bool,
     app: Option<String>,
     limit: usize,
-    diff_mode: bool,
     annotated: bool,
     with_screenshot: bool,
     output: Option<String>,
@@ -1923,13 +1935,7 @@ fn cmd_snapshot(
             .unwrap_or_else(|| "snapshot failed".into())
             .into());
     }
-    broker::publish_observation(pid, &result);
-
-    // Capture the previous cache before overwriting — `--diff` reads it below.
-    // Every explicit snapshot remains the baseline for the next --diff.
-    // Stale-ref enforcement uses Broker observations, not this disk cache.
-    let previous = diff_mode.then(|| diff::load_previous(pid)).flatten();
-    let _ = diff::save_current(pid, &result.elements);
+    broker::publish_observation(&result);
 
     // --with-screenshot (skipped when --annotated is set since annotated already
     // bakes a screenshot into the response).
@@ -1967,76 +1973,19 @@ fn cmd_snapshot(
         None
     };
 
-    if !diff_mode {
-        if json {
-            // D1: always attach the active displays list so the agent can resolve
-            // (x,y) → screen for any element in the snapshot.
-            let mut full = serde_json::to_value(&result).unwrap_or_default();
-            full["displays"] = serde_json::to_value(display::list()).unwrap_or_default();
-            attach_snapshot_file(&mut full, &annotated_info, &plain_screenshot);
-            emit(&full);
-        } else {
-            print_snapshot_human(&result);
-            if let Some(file) = &annotated_info {
-                println!("Annotated screenshot: {}", file.path);
-            } else if let Some(file) = &plain_screenshot {
-                println!("Screenshot: {}", file.path);
-            }
-        }
-        return Ok(());
-    }
-
-    // Diff mode: compare against the cached previous snapshot for this pid.
-    // (`previous` was captured above before overwriting the cache.)
-
-    match previous {
-        None => {
-            // First call: no diff possible — return full snapshot with a flag.
-            if json {
-                let mut full = serde_json::to_value(&result).unwrap_or_default();
-                full["first_snapshot"] = serde_json::Value::Bool(true);
-                full["displays"] = serde_json::to_value(display::list()).unwrap_or_default();
-                attach_snapshot_file(&mut full, &annotated_info, &plain_screenshot);
-                emit(&full);
-            } else {
-                println!("(first snapshot for pid {pid} — no diff yet)");
-                print_snapshot_human(&result);
-                if let Some(file) = &annotated_info {
-                    println!("Annotated screenshot: {}", file.path);
-                } else if let Some(file) = &plain_screenshot {
-                    println!("Screenshot: {}", file.path);
-                }
-            }
-            Ok(())
-        }
-        Some(prev) => {
-            let d = diff::diff(&prev, &result.elements);
-            if json {
-                let mut body = serde_json::json!({
-                    "ok": true,
-                    "app": result.app,
-                    "window": result.window,
-                    "window_frame": result.window_frame,
-                    "focused": result.focused,
-                    "modal": result.modal,
-                    "diff": d,
-                    "limit": limit,
-                    "truncated": result.truncated,
-                    "displays": display::list(),
-                });
-                attach_snapshot_file(&mut body, &annotated_info, &plain_screenshot);
-                emit(&body);
-            } else {
-                print_diff_human(&result, &d);
-                if let Some(file) = &annotated_info {
-                    println!("Annotated screenshot: {}", file.path);
-                } else if let Some(file) = &plain_screenshot {
-                    println!("Screenshot: {}", file.path);
-                }
-            }
-            Ok(())
+    if json {
+        let mut value = snapshot_value(&result);
+        attach_snapshot_file(&mut value, &annotated_info, &plain_screenshot);
+        emit(&value);
+    } else {
+        print_snapshot_human(&result);
+        if let Some(file) = &annotated_info {
+            println!("Annotated screenshot: {}", file.path);
+        } else if let Some(file) = &plain_screenshot {
+            println!("Screenshot: {}", file.path);
         }
     }
+    Ok(())
 }
 
 fn attach_snapshot_file(
@@ -2087,7 +2036,7 @@ fn cmd_observe_region(
             .unwrap_or_else(|| "snapshot failed".into())
             .into());
     }
-    broker::publish_observation(pid, &snap);
+    broker::publish_observation(&snap);
 
     let rx0 = x;
     let ry0 = y;
@@ -2167,7 +2116,7 @@ fn cmd_nearest(
             .unwrap_or_else(|| "snapshot failed".into())
             .into());
     }
-    broker::publish_observation(pid, &snap);
+    broker::publish_observation(&snap);
 
     // Distance from (x, y) to each element's bounding box (0 if point is inside).
     let mut best: Option<(f64, &ax::Element)> = None;
@@ -2278,7 +2227,7 @@ fn cmd_find(
             .unwrap_or_else(|| "snapshot failed".into())
             .into());
     }
-    broker::publish_observation(pid, &snap);
+    broker::publish_observation(&snap);
 
     let role_filter = role.as_deref().map(|r| r.to_lowercase());
     let title_contains_lc = title_contains.as_deref().map(|s| s.to_lowercase());
@@ -2538,7 +2487,7 @@ fn prepare_ref_action(
 
 fn tree_changed(before: &[ax::Element], after: &[ax::Element]) -> bool {
     let changes = diff::diff(before, after);
-    !changes.added.is_empty() || !changes.changed.is_empty() || !changes.removed.is_empty()
+    changes.added != 0 || changes.changed != 0 || changes.removed != 0
 }
 
 fn same_focused_element(before: &ax::FocusedSummary, after: &ax::FocusedSummary) -> bool {
@@ -2695,7 +2644,7 @@ fn focused_input_before_type(
         .with_diagnostics(serde_json::json!({
             "dispatched": false,
             "focused": focused,
-            "snapshot": compact_action_snapshot(&snapshot),
+            "snapshot": snapshot_value(&snapshot),
         })));
     }
     Ok((focused.unwrap(), snapshot.elements))
@@ -2777,20 +2726,20 @@ fn cmd_type(
             0
         };
         std::thread::sleep(Duration::from_millis(stability_delay));
-        Some((pid, waited + stability_delay, ax::snapshot(pid, name, 200)))
+        Some((waited + stability_delay, ax::snapshot(pid, name, 200)))
     } else {
         None
     };
     let post_input = captured
         .as_ref()
-        .and_then(|(_, _, snapshot)| snapshot.focused.as_ref());
+        .and_then(|(_, snapshot)| snapshot.focused.as_ref());
     let effect_verified =
         pre_input
             .as_ref()
             .filter(|_| !no_verify)
             .and_then(|(before, before_elements)| {
                 let values = if webarea_input {
-                    let after_elements = &captured.as_ref()?.2.elements;
+                    let after_elements = &captured.as_ref()?.1.elements;
                     (
                         focused_tree_value(before, before_elements),
                         focused_tree_value(before, after_elements),
@@ -2814,7 +2763,7 @@ fn cmd_type(
     if effect_verified == Some(false) {
         let snapshot = captured
             .as_ref()
-            .map(|(_, _, snapshot)| compact_action_snapshot(snapshot));
+            .map(|(_, snapshot)| snapshot_value(snapshot));
         return Err(CuError::msg(
             "verification failed: text was dispatched, but the focused target did not change",
         )
@@ -2852,7 +2801,7 @@ fn cmd_type(
             "clipboard_hint": clipboard_hint,
             "focused_before": pre_input.as_ref().map(|(focused, _)| focused),
             "focused_after": post_input,
-            "snapshot": captured.as_ref().map(|(_, _, snapshot)| compact_action_snapshot(snapshot)),
+            "snapshot": captured.as_ref().map(|(_, snapshot)| snapshot_value(snapshot)),
         })));
     }
 
@@ -2989,17 +2938,13 @@ fn cmd_perform(
     };
     let snapshot_app = fixed_target_selector(Some(pid), &app);
 
-    let (selector_kind, selector_value, available) = if let Some(p) = ax_path.as_deref() {
+    let (selector_kind, selector_value) = if let Some(p) = ax_path.as_deref() {
         ax::ax_perform_by_path(pid, p, &action)?;
-        (
-            "ax-path",
-            serde_json::Value::String(p.to_string()),
-            Vec::<String>::new(),
-        )
+        ("ax-path", serde_json::Value::String(p.to_string()))
     } else {
         let r = ref_id.unwrap();
-        let avail = ax::ax_perform(pid, r, limit, &action)?;
-        ("ref", serde_json::Value::Number(r.into()), avail)
+        ax::ax_perform(pid, r, limit, &action)?;
+        ("ref", serde_json::Value::Number(r.into()))
     };
 
     let mut result = serde_json::json!({
@@ -3010,7 +2955,6 @@ fn cmd_perform(
         "method": "ax-perform",
         "dispatched": true,
         "effect_verified": serde_json::Value::Null,
-        "available_actions": available,
     });
     result["effect_advice"] = "AX accepted the action. Check the final state for the intended effect; use cu wait for asynchronous transitions.".into();
     let _ = capture_and_maybe_attach_snapshot(
@@ -3091,7 +3035,7 @@ fn cmd_key(
     let effect_verified = pre_snapshot
         .as_ref()
         .zip(captured.as_ref())
-        .and_then(|(before, (_, _, after))| enter_effect_verified(before, after));
+        .and_then(|(before, (_, after))| enter_effect_verified(before, after));
     if effect_verified == Some(false) {
         return Err(CuError::msg(
             "verification failed: Enter was dispatched, but the focused input and target UI did not change",
@@ -3105,7 +3049,7 @@ fn cmd_key(
             "method": method,
             "combo": combo,
             "effect_verified": false,
-            "snapshot": captured.as_ref().map(|(_, _, snapshot)| compact_action_snapshot(snapshot)),
+            "snapshot": captured.as_ref().map(|(_, snapshot)| snapshot_value(snapshot)),
         })));
     }
     let mut result = serde_json::json!({
@@ -3913,7 +3857,7 @@ fn cmd_why(json: bool, ref_id: usize, app: Option<String>, limit: usize) -> Resu
             .unwrap_or_else(|| "snapshot failed".into())
             .into());
     }
-    broker::publish_observation(pid, &snap);
+    broker::publish_observation(&snap);
 
     let snapshot_size = snap.elements.len();
     let element = snap.elements.iter().find(|e| e.ref_id == ref_id);
@@ -4093,7 +4037,7 @@ fn cmd_state(
             .unwrap_or_else(|| "AX snapshot failed".into())
             .into());
     }
-    broker::publish_observation(pid, &snap);
+    broker::publish_observation(&snap);
 
     // Window list (best-effort — empty list is allowed if app has no windows yet)
     let windows = ax::list_windows(pid, &name).unwrap_or_default();
@@ -4133,7 +4077,6 @@ fn cmd_state(
             "pid": pid,
             "frontmost": frontmost,
             "windows": windows,
-            "displays": display::list(),
             "elements": snap.elements,
             "snapshot_size": snap.elements.len(),
             "tree_truncated": snap.truncated,
@@ -4345,13 +4288,6 @@ const RECIPES: &[(&str, &str, &str)] = &[
         "# VLM narrowed the region; cu lists the candidates\n\
          cu observe-region 480 200 400 300 --app Mail --mode center | \\\n  \
            jq '.matches[] | {ref, role, title}'",
-    ),
-    (
-        "diff-after-action",
-        "Cheap re-snapshot — only return changed elements",
-        "cu snapshot Mail --limit 50 --diff > /dev/null   # baseline\n\
-         cu click 12 --app Mail --no-snapshot\n\
-         cu snapshot Mail --limit 50 --diff               # +N ~M -K only",
     ),
     (
         "menu-click",
@@ -4642,64 +4578,6 @@ fn print_snapshot_human(snap: &ax::SnapshotResult) {
     }
 }
 
-fn print_diff_human(snap: &ax::SnapshotResult, d: &diff::Diff) {
-    let app = if snap.app.is_empty() {
-        "Unknown"
-    } else {
-        &snap.app
-    };
-    let win = if snap.window.is_empty() {
-        "Unknown"
-    } else {
-        &snap.window
-    };
-    println!("[app] {app} — \"{win}\" (diff)");
-    if let Some(ref m) = snap.modal {
-        let title = m.title.as_deref().unwrap_or("");
-        println!("⚠ Modal: {} \"{}\"", m.role, title);
-    }
-    if let Some(ref f) = snap.focused {
-        let ref_part = match f.ref_id {
-            Some(r) => format!("[{r}] "),
-            None => "(off-snapshot) ".to_string(),
-        };
-        let title = f.title.as_deref().unwrap_or("");
-        println!("Focused: {ref_part}{} \"{title}\"", f.role);
-    }
-    if d.added.is_empty() && d.changed.is_empty() && d.removed.is_empty() {
-        println!(
-            "(no changes — {} elements unchanged of {})",
-            d.unchanged_count, d.total
-        );
-        return;
-    }
-    for el in &d.added {
-        let label = el.title.as_deref().or(el.value.as_deref()).unwrap_or("");
-        println!(
-            "+ [{}] {} \"{}\" ({},{} {}×{})",
-            el.ref_id, el.role, label, el.x, el.y, el.width, el.height
-        );
-    }
-    for el in &d.changed {
-        let label = el.title.as_deref().or(el.value.as_deref()).unwrap_or("");
-        println!(
-            "~ [{}] {} \"{}\" ({},{} {}×{})",
-            el.ref_id, el.role, label, el.x, el.y, el.width, el.height
-        );
-    }
-    for ref_id in &d.removed {
-        println!("- [{ref_id}] (removed)");
-    }
-    println!(
-        "Summary: +{} ~{} -{} (={} unchanged of {})",
-        d.added.len(),
-        d.changed.len(),
-        d.removed.len(),
-        d.unchanged_count,
-        d.total
-    );
-}
-
 /// Compares the pre-action AX state against the snapshot already attached to
 /// `result` by the post-action snapshot helper, then enriches the response with a
 /// `verified` flag and per-action diff stats. Used by default click verification.
@@ -4769,16 +4647,16 @@ fn attach_verification(
     };
 
     let d = diff::diff(pre, post);
-    let verified = !(d.added.is_empty() && d.changed.is_empty() && d.removed.is_empty());
+    let verified = d.added != 0 || d.changed != 0 || d.removed != 0;
 
     if let Some(obj) = result.as_object_mut() {
         obj.insert("verified".to_string(), serde_json::Value::Bool(verified));
         obj.insert(
             "verify_diff".to_string(),
             serde_json::json!({
-                "added": d.added.len(),
-                "changed": d.changed.len(),
-                "removed": d.removed.len(),
+                "added": d.added,
+                "changed": d.changed,
+                "removed": d.removed,
             }),
         );
         if !verified {
@@ -4798,7 +4676,7 @@ fn attach_verification(
                  (3) if no usable ref exists, use `cu perform <ref|--ax-path> AXPress --app <Name>` against a parent element. \
                  Do not activate by application name or fall back to the global-tap path; both can target the wrong process when duplicate app instances are running."
             } else if method == "ax-action" {
-                "AX action returned ok but the tree didn't change. The action may have triggered an async operation (network, navigation, animation) whose result hasn't landed yet. Either re-run `cu snapshot --diff` after a short wait, or use `cu wait --text <expected> --app <Name>` / `cu wait --gone <ref> --app <Name>` to block until the transition lands."
+                "AX action returned ok but the tree didn't change. The action may have triggered an async operation (network, navigation, animation) whose result hasn't landed yet. Either read `cu snapshot <Name>` at the next decision boundary, or use `cu wait --text <expected> --app <Name>` / `cu wait --gone <ref> --app <Name>` to block until the transition lands."
             } else if method.starts_with("unicode-pid") || method.starts_with("paste-pid") {
                 "AX tree unchanged after `cu type`. Possibilities: (1) no input field was focused — click the input first (`cu click <ref> --app <Name>`); (2) the app's text widget doesn't update AX on every keystroke — wait briefly and re-snapshot; (3) IME swallowed the input — switch to `--paste` (or rely on auto-paste for CJK / chat-app targets, which is on by default)."
             } else {
@@ -4812,84 +4690,28 @@ fn attach_verification(
     }
 }
 
-const ACTION_SNAPSHOT_TEXT_LIMIT: usize = 240;
-
-fn compact_action_text(value: &str) -> (String, bool) {
-    let mut chars = value.chars();
-    let compact: String = chars.by_ref().take(ACTION_SNAPSHOT_TEXT_LIMIT).collect();
-    if chars.next().is_some() {
-        (format!("{compact}..."), true)
-    } else {
-        (compact, false)
-    }
-}
-
-fn compact_action_snapshot(snap: &ax::SnapshotResult) -> serde_json::Value {
-    let mut value = serde_json::to_value(snap).unwrap_or_default();
-    let total_elements = snap.elements.len();
-    if let Some(obj) = value.as_object_mut() {
-        let elements = snap
-            .elements
-            .iter()
-            .map(|element| {
-                let mut element_value = serde_json::to_value(element).unwrap_or_default();
-                if let Some(element_obj) = element_value.as_object_mut() {
-                    element_obj.remove("axPath");
-                    for field in ["title", "value"] {
-                        let Some(text) = element_obj
-                            .get(field)
-                            .and_then(serde_json::Value::as_str)
-                            .map(str::to_string)
-                        else {
-                            continue;
-                        };
-                        let (compact, truncated) = compact_action_text(&text);
-                        if truncated {
-                            element_obj.insert(field.into(), compact.into());
-                            element_obj.insert(format!("{field}_truncated"), true.into());
-                        }
-                    }
-                }
-                element_value
-            })
-            .collect::<Vec<_>>();
-        obj.insert("elements".into(), elements.into());
-        obj.insert(
-            "displays".into(),
-            serde_json::to_value(display::list()).unwrap_or_default(),
-        );
-        obj.insert("action_snapshot_compact".into(), true.into());
-        obj.insert("total_elements".into(), total_elements.into());
-        let text_truncated = obj["elements"].as_array().is_some_and(|elements| {
-            elements
-                .iter()
-                .any(|e| e.get("title_truncated").is_some() || e.get("value_truncated").is_some())
-        });
-        if snap.truncated || text_truncated {
-            obj.insert("snapshot_hint".into(), "Snapshot is partial; use `cu snapshot <app> --limit <N>` for missing elements or full text.".into());
-        }
-    }
-    value
+fn snapshot_value(snapshot: &ax::SnapshotResult) -> serde_json::Value {
+    serde_json::to_value(snapshot).unwrap_or_default()
 }
 
 fn capture_action_snapshot(
     app: &Option<String>,
     limit: usize,
     observer: Option<observer::ActionObserver>,
-) -> Option<(i32, u64, ax::SnapshotResult)> {
+) -> Option<(u64, ax::SnapshotResult)> {
     let (pid, name) = system::resolve_target_app(app).ok()?;
     let waited = observer::wait_for_settle(observer, POST_ACTION_DELAY_MS);
     let snap = ax::snapshot(pid, &name, limit);
-    Some((pid, waited, snap))
+    Some((waited, snap))
 }
 
 fn attach_captured_snapshot(
     result: &mut serde_json::Value,
     json: bool,
     no_snapshot: bool,
-    captured: &(i32, u64, ax::SnapshotResult),
+    captured: &(u64, ax::SnapshotResult),
 ) {
-    let (pid, waited, snap) = captured;
+    let (waited, snap) = captured;
     if !snap.ok {
         result["snapshot_error"] = snap
             .error
@@ -4901,10 +4723,10 @@ fn attach_captured_snapshot(
     if !json || no_snapshot {
         return;
     }
-    broker::publish_observation(*pid, snap);
+    broker::publish_observation(snap);
     if let Some(obj) = result.as_object_mut() {
         obj.insert("settle_ms".into(), (*waited).into());
-        obj.insert("snapshot".into(), compact_action_snapshot(snap));
+        obj.insert("snapshot".into(), snapshot_value(snap));
     }
 }
 
@@ -4925,7 +4747,7 @@ fn capture_and_maybe_attach_snapshot(
     }
     let captured = capture_action_snapshot(app, limit, observer)?;
     attach_captured_snapshot(result, json, no_snapshot, &captured);
-    Some(captured.2)
+    Some(captured.1)
 }
 
 #[cfg(test)]
@@ -5015,8 +4837,10 @@ mod tests {
     fn verification_snapshot(ok: bool) -> ax::SnapshotResult {
         ax::SnapshotResult {
             ok,
+            pid: 123,
             app: "Fixture".into(),
             window: "Test".into(),
+            window_id: 10,
             window_frame: None,
             focused: ok.then(|| focused(Some(1), "textfield", Some("window/textfield"))),
             modal: None,
@@ -5086,7 +4910,7 @@ mod tests {
 
     #[test]
     fn failed_observation_is_reported_without_publishing_a_snapshot() {
-        let captured = (123, 10, verification_snapshot(false));
+        let captured = (10, verification_snapshot(false));
         for no_snapshot in [false, true] {
             let mut result = serde_json::json!({"ok": true});
             attach_captured_snapshot(&mut result, true, no_snapshot, &captured);
@@ -5229,26 +5053,5 @@ mod tests {
             let error = parse_region(input).unwrap_err();
             assert!(error.error.contains("must be > 0"), "input={input}");
         }
-    }
-
-    #[test]
-    fn action_text_compaction_counts_unicode_scalars() {
-        let short = "a".repeat(ACTION_SNAPSHOT_TEXT_LIMIT - 1);
-        assert_eq!(compact_action_text(&short), (short, false));
-
-        let exact = "b".repeat(ACTION_SNAPSHOT_TEXT_LIMIT);
-        assert_eq!(compact_action_text(&exact), (exact, false));
-
-        let long = "c".repeat(ACTION_SNAPSHOT_TEXT_LIMIT + 1);
-        let (compact, truncated) = compact_action_text(&long);
-        assert!(truncated);
-        assert!(compact.ends_with("..."));
-        assert_eq!(compact.chars().count(), ACTION_SNAPSHOT_TEXT_LIMIT + 3);
-
-        let unicode = "界".repeat(ACTION_SNAPSHOT_TEXT_LIMIT + 1);
-        let (compact, truncated) = compact_action_text(&unicode);
-        assert!(truncated);
-        assert_eq!(compact.matches('界').count(), ACTION_SNAPSHOT_TEXT_LIMIT);
-        assert!(compact.ends_with("..."));
     }
 }

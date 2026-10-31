@@ -1,0 +1,2227 @@
+{
+  "manifest": {
+    "protocol_version": 2,
+    "single_turn": true,
+    "sequence": [
+      {
+        "label": "triage-1-native",
+        "mode": "triage",
+        "repeat": 1,
+        "arm": "native"
+      },
+      {
+        "label": "triage-1-cu",
+        "mode": "triage",
+        "repeat": 1,
+        "arm": "cu"
+      },
+      {
+        "label": "triage-2-cu",
+        "mode": "triage",
+        "repeat": 2,
+        "arm": "cu"
+      },
+      {
+        "label": "triage-2-native",
+        "mode": "triage",
+        "repeat": 2,
+        "arm": "native"
+      },
+      {
+        "label": "triage-3-native",
+        "mode": "triage",
+        "repeat": 3,
+        "arm": "native"
+      },
+      {
+        "label": "triage-3-cu",
+        "mode": "triage",
+        "repeat": 3,
+        "arm": "cu"
+      },
+      {
+        "label": "triage-4-cu",
+        "mode": "triage",
+        "repeat": 4,
+        "arm": "cu"
+      },
+      {
+        "label": "triage-4-native",
+        "mode": "triage",
+        "repeat": 4,
+        "arm": "native"
+      }
+    ],
+    "settings": {
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null
+    },
+    "fingerprints": {
+      "target/release/cu": "c40d5f01b8af75d0aaa8cd7f80c8fdb1933a086287fa763ce4caf48459f9f719",
+      "tests/fixtures/varied-workflows.swift": "5ac65cfd49a34286cb2292a8431434775ac24531b149be75566008dfe3857cb3",
+      "tests/agent/benchmark_varied_workflows.py": "5e7b815e55440b96c475f1ba239780605d255d3e5adde77ad4a7a2e2ff4f9660",
+      "tests/agent/collect_codex_benchmark.py": "304799b5a47f107803e77cc2dad5295baa0b31c0336c0354ab9ae92703b90f7c",
+      "plugin/skills/computer-pilot/SKILL.md": "b862446d4feb9e807e3c94a85ab2fd98acd9274bf98f5d394ce5b60f885d00b3",
+      "plugin/skills/computer-pilot/scripts/session.sh": "8fe2a050a3e91844ba64ddf64bea38d011ea48f7254a073b48de4ef4cf14b937"
+    },
+    "cu_commit": "ba8abaf0402d5e0f0a7be12259eeec6ab33de510"
+  },
+  "actual_order": [
+    "triage-1-native",
+    "triage-1-cu",
+    "triage-2-cu",
+    "triage-2-native",
+    "triage-3-native",
+    "triage-3-cu",
+    "triage-4-cu",
+    "triage-4-native"
+  ],
+  "attempts": [
+    {
+      "label": "triage-1-native",
+      "mode": "triage",
+      "repeat": 1,
+      "arm": "native",
+      "status": "passed",
+      "reasons": [],
+      "pid": 85555,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-complete-snapshot-v2/triage-1-native/VariedWorkflow.app",
+      "runtime_home": null,
+      "source_sha256": "48b49543deb77e7d8f987936c4ccd399f4cc1216b013cc53e13eae194aa3741d",
+      "client_key": "triage-1-native",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-complete-snapshot-v2/triage-1-native/output",
+      "thread_id": "01a190a9-c3a6-7551-9789-d1e03a3a7ddf",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "native",
+          "thread_id": "01a190a9-c3a6-7551-9789-d1e03a3a7ddf",
+          "turn_id": "01a190a9-c4c3-7c81-a98a-4ae39feb226e",
+          "started_at": "2026-10-31T06:33:27.558Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T06:35:04.444Z",
+          "elapsed_ms": 96898,
+          "final": "DONE",
+          "model_calls": 22,
+          "tokens": {
+            "input_tokens": 792359,
+            "cached_input_tokens": 751360,
+            "output_tokens": 1915,
+            "reasoning_output_tokens": 636,
+            "total_tokens": 794274
+          },
+          "tool_calls": 21,
+          "tool_output_chars": 43323,
+          "tool_errors": 0,
+          "tool_interval_ms": 12887,
+          "non_tool_interval_ms": 84011,
+          "label": "triage-1-native"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "filter_and_search_used": true
+        },
+        "expected": {
+          "T101": {
+            "Queue": "East desk",
+            "SLA hours": "8",
+            "Urgent": "true",
+            "Note": "T101 / East desk / 8h"
+          },
+          "T103": {
+            "Queue": "East desk",
+            "SLA hours": "2",
+            "Urgent": "false",
+            "Note": "T103 / East desk / 2h"
+          },
+          "T104": {
+            "Queue": "West desk",
+            "SLA hours": "4",
+            "Urgent": "true",
+            "Note": "T104 / West desk / 4h"
+          },
+          "T105": {
+            "Queue": "East desk",
+            "SLA hours": "8",
+            "Urgent": "true",
+            "Note": "T105 / East desk / 8h"
+          },
+          "T107": {
+            "Queue": "East desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T107 / East desk / 24h"
+          },
+          "T108": {
+            "Queue": "West desk",
+            "SLA hours": "4",
+            "Urgent": "true",
+            "Note": "T108 / West desk / 4h"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "filter-open",
+              "ID": "T101"
+            },
+            {
+              "action": "open",
+              "ID": "T101"
+            },
+            {
+              "action": "save",
+              "ID": "T101",
+              "Note": "T101 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T103"
+            },
+            {
+              "action": "save",
+              "ID": "T103",
+              "Note": "T103 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T104"
+            },
+            {
+              "action": "save",
+              "ID": "T104",
+              "Note": "T104 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T105"
+            },
+            {
+              "action": "save",
+              "ID": "T105",
+              "Note": "T105 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T107"
+            },
+            {
+              "action": "save",
+              "ID": "T107",
+              "Note": "T107 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T108"
+            },
+            {
+              "action": "save",
+              "ID": "T108",
+              "Note": "T108 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            {
+              "action": "search",
+              "ID": "T108",
+              "query": "T103"
+            },
+            {
+              "action": "open",
+              "ID": "T103"
+            },
+            {
+              "action": "save",
+              "ID": "T103",
+              "Note": "T103 / East desk / 2h",
+              "Queue": "East desk",
+              "SLA hours": "2",
+              "Urgent": "false"
+            },
+            {
+              "action": "finished",
+              "ID": "T103"
+            }
+          ],
+          "mode": "triage",
+          "order": [
+            "T101",
+            "T102",
+            "T103",
+            "T104",
+            "T105",
+            "T106",
+            "T107",
+            "T108"
+          ],
+          "records": {
+            "T101": {
+              "Note": "T101 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            "T103": {
+              "Note": "T103 / East desk / 2h",
+              "Queue": "East desk",
+              "SLA hours": "2",
+              "Urgent": "false"
+            },
+            "T104": {
+              "Note": "T104 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            "T105": {
+              "Note": "T105 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            "T107": {
+              "Note": "T107 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            "T108": {
+              "Note": "T108 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 96898,
+      "combined_turn_ms": 96898,
+      "evidence_sha256": {
+        "brief.txt": "1f5922715a5a267727238de43d19afcc46aa0f9035781652b13e8d9eb641aa45",
+        "source.json": "48b49543deb77e7d8f987936c4ccd399f4cc1216b013cc53e13eae194aa3741d",
+        "saved.json": "2029111a3c5b0705f018ac413cc185ee331fe9616866245c0b21f4237c2b5b0e",
+        "trace.json": "0a767dbdc5485794f89d87c49c2ad83cb24d6c0f7d79648fbba5fc7a968982f0"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Fresh task; only assigned brief and native App APIs; no coaching or source/saved reads. Collected and stopped after task completed/idle."
+      }
+    },
+    {
+      "label": "triage-1-cu",
+      "mode": "triage",
+      "repeat": 1,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 86605,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-complete-snapshot-v2/triage-1-cu/VariedWorkflow.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-varied-co_zu916",
+      "source_sha256": "48b49543deb77e7d8f987936c4ccd399f4cc1216b013cc53e13eae194aa3741d",
+      "client_key": "triage-1-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-complete-snapshot-v2/triage-1-cu/output",
+      "thread_id": "01a190ab-6fef-79b0-ab94-b5c1dd91f21c",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a190ab-6fef-79b0-ab94-b5c1dd91f21c",
+          "turn_id": "01a190ab-70cd-7930-8483-557d0f09afb5",
+          "started_at": "2026-10-31T06:35:17.098Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T06:36:56.602Z",
+          "elapsed_ms": 99504,
+          "final": "DONE",
+          "model_calls": 24,
+          "tokens": {
+            "input_tokens": 863246,
+            "cached_input_tokens": 817152,
+            "output_tokens": 3646,
+            "reasoning_output_tokens": 984,
+            "total_tokens": 866892
+          },
+          "tool_calls": 23,
+          "tool_output_chars": 40229,
+          "tool_errors": 0,
+          "tool_interval_ms": 5148,
+          "non_tool_interval_ms": 94356,
+          "label": "triage-1-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "filter_and_search_used": true
+        },
+        "expected": {
+          "T101": {
+            "Queue": "East desk",
+            "SLA hours": "8",
+            "Urgent": "true",
+            "Note": "T101 / East desk / 8h"
+          },
+          "T103": {
+            "Queue": "East desk",
+            "SLA hours": "2",
+            "Urgent": "false",
+            "Note": "T103 / East desk / 2h"
+          },
+          "T104": {
+            "Queue": "West desk",
+            "SLA hours": "4",
+            "Urgent": "true",
+            "Note": "T104 / West desk / 4h"
+          },
+          "T105": {
+            "Queue": "East desk",
+            "SLA hours": "8",
+            "Urgent": "true",
+            "Note": "T105 / East desk / 8h"
+          },
+          "T107": {
+            "Queue": "East desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T107 / East desk / 24h"
+          },
+          "T108": {
+            "Queue": "West desk",
+            "SLA hours": "4",
+            "Urgent": "true",
+            "Note": "T108 / West desk / 4h"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "filter-open",
+              "ID": "T101"
+            },
+            {
+              "action": "open",
+              "ID": "T101"
+            },
+            {
+              "action": "save",
+              "ID": "T101",
+              "Note": "T101 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T103"
+            },
+            {
+              "action": "save",
+              "ID": "T103",
+              "Note": "T103 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T104"
+            },
+            {
+              "action": "save",
+              "ID": "T104",
+              "Note": "T104 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T105"
+            },
+            {
+              "action": "save",
+              "ID": "T105",
+              "Note": "T105 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T107"
+            },
+            {
+              "action": "save",
+              "ID": "T107",
+              "Note": "T107 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T108"
+            },
+            {
+              "action": "save",
+              "ID": "T108",
+              "Note": "T108 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            {
+              "action": "search",
+              "ID": "T108",
+              "query": "T103"
+            },
+            {
+              "action": "open",
+              "ID": "T103"
+            },
+            {
+              "action": "save",
+              "ID": "T103",
+              "Note": "T103 / East desk / 2h",
+              "Queue": "East desk",
+              "SLA hours": "2",
+              "Urgent": "false"
+            },
+            {
+              "action": "finished",
+              "ID": "T103"
+            }
+          ],
+          "mode": "triage",
+          "order": [
+            "T101",
+            "T102",
+            "T103",
+            "T104",
+            "T105",
+            "T106",
+            "T107",
+            "T108"
+          ],
+          "records": {
+            "T101": {
+              "Note": "T101 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            "T103": {
+              "Note": "T103 / East desk / 2h",
+              "Queue": "East desk",
+              "SLA hours": "2",
+              "Urgent": "false"
+            },
+            "T104": {
+              "Note": "T104 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            "T105": {
+              "Note": "T105 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            "T107": {
+              "Note": "T107 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            "T108": {
+              "Note": "T108 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 99504,
+      "combined_turn_ms": 99504,
+      "evidence_sha256": {
+        "brief.txt": "31e3b1cee30fb8eda0c95479723268b52430779c03aed2882805877e50cf2459",
+        "source.json": "48b49543deb77e7d8f987936c4ccd399f4cc1216b013cc53e13eae194aa3741d",
+        "saved.json": "2029111a3c5b0705f018ac413cc185ee331fe9616866245c0b21f4237c2b5b0e",
+        "cu-env.sh": "3bbf3d9983d563ed9002d8842a04fbb594ccb6c37e424b50ff6c5013aef8988c",
+        "trace.json": "c071da3f57ca827716ada75f6422d16893f4499cef179ebeaabcf50b1777be5c"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Fresh task; only assigned brief, skill/helper, task shell config and cu PID actions. Complete compact snapshots throughout, no ordinary JSON fallback. No coaching or source/saved reads; stopped after completed/idle."
+      }
+    },
+    {
+      "label": "triage-2-cu",
+      "mode": "triage",
+      "repeat": 2,
+      "arm": "cu",
+      "status": "excluded",
+      "reasons": [
+        "Task shell configuration path contained a space before cu-env.sh. A subsequent untargeted cu click failed with observation_required, then snapshot observed a non-fixture foreground app. Final fixture values were correct, but assigned-app-only protocol was violated. Excluded without replacement; mixed shell output ended at exit 0 so aggregate tool_errors does not count the embedded failure. Coordinator did not coach; collected/stopped after completed/idle."
+      ],
+      "pid": 87781,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-complete-snapshot-v2/triage-2-cu/VariedWorkflow.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-varied-zd4iu9zn",
+      "source_sha256": "58b34388970f4cc3fba8f4b1fc86d4ae16674b2aaa428b7c466c57ee6e1530ef",
+      "client_key": "triage-2-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-complete-snapshot-v2/triage-2-cu/output",
+      "thread_id": "01a190ad-28d0-78f3-8327-d4e5366e41df",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a190ad-28d0-78f3-8327-d4e5366e41df",
+          "turn_id": "01a190ad-2bad-7703-a10b-882834398bfc",
+          "started_at": "2026-10-31T06:37:10.530Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T06:38:50.788Z",
+          "elapsed_ms": 100271,
+          "final": "DONE",
+          "model_calls": 25,
+          "tokens": {
+            "input_tokens": 911438,
+            "cached_input_tokens": 876544,
+            "output_tokens": 3932,
+            "reasoning_output_tokens": 1101,
+            "total_tokens": 915370
+          },
+          "tool_calls": 24,
+          "tool_output_chars": 41335,
+          "tool_errors": 0,
+          "tool_interval_ms": 5816,
+          "non_tool_interval_ms": 94455,
+          "label": "triage-2-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "filter_and_search_used": true
+        },
+        "expected": {
+          "T201": {
+            "Queue": "West desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T201 / West desk / 24h"
+          },
+          "T203": {
+            "Queue": "West desk",
+            "SLA hours": "2",
+            "Urgent": "true",
+            "Note": "T203 / West desk / 2h"
+          },
+          "T204": {
+            "Queue": "East desk",
+            "SLA hours": "8",
+            "Urgent": "true",
+            "Note": "T204 / East desk / 8h"
+          },
+          "T205": {
+            "Queue": "West desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T205 / West desk / 24h"
+          },
+          "T207": {
+            "Queue": "West desk",
+            "SLA hours": "4",
+            "Urgent": "true",
+            "Note": "T207 / West desk / 4h"
+          },
+          "T208": {
+            "Queue": "East desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T208 / East desk / 24h"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "filter-open",
+              "ID": "T201"
+            },
+            {
+              "action": "open",
+              "ID": "T201"
+            },
+            {
+              "action": "save",
+              "ID": "T201",
+              "Note": "T201 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T203"
+            },
+            {
+              "action": "save",
+              "ID": "T203",
+              "Note": "T203 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T204"
+            },
+            {
+              "action": "save",
+              "ID": "T204",
+              "Note": "T204 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T205"
+            },
+            {
+              "action": "save",
+              "ID": "T205",
+              "Note": "T205 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T207"
+            },
+            {
+              "action": "save",
+              "ID": "T207",
+              "Note": "T207 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T208"
+            },
+            {
+              "action": "save",
+              "ID": "T208",
+              "Note": "T208 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "search",
+              "ID": "T208",
+              "query": "T203"
+            },
+            {
+              "action": "open",
+              "ID": "T203"
+            },
+            {
+              "action": "save",
+              "ID": "T203",
+              "Note": "T203 / West desk / 2h",
+              "Queue": "West desk",
+              "SLA hours": "2",
+              "Urgent": "true"
+            },
+            {
+              "action": "finished",
+              "ID": "T203"
+            }
+          ],
+          "mode": "triage",
+          "order": [
+            "T201",
+            "T202",
+            "T203",
+            "T204",
+            "T205",
+            "T206",
+            "T207",
+            "T208"
+          ],
+          "records": {
+            "T201": {
+              "Note": "T201 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            "T203": {
+              "Note": "T203 / West desk / 2h",
+              "Queue": "West desk",
+              "SLA hours": "2",
+              "Urgent": "true"
+            },
+            "T204": {
+              "Note": "T204 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            "T205": {
+              "Note": "T205 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            "T207": {
+              "Note": "T207 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            "T208": {
+              "Note": "T208 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 100271,
+      "combined_turn_ms": 100271,
+      "evidence_sha256": {
+        "brief.txt": "8fcae2e52f1ae1f18fb709843b4f83acb6e3f253d1f7a2f9fa5fda76c40c827f",
+        "source.json": "58b34388970f4cc3fba8f4b1fc86d4ae16674b2aaa428b7c466c57ee6e1530ef",
+        "saved.json": "f97bc6597b1955dd3911128ceb395da3f3b503346959e16a05e6ded83dd365d4",
+        "cu-env.sh": "15587c9a71da91276f82b26d16b553fba28b58824267811a0d0ee339931da00f",
+        "trace.json": "a1b7a91bd67a53a2f247ee87ddd4392be1138541c142d4f31895db0f6016b09e"
+      },
+      "audit": {
+        "compliant": false,
+        "note": "Task shell configuration path contained a space before cu-env.sh. A subsequent untargeted cu click failed with observation_required, then snapshot observed a non-fixture foreground app. Final fixture values were correct, but assigned-app-only protocol was violated. Excluded without replacement; mixed shell output ended at exit 0 so aggregate tool_errors does not count the embedded failure. Coordinator did not coach; collected/stopped after completed/idle."
+      }
+    },
+    {
+      "label": "triage-2-native",
+      "mode": "triage",
+      "repeat": 2,
+      "arm": "native",
+      "status": "passed",
+      "reasons": [],
+      "pid": 89002,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-complete-snapshot-v2/triage-2-native/VariedWorkflow.app",
+      "runtime_home": null,
+      "source_sha256": "58b34388970f4cc3fba8f4b1fc86d4ae16674b2aaa428b7c466c57ee6e1530ef",
+      "client_key": "triage-2-native",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-complete-snapshot-v2/triage-2-native/output",
+      "thread_id": "01a190ae-e662-7580-992c-d52af1a24d42",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "native",
+          "thread_id": "01a190ae-e662-7580-992c-d52af1a24d42",
+          "turn_id": "01a190ae-e6ff-72e1-86ad-d06c4398fd40",
+          "started_at": "2026-10-31T06:39:03.971Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T06:40:58.634Z",
+          "elapsed_ms": 114663,
+          "final": "DONE",
+          "model_calls": 23,
+          "tokens": {
+            "input_tokens": 837392,
+            "cached_input_tokens": 819328,
+            "output_tokens": 2360,
+            "reasoning_output_tokens": 1022,
+            "total_tokens": 839752
+          },
+          "tool_calls": 22,
+          "tool_output_chars": 44097,
+          "tool_errors": 0,
+          "tool_interval_ms": 13117,
+          "non_tool_interval_ms": 101546,
+          "label": "triage-2-native"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "filter_and_search_used": true
+        },
+        "expected": {
+          "T201": {
+            "Queue": "West desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T201 / West desk / 24h"
+          },
+          "T203": {
+            "Queue": "West desk",
+            "SLA hours": "2",
+            "Urgent": "true",
+            "Note": "T203 / West desk / 2h"
+          },
+          "T204": {
+            "Queue": "East desk",
+            "SLA hours": "8",
+            "Urgent": "true",
+            "Note": "T204 / East desk / 8h"
+          },
+          "T205": {
+            "Queue": "West desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T205 / West desk / 24h"
+          },
+          "T207": {
+            "Queue": "West desk",
+            "SLA hours": "4",
+            "Urgent": "true",
+            "Note": "T207 / West desk / 4h"
+          },
+          "T208": {
+            "Queue": "East desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T208 / East desk / 24h"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "filter-open",
+              "ID": "T201"
+            },
+            {
+              "action": "open",
+              "ID": "T201"
+            },
+            {
+              "action": "save",
+              "ID": "T201",
+              "Note": "T201 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T203"
+            },
+            {
+              "action": "save",
+              "ID": "T203",
+              "Note": "T203 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T204"
+            },
+            {
+              "action": "save",
+              "ID": "T204",
+              "Note": "T204 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T205"
+            },
+            {
+              "action": "save",
+              "ID": "T205",
+              "Note": "T205 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T207"
+            },
+            {
+              "action": "save",
+              "ID": "T207",
+              "Note": "T207 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T208"
+            },
+            {
+              "action": "save",
+              "ID": "T208",
+              "Note": "T208 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "search",
+              "ID": "T208",
+              "query": "T203"
+            },
+            {
+              "action": "open",
+              "ID": "T203"
+            },
+            {
+              "action": "save",
+              "ID": "T203",
+              "Note": "T203 / West desk / 2h",
+              "Queue": "West desk",
+              "SLA hours": "2",
+              "Urgent": "true"
+            },
+            {
+              "action": "finished",
+              "ID": "T203"
+            }
+          ],
+          "mode": "triage",
+          "order": [
+            "T201",
+            "T202",
+            "T203",
+            "T204",
+            "T205",
+            "T206",
+            "T207",
+            "T208"
+          ],
+          "records": {
+            "T201": {
+              "Note": "T201 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            "T203": {
+              "Note": "T203 / West desk / 2h",
+              "Queue": "West desk",
+              "SLA hours": "2",
+              "Urgent": "true"
+            },
+            "T204": {
+              "Note": "T204 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            "T205": {
+              "Note": "T205 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            "T207": {
+              "Note": "T207 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            "T208": {
+              "Note": "T208 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 114663,
+      "combined_turn_ms": 114663,
+      "evidence_sha256": {
+        "brief.txt": "8cdf50fc13a28cdc3bfcccb36712f723c39b336984a2a914c0b71381f09cea99",
+        "source.json": "58b34388970f4cc3fba8f4b1fc86d4ae16674b2aaa428b7c466c57ee6e1530ef",
+        "saved.json": "f97bc6597b1955dd3911128ceb395da3f3b503346959e16a05e6ded83dd365d4",
+        "trace.json": "bf19ab0c1ad3afcef1b467863ea58690cd82bd48057ec108c88bac01b34d56de"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Fresh task; only assigned brief and native App APIs; no coaching or source/saved reads. Collected and stopped after task completed/idle."
+      }
+    },
+    {
+      "label": "triage-3-native",
+      "mode": "triage",
+      "repeat": 3,
+      "arm": "native",
+      "status": "passed",
+      "reasons": [],
+      "pid": 90233,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-complete-snapshot-v2/triage-3-native/VariedWorkflow.app",
+      "runtime_home": null,
+      "source_sha256": "a4ec2f2afb53912f0f95d4ceab917d43e1fd8349d2e11c0c90358f3c98674f33",
+      "client_key": "triage-3-native",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-complete-snapshot-v2/triage-3-native/output",
+      "thread_id": "01a190b0-de23-7340-8e60-a20455c0cf8e",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "native",
+          "thread_id": "01a190b0-de23-7340-8e60-a20455c0cf8e",
+          "turn_id": "01a190b0-deea-7e03-affb-4737a5804edc",
+          "started_at": "2026-10-31T06:41:12.967Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T06:42:59.047Z",
+          "elapsed_ms": 106079,
+          "final": "DONE",
+          "model_calls": 23,
+          "tokens": {
+            "input_tokens": 833076,
+            "cached_input_tokens": 803456,
+            "output_tokens": 2042,
+            "reasoning_output_tokens": 735,
+            "total_tokens": 835118
+          },
+          "tool_calls": 22,
+          "tool_output_chars": 44083,
+          "tool_errors": 0,
+          "tool_interval_ms": 13449,
+          "non_tool_interval_ms": 92630,
+          "label": "triage-3-native"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "filter_and_search_used": true
+        },
+        "expected": {
+          "T301": {
+            "Queue": "East desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T301 / East desk / 24h"
+          },
+          "T303": {
+            "Queue": "East desk",
+            "SLA hours": "2",
+            "Urgent": "true",
+            "Note": "T303 / East desk / 2h"
+          },
+          "T304": {
+            "Queue": "West desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T304 / West desk / 24h"
+          },
+          "T305": {
+            "Queue": "East desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T305 / East desk / 24h"
+          },
+          "T307": {
+            "Queue": "East desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T307 / East desk / 24h"
+          },
+          "T308": {
+            "Queue": "West desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T308 / West desk / 24h"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "filter-open",
+              "ID": "T301"
+            },
+            {
+              "action": "open",
+              "ID": "T301"
+            },
+            {
+              "action": "save",
+              "ID": "T301",
+              "Note": "T301 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T303"
+            },
+            {
+              "action": "save",
+              "ID": "T303",
+              "Note": "T303 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T304"
+            },
+            {
+              "action": "save",
+              "ID": "T304",
+              "Note": "T304 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T305"
+            },
+            {
+              "action": "save",
+              "ID": "T305",
+              "Note": "T305 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T307"
+            },
+            {
+              "action": "save",
+              "ID": "T307",
+              "Note": "T307 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T308"
+            },
+            {
+              "action": "save",
+              "ID": "T308",
+              "Note": "T308 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "search",
+              "ID": "T308",
+              "query": "T303"
+            },
+            {
+              "action": "open",
+              "ID": "T303"
+            },
+            {
+              "action": "save",
+              "ID": "T303",
+              "Note": "T303 / East desk / 2h",
+              "Queue": "East desk",
+              "SLA hours": "2",
+              "Urgent": "true"
+            },
+            {
+              "action": "finished",
+              "ID": "T303"
+            }
+          ],
+          "mode": "triage",
+          "order": [
+            "T301",
+            "T302",
+            "T303",
+            "T304",
+            "T305",
+            "T306",
+            "T307",
+            "T308"
+          ],
+          "records": {
+            "T301": {
+              "Note": "T301 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            "T303": {
+              "Note": "T303 / East desk / 2h",
+              "Queue": "East desk",
+              "SLA hours": "2",
+              "Urgent": "true"
+            },
+            "T304": {
+              "Note": "T304 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            "T305": {
+              "Note": "T305 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            "T307": {
+              "Note": "T307 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            "T308": {
+              "Note": "T308 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 106079,
+      "combined_turn_ms": 106079,
+      "evidence_sha256": {
+        "brief.txt": "e3b8e2355166cbb4a7168a9e398b62ec40ef7ef7b05770186c6e03c3a4672f90",
+        "source.json": "a4ec2f2afb53912f0f95d4ceab917d43e1fd8349d2e11c0c90358f3c98674f33",
+        "saved.json": "1f547192eb1eb91f7fd7ada23edea0e29153e9c180045b58ec88bc2cf35ccd46",
+        "trace.json": "7513ff09e9ae13ad17ff8927aa6b4d4e8c643d1fdd80c7ae14d7e75edc2a38c4"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Fresh task; only assigned brief and native App APIs; no coaching or source/saved reads. Collected and stopped after task completed/idle."
+      }
+    },
+    {
+      "label": "triage-3-cu",
+      "mode": "triage",
+      "repeat": 3,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 91390,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-complete-snapshot-v2/triage-3-cu/VariedWorkflow.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-varied-n0di1y0q",
+      "source_sha256": "a4ec2f2afb53912f0f95d4ceab917d43e1fd8349d2e11c0c90358f3c98674f33",
+      "client_key": "triage-3-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-complete-snapshot-v2/triage-3-cu/output",
+      "thread_id": "01a190b2-b25c-75a0-8920-8a588cdb84b3",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a190b2-b25c-75a0-8920-8a588cdb84b3",
+          "turn_id": "01a190b2-b316-7211-bf11-2f42028b6457",
+          "started_at": "2026-10-31T06:43:12.823Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T06:45:04.768Z",
+          "elapsed_ms": 111946,
+          "final": "DONE",
+          "model_calls": 23,
+          "tokens": {
+            "input_tokens": 825887,
+            "cached_input_tokens": 749184,
+            "output_tokens": 1978,
+            "total_tokens": 827865
+          },
+          "tool_calls": 22,
+          "tool_output_chars": 39102,
+          "tool_errors": 0,
+          "tool_interval_ms": 4990,
+          "non_tool_interval_ms": 106956,
+          "label": "triage-3-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "filter_and_search_used": true
+        },
+        "expected": {
+          "T301": {
+            "Queue": "East desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T301 / East desk / 24h"
+          },
+          "T303": {
+            "Queue": "East desk",
+            "SLA hours": "2",
+            "Urgent": "true",
+            "Note": "T303 / East desk / 2h"
+          },
+          "T304": {
+            "Queue": "West desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T304 / West desk / 24h"
+          },
+          "T305": {
+            "Queue": "East desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T305 / East desk / 24h"
+          },
+          "T307": {
+            "Queue": "East desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T307 / East desk / 24h"
+          },
+          "T308": {
+            "Queue": "West desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T308 / West desk / 24h"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "filter-open",
+              "ID": "T301"
+            },
+            {
+              "action": "open",
+              "ID": "T301"
+            },
+            {
+              "action": "save",
+              "ID": "T301",
+              "Note": "T301 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T303"
+            },
+            {
+              "action": "save",
+              "ID": "T303",
+              "Note": "T303 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T304"
+            },
+            {
+              "action": "save",
+              "ID": "T304",
+              "Note": "T304 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T305"
+            },
+            {
+              "action": "save",
+              "ID": "T305",
+              "Note": "T305 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T307"
+            },
+            {
+              "action": "save",
+              "ID": "T307",
+              "Note": "T307 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T308"
+            },
+            {
+              "action": "save",
+              "ID": "T308",
+              "Note": "T308 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "search",
+              "ID": "T308",
+              "query": "T303"
+            },
+            {
+              "action": "open",
+              "ID": "T303"
+            },
+            {
+              "action": "save",
+              "ID": "T303",
+              "Note": "T303 / East desk / 2h",
+              "Queue": "East desk",
+              "SLA hours": "2",
+              "Urgent": "true"
+            },
+            {
+              "action": "finished",
+              "ID": "T303"
+            }
+          ],
+          "mode": "triage",
+          "order": [
+            "T301",
+            "T302",
+            "T303",
+            "T304",
+            "T305",
+            "T306",
+            "T307",
+            "T308"
+          ],
+          "records": {
+            "T301": {
+              "Note": "T301 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            "T303": {
+              "Note": "T303 / East desk / 2h",
+              "Queue": "East desk",
+              "SLA hours": "2",
+              "Urgent": "true"
+            },
+            "T304": {
+              "Note": "T304 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            "T305": {
+              "Note": "T305 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            "T307": {
+              "Note": "T307 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            "T308": {
+              "Note": "T308 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 111946,
+      "combined_turn_ms": 111946,
+      "evidence_sha256": {
+        "brief.txt": "5ecbf5358142db6696e7ee6c19088be8fa835e73dc07769e75d24f8e35f67098",
+        "source.json": "a4ec2f2afb53912f0f95d4ceab917d43e1fd8349d2e11c0c90358f3c98674f33",
+        "saved.json": "1f547192eb1eb91f7fd7ada23edea0e29153e9c180045b58ec88bc2cf35ccd46",
+        "cu-env.sh": "a996a141fe5146295fcd19966327e511350355eb8a0813735b7a1295d8e3eb69",
+        "trace.json": "a1475314efe9fa47309031074ca6e705cf6828f08234e70bde35cc30727bb1c5"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Fresh task; only assigned brief, skill, task shell config and cu PID actions. Complete compact snapshots throughout, no ordinary JSON fallback. No coaching or source/saved reads; stopped after completed/idle."
+      }
+    },
+    {
+      "label": "triage-4-cu",
+      "mode": "triage",
+      "repeat": 4,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 92716,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-complete-snapshot-v2/triage-4-cu/VariedWorkflow.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-varied-usmpc9yj",
+      "source_sha256": "7dea6c96bd3defba2f6a01fb67254d928642bc02e65ea020952e0f0235adf34a",
+      "client_key": "triage-4-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-complete-snapshot-v2/triage-4-cu/output",
+      "thread_id": "01a190b4-9a99-7203-a203-d21ca85b5768",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a190b4-9a99-7203-a203-d21ca85b5768",
+          "turn_id": "01a190b4-9b56-7713-8cbe-dfba6466a31f",
+          "started_at": "2026-10-31T06:45:17.809Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T06:47:52.168Z",
+          "elapsed_ms": 154367,
+          "final": "DONE",
+          "model_calls": 25,
+          "tokens": {
+            "input_tokens": 897694,
+            "cached_input_tokens": 819200,
+            "output_tokens": 3688,
+            "reasoning_output_tokens": 1148,
+            "total_tokens": 901382
+          },
+          "tool_calls": 24,
+          "tool_output_chars": 40209,
+          "tool_errors": 0,
+          "tool_interval_ms": 4718,
+          "non_tool_interval_ms": 149649,
+          "label": "triage-4-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "filter_and_search_used": true
+        },
+        "expected": {
+          "T401": {
+            "Queue": "West desk",
+            "SLA hours": "4",
+            "Urgent": "true",
+            "Note": "T401 / West desk / 4h"
+          },
+          "T403": {
+            "Queue": "West desk",
+            "SLA hours": "2",
+            "Urgent": "false",
+            "Note": "T403 / West desk / 2h"
+          },
+          "T404": {
+            "Queue": "East desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T404 / East desk / 24h"
+          },
+          "T405": {
+            "Queue": "West desk",
+            "SLA hours": "4",
+            "Urgent": "true",
+            "Note": "T405 / West desk / 4h"
+          },
+          "T407": {
+            "Queue": "West desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T407 / West desk / 24h"
+          },
+          "T408": {
+            "Queue": "East desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T408 / East desk / 24h"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "filter-open",
+              "ID": "T401"
+            },
+            {
+              "action": "open",
+              "ID": "T401"
+            },
+            {
+              "action": "save",
+              "ID": "T401",
+              "Note": "T401 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T403"
+            },
+            {
+              "action": "save",
+              "ID": "T403",
+              "Note": "T403 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T404"
+            },
+            {
+              "action": "save",
+              "ID": "T404",
+              "Note": "T404 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T405"
+            },
+            {
+              "action": "save",
+              "ID": "T405",
+              "Note": "T405 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T407"
+            },
+            {
+              "action": "save",
+              "ID": "T407",
+              "Note": "T407 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T408"
+            },
+            {
+              "action": "save",
+              "ID": "T408",
+              "Note": "T408 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "search",
+              "ID": "T408",
+              "query": "T403"
+            },
+            {
+              "action": "open",
+              "ID": "T403"
+            },
+            {
+              "action": "save",
+              "ID": "T403",
+              "Note": "T403 / West desk / 2h",
+              "Queue": "West desk",
+              "SLA hours": "2",
+              "Urgent": "false"
+            },
+            {
+              "action": "finished",
+              "ID": "T403"
+            }
+          ],
+          "mode": "triage",
+          "order": [
+            "T401",
+            "T402",
+            "T403",
+            "T404",
+            "T405",
+            "T406",
+            "T407",
+            "T408"
+          ],
+          "records": {
+            "T401": {
+              "Note": "T401 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            "T403": {
+              "Note": "T403 / West desk / 2h",
+              "Queue": "West desk",
+              "SLA hours": "2",
+              "Urgent": "false"
+            },
+            "T404": {
+              "Note": "T404 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            "T405": {
+              "Note": "T405 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            "T407": {
+              "Note": "T407 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            "T408": {
+              "Note": "T408 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 154367,
+      "combined_turn_ms": 154367,
+      "evidence_sha256": {
+        "brief.txt": "eb81d1ecc331e875981da187277ebe981473265ed8828cfa25e612b6dd8e5a96",
+        "source.json": "7dea6c96bd3defba2f6a01fb67254d928642bc02e65ea020952e0f0235adf34a",
+        "saved.json": "faf55bd8ef8899cb047d44e67fe47ceccaa380f913c0ef1e598c8794d3124d35",
+        "cu-env.sh": "2f62c16aac47d3d5c219e376474333841f83133e50f1c7f465710e0c76684c30",
+        "trace.json": "02c6ee12e7e9eaac2c686356f784a780441953ea4987566d8d5b8299e9ea9fe9"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Fresh task; only assigned brief, skill/helper, task shell config and cu PID actions. Complete compact snapshots and final wait; no ordinary JSON fallback. No coaching or source/saved reads; stopped after completed/idle. One extra model round split the initial filter action from observation."
+      }
+    },
+    {
+      "label": "triage-4-native",
+      "mode": "triage",
+      "repeat": 4,
+      "arm": "native",
+      "status": "passed",
+      "reasons": [],
+      "pid": 94275,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-complete-snapshot-v2/triage-4-native/VariedWorkflow.app",
+      "runtime_home": null,
+      "source_sha256": "7dea6c96bd3defba2f6a01fb67254d928642bc02e65ea020952e0f0235adf34a",
+      "client_key": "triage-4-native",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/triage-complete-snapshot-v2/triage-4-native/output",
+      "thread_id": "01a190b7-33fd-71b0-a0e0-67e08e6f3c76",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "native",
+          "thread_id": "01a190b7-33fd-71b0-a0e0-67e08e6f3c76",
+          "turn_id": "01a190b7-348e-7390-afbc-a6feaef44644",
+          "started_at": "2026-10-31T06:48:08.104Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T06:49:28.653Z",
+          "elapsed_ms": 80551,
+          "final": "DONE",
+          "model_calls": 22,
+          "tokens": {
+            "input_tokens": 861968,
+            "cached_input_tokens": 826624,
+            "output_tokens": 2566,
+            "reasoning_output_tokens": 1009,
+            "total_tokens": 864534
+          },
+          "tool_calls": 23,
+          "tool_output_chars": 55261,
+          "tool_errors": 0,
+          "tool_interval_ms": 12476,
+          "non_tool_interval_ms": 68075,
+          "label": "triage-4-native"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "filter_and_search_used": true
+        },
+        "expected": {
+          "T401": {
+            "Queue": "West desk",
+            "SLA hours": "4",
+            "Urgent": "true",
+            "Note": "T401 / West desk / 4h"
+          },
+          "T403": {
+            "Queue": "West desk",
+            "SLA hours": "2",
+            "Urgent": "false",
+            "Note": "T403 / West desk / 2h"
+          },
+          "T404": {
+            "Queue": "East desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T404 / East desk / 24h"
+          },
+          "T405": {
+            "Queue": "West desk",
+            "SLA hours": "4",
+            "Urgent": "true",
+            "Note": "T405 / West desk / 4h"
+          },
+          "T407": {
+            "Queue": "West desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T407 / West desk / 24h"
+          },
+          "T408": {
+            "Queue": "East desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T408 / East desk / 24h"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "filter-open",
+              "ID": "T401"
+            },
+            {
+              "action": "open",
+              "ID": "T401"
+            },
+            {
+              "action": "save",
+              "ID": "T401",
+              "Note": "T401 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T403"
+            },
+            {
+              "action": "save",
+              "ID": "T403",
+              "Note": "T403 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T404"
+            },
+            {
+              "action": "save",
+              "ID": "T404",
+              "Note": "T404 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T405"
+            },
+            {
+              "action": "save",
+              "ID": "T405",
+              "Note": "T405 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T407"
+            },
+            {
+              "action": "save",
+              "ID": "T407",
+              "Note": "T407 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T408"
+            },
+            {
+              "action": "save",
+              "ID": "T408",
+              "Note": "T408 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "search",
+              "ID": "T408",
+              "query": "T403"
+            },
+            {
+              "action": "open",
+              "ID": "T403"
+            },
+            {
+              "action": "save",
+              "ID": "T403",
+              "Note": "T403 / West desk / 2h",
+              "Queue": "West desk",
+              "SLA hours": "2",
+              "Urgent": "false"
+            },
+            {
+              "action": "finished",
+              "ID": "T403"
+            }
+          ],
+          "mode": "triage",
+          "order": [
+            "T401",
+            "T402",
+            "T403",
+            "T404",
+            "T405",
+            "T406",
+            "T407",
+            "T408"
+          ],
+          "records": {
+            "T401": {
+              "Note": "T401 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            "T403": {
+              "Note": "T403 / West desk / 2h",
+              "Queue": "West desk",
+              "SLA hours": "2",
+              "Urgent": "false"
+            },
+            "T404": {
+              "Note": "T404 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            "T405": {
+              "Note": "T405 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            "T407": {
+              "Note": "T407 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            "T408": {
+              "Note": "T408 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 80551,
+      "combined_turn_ms": 80551,
+      "evidence_sha256": {
+        "brief.txt": "52b219789cff07af69254429e579ba690bf3bd92fb237e292f4b875d78920322",
+        "source.json": "7dea6c96bd3defba2f6a01fb67254d928642bc02e65ea020952e0f0235adf34a",
+        "saved.json": "faf55bd8ef8899cb047d44e67fe47ceccaa380f913c0ef1e598c8794d3124d35",
+        "trace.json": "e2c75c43ffc3c533970d1b645a25627761fd2fda8dc378af1b7d3bb35737518d"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Fresh task using assigned native App APIs. Also read the general Computer Pilot skill and git status metadata; no source/saved files or prior trials. Used full AX states with disableDiffing after the initial filter. All costs retained. No coaching; collected/stopped after completed/idle."
+      }
+    }
+  ],
+  "groups": [
+    {
+      "mode": "triage",
+      "arms": {
+        "cu": {
+          "counts": {
+            "passed": 3,
+            "failed": 0,
+            "excluded": 1,
+            "unreviewed": 0,
+            "pending": 0
+          },
+          "success_medians_ms": {
+            "combined_turn_ms": 111946
+          }
+        },
+        "native": {
+          "counts": {
+            "passed": 4,
+            "failed": 0,
+            "excluded": 0,
+            "unreviewed": 0,
+            "pending": 0
+          },
+          "success_medians_ms": {
+            "combined_turn_ms": 101488.5
+          }
+        }
+      },
+      "successful_pairs": [
+        {
+          "repeat": 1,
+          "go_cu_over_native": null,
+          "combined_cu_over_native": 1.0268942599434456
+        },
+        {
+          "repeat": 3,
+          "go_cu_over_native": null,
+          "combined_cu_over_native": 1.055307836612336
+        },
+        {
+          "repeat": 4,
+          "go_cu_over_native": null,
+          "combined_cu_over_native": 1.9163883750667279
+        }
+      ],
+      "median_paired_go_ratio": null,
+      "median_paired_combined_ratio": 1.055307836612336
+    }
+  ],
+  "date": "2026-10-31",
+  "local_report_sha256": "b3f0893755cbbb8848a5dc69030b48c4c620f8b8405aa6e1d0804a9bb87dfb26",
+  "findings": {
+    "change": "Explicit compact snapshots return complete state without the implicit delta branch. Action/wait deltas remain. No additional query, effect check, retry or CLI flag. Private Broker protocol 7 prevents reuse of the old output contract.",
+    "exact_fixture_outcomes": "All eight saved fixture outcomes passed. Eligible counts: cu 3 passed and 1 excluded; native 4 passed.",
+    "excluded_attempt": "triage-2-cu mistyped its shell configuration path, used the globally installed CLI, received observation_required on an untargeted click, and observed a non-fixture foreground app. Retained without replacement; not a valid timing pair.",
+    "error_counter_limit": "All outer tool error counters are zero. The excluded cu shell call contained a failing command followed by a successful snapshot and exited zero. This embedded error is preserved in its manual audit; zero outer errors is not zero command errors.",
+    "strategy": "All eligible cu trials used complete compact observations without ordinary JSON fallback. Native dataset 4 additionally read the general skill/git status metadata and requested full AX states with disableDiffing; all costs retained.",
+    "previous_block": "triage-continuous-2026-10-31.json",
+    "common_eligible_pairs": [
+      {
+        "repeat": 3,
+        "previous_cu_over_native": 0.9755566178228016,
+        "current_cu_over_native": 1.055307836612336
+      },
+      {
+        "repeat": 4,
+        "previous_cu_over_native": 1.4550781989623964,
+        "current_cu_over_native": 1.9163883750667279
+      }
+    ],
+    "common_pair_median_previous": 1.215317408392599,
+    "common_pair_median_current": 1.485848105839532,
+    "interpretation": "Payload fallback was removed, but consistent latency improvement is not established. Overall medians use different eligible datasets. Common datasets 3/4 worsened from a median ratio of 1.215 to 1.486. Dataset 4 retained a long non-tool interval despite shorter output.",
+    "lifecycle": "Fresh task/app/state for each attempt; alternating order; no overlap/coaching/replacement; fixed inputs throughout. All fixture apps and dedicated Brokers stopped only after completed/idle."
+  },
+  "limits": [
+    "Three eligible pairs of one custom AppKit task; not browser/Electron/commercial-app coverage.",
+    "Fresh state does not mean fresh OS/caches or identical backend load.",
+    "Non-tool intervals include model/network/scheduling time, not measured inference alone; backend tool instrumentation differs.",
+    "Model strategy varies, including native full-state choice and initialization reads; this is not a controlled causal before/after study.",
+    "One excluded cu attempt observed a non-fixture app; its private tool trace stays local and is not exported.",
+    "No reasoning content exported; usage counters and tool-only evidence hashes are retained."
+  ]
+}

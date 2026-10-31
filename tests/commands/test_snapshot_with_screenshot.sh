@@ -100,27 +100,6 @@ else
   _fail "plain field omitted" "$NO_PLAIN"
 fi
 
-section "snapshot --with-screenshot + --diff — image attaches to diff result"
-
-cu_json snapshot Finder --limit 10 --diff --with-screenshot --output /private/tmp/cu-test-fused-diff1.png
-assert_ok "first --diff --with-screenshot ok"
-SHOT1=$(json_get '.screenshot' || echo "")
-if [[ "$SHOT1" == "/private/tmp/cu-test-fused-diff1.png" ]]; then
-  _pass "screenshot attached on first --diff call"
-else
-  _fail "first diff screenshot" "got: $SHOT1"
-fi
-
-cu_json snapshot Finder --limit 10 --diff --with-screenshot --output /private/tmp/cu-test-fused-diff2.png
-assert_ok "second --diff --with-screenshot ok"
-SHOT2=$(json_get '.screenshot' || echo "")
-if [[ "$SHOT2" == "/private/tmp/cu-test-fused-diff2.png" ]]; then
-  _pass "screenshot attached on warm --diff call"
-else
-  _fail "warm diff screenshot" "got: $SHOT2"
-fi
-assert_json_field_exists "diff field present" ".diff"
-
 section "snapshot --with-screenshot — human mode"
 
 cu_human snapshot Finder --limit 5 --with-screenshot --output /private/tmp/cu-test-fused-h.png

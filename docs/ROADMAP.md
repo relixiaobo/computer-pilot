@@ -241,7 +241,7 @@ Acceptance: every action command leaves the user's real cursor alone, doesn't st
 ### Sprint 2 complete (18/18) — A series + G1–G4 + B6 + C3 + C4 + D1 + D6 + D7 + F3
 
 - [x] **A1** `cu find` predicate query — **done 2026-04-27** (see A1 detail block below)
-- [x] **C1** `cu snapshot --diff` cross-snapshot diff — **done 2026-04-27** (see C1 detail block below)
+- [x] **C1** Snapshot diffs — retired 2026-10-31; see C1 detail below
 - [x] **A3** `cu snapshot --annotated` labeled screenshot — **done 2026-04-27** (see A3 detail block below)
 - [x] **A8** `cu nearest <x> <y>` pixel → ref reverse lookup — **done 2026-04-27** (see A8 detail block below)
 - [x] **A9** `cu screenshot --region` region capture — **done 2026-04-27** (see A9 detail block below)
@@ -263,7 +263,7 @@ Acceptance: every action command leaves the user's real cursor alone, doesn't st
     2. ✅ Retina scale=2.0 detected automatically (image_w 1800 / window.width 900 = 2.0)
     3. ✅ Historical default was `/tmp`; current output uses `COMPUTER_PILOT_OUTPUT_DIR` or the private runtime directory
     4. ✅ Coexists with plain snapshot (plain doesn't write image, doesn't add fields)
-    5. ✅ Orthogonal to `--diff` / `--limit` / other flags
+    5. ✅ Orthogonal to `--limit` / other flags
     6. ✅ Human mode also prints `Annotated screenshot: <path>`
   - **Tests**: 310/312 (+17 new; 2 skipped are A6 modal, unrelated to C1 / A3)
   - **Follow-ups**: ① labels can collide in dense regions — collision-aware offset later; ② all elements are boxed today — selective `--annotate-only role=button,row` later; ③ color by role (button red / textfield blue / row green) for faster VLM localization
@@ -295,16 +295,15 @@ Acceptance: every action command leaves the user's real cursor alone, doesn't st
   - **Tests**: 344/346 (+13 new; 2 still A6 modal skipped)
 
 - [x] **A10** `cu snapshot --with-screenshot` fused output (0.3d) — **done 2026-04-27**
-  - **Approach**: `screenshot.rs` adds `capture_window_with_scale(window, path)` reusing the raw capture image, reads `CGImageGetWidth` for scale, then saves. `main.rs::cmd_snapshot` adds `--with-screenshot` — when set and `--annotated` is not, captures via `capture_window_with_scale` and attaches `screenshot` + `image_scale` to JSON. Both flags together: annotated wins (already includes the image, no plain). The `--diff` paths (first-call and warm) also wire it in — VLM "look at diff for changes + look at image to verify" works as one call.
+  - **Approach**: `screenshot.rs` adds `capture_window_with_scale(window, path)` reusing the raw capture image, reads `CGImageGetWidth` for scale, then saves. `main.rs::cmd_snapshot` adds `--with-screenshot` — when set and `--annotated` is not, captures via `capture_window_with_scale` and attaches `screenshot` + `image_scale` to JSON. Both flags together: annotated wins (already includes the image, no plain).
   - **Files changed**: `src/screenshot.rs` (+25 lines for capture_window_with_scale), `src/main.rs` (`Cmd::Snapshot` + with_screenshot field, cmd_snapshot adds plain_screenshot branch, 3 emission paths attach the field), `tests/commands/test_snapshot_with_screenshot.sh` (new, 24 assertions)
   - **JSON contract**: plain uses `screenshot` + `image_scale`; annotated uses `annotated_screenshot` + `image_scale`; both flags together → annotated field present, screenshot field absent
-  - **Value**: tree and image are captured at the **same UI instant** — no race between two `cu` calls causing ref mismatches. Combined with `--diff`, VLMs get "what changed + the current image" in one call.
+  - **Value**: tree and image are captured at the **same UI instant** — no race between two `cu` calls causing ref mismatches.
   - **Verified**:
     1. ✅ plain `--with-screenshot` returns `screenshot` + `image_scale`, no `annotated_screenshot`
     2. ✅ Historical default was `/tmp`; current output uses `COMPUTER_PILOT_OUTPUT_DIR` or the private runtime directory
     3. ✅ Plain snapshot without flag has no image fields
     4. ✅ `--annotated` + `--with-screenshot` → annotated wins
-    5. ✅ `--diff` + `--with-screenshot` works on first-call and warm paths
     6. ✅ Human mode prints `Screenshot: <path>`
   - **Tests**: 368/370 (+24 new; 2 still A6 modal skipped)
 
@@ -381,7 +380,7 @@ Acceptance: every action command leaves the user's real cursor alone, doesn't st
   - **Tests**: `tests/commands/test_wait_advanced.sh` 8 assertions (error paths, timeout timing, dynamic new-window detected ~1.2s)
 
 - [x] **D1** multi-monitor coordinate first-class handling (1d) ✅ 2026-04-27
-  - **Approach**: new `src/display.rs` — `CGGetActiveDisplayList` + `CGDisplayBounds` + `CGMainDisplayID`, returns `Vec<DisplayInfo{id, main, x, y, width, height}>`. `cu snapshot` injects `displays` at top level on every JSON output path (plain / `--diff` first / `--diff` warm); agents can resolve element (x,y) to a display themselves.
+  - **Approach**: new `src/display.rs` — `CGGetActiveDisplayList` + `CGDisplayBounds` + `CGMainDisplayID`, returns `Vec<DisplayInfo{id, main, x, y, width, height}>`. ordinary JSON snapshot presentation includes `displays`; agents can resolve element (x,y) to a display themselves.
   - **API**: `display::list()` for active display geometry
   - **Tests**: `tests/commands/test_displays.sh` 7 assertions (array shape, exactly-one-main, diff path, main-screen bounds plausibility)
 
@@ -417,20 +416,10 @@ Acceptance: every action command leaves the user's real cursor alone, doesn't st
     6. ✅ 0 filters / nonexistent app → structured error
   - **Tests**: 320/320 (296 existing + 24 new)
 
-- [x] **C1** Diff snapshot (0.5d) — **done 2026-04-27**
-  - **Current approach**: `cu snapshot --diff` uses a private runtime cache isolated by client key and PID, mode `0600`, with bounded TTL. Element identity remains `(role, round(x), round(y))`. First call returns the full snapshot with `first_snapshot:true`.
-  - **Files changed**: `src/diff.rs` (new, 92 lines), `src/ax.rs` (Element derives), `src/main.rs` (`Cmd::Snapshot` adds `--diff` flag, `cmd_snapshot` branches, `print_diff_human` uses `+ ~ -`), `tests/commands/test_snapshot_diff.sh` (new, 21 assertions), SKILL.md / README.md (usage section)
-  - **References landed**: own design — no open-source peer does this; another industry-first for cu
-  - **Verified**:
-    1. ✅ First call: `first_snapshot:true` + full elements
-    2. ✅ Second call no-change: `+0 ~0 -0`, unchanged_count = total elements
-    3. ✅ After set-value: precisely captures the textarea as `~`, other 19 untouched
-    4. ✅ Cache is client-isolated under the private Computer Pilot runtime home
-    5. ✅ Human mode uses `+ [ref] role`, `~ [ref] role`, `- [ref] (removed)` + Summary line
-    6. ✅ `--diff` coexists with plain snapshot (plain doesn't break cache consistency)
-  - **Tests**: 293/295 (2 skipped are A6 modal-trigger suppressed by macOS iCloud auto-save — switched to _skip rather than fail; unrelated to C1)
-  - **Follow-up**: `--diff-snapshot` flag on action commands (replacing the default full snapshot injection) — wait until real agents have used `cu snapshot --diff` in the wild, decide based on feedback
-  - **Known limitation**: window movement makes every element's identity change → all added+removed. Inherent trade-off of identity-by-position; agents in multi-step flows should avoid moving the window (or treat the first diff after move as `first_snapshot`).
+- [x] **C1** Snapshot diffs — **retired 2026-10-31**. Complete snapshots now
+  replace both automatic deltas and `snapshot --diff`. The disk cache, baseline
+  merging and separate diff renderer were removed. `src/diff.rs` retains only
+  in-memory counts for action-effect verification.
 
 ---
 

@@ -1,0 +1,4452 @@
+{
+  "manifest": {
+    "protocol_version": 2,
+    "single_turn": true,
+    "sequence": [
+      {
+        "label": "triage-1-native",
+        "mode": "triage",
+        "repeat": 1,
+        "arm": "native"
+      },
+      {
+        "label": "triage-1-cu",
+        "mode": "triage",
+        "repeat": 1,
+        "arm": "cu"
+      },
+      {
+        "label": "triage-2-cu",
+        "mode": "triage",
+        "repeat": 2,
+        "arm": "cu"
+      },
+      {
+        "label": "triage-2-native",
+        "mode": "triage",
+        "repeat": 2,
+        "arm": "native"
+      },
+      {
+        "label": "document-1-cu",
+        "mode": "document",
+        "repeat": 1,
+        "arm": "cu"
+      },
+      {
+        "label": "document-1-native",
+        "mode": "document",
+        "repeat": 1,
+        "arm": "native"
+      },
+      {
+        "label": "document-2-native",
+        "mode": "document",
+        "repeat": 2,
+        "arm": "native"
+      },
+      {
+        "label": "document-2-cu",
+        "mode": "document",
+        "repeat": 2,
+        "arm": "cu"
+      },
+      {
+        "label": "wizard-1-native",
+        "mode": "wizard",
+        "repeat": 1,
+        "arm": "native"
+      },
+      {
+        "label": "wizard-1-cu",
+        "mode": "wizard",
+        "repeat": 1,
+        "arm": "cu"
+      },
+      {
+        "label": "wizard-2-cu",
+        "mode": "wizard",
+        "repeat": 2,
+        "arm": "cu"
+      },
+      {
+        "label": "wizard-2-native",
+        "mode": "wizard",
+        "repeat": 2,
+        "arm": "native"
+      }
+    ],
+    "settings": {
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null
+    },
+    "fingerprints": {
+      "target/release/cu": "70ea1786377a19c3771f85eb76958ef2fa6d4e9ce5f6867a37b6e7221143361a",
+      "tests/fixtures/varied-workflows.swift": "5ac65cfd49a34286cb2292a8431434775ac24531b149be75566008dfe3857cb3",
+      "tests/agent/benchmark_varied_workflows.py": "b8ed936c23bef07cf3ed0753e5103a3f184670daf4ca9615f39fc65df587970e",
+      "tests/agent/collect_codex_benchmark.py": "a35fba949ee73222e5e83eaeb35807ce8b7bfc43727c4db9fae4fa0f692f3d79",
+      "plugin/skills/computer-pilot/SKILL.md": "bf5f7269ea253dbdd96383699a40890d0ff125764beed8913192dd52a48968e1",
+      "plugin/skills/computer-pilot/scripts/session.sh": "cb57e12ea7cc71a9e6fa83abf77a25664be598077428cdad73e5aa55ea7cd687"
+    },
+    "cu_commit": "bce131580160a2512d1fa4ccf80c5cb9f97d2ee1"
+  },
+  "actual_order": [
+    "triage-1-native",
+    "triage-1-cu",
+    "triage-2-cu",
+    "triage-2-native",
+    "document-1-cu",
+    "document-1-native",
+    "document-2-native",
+    "document-2-cu",
+    "wizard-1-native",
+    "wizard-1-cu",
+    "wizard-2-cu",
+    "wizard-2-native"
+  ],
+  "attempts": [
+    {
+      "label": "triage-1-native",
+      "mode": "triage",
+      "repeat": 1,
+      "arm": "native",
+      "status": "passed",
+      "reasons": [],
+      "pid": 72360,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/decision-boundaries-20261031/triage-1-native/VariedWorkflow.app",
+      "runtime_home": null,
+      "source_sha256": "48b49543deb77e7d8f987936c4ccd399f4cc1216b013cc53e13eae194aa3741d",
+      "client_key": "triage-1-native",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/decision-boundaries-20261031/triage-1-native/output",
+      "thread_id": "01a19147-ac82-70f1-8a1b-d8980aaefd4b",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "native",
+          "thread_id": "01a19147-ac82-70f1-8a1b-d8980aaefd4b",
+          "turn_id": "01a19147-ad3b-70d1-b26f-6becaa87beb1",
+          "started_at": "2026-10-31T09:25:56.176Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T09:27:34.872Z",
+          "elapsed_ms": 98705,
+          "final": "DONE",
+          "model_calls": 21,
+          "tokens": {
+            "input_tokens": 576875,
+            "cached_input_tokens": 548224,
+            "output_tokens": 1174,
+            "total_tokens": 578049
+          },
+          "tool_calls": 20,
+          "tool_output_chars": 41087,
+          "tool_errors": 0,
+          "tool_interval_ms": 13269,
+          "non_tool_interval_ms": 85436,
+          "label": "triage-1-native"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "filter_and_search_used": true
+        },
+        "expected": {
+          "T101": {
+            "Queue": "East desk",
+            "SLA hours": "8",
+            "Urgent": "true",
+            "Note": "T101 / East desk / 8h"
+          },
+          "T103": {
+            "Queue": "East desk",
+            "SLA hours": "2",
+            "Urgent": "false",
+            "Note": "T103 / East desk / 2h"
+          },
+          "T104": {
+            "Queue": "West desk",
+            "SLA hours": "4",
+            "Urgent": "true",
+            "Note": "T104 / West desk / 4h"
+          },
+          "T105": {
+            "Queue": "East desk",
+            "SLA hours": "8",
+            "Urgent": "true",
+            "Note": "T105 / East desk / 8h"
+          },
+          "T107": {
+            "Queue": "East desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T107 / East desk / 24h"
+          },
+          "T108": {
+            "Queue": "West desk",
+            "SLA hours": "4",
+            "Urgent": "true",
+            "Note": "T108 / West desk / 4h"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "filter-open",
+              "ID": "T101"
+            },
+            {
+              "action": "open",
+              "ID": "T101"
+            },
+            {
+              "action": "save",
+              "ID": "T101",
+              "Note": "T101 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T103"
+            },
+            {
+              "action": "save",
+              "ID": "T103",
+              "Note": "T103 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T104"
+            },
+            {
+              "action": "save",
+              "ID": "T104",
+              "Note": "T104 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T105"
+            },
+            {
+              "action": "save",
+              "ID": "T105",
+              "Note": "T105 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T107"
+            },
+            {
+              "action": "save",
+              "ID": "T107",
+              "Note": "T107 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T108"
+            },
+            {
+              "action": "save",
+              "ID": "T108",
+              "Note": "T108 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            {
+              "action": "search",
+              "ID": "T108",
+              "query": "T103"
+            },
+            {
+              "action": "open",
+              "ID": "T103"
+            },
+            {
+              "action": "save",
+              "ID": "T103",
+              "Note": "T103 / East desk / 2h",
+              "Queue": "East desk",
+              "SLA hours": "2",
+              "Urgent": "false"
+            },
+            {
+              "action": "finished",
+              "ID": "T103"
+            }
+          ],
+          "mode": "triage",
+          "order": [
+            "T101",
+            "T102",
+            "T103",
+            "T104",
+            "T105",
+            "T106",
+            "T107",
+            "T108"
+          ],
+          "records": {
+            "T101": {
+              "Note": "T101 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            "T103": {
+              "Note": "T103 / East desk / 2h",
+              "Queue": "East desk",
+              "SLA hours": "2",
+              "Urgent": "false"
+            },
+            "T104": {
+              "Note": "T104 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            "T105": {
+              "Note": "T105 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            "T107": {
+              "Note": "T107 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            "T108": {
+              "Note": "T108 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 98705,
+      "combined_turn_ms": 98705,
+      "evidence_sha256": {
+        "brief.txt": "9cbb50460f642079b2d9f1c1c21adeda6762dbb37fbde3a6279d2fe3ac9d2c19",
+        "source.json": "48b49543deb77e7d8f987936c4ccd399f4cc1216b013cc53e13eae194aa3741d",
+        "saved.json": "2029111a3c5b0705f018ac413cc185ee331fe9616866245c0b21f4237c2b5b0e",
+        "trace.json": "91b48415b9563f6c6bea03d8ab19980a6770192bf0b0d21504ccc2b12de31723",
+        "runtime-context.json": "99866078771116672c887eb2260a50b1a8095a1b02756a0706075e900a2d9250",
+        "launch.json": "314821ece167b60586b4655f3772a66435b4fec3bb0accbc34a3d63e986bd570",
+        "audit.json": "a6654f5711d02bda7f526c829d21d9ddbfe48e00fa7254c750e4bda0357d4fd6"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Reviewed all 20 calls: exact disposable app, native API only, live source facts, grouped edits and boundary observations; no external state or coaching. Exact outcome passed. Actual initial context has no global or project AGENTS; model/settings and neutral cwd match the plan.",
+        "runtime_context": {
+          "contexts": [
+            {
+              "cwd": "/private/tmp/cu-decision-boundaries-20261031/triage-1-native/work",
+              "model": "gpt-6-astra",
+              "effort": "high",
+              "service_tier": null
+            }
+          ],
+          "messages": [
+            {
+              "role": "developer",
+              "chars": 21420,
+              "sha256": "35bd51b5f577cb7b24cd5f4629e49e37cb724ab57754ce6f8f202001635bab8a",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 12747,
+              "sha256": "45d63de5c7b0c63c0d8b9183dc7459f99bb14fcc73d6147e14c2f10eb6a253f5",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 2400,
+              "sha256": "3edd51083129388f52e881435e93e4b981e00c5ee3d62ab5d32e22c428fd504b",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 271,
+              "sha256": "6ded806e3cdbb35599ecaf8742574bc5274908472b1729090010c404c2151e8e",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 456,
+              "sha256": "6b106599c1a57b452fe176d02088877a23c2df73055f8edfb6b97d16806bd212",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 2237,
+              "sha256": "9cbb50460f642079b2d9f1c1c21adeda6762dbb37fbde3a6279d2fe3ac9d2c19",
+              "agents_injected": false
+            }
+          ],
+          "no_agents_injected": true,
+          "exit_code": 0
+        }
+      }
+    },
+    {
+      "label": "triage-1-cu",
+      "mode": "triage",
+      "repeat": 1,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 73141,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/decision-boundaries-20261031/triage-1-cu/VariedWorkflow.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-varied-1o61ohdp",
+      "source_sha256": "48b49543deb77e7d8f987936c4ccd399f4cc1216b013cc53e13eae194aa3741d",
+      "client_key": "triage-1-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/decision-boundaries-20261031/triage-1-cu/output",
+      "thread_id": "01a19149-4038-7003-92e0-46c7e5f1bd3a",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a19149-4038-7003-92e0-46c7e5f1bd3a",
+          "turn_id": "01a19149-408c-7500-ab2b-daa29d7d82ec",
+          "started_at": "2026-10-31T09:27:39.423Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T09:29:10.528Z",
+          "elapsed_ms": 91110,
+          "final": "DONE",
+          "model_calls": 22,
+          "tokens": {
+            "input_tokens": 580938,
+            "cached_input_tokens": 551168,
+            "output_tokens": 1606,
+            "total_tokens": 582544,
+            "reasoning_output_tokens": 12
+          },
+          "tool_calls": 21,
+          "tool_output_chars": 32726,
+          "tool_errors": 0,
+          "tool_interval_ms": 5244,
+          "non_tool_interval_ms": 85866,
+          "label": "triage-1-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "filter_and_search_used": true
+        },
+        "expected": {
+          "T101": {
+            "Queue": "East desk",
+            "SLA hours": "8",
+            "Urgent": "true",
+            "Note": "T101 / East desk / 8h"
+          },
+          "T103": {
+            "Queue": "East desk",
+            "SLA hours": "2",
+            "Urgent": "false",
+            "Note": "T103 / East desk / 2h"
+          },
+          "T104": {
+            "Queue": "West desk",
+            "SLA hours": "4",
+            "Urgent": "true",
+            "Note": "T104 / West desk / 4h"
+          },
+          "T105": {
+            "Queue": "East desk",
+            "SLA hours": "8",
+            "Urgent": "true",
+            "Note": "T105 / East desk / 8h"
+          },
+          "T107": {
+            "Queue": "East desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T107 / East desk / 24h"
+          },
+          "T108": {
+            "Queue": "West desk",
+            "SLA hours": "4",
+            "Urgent": "true",
+            "Note": "T108 / West desk / 4h"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "filter-open",
+              "ID": "T101"
+            },
+            {
+              "action": "open",
+              "ID": "T101"
+            },
+            {
+              "action": "save",
+              "ID": "T101",
+              "Note": "T101 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T103"
+            },
+            {
+              "action": "save",
+              "ID": "T103",
+              "Note": "T103 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T104"
+            },
+            {
+              "action": "save",
+              "ID": "T104",
+              "Note": "T104 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T105"
+            },
+            {
+              "action": "save",
+              "ID": "T105",
+              "Note": "T105 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T107"
+            },
+            {
+              "action": "save",
+              "ID": "T107",
+              "Note": "T107 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T108"
+            },
+            {
+              "action": "save",
+              "ID": "T108",
+              "Note": "T108 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            {
+              "action": "search",
+              "ID": "T108",
+              "query": "T103"
+            },
+            {
+              "action": "open",
+              "ID": "T103"
+            },
+            {
+              "action": "save",
+              "ID": "T103",
+              "Note": "T103 / East desk / 2h",
+              "Queue": "East desk",
+              "SLA hours": "2",
+              "Urgent": "false"
+            },
+            {
+              "action": "finished",
+              "ID": "T103"
+            }
+          ],
+          "mode": "triage",
+          "order": [
+            "T101",
+            "T102",
+            "T103",
+            "T104",
+            "T105",
+            "T106",
+            "T107",
+            "T108"
+          ],
+          "records": {
+            "T101": {
+              "Note": "T101 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            "T103": {
+              "Note": "T103 / East desk / 2h",
+              "Queue": "East desk",
+              "SLA hours": "2",
+              "Urgent": "false"
+            },
+            "T104": {
+              "Note": "T104 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            "T105": {
+              "Note": "T105 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            "T107": {
+              "Note": "T107 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            "T108": {
+              "Note": "T108 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 91110,
+      "combined_turn_ms": 91110,
+      "evidence_sha256": {
+        "brief.txt": "250b2f2ce87cd5fa02690508e4ee906ddc51406765df3f82a73974e6306d2672",
+        "source.json": "48b49543deb77e7d8f987936c4ccd399f4cc1216b013cc53e13eae194aa3741d",
+        "saved.json": "2029111a3c5b0705f018ac413cc185ee331fe9616866245c0b21f4237c2b5b0e",
+        "trace.json": "af538679d6cdddb81f4b1295d9e2a19558e17bf15e33ea1fbbd68c38c5579813",
+        "runtime-context.json": "1ba52b4a7e73ccea41effb3d6409ae6729e0e49783a42f0b3e0cec17f7c1ffa9",
+        "launch.json": "17e0e785825021aa83a0782910b3d6e7e2bb111184a0a80e39ab9ba56e4bf066",
+        "audit.json": "6d5b6d5a3765ae9046d9b6e83f9d63468b13473b6e59a910152da5d104ea30a2"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Reviewed all 21 calls and task config: packaged skill read once, exact PID/client/Broker/output sourced on every UI call, cu only and live source values. Field edits, Save and snapshot consistently grouped. No errors, outside state or coaching; exact outcome passed. Initial context has no global/project AGENTS and settings match.",
+        "runtime_context": {
+          "contexts": [
+            {
+              "cwd": "/private/tmp/cu-decision-boundaries-20261031/triage-1-cu/work",
+              "model": "gpt-6-astra",
+              "effort": "high",
+              "service_tier": null
+            }
+          ],
+          "messages": [
+            {
+              "role": "developer",
+              "chars": 21420,
+              "sha256": "35bd51b5f577cb7b24cd5f4629e49e37cb724ab57754ce6f8f202001635bab8a",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 12743,
+              "sha256": "fd62bbbb3e21bca1e3f0bffc17b706a348efc549219aa813d3768aef0d591a0c",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 2400,
+              "sha256": "3edd51083129388f52e881435e93e4b981e00c5ee3d62ab5d32e22c428fd504b",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 271,
+              "sha256": "6ded806e3cdbb35599ecaf8742574bc5274908472b1729090010c404c2151e8e",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 448,
+              "sha256": "68d2ffb765134e731583a6c5255480fe5c3d22944f52657eff9960bac9158962",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 2524,
+              "sha256": "250b2f2ce87cd5fa02690508e4ee906ddc51406765df3f82a73974e6306d2672",
+              "agents_injected": false
+            }
+          ],
+          "no_agents_injected": true,
+          "exit_code": 0
+        },
+        "task_config_sha256": "a7357079379b56e8b352abc943c92f2bc1b178f2fc4749f42fc72294a8b96c98"
+      }
+    },
+    {
+      "label": "triage-2-cu",
+      "mode": "triage",
+      "repeat": 2,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 74030,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/decision-boundaries-20261031/triage-2-cu/VariedWorkflow.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-varied-e7cxqzlj",
+      "source_sha256": "58b34388970f4cc3fba8f4b1fc86d4ae16674b2aaa428b7c466c57ee6e1530ef",
+      "client_key": "triage-2-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/decision-boundaries-20261031/triage-2-cu/output",
+      "thread_id": "01a1914a-bad4-7b82-a6d2-83d8d41bdd1a",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a1914a-bad4-7b82-a6d2-83d8d41bdd1a",
+          "turn_id": "01a1914a-bb23-7a70-a7a7-7db9aea7d46f",
+          "started_at": "2026-10-31T09:29:16.335Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T09:31:22.331Z",
+          "elapsed_ms": 125998,
+          "final": "DONE",
+          "model_calls": 23,
+          "tokens": {
+            "input_tokens": 607658,
+            "cached_input_tokens": 552960,
+            "output_tokens": 2833,
+            "reasoning_output_tokens": 685,
+            "total_tokens": 610491
+          },
+          "tool_calls": 22,
+          "tool_output_chars": 33950,
+          "tool_errors": 0,
+          "tool_interval_ms": 6011,
+          "non_tool_interval_ms": 119987,
+          "label": "triage-2-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "filter_and_search_used": true
+        },
+        "expected": {
+          "T201": {
+            "Queue": "West desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T201 / West desk / 24h"
+          },
+          "T203": {
+            "Queue": "West desk",
+            "SLA hours": "2",
+            "Urgent": "true",
+            "Note": "T203 / West desk / 2h"
+          },
+          "T204": {
+            "Queue": "East desk",
+            "SLA hours": "8",
+            "Urgent": "true",
+            "Note": "T204 / East desk / 8h"
+          },
+          "T205": {
+            "Queue": "West desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T205 / West desk / 24h"
+          },
+          "T207": {
+            "Queue": "West desk",
+            "SLA hours": "4",
+            "Urgent": "true",
+            "Note": "T207 / West desk / 4h"
+          },
+          "T208": {
+            "Queue": "East desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T208 / East desk / 24h"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "filter-open",
+              "ID": "T201"
+            },
+            {
+              "action": "open",
+              "ID": "T201"
+            },
+            {
+              "action": "save",
+              "ID": "T201",
+              "Note": "T201 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T203"
+            },
+            {
+              "action": "save",
+              "ID": "T203",
+              "Note": "T203 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T204"
+            },
+            {
+              "action": "save",
+              "ID": "T204",
+              "Note": "T204 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T205"
+            },
+            {
+              "action": "save",
+              "ID": "T205",
+              "Note": "T205 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T207"
+            },
+            {
+              "action": "save",
+              "ID": "T207",
+              "Note": "T207 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T208"
+            },
+            {
+              "action": "save",
+              "ID": "T208",
+              "Note": "T208 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "search",
+              "ID": "T208",
+              "query": "T203"
+            },
+            {
+              "action": "open",
+              "ID": "T203"
+            },
+            {
+              "action": "save",
+              "ID": "T203",
+              "Note": "T203 / West desk / 2h",
+              "Queue": "West desk",
+              "SLA hours": "2",
+              "Urgent": "true"
+            },
+            {
+              "action": "finished",
+              "ID": "T203"
+            }
+          ],
+          "mode": "triage",
+          "order": [
+            "T201",
+            "T202",
+            "T203",
+            "T204",
+            "T205",
+            "T206",
+            "T207",
+            "T208"
+          ],
+          "records": {
+            "T201": {
+              "Note": "T201 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            "T203": {
+              "Note": "T203 / West desk / 2h",
+              "Queue": "West desk",
+              "SLA hours": "2",
+              "Urgent": "true"
+            },
+            "T204": {
+              "Note": "T204 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            "T205": {
+              "Note": "T205 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            "T207": {
+              "Note": "T207 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            "T208": {
+              "Note": "T208 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 125998,
+      "combined_turn_ms": 125998,
+      "evidence_sha256": {
+        "brief.txt": "2f8f66ef8a68687533d788c2014d9e55c39e3a2f2d8af3db4f50b6a2c2a21123",
+        "source.json": "58b34388970f4cc3fba8f4b1fc86d4ae16674b2aaa428b7c466c57ee6e1530ef",
+        "saved.json": "f97bc6597b1955dd3911128ceb395da3f3b503346959e16a05e6ded83dd365d4",
+        "trace.json": "ea8a4b483d917e7bc6f940bae49c0c28fc222f8699355f6fe4e5533ee2fa37ec",
+        "runtime-context.json": "aa201fcfbc61556d07103423ba5118893b9bdad5d3592329ca033eb0fcc05592",
+        "launch.json": "b0a98526dd78877e790034e206c20d79ea25635656a37f7d6067ec5cd270a95e",
+        "audit.json": "48903ebed3245c403a9a8978386f7fdd620e14f44dfd046292c93fb21babbfaf"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Reviewed all 22 calls and sourced config: exact target and isolated cu environment, live sources only, grouped field edits/Save/snapshot throughout. One extra label click before opening T204 retained; no tool errors or external state. Exact outcome passed. Fresh neutral runtime, no global/project AGENTS, matching model/settings.",
+        "runtime_context": {
+          "contexts": [
+            {
+              "cwd": "/private/tmp/cu-decision-boundaries-20261031/triage-2-cu/work",
+              "model": "gpt-6-astra",
+              "effort": "high",
+              "service_tier": null
+            }
+          ],
+          "messages": [
+            {
+              "role": "developer",
+              "chars": 21420,
+              "sha256": "35bd51b5f577cb7b24cd5f4629e49e37cb724ab57754ce6f8f202001635bab8a",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 12743,
+              "sha256": "1b6629cc5aabdfcd59178a4ade28148d5c5147be33d48591a4845d0abcee229b",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 2400,
+              "sha256": "3edd51083129388f52e881435e93e4b981e00c5ee3d62ab5d32e22c428fd504b",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 271,
+              "sha256": "6ded806e3cdbb35599ecaf8742574bc5274908472b1729090010c404c2151e8e",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 448,
+              "sha256": "d391f31df84a99f7240d3f9603c01d986669fc8e5fb6ed0620a8bf010a3af3a7",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 2524,
+              "sha256": "2f8f66ef8a68687533d788c2014d9e55c39e3a2f2d8af3db4f50b6a2c2a21123",
+              "agents_injected": false
+            }
+          ],
+          "no_agents_injected": true,
+          "exit_code": 0
+        },
+        "task_config_sha256": "1cd346ef37cb946502e084f73ce28468d9194f39898c2c4db37a54da1dc45b76"
+      }
+    },
+    {
+      "label": "triage-2-native",
+      "mode": "triage",
+      "repeat": 2,
+      "arm": "native",
+      "status": "passed",
+      "reasons": [],
+      "pid": 75300,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/decision-boundaries-20261031/triage-2-native/VariedWorkflow.app",
+      "runtime_home": null,
+      "source_sha256": "58b34388970f4cc3fba8f4b1fc86d4ae16674b2aaa428b7c466c57ee6e1530ef",
+      "client_key": "triage-2-native",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/decision-boundaries-20261031/triage-2-native/output",
+      "thread_id": "01a1914c-bbf4-7310-a7ef-fc751dd7e992",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "native",
+          "thread_id": "01a1914c-bbf4-7310-a7ef-fc751dd7e992",
+          "turn_id": "01a1914c-bc40-7d80-9fc7-c2f97c4ccf3c",
+          "started_at": "2026-10-31T09:31:27.688Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T09:33:07.493Z",
+          "elapsed_ms": 99804,
+          "final": "DONE",
+          "model_calls": 22,
+          "tokens": {
+            "input_tokens": 613560,
+            "cached_input_tokens": 593408,
+            "output_tokens": 1933,
+            "reasoning_output_tokens": 638,
+            "total_tokens": 615493
+          },
+          "tool_calls": 21,
+          "tool_output_chars": 41260,
+          "tool_errors": 0,
+          "tool_interval_ms": 13576,
+          "non_tool_interval_ms": 86228,
+          "label": "triage-2-native"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "filter_and_search_used": true
+        },
+        "expected": {
+          "T201": {
+            "Queue": "West desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T201 / West desk / 24h"
+          },
+          "T203": {
+            "Queue": "West desk",
+            "SLA hours": "2",
+            "Urgent": "true",
+            "Note": "T203 / West desk / 2h"
+          },
+          "T204": {
+            "Queue": "East desk",
+            "SLA hours": "8",
+            "Urgent": "true",
+            "Note": "T204 / East desk / 8h"
+          },
+          "T205": {
+            "Queue": "West desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T205 / West desk / 24h"
+          },
+          "T207": {
+            "Queue": "West desk",
+            "SLA hours": "4",
+            "Urgent": "true",
+            "Note": "T207 / West desk / 4h"
+          },
+          "T208": {
+            "Queue": "East desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T208 / East desk / 24h"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "filter-open",
+              "ID": "T201"
+            },
+            {
+              "action": "open",
+              "ID": "T201"
+            },
+            {
+              "action": "save",
+              "ID": "T201",
+              "Note": "T201 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T203"
+            },
+            {
+              "action": "save",
+              "ID": "T203",
+              "Note": "T203 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T204"
+            },
+            {
+              "action": "save",
+              "ID": "T204",
+              "Note": "T204 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T205"
+            },
+            {
+              "action": "save",
+              "ID": "T205",
+              "Note": "T205 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T207"
+            },
+            {
+              "action": "save",
+              "ID": "T207",
+              "Note": "T207 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T208"
+            },
+            {
+              "action": "save",
+              "ID": "T208",
+              "Note": "T208 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "search",
+              "ID": "T208",
+              "query": "T203"
+            },
+            {
+              "action": "open",
+              "ID": "T203"
+            },
+            {
+              "action": "save",
+              "ID": "T203",
+              "Note": "T203 / West desk / 2h",
+              "Queue": "West desk",
+              "SLA hours": "2",
+              "Urgent": "true"
+            },
+            {
+              "action": "finished",
+              "ID": "T203"
+            }
+          ],
+          "mode": "triage",
+          "order": [
+            "T201",
+            "T202",
+            "T203",
+            "T204",
+            "T205",
+            "T206",
+            "T207",
+            "T208"
+          ],
+          "records": {
+            "T201": {
+              "Note": "T201 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            "T203": {
+              "Note": "T203 / West desk / 2h",
+              "Queue": "West desk",
+              "SLA hours": "2",
+              "Urgent": "true"
+            },
+            "T204": {
+              "Note": "T204 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            "T205": {
+              "Note": "T205 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            "T207": {
+              "Note": "T207 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            "T208": {
+              "Note": "T208 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 99804,
+      "combined_turn_ms": 99804,
+      "evidence_sha256": {
+        "brief.txt": "140a89b1667c0d3ed19f9563598e5d48e612989ab65bf35fd735319f8770a6aa",
+        "source.json": "58b34388970f4cc3fba8f4b1fc86d4ae16674b2aaa428b7c466c57ee6e1530ef",
+        "saved.json": "f97bc6597b1955dd3911128ceb395da3f3b503346959e16a05e6ded83dd365d4",
+        "trace.json": "16d78e6a7be795db480d3648b4a75a8d68cc5d3948322ca7fba109b726ae28e7",
+        "runtime-context.json": "b70cdd8991bb59bb57c7fa50dd25b076ce36c060ef61abf2b2950301ae2a24f2",
+        "launch.json": "cfc5b7279710f6b7de9610ecdf1fcd14fe00fa97834954deb15e497c2d6fd562",
+        "audit.json": "1e3147ec27c0a72459d3420a2a67f6a633213fddfab84bdf215c95ab0699c5ac"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Reviewed all 21 calls: native API with exact disposable app and live UI facts. One extra label click before opening T203 retained; grouped edits and boundary reads otherwise. No tool errors, foreign state or coaching; exact outcome passed. Initial context clean and settings match.",
+        "runtime_context": {
+          "contexts": [
+            {
+              "cwd": "/private/tmp/cu-decision-boundaries-20261031/triage-2-native/work",
+              "model": "gpt-6-astra",
+              "effort": "high",
+              "service_tier": null
+            }
+          ],
+          "messages": [
+            {
+              "role": "developer",
+              "chars": 21420,
+              "sha256": "35bd51b5f577cb7b24cd5f4629e49e37cb724ab57754ce6f8f202001635bab8a",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 12747,
+              "sha256": "a0b842f2245e032af08058e67a842867742a4e6a04d8523bbb2af666ad2e8c4d",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 2400,
+              "sha256": "3edd51083129388f52e881435e93e4b981e00c5ee3d62ab5d32e22c428fd504b",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 271,
+              "sha256": "6ded806e3cdbb35599ecaf8742574bc5274908472b1729090010c404c2151e8e",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 456,
+              "sha256": "f0e695a288396ff353c9a1be40cee3929d8a62c5c406ba5ed70f64aaeb75da3c",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 2237,
+              "sha256": "140a89b1667c0d3ed19f9563598e5d48e612989ab65bf35fd735319f8770a6aa",
+              "agents_injected": false
+            }
+          ],
+          "no_agents_injected": true,
+          "exit_code": 0
+        }
+      }
+    },
+    {
+      "label": "document-1-cu",
+      "mode": "document",
+      "repeat": 1,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 76097,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/decision-boundaries-20261031/document-1-cu/VariedWorkflow.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-varied-vjxs25tj",
+      "source_sha256": "8f6d577728d7c0e6483dfa6161f1f4bd6fbcec94c65fa149aa90c3a84cb1945d",
+      "client_key": "document-1-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/decision-boundaries-20261031/document-1-cu/output",
+      "thread_id": "01a1914e-572c-7903-9cd7-46e7c31abb73",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a1914e-572c-7903-9cd7-46e7c31abb73",
+          "turn_id": "01a1914e-5799-76e1-b93e-c7f7515a0077",
+          "started_at": "2026-10-31T09:33:12.999Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T09:35:21.469Z",
+          "elapsed_ms": 128470,
+          "final": "DONE",
+          "model_calls": 23,
+          "tokens": {
+            "input_tokens": 628795,
+            "cached_input_tokens": 566656,
+            "output_tokens": 3534,
+            "reasoning_output_tokens": 610,
+            "total_tokens": 632329
+          },
+          "tool_calls": 22,
+          "tool_output_chars": 35070,
+          "tool_errors": 1,
+          "tool_interval_ms": 5641,
+          "non_tool_interval_ms": 122829,
+          "label": "document-1-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true
+        },
+        "expected": {
+          "S101": {
+            "Heading": "S101 · 章节 1-1 · 目标",
+            "Body": "定稿 1-1：目标需要核对中文、标点和数量，保留引用“样本 10”。\n第二段：本定稿仅用于本地测试；Reference 1-01, keep line breaks.\nReviewed: S101",
+            "Reviewed": "true"
+          },
+          "S102": {
+            "Heading": "S102 · 章节 1-2 · 范围",
+            "Body": "定稿 1-2：范围需要核对中文、标点和数量，保留引用“样本 11”。\n第二段：本定稿仅用于本地测试；Reference 1-02, keep line breaks.\nReviewed: S102",
+            "Reviewed": "true"
+          },
+          "S103": {
+            "Heading": "S103 · 章节 1-3 · 交付（复核）",
+            "Body": "定稿 1-3：交付需要核对中文、标点和数量，保留引用“样本 12”。\n第二段：本定稿仅用于本地测试；Reference 1-03, keep line breaks.\nReviewed: S103",
+            "Reviewed": "true"
+          },
+          "S104": {
+            "Heading": "S104 · 章节 1-4 · 质量",
+            "Body": "定稿 1-4：质量需要核对中文、标点和数量，保留引用“样本 13”。\n第二段：本定稿仅用于本地测试；Reference 1-04, keep line breaks.\nReviewed: S104",
+            "Reviewed": "true"
+          },
+          "S105": {
+            "Heading": "S105 · 章节 1-5 · 风险",
+            "Body": "定稿 1-5：风险需要核对中文、标点和数量，保留引用“样本 14”。\n第二段：本定稿仅用于本地测试；Reference 1-05, keep line breaks.\nReviewed: S105",
+            "Reviewed": "true"
+          },
+          "S106": {
+            "Heading": "S106 · 章节 1-6 · 结论",
+            "Body": "定稿 1-6：结论需要核对中文、标点和数量，保留引用“样本 15”。\n第二段：本定稿仅用于本地测试；Reference 1-06, keep line breaks.\nReviewed: S106",
+            "Reviewed": "true"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "open",
+              "ID": "S101"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 1-1：目标需要核对中文、标点和数量，保留引用“样本 10”。\n第二段：本定稿仅用于本地测试；Reference 1-01, keep line breaks.\nReviewed: S101",
+              "Heading": "S101 · 章节 1-1 · 目标",
+              "ID": "S101",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S102"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 1-2：范围需要核对中文、标点和数量，保留引用“样本 11”。\n第二段：本定稿仅用于本地测试；Reference 1-02, keep line breaks.\nReviewed: S102",
+              "Heading": "S102 · 章节 1-2 · 范围",
+              "ID": "S102",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S103"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 1-3：交付需要核对中文、标点和数量，保留引用“样本 12”。\n第二段：本定稿仅用于本地测试；Reference 1-03, keep line breaks.\nReviewed: S103",
+              "Heading": "S103 · 章节 1-3 · 交付",
+              "ID": "S103",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S104"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 1-4：质量需要核对中文、标点和数量，保留引用“样本 13”。\n第二段：本定稿仅用于本地测试；Reference 1-04, keep line breaks.\nReviewed: S104",
+              "Heading": "S104 · 章节 1-4 · 质量",
+              "ID": "S104",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S105"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 1-5：风险需要核对中文、标点和数量，保留引用“样本 14”。\n第二段：本定稿仅用于本地测试；Reference 1-05, keep line breaks.\nReviewed: S105",
+              "Heading": "S105 · 章节 1-5 · 风险",
+              "ID": "S105",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S106"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 1-6：结论需要核对中文、标点和数量，保留引用“样本 15”。\n第二段：本定稿仅用于本地测试；Reference 1-06, keep line breaks.\nReviewed: S106",
+              "Heading": "S106 · 章节 1-6 · 结论",
+              "ID": "S106",
+              "Reviewed": "true"
+            },
+            {
+              "action": "move",
+              "ID": "S106",
+              "position": "1"
+            },
+            {
+              "action": "move",
+              "ID": "S102",
+              "position": "4"
+            },
+            {
+              "action": "open",
+              "ID": "S103"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 1-3：交付需要核对中文、标点和数量，保留引用“样本 12”。\n第二段：本定稿仅用于本地测试；Reference 1-03, keep line breaks.\nReviewed: S103",
+              "Heading": "S103 · 章节 1-3 · 交付（复核）",
+              "ID": "S103",
+              "Reviewed": "true"
+            },
+            {
+              "action": "finished",
+              "ID": "S103"
+            }
+          ],
+          "mode": "document",
+          "order": [
+            "S106",
+            "S101",
+            "S103",
+            "S102",
+            "S104",
+            "S105"
+          ],
+          "records": {
+            "S101": {
+              "Body": "定稿 1-1：目标需要核对中文、标点和数量，保留引用“样本 10”。\n第二段：本定稿仅用于本地测试；Reference 1-01, keep line breaks.\nReviewed: S101",
+              "Heading": "S101 · 章节 1-1 · 目标",
+              "Reviewed": "true"
+            },
+            "S102": {
+              "Body": "定稿 1-2：范围需要核对中文、标点和数量，保留引用“样本 11”。\n第二段：本定稿仅用于本地测试；Reference 1-02, keep line breaks.\nReviewed: S102",
+              "Heading": "S102 · 章节 1-2 · 范围",
+              "Reviewed": "true"
+            },
+            "S103": {
+              "Body": "定稿 1-3：交付需要核对中文、标点和数量，保留引用“样本 12”。\n第二段：本定稿仅用于本地测试；Reference 1-03, keep line breaks.\nReviewed: S103",
+              "Heading": "S103 · 章节 1-3 · 交付（复核）",
+              "Reviewed": "true"
+            },
+            "S104": {
+              "Body": "定稿 1-4：质量需要核对中文、标点和数量，保留引用“样本 13”。\n第二段：本定稿仅用于本地测试；Reference 1-04, keep line breaks.\nReviewed: S104",
+              "Heading": "S104 · 章节 1-4 · 质量",
+              "Reviewed": "true"
+            },
+            "S105": {
+              "Body": "定稿 1-5：风险需要核对中文、标点和数量，保留引用“样本 14”。\n第二段：本定稿仅用于本地测试；Reference 1-05, keep line breaks.\nReviewed: S105",
+              "Heading": "S105 · 章节 1-5 · 风险",
+              "Reviewed": "true"
+            },
+            "S106": {
+              "Body": "定稿 1-6：结论需要核对中文、标点和数量，保留引用“样本 15”。\n第二段：本定稿仅用于本地测试；Reference 1-06, keep line breaks.\nReviewed: S106",
+              "Heading": "S106 · 章节 1-6 · 结论",
+              "Reviewed": "true"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 128470,
+      "combined_turn_ms": 128470,
+      "evidence_sha256": {
+        "brief.txt": "67195960026409d37788bd4fb7be8414bf0339f6b176eec16f3355c14e4d9b46",
+        "source.json": "8f6d577728d7c0e6483dfa6161f1f4bd6fbcec94c65fa149aa90c3a84cb1945d",
+        "saved.json": "8018ee516761a7b0f844128ac1d9d187e3a61bd7d37938f48ac0c05f36aa649d",
+        "trace.json": "5d426dce01dbeebfa8b4f8bcf9a3ee5fe0b896d8576fd8a5ae23735a5024e69e",
+        "runtime-context.json": "54247e736b9c128db0ae3a328d5cf2ce89a8bb0f0c06d838694da15836287cf7",
+        "launch.json": "293de0af27a5d51cf6711716f34b0e420359701ba18b5619a70268042b2699fc",
+        "audit.json": "dcf730756c9a03e661a534f226a27859cbaece0528233a1987f8ff6c5dff9ccd"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Reviewed all 22 calls and sourced task config. First call prematurely guessed nonexistent observe while reading the skill; parser rejected before app access. Error retained. All later app calls use cu with exact PID/client/Broker/output, live text, and grouped edits/navigation/final snapshot. Exact original/final text, order and completion passed. No coaching or foreign state; initial context clean and settings match.",
+        "runtime_context": {
+          "contexts": [
+            {
+              "cwd": "/private/tmp/cu-decision-boundaries-20261031/document-1-cu/work",
+              "model": "gpt-6-astra",
+              "effort": "high",
+              "service_tier": null
+            }
+          ],
+          "messages": [
+            {
+              "role": "developer",
+              "chars": 21420,
+              "sha256": "35bd51b5f577cb7b24cd5f4629e49e37cb724ab57754ce6f8f202001635bab8a",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 12745,
+              "sha256": "e07e049e6cf03b6f8ddb4354500acb8a197bf351ea6a0d08d7aecd0684bd93bd",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 2400,
+              "sha256": "3edd51083129388f52e881435e93e4b981e00c5ee3d62ab5d32e22c428fd504b",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 271,
+              "sha256": "6ded806e3cdbb35599ecaf8742574bc5274908472b1729090010c404c2151e8e",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 452,
+              "sha256": "21b87843ef487a5fb64f710e82b530da0fe17c741308c91c27df5bc523d806bb",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 2384,
+              "sha256": "67195960026409d37788bd4fb7be8414bf0339f6b176eec16f3355c14e4d9b46",
+              "agents_injected": false
+            }
+          ],
+          "no_agents_injected": true,
+          "exit_code": 0
+        },
+        "task_config_sha256": "1121ddaa3de127150a1b3dae87f93f7ec82d655fdd8714239017d5af82ececb1"
+      }
+    },
+    {
+      "label": "document-1-native",
+      "mode": "document",
+      "repeat": 1,
+      "arm": "native",
+      "status": "passed",
+      "reasons": [],
+      "pid": 77261,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/decision-boundaries-20261031/document-1-native/VariedWorkflow.app",
+      "runtime_home": null,
+      "source_sha256": "8f6d577728d7c0e6483dfa6161f1f4bd6fbcec94c65fa149aa90c3a84cb1945d",
+      "client_key": "document-1-native",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/decision-boundaries-20261031/document-1-native/output",
+      "thread_id": "01a19150-5eca-7ac0-9825-eec3a5f4ece9",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "native",
+          "thread_id": "01a19150-5eca-7ac0-9825-eec3a5f4ece9",
+          "turn_id": "01a19150-5f02-77e0-a40d-6cdbf68ec532",
+          "started_at": "2026-10-31T09:35:25.959Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T09:37:50.547Z",
+          "elapsed_ms": 144586,
+          "final": "DONE",
+          "model_calls": 30,
+          "tokens": {
+            "input_tokens": 884102,
+            "cached_input_tokens": 840192,
+            "output_tokens": 2956,
+            "reasoning_output_tokens": 966,
+            "total_tokens": 887058
+          },
+          "tool_calls": 29,
+          "tool_output_chars": 44657,
+          "tool_errors": 7,
+          "tool_interval_ms": 11360,
+          "non_tool_interval_ms": 133226,
+          "label": "document-1-native"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true
+        },
+        "expected": {
+          "S101": {
+            "Heading": "S101 · 章节 1-1 · 目标",
+            "Body": "定稿 1-1：目标需要核对中文、标点和数量，保留引用“样本 10”。\n第二段：本定稿仅用于本地测试；Reference 1-01, keep line breaks.\nReviewed: S101",
+            "Reviewed": "true"
+          },
+          "S102": {
+            "Heading": "S102 · 章节 1-2 · 范围",
+            "Body": "定稿 1-2：范围需要核对中文、标点和数量，保留引用“样本 11”。\n第二段：本定稿仅用于本地测试；Reference 1-02, keep line breaks.\nReviewed: S102",
+            "Reviewed": "true"
+          },
+          "S103": {
+            "Heading": "S103 · 章节 1-3 · 交付（复核）",
+            "Body": "定稿 1-3：交付需要核对中文、标点和数量，保留引用“样本 12”。\n第二段：本定稿仅用于本地测试；Reference 1-03, keep line breaks.\nReviewed: S103",
+            "Reviewed": "true"
+          },
+          "S104": {
+            "Heading": "S104 · 章节 1-4 · 质量",
+            "Body": "定稿 1-4：质量需要核对中文、标点和数量，保留引用“样本 13”。\n第二段：本定稿仅用于本地测试；Reference 1-04, keep line breaks.\nReviewed: S104",
+            "Reviewed": "true"
+          },
+          "S105": {
+            "Heading": "S105 · 章节 1-5 · 风险",
+            "Body": "定稿 1-5：风险需要核对中文、标点和数量，保留引用“样本 14”。\n第二段：本定稿仅用于本地测试；Reference 1-05, keep line breaks.\nReviewed: S105",
+            "Reviewed": "true"
+          },
+          "S106": {
+            "Heading": "S106 · 章节 1-6 · 结论",
+            "Body": "定稿 1-6：结论需要核对中文、标点和数量，保留引用“样本 15”。\n第二段：本定稿仅用于本地测试；Reference 1-06, keep line breaks.\nReviewed: S106",
+            "Reviewed": "true"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "open",
+              "ID": "S101"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 1-1：目标需要核对中文、标点和数量，保留引用“样本 10”。\n第二段：本定稿仅用于本地测试；Reference 1-01, keep line breaks.\nReviewed: S101",
+              "Heading": "S101 · 章节 1-1 · 目标",
+              "ID": "S101",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S102"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 1-2：范围需要核对中文、标点和数量，保留引用“样本 11”。\n第二段：本定稿仅用于本地测试；Reference 1-02, keep line breaks.\nReviewed: S102",
+              "Heading": "S102 · 章节 1-2 · 范围",
+              "ID": "S102",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S103"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 1-3：交付需要核对中文、标点和数量，保留引用“样本 12”。\n第二段：本定稿仅用于本地测试；Reference 1-03, keep line breaks.\nReviewed: S103",
+              "Heading": "S103 · 章节 1-3 · 交付",
+              "ID": "S103",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S104"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 1-4：质量需要核对中文、标点和数量，保留引用“样本 13”。\n第二段：本定稿仅用于本地测试；Reference 1-04, keep line breaks.\nReviewed: S104",
+              "Heading": "S104 · 章节 1-4 · 质量",
+              "ID": "S104",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S105"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 1-5：风险需要核对中文、标点和数量，保留引用“样本 14”。\n第二段：本定稿仅用于本地测试；Reference 1-05, keep line breaks.\nReviewed: S105",
+              "Heading": "S105 · 章节 1-5 · 风险",
+              "ID": "S105",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S106"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 1-6：结论需要核对中文、标点和数量，保留引用“样本 15”。\n第二段：本定稿仅用于本地测试；Reference 1-06, keep line breaks.\nReviewed: S106",
+              "Heading": "S106 · 章节 1-6 · 结论",
+              "ID": "S106",
+              "Reviewed": "true"
+            },
+            {
+              "action": "move",
+              "ID": "S106",
+              "position": "1"
+            },
+            {
+              "action": "move",
+              "ID": "S102",
+              "position": "4"
+            },
+            {
+              "action": "open",
+              "ID": "S103"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 1-3：交付需要核对中文、标点和数量，保留引用“样本 12”。\n第二段：本定稿仅用于本地测试；Reference 1-03, keep line breaks.\nReviewed: S103",
+              "Heading": "S103 · 章节 1-3 · 交付（复核）",
+              "ID": "S103",
+              "Reviewed": "true"
+            },
+            {
+              "action": "finished",
+              "ID": "S103"
+            }
+          ],
+          "mode": "document",
+          "order": [
+            "S106",
+            "S101",
+            "S103",
+            "S102",
+            "S104",
+            "S105"
+          ],
+          "records": {
+            "S101": {
+              "Body": "定稿 1-1：目标需要核对中文、标点和数量，保留引用“样本 10”。\n第二段：本定稿仅用于本地测试；Reference 1-01, keep line breaks.\nReviewed: S101",
+              "Heading": "S101 · 章节 1-1 · 目标",
+              "Reviewed": "true"
+            },
+            "S102": {
+              "Body": "定稿 1-2：范围需要核对中文、标点和数量，保留引用“样本 11”。\n第二段：本定稿仅用于本地测试；Reference 1-02, keep line breaks.\nReviewed: S102",
+              "Heading": "S102 · 章节 1-2 · 范围",
+              "Reviewed": "true"
+            },
+            "S103": {
+              "Body": "定稿 1-3：交付需要核对中文、标点和数量，保留引用“样本 12”。\n第二段：本定稿仅用于本地测试；Reference 1-03, keep line breaks.\nReviewed: S103",
+              "Heading": "S103 · 章节 1-3 · 交付（复核）",
+              "Reviewed": "true"
+            },
+            "S104": {
+              "Body": "定稿 1-4：质量需要核对中文、标点和数量，保留引用“样本 13”。\n第二段：本定稿仅用于本地测试；Reference 1-04, keep line breaks.\nReviewed: S104",
+              "Heading": "S104 · 章节 1-4 · 质量",
+              "Reviewed": "true"
+            },
+            "S105": {
+              "Body": "定稿 1-5：风险需要核对中文、标点和数量，保留引用“样本 14”。\n第二段：本定稿仅用于本地测试；Reference 1-05, keep line breaks.\nReviewed: S105",
+              "Heading": "S105 · 章节 1-5 · 风险",
+              "Reviewed": "true"
+            },
+            "S106": {
+              "Body": "定稿 1-6：结论需要核对中文、标点和数量，保留引用“样本 15”。\n第二段：本定稿仅用于本地测试；Reference 1-06, keep line breaks.\nReviewed: S106",
+              "Heading": "S106 · 章节 1-6 · 结论",
+              "Reviewed": "true"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 144586,
+      "combined_turn_ms": 144586,
+      "evidence_sha256": {
+        "brief.txt": "14c1e767167a2564681a7346da93ab74776dfa92f294adccfecf5f54d2abd8cf",
+        "source.json": "8f6d577728d7c0e6483dfa6161f1f4bd6fbcec94c65fa149aa90c3a84cb1945d",
+        "saved.json": "8018ee516761a7b0f844128ac1d9d187e3a61bd7d37938f48ac0c05f36aa649d",
+        "trace.json": "5511c20b34d9ab73ece8f152fab29f3c58c6343b80e9bf42e129b90290952b8d",
+        "runtime-context.json": "8b3c18db0d765eaf5d9e86382f154ce6b5e7d95daff73d5e656403c0771671dc",
+        "launch.json": "34f18b2e45de32228126335e855053ca15bc9ca4acce14b8838dcf43f9935783",
+        "audit.json": "bd5e66491e7f3b6e090184064e33894d9158c68c0126c424638e575bf0612fcb"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Bound exact supplied app path; all actions stayed in its native UI. Seven AX failures recovered with fresh state reads. Completed fields, reordering, correction and confirmation; no outside access or AGENTS context.",
+        "runtime_context": {
+          "contexts": [
+            {
+              "cwd": "/private/tmp/cu-decision-boundaries-20261031/document-1-native/work",
+              "model": "gpt-6-astra",
+              "effort": "high",
+              "service_tier": null
+            }
+          ],
+          "messages": [
+            {
+              "role": "developer",
+              "chars": 21420,
+              "sha256": "35bd51b5f577cb7b24cd5f4629e49e37cb724ab57754ce6f8f202001635bab8a",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 12749,
+              "sha256": "a358f5fdf2753bf82029ef8f222de0934f41c04668106faded740b05a91522cc",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 2400,
+              "sha256": "3edd51083129388f52e881435e93e4b981e00c5ee3d62ab5d32e22c428fd504b",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 271,
+              "sha256": "6ded806e3cdbb35599ecaf8742574bc5274908472b1729090010c404c2151e8e",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 460,
+              "sha256": "c1a72238dedc5c4aac974f612f7cde2a40db031616bb635a435bdbfc9b74419e",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 2095,
+              "sha256": "14c1e767167a2564681a7346da93ab74776dfa92f294adccfecf5f54d2abd8cf",
+              "agents_injected": false
+            }
+          ],
+          "no_agents_injected": true,
+          "exit_code": 0
+        }
+      }
+    },
+    {
+      "label": "document-2-native",
+      "mode": "document",
+      "repeat": 2,
+      "arm": "native",
+      "status": "passed",
+      "reasons": [],
+      "pid": 78736,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/decision-boundaries-20261031/document-2-native/VariedWorkflow.app",
+      "runtime_home": null,
+      "source_sha256": "4b10946f4fda28b6b977767effa061cfde7a8ea615b734ec36ad4161575ffba8",
+      "client_key": "document-2-native",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/decision-boundaries-20261031/document-2-native/output",
+      "thread_id": "01a19152-a62a-7e11-9a1d-5459e665ba58",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "native",
+          "thread_id": "01a19152-a62a-7e11-9a1d-5459e665ba58",
+          "turn_id": "01a19152-a665-7313-bf0e-f8adb0630a7b",
+          "started_at": "2026-10-31T09:37:55.310Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T09:40:18.697Z",
+          "elapsed_ms": 143389,
+          "final": "DONE",
+          "model_calls": 30,
+          "tokens": {
+            "input_tokens": 882885,
+            "cached_input_tokens": 839168,
+            "output_tokens": 3030,
+            "reasoning_output_tokens": 867,
+            "total_tokens": 885915
+          },
+          "tool_calls": 29,
+          "tool_output_chars": 44135,
+          "tool_errors": 7,
+          "tool_interval_ms": 10993,
+          "non_tool_interval_ms": 132396,
+          "label": "document-2-native"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true
+        },
+        "expected": {
+          "S201": {
+            "Heading": "S201 · 章节 2-1 · 目标",
+            "Body": "定稿 2-1：目标需要核对中文、标点和数量，保留引用“样本 20”。\n第二段：本定稿仅用于本地测试；Reference 2-01, keep line breaks.\nReviewed: S201",
+            "Reviewed": "true"
+          },
+          "S202": {
+            "Heading": "S202 · 章节 2-2 · 范围",
+            "Body": "定稿 2-2：范围需要核对中文、标点和数量，保留引用“样本 21”。\n第二段：本定稿仅用于本地测试；Reference 2-02, keep line breaks.\nReviewed: S202",
+            "Reviewed": "true"
+          },
+          "S203": {
+            "Heading": "S203 · 章节 2-3 · 交付（复核）",
+            "Body": "定稿 2-3：交付需要核对中文、标点和数量，保留引用“样本 22”。\n第二段：本定稿仅用于本地测试；Reference 2-03, keep line breaks.\nReviewed: S203",
+            "Reviewed": "true"
+          },
+          "S204": {
+            "Heading": "S204 · 章节 2-4 · 质量",
+            "Body": "定稿 2-4：质量需要核对中文、标点和数量，保留引用“样本 23”。\n第二段：本定稿仅用于本地测试；Reference 2-04, keep line breaks.\nReviewed: S204",
+            "Reviewed": "true"
+          },
+          "S205": {
+            "Heading": "S205 · 章节 2-5 · 风险",
+            "Body": "定稿 2-5：风险需要核对中文、标点和数量，保留引用“样本 24”。\n第二段：本定稿仅用于本地测试；Reference 2-05, keep line breaks.\nReviewed: S205",
+            "Reviewed": "true"
+          },
+          "S206": {
+            "Heading": "S206 · 章节 2-6 · 结论",
+            "Body": "定稿 2-6：结论需要核对中文、标点和数量，保留引用“样本 25”。\n第二段：本定稿仅用于本地测试；Reference 2-06, keep line breaks.\nReviewed: S206",
+            "Reviewed": "true"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "open",
+              "ID": "S201"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 2-1：目标需要核对中文、标点和数量，保留引用“样本 20”。\n第二段：本定稿仅用于本地测试；Reference 2-01, keep line breaks.\nReviewed: S201",
+              "Heading": "S201 · 章节 2-1 · 目标",
+              "ID": "S201",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S202"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 2-2：范围需要核对中文、标点和数量，保留引用“样本 21”。\n第二段：本定稿仅用于本地测试；Reference 2-02, keep line breaks.\nReviewed: S202",
+              "Heading": "S202 · 章节 2-2 · 范围",
+              "ID": "S202",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S203"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 2-3：交付需要核对中文、标点和数量，保留引用“样本 22”。\n第二段：本定稿仅用于本地测试；Reference 2-03, keep line breaks.\nReviewed: S203",
+              "Heading": "S203 · 章节 2-3 · 交付",
+              "ID": "S203",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S204"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 2-4：质量需要核对中文、标点和数量，保留引用“样本 23”。\n第二段：本定稿仅用于本地测试；Reference 2-04, keep line breaks.\nReviewed: S204",
+              "Heading": "S204 · 章节 2-4 · 质量",
+              "ID": "S204",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S205"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 2-5：风险需要核对中文、标点和数量，保留引用“样本 24”。\n第二段：本定稿仅用于本地测试；Reference 2-05, keep line breaks.\nReviewed: S205",
+              "Heading": "S205 · 章节 2-5 · 风险",
+              "ID": "S205",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S206"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 2-6：结论需要核对中文、标点和数量，保留引用“样本 25”。\n第二段：本定稿仅用于本地测试；Reference 2-06, keep line breaks.\nReviewed: S206",
+              "Heading": "S206 · 章节 2-6 · 结论",
+              "ID": "S206",
+              "Reviewed": "true"
+            },
+            {
+              "action": "move",
+              "ID": "S206",
+              "position": "1"
+            },
+            {
+              "action": "move",
+              "ID": "S202",
+              "position": "4"
+            },
+            {
+              "action": "open",
+              "ID": "S203"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 2-3：交付需要核对中文、标点和数量，保留引用“样本 22”。\n第二段：本定稿仅用于本地测试；Reference 2-03, keep line breaks.\nReviewed: S203",
+              "Heading": "S203 · 章节 2-3 · 交付（复核）",
+              "ID": "S203",
+              "Reviewed": "true"
+            },
+            {
+              "action": "finished",
+              "ID": "S203"
+            }
+          ],
+          "mode": "document",
+          "order": [
+            "S206",
+            "S201",
+            "S203",
+            "S202",
+            "S204",
+            "S205"
+          ],
+          "records": {
+            "S201": {
+              "Body": "定稿 2-1：目标需要核对中文、标点和数量，保留引用“样本 20”。\n第二段：本定稿仅用于本地测试；Reference 2-01, keep line breaks.\nReviewed: S201",
+              "Heading": "S201 · 章节 2-1 · 目标",
+              "Reviewed": "true"
+            },
+            "S202": {
+              "Body": "定稿 2-2：范围需要核对中文、标点和数量，保留引用“样本 21”。\n第二段：本定稿仅用于本地测试；Reference 2-02, keep line breaks.\nReviewed: S202",
+              "Heading": "S202 · 章节 2-2 · 范围",
+              "Reviewed": "true"
+            },
+            "S203": {
+              "Body": "定稿 2-3：交付需要核对中文、标点和数量，保留引用“样本 22”。\n第二段：本定稿仅用于本地测试；Reference 2-03, keep line breaks.\nReviewed: S203",
+              "Heading": "S203 · 章节 2-3 · 交付（复核）",
+              "Reviewed": "true"
+            },
+            "S204": {
+              "Body": "定稿 2-4：质量需要核对中文、标点和数量，保留引用“样本 23”。\n第二段：本定稿仅用于本地测试；Reference 2-04, keep line breaks.\nReviewed: S204",
+              "Heading": "S204 · 章节 2-4 · 质量",
+              "Reviewed": "true"
+            },
+            "S205": {
+              "Body": "定稿 2-5：风险需要核对中文、标点和数量，保留引用“样本 24”。\n第二段：本定稿仅用于本地测试；Reference 2-05, keep line breaks.\nReviewed: S205",
+              "Heading": "S205 · 章节 2-5 · 风险",
+              "Reviewed": "true"
+            },
+            "S206": {
+              "Body": "定稿 2-6：结论需要核对中文、标点和数量，保留引用“样本 25”。\n第二段：本定稿仅用于本地测试；Reference 2-06, keep line breaks.\nReviewed: S206",
+              "Heading": "S206 · 章节 2-6 · 结论",
+              "Reviewed": "true"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 143389,
+      "combined_turn_ms": 143389,
+      "evidence_sha256": {
+        "brief.txt": "5bf982180360d23a3359949f1875fece2e38b5ad49dc76a824c5c279fb90ed88",
+        "source.json": "4b10946f4fda28b6b977767effa061cfde7a8ea615b734ec36ad4161575ffba8",
+        "saved.json": "b37c59b4ba87b15cff7c9196504a03cf8c6e8fcc2f8799aa5dd1530f175a1583",
+        "trace.json": "0559bf1283f39d7b836c5c4f700c430adc355fb6e48c97da9701da4ae7a17d1b",
+        "runtime-context.json": "ddd9d1e673dc7dcce65ddbb2f97120e20ffee3f999fdb9633709181924614924",
+        "launch.json": "a53982246578156cbb265557842ad4924890b52f9de591fa69064435636f1049",
+        "audit.json": "a151ddf53cd92689c208cbbb2c9c5e6394d19c5173334ec5a6ce9f25ba047c6e"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Bound exact supplied app path; all actions stayed in its native UI. Seven AX failures recovered with fresh state reads. Completed fields, reordering, correction and confirmation; no outside access or AGENTS context.",
+        "runtime_context": {
+          "contexts": [
+            {
+              "cwd": "/private/tmp/cu-decision-boundaries-20261031/document-2-native/work",
+              "model": "gpt-6-astra",
+              "effort": "high",
+              "service_tier": null
+            }
+          ],
+          "messages": [
+            {
+              "role": "developer",
+              "chars": 21420,
+              "sha256": "35bd51b5f577cb7b24cd5f4629e49e37cb724ab57754ce6f8f202001635bab8a",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 12749,
+              "sha256": "02e3fd134ab81c63082fd9579678a9ec0df1b87a808c0baa7d92a516ab8a4152",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 2400,
+              "sha256": "3edd51083129388f52e881435e93e4b981e00c5ee3d62ab5d32e22c428fd504b",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 271,
+              "sha256": "6ded806e3cdbb35599ecaf8742574bc5274908472b1729090010c404c2151e8e",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 460,
+              "sha256": "e0f66110495c6eb2cd7dee0d625d6b21845a73f1ac289a28a8ad923d99266a08",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 2095,
+              "sha256": "5bf982180360d23a3359949f1875fece2e38b5ad49dc76a824c5c279fb90ed88",
+              "agents_injected": false
+            }
+          ],
+          "no_agents_injected": true,
+          "exit_code": 0
+        }
+      }
+    },
+    {
+      "label": "document-2-cu",
+      "mode": "document",
+      "repeat": 2,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 79799,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/decision-boundaries-20261031/document-2-cu/VariedWorkflow.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-varied-glx4v9hh",
+      "source_sha256": "4b10946f4fda28b6b977767effa061cfde7a8ea615b734ec36ad4161575ffba8",
+      "client_key": "document-2-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/decision-boundaries-20261031/document-2-cu/output",
+      "thread_id": "01a19154-e90d-7432-be84-b9e497805ae6",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a19154-e90d-7432-be84-b9e497805ae6",
+          "turn_id": "01a19154-e92e-7a62-8f2b-954ba7cfb40c",
+          "started_at": "2026-10-31T09:40:23.474Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T09:42:30.682Z",
+          "elapsed_ms": 127186,
+          "final": "DONE",
+          "model_calls": 23,
+          "tokens": {
+            "input_tokens": 622861,
+            "cached_input_tokens": 600832,
+            "output_tokens": 3319,
+            "reasoning_output_tokens": 546,
+            "total_tokens": 626180
+          },
+          "tool_calls": 22,
+          "tool_output_chars": 34794,
+          "tool_errors": 0,
+          "tool_interval_ms": 5026,
+          "non_tool_interval_ms": 122160,
+          "label": "document-2-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true
+        },
+        "expected": {
+          "S201": {
+            "Heading": "S201 · 章节 2-1 · 目标",
+            "Body": "定稿 2-1：目标需要核对中文、标点和数量，保留引用“样本 20”。\n第二段：本定稿仅用于本地测试；Reference 2-01, keep line breaks.\nReviewed: S201",
+            "Reviewed": "true"
+          },
+          "S202": {
+            "Heading": "S202 · 章节 2-2 · 范围",
+            "Body": "定稿 2-2：范围需要核对中文、标点和数量，保留引用“样本 21”。\n第二段：本定稿仅用于本地测试；Reference 2-02, keep line breaks.\nReviewed: S202",
+            "Reviewed": "true"
+          },
+          "S203": {
+            "Heading": "S203 · 章节 2-3 · 交付（复核）",
+            "Body": "定稿 2-3：交付需要核对中文、标点和数量，保留引用“样本 22”。\n第二段：本定稿仅用于本地测试；Reference 2-03, keep line breaks.\nReviewed: S203",
+            "Reviewed": "true"
+          },
+          "S204": {
+            "Heading": "S204 · 章节 2-4 · 质量",
+            "Body": "定稿 2-4：质量需要核对中文、标点和数量，保留引用“样本 23”。\n第二段：本定稿仅用于本地测试；Reference 2-04, keep line breaks.\nReviewed: S204",
+            "Reviewed": "true"
+          },
+          "S205": {
+            "Heading": "S205 · 章节 2-5 · 风险",
+            "Body": "定稿 2-5：风险需要核对中文、标点和数量，保留引用“样本 24”。\n第二段：本定稿仅用于本地测试；Reference 2-05, keep line breaks.\nReviewed: S205",
+            "Reviewed": "true"
+          },
+          "S206": {
+            "Heading": "S206 · 章节 2-6 · 结论",
+            "Body": "定稿 2-6：结论需要核对中文、标点和数量，保留引用“样本 25”。\n第二段：本定稿仅用于本地测试；Reference 2-06, keep line breaks.\nReviewed: S206",
+            "Reviewed": "true"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "open",
+              "ID": "S201"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 2-1：目标需要核对中文、标点和数量，保留引用“样本 20”。\n第二段：本定稿仅用于本地测试；Reference 2-01, keep line breaks.\nReviewed: S201",
+              "Heading": "S201 · 章节 2-1 · 目标",
+              "ID": "S201",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S202"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 2-2：范围需要核对中文、标点和数量，保留引用“样本 21”。\n第二段：本定稿仅用于本地测试；Reference 2-02, keep line breaks.\nReviewed: S202",
+              "Heading": "S202 · 章节 2-2 · 范围",
+              "ID": "S202",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S203"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 2-3：交付需要核对中文、标点和数量，保留引用“样本 22”。\n第二段：本定稿仅用于本地测试；Reference 2-03, keep line breaks.\nReviewed: S203",
+              "Heading": "S203 · 章节 2-3 · 交付",
+              "ID": "S203",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S204"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 2-4：质量需要核对中文、标点和数量，保留引用“样本 23”。\n第二段：本定稿仅用于本地测试；Reference 2-04, keep line breaks.\nReviewed: S204",
+              "Heading": "S204 · 章节 2-4 · 质量",
+              "ID": "S204",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S205"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 2-5：风险需要核对中文、标点和数量，保留引用“样本 24”。\n第二段：本定稿仅用于本地测试；Reference 2-05, keep line breaks.\nReviewed: S205",
+              "Heading": "S205 · 章节 2-5 · 风险",
+              "ID": "S205",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S206"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 2-6：结论需要核对中文、标点和数量，保留引用“样本 25”。\n第二段：本定稿仅用于本地测试；Reference 2-06, keep line breaks.\nReviewed: S206",
+              "Heading": "S206 · 章节 2-6 · 结论",
+              "ID": "S206",
+              "Reviewed": "true"
+            },
+            {
+              "action": "move",
+              "ID": "S206",
+              "position": "1"
+            },
+            {
+              "action": "move",
+              "ID": "S202",
+              "position": "4"
+            },
+            {
+              "action": "open",
+              "ID": "S203"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 2-3：交付需要核对中文、标点和数量，保留引用“样本 22”。\n第二段：本定稿仅用于本地测试；Reference 2-03, keep line breaks.\nReviewed: S203",
+              "Heading": "S203 · 章节 2-3 · 交付（复核）",
+              "ID": "S203",
+              "Reviewed": "true"
+            },
+            {
+              "action": "finished",
+              "ID": "S203"
+            }
+          ],
+          "mode": "document",
+          "order": [
+            "S206",
+            "S201",
+            "S203",
+            "S202",
+            "S204",
+            "S205"
+          ],
+          "records": {
+            "S201": {
+              "Body": "定稿 2-1：目标需要核对中文、标点和数量，保留引用“样本 20”。\n第二段：本定稿仅用于本地测试；Reference 2-01, keep line breaks.\nReviewed: S201",
+              "Heading": "S201 · 章节 2-1 · 目标",
+              "Reviewed": "true"
+            },
+            "S202": {
+              "Body": "定稿 2-2：范围需要核对中文、标点和数量，保留引用“样本 21”。\n第二段：本定稿仅用于本地测试；Reference 2-02, keep line breaks.\nReviewed: S202",
+              "Heading": "S202 · 章节 2-2 · 范围",
+              "Reviewed": "true"
+            },
+            "S203": {
+              "Body": "定稿 2-3：交付需要核对中文、标点和数量，保留引用“样本 22”。\n第二段：本定稿仅用于本地测试；Reference 2-03, keep line breaks.\nReviewed: S203",
+              "Heading": "S203 · 章节 2-3 · 交付（复核）",
+              "Reviewed": "true"
+            },
+            "S204": {
+              "Body": "定稿 2-4：质量需要核对中文、标点和数量，保留引用“样本 23”。\n第二段：本定稿仅用于本地测试；Reference 2-04, keep line breaks.\nReviewed: S204",
+              "Heading": "S204 · 章节 2-4 · 质量",
+              "Reviewed": "true"
+            },
+            "S205": {
+              "Body": "定稿 2-5：风险需要核对中文、标点和数量，保留引用“样本 24”。\n第二段：本定稿仅用于本地测试；Reference 2-05, keep line breaks.\nReviewed: S205",
+              "Heading": "S205 · 章节 2-5 · 风险",
+              "Reviewed": "true"
+            },
+            "S206": {
+              "Body": "定稿 2-6：结论需要核对中文、标点和数量，保留引用“样本 25”。\n第二段：本定稿仅用于本地测试；Reference 2-06, keep line breaks.\nReviewed: S206",
+              "Heading": "S206 · 章节 2-6 · 结论",
+              "Reviewed": "true"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 127186,
+      "combined_turn_ms": 127186,
+      "evidence_sha256": {
+        "brief.txt": "91bca9147192355429b413e2de80af689a3bd0225a18bec5a5220503790236e8",
+        "source.json": "4b10946f4fda28b6b977767effa061cfde7a8ea615b734ec36ad4161575ffba8",
+        "saved.json": "b37c59b4ba87b15cff7c9196504a03cf8c6e8fcc2f8799aa5dd1530f175a1583",
+        "trace.json": "9d534c06e24e01c2a4694d1a45bd926c7d3cbfed0266114d6a38f62ad79d08cc",
+        "runtime-context.json": "cfa2973b97ed00179519252bd3c24e59dec2f8602c30758d5ffda6faabcf3640",
+        "launch.json": "4181c5c56a18470785e7ca3208298bedef562d984a00ae629e87003a4bf6e2aa",
+        "audit.json": "f08ca8d4ff669d1ac9e4e3a001b27da78956f84434812ab365b40132a8845a5f"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Read packaged skill; saved exact supplied PID, binary, client, runtime home and output directory. Grouped field edits, save/navigation and final snapshot; no errors, outside access or AGENTS context. Exact final fields/order/completion passed.",
+        "runtime_context": {
+          "contexts": [
+            {
+              "cwd": "/private/tmp/cu-decision-boundaries-20261031/document-2-cu/work",
+              "model": "gpt-6-astra",
+              "effort": "high",
+              "service_tier": null
+            }
+          ],
+          "messages": [
+            {
+              "role": "developer",
+              "chars": 21420,
+              "sha256": "35bd51b5f577cb7b24cd5f4629e49e37cb724ab57754ce6f8f202001635bab8a",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 12745,
+              "sha256": "d486e23e866bd2e9df6e7ed52e397340b5a6ab4df7571e08d9cb79f9a5a1add9",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 2400,
+              "sha256": "3edd51083129388f52e881435e93e4b981e00c5ee3d62ab5d32e22c428fd504b",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 271,
+              "sha256": "6ded806e3cdbb35599ecaf8742574bc5274908472b1729090010c404c2151e8e",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 452,
+              "sha256": "d9cc9862f5bdfec1285b8cf6d0c65f45ad8cb8bb02fef6b5bfb5b09ad75fa85b",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 2384,
+              "sha256": "91bca9147192355429b413e2de80af689a3bd0225a18bec5a5220503790236e8",
+              "agents_injected": false
+            }
+          ],
+          "no_agents_injected": true,
+          "exit_code": 0
+        },
+        "task_config_sha256": "44d3699a5b1b85d4c47be2ca8d7f27493d6fecbd970633799ab712bb4051d9f9"
+      }
+    },
+    {
+      "label": "wizard-1-native",
+      "mode": "wizard",
+      "repeat": 1,
+      "arm": "native",
+      "status": "passed",
+      "reasons": [],
+      "pid": 80866,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/decision-boundaries-20261031/wizard-1-native/VariedWorkflow.app",
+      "runtime_home": null,
+      "source_sha256": "c7d17801f6b0204f9e46e385e78f00fdebb2f4492fbb8e968b4fcfff1f80df98",
+      "client_key": "wizard-1-native",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/decision-boundaries-20261031/wizard-1-native/output",
+      "thread_id": "01a19156-ef69-7e02-b948-3395470816a1",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "native",
+          "thread_id": "01a19156-ef69-7e02-b948-3395470816a1",
+          "turn_id": "01a19156-ef85-79a2-892d-19d4150ca385",
+          "started_at": "2026-10-31T09:42:36.170Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T09:45:21.285Z",
+          "elapsed_ms": 165112,
+          "final": "DONE",
+          "model_calls": 34,
+          "tokens": {
+            "input_tokens": 969511,
+            "cached_input_tokens": 935040,
+            "output_tokens": 1708,
+            "total_tokens": 971219,
+            "reasoning_output_tokens": 11
+          },
+          "tool_calls": 33,
+          "tool_output_chars": 46570,
+          "tool_errors": 0,
+          "tool_interval_ms": 19114,
+          "non_tool_interval_ms": 145998,
+          "label": "wizard-1-native"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "review_correction_used_back": true,
+          "all_applies_confirmed": true
+        },
+        "expected": {
+          "P101": {
+            "Host": "node-1-1.example.test",
+            "Route": "Proxy",
+            "Port": "443",
+            "TLS": "true",
+            "Retention days": "30",
+            "Audit": "true",
+            "Limit": "117",
+            "Tag": "release-1-区1",
+            "Proxy server": "proxy-1-1.example.test:8080"
+          },
+          "P102": {
+            "Host": "node-1-2.example.test",
+            "Route": "Direct",
+            "Port": "80",
+            "TLS": "false",
+            "Retention days": "14",
+            "Audit": "false",
+            "Limit": "217",
+            "Tag": "release-1-区2"
+          },
+          "P103": {
+            "Host": "node-1-3.example.test",
+            "Route": "Proxy",
+            "Port": "443",
+            "TLS": "true",
+            "Retention days": "30",
+            "Audit": "true",
+            "Limit": "317",
+            "Tag": "release-1-区3",
+            "Proxy server": "proxy-1-3.example.test:8080"
+          },
+          "P104": {
+            "Host": "node-1-4.example.test",
+            "Route": "Direct",
+            "Port": "80",
+            "TLS": "false",
+            "Retention days": "7",
+            "Audit": "false",
+            "Limit": "417",
+            "Tag": "release-1-区4"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "open",
+              "ID": "P101"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-1-1.example.test",
+              "ID": "P101",
+              "Port": "443",
+              "Proxy server": "proxy-1-1.example.test:8080",
+              "Route": "Proxy",
+              "TLS": "true"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "true",
+              "Host": "node-1-1.example.test",
+              "ID": "P101",
+              "Limit": "117",
+              "Port": "443",
+              "Proxy server": "proxy-1-1.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区1",
+              "TLS": "true"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "true",
+              "Host": "node-1-1.example.test",
+              "ID": "P101",
+              "Limit": "117",
+              "Port": "443",
+              "Proxy server": "proxy-1-1.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区1",
+              "TLS": "true"
+            },
+            {
+              "action": "applied",
+              "Audit": "true",
+              "Host": "node-1-1.example.test",
+              "ID": "P101",
+              "Limit": "117",
+              "Port": "443",
+              "Proxy server": "proxy-1-1.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区1",
+              "TLS": "true"
+            },
+            {
+              "action": "open",
+              "ID": "P102"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-1-2.example.test",
+              "ID": "P102",
+              "Port": "80",
+              "Route": "Direct",
+              "TLS": "false"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "false",
+              "Host": "node-1-2.example.test",
+              "ID": "P102",
+              "Limit": "217",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-1-区2",
+              "TLS": "false"
+            },
+            {
+              "action": "back-policy",
+              "ID": "P102"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "false",
+              "Host": "node-1-2.example.test",
+              "ID": "P102",
+              "Limit": "217",
+              "Port": "80",
+              "Retention days": "14",
+              "Route": "Direct",
+              "Tag": "release-1-区2",
+              "TLS": "false"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "false",
+              "Host": "node-1-2.example.test",
+              "ID": "P102",
+              "Limit": "217",
+              "Port": "80",
+              "Retention days": "14",
+              "Route": "Direct",
+              "Tag": "release-1-区2",
+              "TLS": "false"
+            },
+            {
+              "action": "applied",
+              "Audit": "false",
+              "Host": "node-1-2.example.test",
+              "ID": "P102",
+              "Limit": "217",
+              "Port": "80",
+              "Retention days": "14",
+              "Route": "Direct",
+              "Tag": "release-1-区2",
+              "TLS": "false"
+            },
+            {
+              "action": "open",
+              "ID": "P103"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-1-3.example.test",
+              "ID": "P103",
+              "Port": "443",
+              "Proxy server": "proxy-1-3.example.test:8080",
+              "Route": "Proxy",
+              "TLS": "true"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "true",
+              "Host": "node-1-3.example.test",
+              "ID": "P103",
+              "Limit": "317",
+              "Port": "443",
+              "Proxy server": "proxy-1-3.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区3",
+              "TLS": "true"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "true",
+              "Host": "node-1-3.example.test",
+              "ID": "P103",
+              "Limit": "317",
+              "Port": "443",
+              "Proxy server": "proxy-1-3.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区3",
+              "TLS": "true"
+            },
+            {
+              "action": "applied",
+              "Audit": "true",
+              "Host": "node-1-3.example.test",
+              "ID": "P103",
+              "Limit": "317",
+              "Port": "443",
+              "Proxy server": "proxy-1-3.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区3",
+              "TLS": "true"
+            },
+            {
+              "action": "open",
+              "ID": "P104"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-1-4.example.test",
+              "ID": "P104",
+              "Port": "80",
+              "Route": "Direct",
+              "TLS": "false"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "false",
+              "Host": "node-1-4.example.test",
+              "ID": "P104",
+              "Limit": "417",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-1-区4",
+              "TLS": "false"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "false",
+              "Host": "node-1-4.example.test",
+              "ID": "P104",
+              "Limit": "417",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-1-区4",
+              "TLS": "false"
+            },
+            {
+              "action": "applied",
+              "Audit": "false",
+              "Host": "node-1-4.example.test",
+              "ID": "P104",
+              "Limit": "417",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-1-区4",
+              "TLS": "false"
+            },
+            {
+              "action": "finished",
+              "ID": "P104"
+            }
+          ],
+          "mode": "wizard",
+          "order": [
+            "P101",
+            "P102",
+            "P103",
+            "P104"
+          ],
+          "records": {
+            "P101": {
+              "Audit": "true",
+              "Host": "node-1-1.example.test",
+              "Limit": "117",
+              "Port": "443",
+              "Proxy server": "proxy-1-1.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区1",
+              "TLS": "true"
+            },
+            "P102": {
+              "Audit": "false",
+              "Host": "node-1-2.example.test",
+              "Limit": "217",
+              "Port": "80",
+              "Retention days": "14",
+              "Route": "Direct",
+              "Tag": "release-1-区2",
+              "TLS": "false"
+            },
+            "P103": {
+              "Audit": "true",
+              "Host": "node-1-3.example.test",
+              "Limit": "317",
+              "Port": "443",
+              "Proxy server": "proxy-1-3.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区3",
+              "TLS": "true"
+            },
+            "P104": {
+              "Audit": "false",
+              "Host": "node-1-4.example.test",
+              "Limit": "417",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-1-区4",
+              "TLS": "false"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 165112,
+      "combined_turn_ms": 165112,
+      "evidence_sha256": {
+        "brief.txt": "f8ad7aaa06e28d1cc97ca008be8e24fe4449658b30b4a46e120f9b74726e6962",
+        "source.json": "c7d17801f6b0204f9e46e385e78f00fdebb2f4492fbb8e968b4fcfff1f80df98",
+        "saved.json": "634fd3ca6823872aca97d1ca9210c2b669573658704f089cfdd1f934bc64549a",
+        "trace.json": "9f76badc172cae3a6f9d01e318d2794ed2f4420569a779218fe8d0263c0898f5",
+        "runtime-context.json": "a3a96d47f1abaab9a37c92571c96d7ef9f54cf1e67f88589e2088f002cc49368",
+        "launch.json": "7a44323fb3f2a83f271f73a7aa3bc6baff36eb44a4470825395015a027fe7c3f",
+        "audit.json": "2a2c5b7b1f56d5fb16d6836c2c54a29cd290ecd918ebeb7a4fcc534e5c73af9e"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Exact supplied app path; only native UI operations, live sources before edits, grouped field edits/navigation. Extra reads observed menu/list transitions; no tool errors or outside access. Original review and correction, all saves and final confirmation passed. No AGENTS context.",
+        "runtime_context": {
+          "contexts": [
+            {
+              "cwd": "/private/tmp/cu-decision-boundaries-20261031/wizard-1-native/work",
+              "model": "gpt-6-astra",
+              "effort": "high",
+              "service_tier": null
+            }
+          ],
+          "messages": [
+            {
+              "role": "developer",
+              "chars": 21420,
+              "sha256": "35bd51b5f577cb7b24cd5f4629e49e37cb724ab57754ce6f8f202001635bab8a",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 12747,
+              "sha256": "7a7e56cf6340e08dc12f0e056ec9f8952c96d2d122ccd234e396e48eeb26a758",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 2400,
+              "sha256": "3edd51083129388f52e881435e93e4b981e00c5ee3d62ab5d32e22c428fd504b",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 271,
+              "sha256": "6ded806e3cdbb35599ecaf8742574bc5274908472b1729090010c404c2151e8e",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 456,
+              "sha256": "ead40fa19ceb9307d4a3098386ded76d1d2e517a0f991b75def947b5aedb2eaf",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 2375,
+              "sha256": "f8ad7aaa06e28d1cc97ca008be8e24fe4449658b30b4a46e120f9b74726e6962",
+              "agents_injected": false
+            }
+          ],
+          "no_agents_injected": true,
+          "exit_code": 0
+        }
+      }
+    },
+    {
+      "label": "wizard-1-cu",
+      "mode": "wizard",
+      "repeat": 1,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 82269,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/decision-boundaries-20261031/wizard-1-cu/VariedWorkflow.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-varied-cg7hlaxy",
+      "source_sha256": "c7d17801f6b0204f9e46e385e78f00fdebb2f4492fbb8e968b4fcfff1f80df98",
+      "client_key": "wizard-1-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/decision-boundaries-20261031/wizard-1-cu/output",
+      "thread_id": "01a19159-87b8-77c2-b566-4559870bde48",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a19159-87b8-77c2-b566-4559870bde48",
+          "turn_id": "01a19159-87fd-79b2-adf6-e22683d24d3b",
+          "started_at": "2026-10-31T09:45:26.276Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T09:48:37.233Z",
+          "elapsed_ms": 190958,
+          "final": "DONE",
+          "model_calls": 34,
+          "tokens": {
+            "input_tokens": 971693,
+            "cached_input_tokens": 925440,
+            "output_tokens": 4567,
+            "reasoning_output_tokens": 979,
+            "total_tokens": 976260
+          },
+          "tool_calls": 33,
+          "tool_output_chars": 43793,
+          "tool_errors": 2,
+          "tool_interval_ms": 20936,
+          "non_tool_interval_ms": 170022,
+          "label": "wizard-1-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "review_correction_used_back": true,
+          "all_applies_confirmed": true
+        },
+        "expected": {
+          "P101": {
+            "Host": "node-1-1.example.test",
+            "Route": "Proxy",
+            "Port": "443",
+            "TLS": "true",
+            "Retention days": "30",
+            "Audit": "true",
+            "Limit": "117",
+            "Tag": "release-1-区1",
+            "Proxy server": "proxy-1-1.example.test:8080"
+          },
+          "P102": {
+            "Host": "node-1-2.example.test",
+            "Route": "Direct",
+            "Port": "80",
+            "TLS": "false",
+            "Retention days": "14",
+            "Audit": "false",
+            "Limit": "217",
+            "Tag": "release-1-区2"
+          },
+          "P103": {
+            "Host": "node-1-3.example.test",
+            "Route": "Proxy",
+            "Port": "443",
+            "TLS": "true",
+            "Retention days": "30",
+            "Audit": "true",
+            "Limit": "317",
+            "Tag": "release-1-区3",
+            "Proxy server": "proxy-1-3.example.test:8080"
+          },
+          "P104": {
+            "Host": "node-1-4.example.test",
+            "Route": "Direct",
+            "Port": "80",
+            "TLS": "false",
+            "Retention days": "7",
+            "Audit": "false",
+            "Limit": "417",
+            "Tag": "release-1-区4"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "open",
+              "ID": "P101"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-1-1.example.test",
+              "ID": "P101",
+              "Port": "443",
+              "Proxy server": "proxy-1-1.example.test:8080",
+              "Route": "Proxy",
+              "TLS": "true"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "true",
+              "Host": "node-1-1.example.test",
+              "ID": "P101",
+              "Limit": "117",
+              "Port": "443",
+              "Proxy server": "proxy-1-1.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区1",
+              "TLS": "true"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "true",
+              "Host": "node-1-1.example.test",
+              "ID": "P101",
+              "Limit": "117",
+              "Port": "443",
+              "Proxy server": "proxy-1-1.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区1",
+              "TLS": "true"
+            },
+            {
+              "action": "applied",
+              "Audit": "true",
+              "Host": "node-1-1.example.test",
+              "ID": "P101",
+              "Limit": "117",
+              "Port": "443",
+              "Proxy server": "proxy-1-1.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区1",
+              "TLS": "true"
+            },
+            {
+              "action": "open",
+              "ID": "P102"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-1-2.example.test",
+              "ID": "P102",
+              "Port": "80",
+              "Route": "Direct",
+              "TLS": "false"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "false",
+              "Host": "node-1-2.example.test",
+              "ID": "P102",
+              "Limit": "217",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-1-区2",
+              "TLS": "false"
+            },
+            {
+              "action": "back-policy",
+              "ID": "P102"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "false",
+              "Host": "node-1-2.example.test",
+              "ID": "P102",
+              "Limit": "217",
+              "Port": "80",
+              "Retention days": "14",
+              "Route": "Direct",
+              "Tag": "release-1-区2",
+              "TLS": "false"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "false",
+              "Host": "node-1-2.example.test",
+              "ID": "P102",
+              "Limit": "217",
+              "Port": "80",
+              "Retention days": "14",
+              "Route": "Direct",
+              "Tag": "release-1-区2",
+              "TLS": "false"
+            },
+            {
+              "action": "applied",
+              "Audit": "false",
+              "Host": "node-1-2.example.test",
+              "ID": "P102",
+              "Limit": "217",
+              "Port": "80",
+              "Retention days": "14",
+              "Route": "Direct",
+              "Tag": "release-1-区2",
+              "TLS": "false"
+            },
+            {
+              "action": "open",
+              "ID": "P103"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-1-3.example.test",
+              "ID": "P103",
+              "Port": "443",
+              "Proxy server": "proxy-1-3.example.test:8080",
+              "Route": "Proxy",
+              "TLS": "true"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "true",
+              "Host": "node-1-3.example.test",
+              "ID": "P103",
+              "Limit": "317",
+              "Port": "443",
+              "Proxy server": "proxy-1-3.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区3",
+              "TLS": "true"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "true",
+              "Host": "node-1-3.example.test",
+              "ID": "P103",
+              "Limit": "317",
+              "Port": "443",
+              "Proxy server": "proxy-1-3.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区3",
+              "TLS": "true"
+            },
+            {
+              "action": "applied",
+              "Audit": "true",
+              "Host": "node-1-3.example.test",
+              "ID": "P103",
+              "Limit": "317",
+              "Port": "443",
+              "Proxy server": "proxy-1-3.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区3",
+              "TLS": "true"
+            },
+            {
+              "action": "open",
+              "ID": "P104"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-1-4.example.test",
+              "ID": "P104",
+              "Port": "80",
+              "Route": "Direct",
+              "TLS": "false"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "false",
+              "Host": "node-1-4.example.test",
+              "ID": "P104",
+              "Limit": "417",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-1-区4",
+              "TLS": "false"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "false",
+              "Host": "node-1-4.example.test",
+              "ID": "P104",
+              "Limit": "417",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-1-区4",
+              "TLS": "false"
+            },
+            {
+              "action": "applied",
+              "Audit": "false",
+              "Host": "node-1-4.example.test",
+              "ID": "P104",
+              "Limit": "417",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-1-区4",
+              "TLS": "false"
+            },
+            {
+              "action": "finished",
+              "ID": "P104"
+            }
+          ],
+          "mode": "wizard",
+          "order": [
+            "P101",
+            "P102",
+            "P103",
+            "P104"
+          ],
+          "records": {
+            "P101": {
+              "Audit": "true",
+              "Host": "node-1-1.example.test",
+              "Limit": "117",
+              "Port": "443",
+              "Proxy server": "proxy-1-1.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区1",
+              "TLS": "true"
+            },
+            "P102": {
+              "Audit": "false",
+              "Host": "node-1-2.example.test",
+              "Limit": "217",
+              "Port": "80",
+              "Retention days": "14",
+              "Route": "Direct",
+              "Tag": "release-1-区2",
+              "TLS": "false"
+            },
+            "P103": {
+              "Audit": "true",
+              "Host": "node-1-3.example.test",
+              "Limit": "317",
+              "Port": "443",
+              "Proxy server": "proxy-1-3.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区3",
+              "TLS": "true"
+            },
+            "P104": {
+              "Audit": "false",
+              "Host": "node-1-4.example.test",
+              "Limit": "417",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-1-区4",
+              "TLS": "false"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 190958,
+      "combined_turn_ms": 190958,
+      "evidence_sha256": {
+        "brief.txt": "5acbd5e84a5e9b9be8e2dc16eddcad24c8b412f89f778f501f2643c19d3d797c",
+        "source.json": "c7d17801f6b0204f9e46e385e78f00fdebb2f4492fbb8e968b4fcfff1f80df98",
+        "saved.json": "634fd3ca6823872aca97d1ca9210c2b669573658704f089cfdd1f934bc64549a",
+        "trace.json": "5ba6a38fb07bb80dd0ab7b277ca2c9d65d903cb384bf148e172c8c1ac3602c30",
+        "runtime-context.json": "189b2664cb0d6b1c23fb978ff09f1beaab9d06e48604177d4545a4743c3f52b6",
+        "launch.json": "7e555fb55b756e89948d1dbb1d7436da2ad82f13beb291f146a08681f082b01a",
+        "audit.json": "da815cd76ae2296d03b4b0b32c782e899198de1b25d6da02546d16e225cf2fa4"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Read packaged skill and retained exact supplied task binding. All actions stayed in supplied app. Repeated accepted menu item was rejected as stale; premature list wait timed out on confirmation, followed by redundant snapshot. Recovered and resumed grouped fields with proper later waits. All required original review, correction, save and completion checks passed; errors retained, no AGENTS context.",
+        "runtime_context": {
+          "contexts": [
+            {
+              "cwd": "/private/tmp/cu-decision-boundaries-20261031/wizard-1-cu/work",
+              "model": "gpt-6-astra",
+              "effort": "high",
+              "service_tier": null
+            }
+          ],
+          "messages": [
+            {
+              "role": "developer",
+              "chars": 21420,
+              "sha256": "35bd51b5f577cb7b24cd5f4629e49e37cb724ab57754ce6f8f202001635bab8a",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 12743,
+              "sha256": "4a77efca839f7d5092eafc4043935712937d286e4e48f8908eb743277d5c06c2",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 2400,
+              "sha256": "3edd51083129388f52e881435e93e4b981e00c5ee3d62ab5d32e22c428fd504b",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 271,
+              "sha256": "6ded806e3cdbb35599ecaf8742574bc5274908472b1729090010c404c2151e8e",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 448,
+              "sha256": "47e24ea175ed845c241c45f999bc5f98aa49e75581b3ba837f34ead3c8091bf0",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 2662,
+              "sha256": "5acbd5e84a5e9b9be8e2dc16eddcad24c8b412f89f778f501f2643c19d3d797c",
+              "agents_injected": false
+            }
+          ],
+          "no_agents_injected": true,
+          "exit_code": 0
+        },
+        "task_config_sha256": "aa191f02e8dc2699e234a8a10b5ee048369d127529e594fd66edc8508f3244fd"
+      }
+    },
+    {
+      "label": "wizard-2-cu",
+      "mode": "wizard",
+      "repeat": 2,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 83807,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/decision-boundaries-20261031/wizard-2-cu/VariedWorkflow.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-varied-2j4fid5t",
+      "source_sha256": "e8a25d93fe416bfdf610edddcf1aa3f2c6cdc7c7d3eb31fd69ef57a3300e8c47",
+      "client_key": "wizard-2-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/decision-boundaries-20261031/wizard-2-cu/output",
+      "thread_id": "01a1915c-85c1-7331-923e-a14e46195d6b",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a1915c-85c1-7331-923e-a14e46195d6b",
+          "turn_id": "01a1915c-85d9-7573-9347-8597f95d0a09",
+          "started_at": "2026-10-31T09:48:42.333Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T09:51:00.482Z",
+          "elapsed_ms": 138150,
+          "final": "DONE",
+          "model_calls": 41,
+          "tokens": {
+            "input_tokens": 1220281,
+            "cached_input_tokens": 1144832,
+            "output_tokens": 3997,
+            "reasoning_output_tokens": 1316,
+            "total_tokens": 1224278
+          },
+          "tool_calls": 40,
+          "tool_output_chars": 52553,
+          "tool_errors": 2,
+          "tool_interval_ms": 10341,
+          "non_tool_interval_ms": 127809,
+          "label": "wizard-2-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "review_correction_used_back": true,
+          "all_applies_confirmed": true
+        },
+        "expected": {
+          "P201": {
+            "Host": "node-2-1.example.test",
+            "Route": "Direct",
+            "Port": "80",
+            "TLS": "false",
+            "Retention days": "7",
+            "Audit": "false",
+            "Limit": "134",
+            "Tag": "release-2-区1"
+          },
+          "P202": {
+            "Host": "node-2-2.example.test",
+            "Route": "Proxy",
+            "Port": "443",
+            "TLS": "true",
+            "Retention days": "14",
+            "Audit": "true",
+            "Limit": "234",
+            "Tag": "release-2-区2",
+            "Proxy server": "proxy-2-2.example.test:8080"
+          },
+          "P203": {
+            "Host": "node-2-3.example.test",
+            "Route": "Direct",
+            "Port": "80",
+            "TLS": "false",
+            "Retention days": "7",
+            "Audit": "false",
+            "Limit": "334",
+            "Tag": "release-2-区3"
+          },
+          "P204": {
+            "Host": "node-2-4.example.test",
+            "Route": "Proxy",
+            "Port": "443",
+            "TLS": "true",
+            "Retention days": "30",
+            "Audit": "true",
+            "Limit": "434",
+            "Tag": "release-2-区4",
+            "Proxy server": "proxy-2-4.example.test:8080"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "open",
+              "ID": "P201"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-2-1.example.test",
+              "ID": "P201",
+              "Port": "80",
+              "Route": "Direct",
+              "TLS": "false"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "false",
+              "Host": "node-2-1.example.test",
+              "ID": "P201",
+              "Limit": "134",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区1",
+              "TLS": "false"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "false",
+              "Host": "node-2-1.example.test",
+              "ID": "P201",
+              "Limit": "134",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区1",
+              "TLS": "false"
+            },
+            {
+              "action": "applied",
+              "Audit": "false",
+              "Host": "node-2-1.example.test",
+              "ID": "P201",
+              "Limit": "134",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区1",
+              "TLS": "false"
+            },
+            {
+              "action": "open",
+              "ID": "P202"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-2-2.example.test",
+              "ID": "P202",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Route": "Proxy",
+              "TLS": "true"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "true",
+              "Host": "node-2-2.example.test",
+              "ID": "P202",
+              "Limit": "234",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-2-区2",
+              "TLS": "true"
+            },
+            {
+              "action": "back-policy",
+              "ID": "P202"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "true",
+              "Host": "node-2-2.example.test",
+              "ID": "P202",
+              "Limit": "234",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Retention days": "14",
+              "Route": "Proxy",
+              "Tag": "release-2-区2",
+              "TLS": "true"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "true",
+              "Host": "node-2-2.example.test",
+              "ID": "P202",
+              "Limit": "234",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Retention days": "14",
+              "Route": "Proxy",
+              "Tag": "release-2-区2",
+              "TLS": "true"
+            },
+            {
+              "action": "applied",
+              "Audit": "true",
+              "Host": "node-2-2.example.test",
+              "ID": "P202",
+              "Limit": "234",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Retention days": "14",
+              "Route": "Proxy",
+              "Tag": "release-2-区2",
+              "TLS": "true"
+            },
+            {
+              "action": "open",
+              "ID": "P203"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-2-3.example.test",
+              "ID": "P203",
+              "Port": "80",
+              "Route": "Direct",
+              "TLS": "false"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "false",
+              "Host": "node-2-3.example.test",
+              "ID": "P203",
+              "Limit": "334",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区3",
+              "TLS": "false"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "false",
+              "Host": "node-2-3.example.test",
+              "ID": "P203",
+              "Limit": "334",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区3",
+              "TLS": "false"
+            },
+            {
+              "action": "applied",
+              "Audit": "false",
+              "Host": "node-2-3.example.test",
+              "ID": "P203",
+              "Limit": "334",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区3",
+              "TLS": "false"
+            },
+            {
+              "action": "open",
+              "ID": "P204"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-2-4.example.test",
+              "ID": "P204",
+              "Port": "443",
+              "Proxy server": "proxy-2-4.example.test:8080",
+              "Route": "Proxy",
+              "TLS": "true"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "true",
+              "Host": "node-2-4.example.test",
+              "ID": "P204",
+              "Limit": "434",
+              "Port": "443",
+              "Proxy server": "proxy-2-4.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-2-区4",
+              "TLS": "true"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "true",
+              "Host": "node-2-4.example.test",
+              "ID": "P204",
+              "Limit": "434",
+              "Port": "443",
+              "Proxy server": "proxy-2-4.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-2-区4",
+              "TLS": "true"
+            },
+            {
+              "action": "applied",
+              "Audit": "true",
+              "Host": "node-2-4.example.test",
+              "ID": "P204",
+              "Limit": "434",
+              "Port": "443",
+              "Proxy server": "proxy-2-4.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-2-区4",
+              "TLS": "true"
+            },
+            {
+              "action": "finished",
+              "ID": "P204"
+            }
+          ],
+          "mode": "wizard",
+          "order": [
+            "P201",
+            "P202",
+            "P203",
+            "P204"
+          ],
+          "records": {
+            "P201": {
+              "Audit": "false",
+              "Host": "node-2-1.example.test",
+              "Limit": "134",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区1",
+              "TLS": "false"
+            },
+            "P202": {
+              "Audit": "true",
+              "Host": "node-2-2.example.test",
+              "Limit": "234",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Retention days": "14",
+              "Route": "Proxy",
+              "Tag": "release-2-区2",
+              "TLS": "true"
+            },
+            "P203": {
+              "Audit": "false",
+              "Host": "node-2-3.example.test",
+              "Limit": "334",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区3",
+              "TLS": "false"
+            },
+            "P204": {
+              "Audit": "true",
+              "Host": "node-2-4.example.test",
+              "Limit": "434",
+              "Port": "443",
+              "Proxy server": "proxy-2-4.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-2-区4",
+              "TLS": "true"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 138150,
+      "combined_turn_ms": 138150,
+      "evidence_sha256": {
+        "brief.txt": "a154f38ad6515ee2ffc5473132bbb35dc6158070f78be014a984e66e05d45d8e",
+        "source.json": "e8a25d93fe416bfdf610edddcf1aa3f2c6cdc7c7d3eb31fd69ef57a3300e8c47",
+        "saved.json": "04418bfc2b87d4295fc938033b16e841b16d294153f96678ee9b19c824661efc",
+        "trace.json": "26e2fc0600869367c8f42867bdd9715e1c2cb21664f4cfcbed3addf26f23d798",
+        "runtime-context.json": "8fe35624fe0896220104d2d93ff7e4abc2fda6f443987b59c2d66b6b20d28a6b",
+        "launch.json": "0d8d0876c90818919853c227f7f1827e949326eb709467ee465ab913c49df3c1",
+        "audit.json": "570319911231801518c0431184f075fe0151b33cd2823c61ace523e2c9ceb965"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Read packaged skill; retained exact supplied PID/binary/client/home/output config. UI-only operations within supplied app. Reselected already-correct Direct values; repeated two accepted menu items, safely rejected as stale, then refreshed and resumed grouped fields. Waits reused profile IDs, which are not necessarily destination-unique. All exact outcome checks passed; ordinary strategy costs retained, no coaching/outside access/AGENTS.",
+        "runtime_context": {
+          "contexts": [
+            {
+              "cwd": "/private/tmp/cu-decision-boundaries-20261031/wizard-2-cu/work",
+              "model": "gpt-6-astra",
+              "effort": "high",
+              "service_tier": null
+            }
+          ],
+          "messages": [
+            {
+              "role": "developer",
+              "chars": 21420,
+              "sha256": "35bd51b5f577cb7b24cd5f4629e49e37cb724ab57754ce6f8f202001635bab8a",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 12743,
+              "sha256": "c92c5532f58e2e8939bb6aa62814b1dbda7cf7e6515a9a11ffe2478ca36b40f5",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 2400,
+              "sha256": "3edd51083129388f52e881435e93e4b981e00c5ee3d62ab5d32e22c428fd504b",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 271,
+              "sha256": "6ded806e3cdbb35599ecaf8742574bc5274908472b1729090010c404c2151e8e",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 448,
+              "sha256": "fbe86edda3794b1e24d02b592b6c5b360b51dca20ad9dcf65cdc653620f139a8",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 2662,
+              "sha256": "a154f38ad6515ee2ffc5473132bbb35dc6158070f78be014a984e66e05d45d8e",
+              "agents_injected": false
+            }
+          ],
+          "no_agents_injected": true,
+          "exit_code": 0
+        },
+        "task_config_sha256": "d1d88ef9b41e80a4cd874bfc4ad9da33a5604a4f549cff62369a1a6e60fa5d58"
+      }
+    },
+    {
+      "label": "wizard-2-native",
+      "mode": "wizard",
+      "repeat": 2,
+      "arm": "native",
+      "status": "passed",
+      "reasons": [],
+      "pid": 85086,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/decision-boundaries-20261031/wizard-2-native/VariedWorkflow.app",
+      "runtime_home": null,
+      "source_sha256": "e8a25d93fe416bfdf610edddcf1aa3f2c6cdc7c7d3eb31fd69ef57a3300e8c47",
+      "client_key": "wizard-2-native",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/decision-boundaries-20261031/wizard-2-native/output",
+      "thread_id": "01a1915e-c1db-7150-a923-4c506cbf36ec",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "native",
+          "thread_id": "01a1915e-c1db-7150-a923-4c506cbf36ec",
+          "turn_id": "01a1915e-c1f5-7340-ab2e-b03008161d91",
+          "started_at": "2026-10-31T09:51:08.793Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T09:54:50.475Z",
+          "elapsed_ms": 221683,
+          "final": "DONE",
+          "model_calls": 35,
+          "tokens": {
+            "input_tokens": 1108366,
+            "cached_input_tokens": 1045888,
+            "output_tokens": 2998,
+            "reasoning_output_tokens": 1198,
+            "total_tokens": 1111364
+          },
+          "tool_calls": 34,
+          "tool_output_chars": 111781,
+          "tool_errors": 0,
+          "tool_interval_ms": 20238,
+          "non_tool_interval_ms": 201445,
+          "label": "wizard-2-native"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "review_correction_used_back": true,
+          "all_applies_confirmed": true
+        },
+        "expected": {
+          "P201": {
+            "Host": "node-2-1.example.test",
+            "Route": "Direct",
+            "Port": "80",
+            "TLS": "false",
+            "Retention days": "7",
+            "Audit": "false",
+            "Limit": "134",
+            "Tag": "release-2-区1"
+          },
+          "P202": {
+            "Host": "node-2-2.example.test",
+            "Route": "Proxy",
+            "Port": "443",
+            "TLS": "true",
+            "Retention days": "14",
+            "Audit": "true",
+            "Limit": "234",
+            "Tag": "release-2-区2",
+            "Proxy server": "proxy-2-2.example.test:8080"
+          },
+          "P203": {
+            "Host": "node-2-3.example.test",
+            "Route": "Direct",
+            "Port": "80",
+            "TLS": "false",
+            "Retention days": "7",
+            "Audit": "false",
+            "Limit": "334",
+            "Tag": "release-2-区3"
+          },
+          "P204": {
+            "Host": "node-2-4.example.test",
+            "Route": "Proxy",
+            "Port": "443",
+            "TLS": "true",
+            "Retention days": "30",
+            "Audit": "true",
+            "Limit": "434",
+            "Tag": "release-2-区4",
+            "Proxy server": "proxy-2-4.example.test:8080"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "open",
+              "ID": "P201"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-2-1.example.test",
+              "ID": "P201",
+              "Port": "80",
+              "Route": "Direct",
+              "TLS": "false"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "false",
+              "Host": "node-2-1.example.test",
+              "ID": "P201",
+              "Limit": "134",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区1",
+              "TLS": "false"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "false",
+              "Host": "node-2-1.example.test",
+              "ID": "P201",
+              "Limit": "134",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区1",
+              "TLS": "false"
+            },
+            {
+              "action": "applied",
+              "Audit": "false",
+              "Host": "node-2-1.example.test",
+              "ID": "P201",
+              "Limit": "134",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区1",
+              "TLS": "false"
+            },
+            {
+              "action": "open",
+              "ID": "P202"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-2-2.example.test",
+              "ID": "P202",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Route": "Proxy",
+              "TLS": "true"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "true",
+              "Host": "node-2-2.example.test",
+              "ID": "P202",
+              "Limit": "234",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-2-区2",
+              "TLS": "true"
+            },
+            {
+              "action": "back-policy",
+              "ID": "P202"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "true",
+              "Host": "node-2-2.example.test",
+              "ID": "P202",
+              "Limit": "234",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Retention days": "14",
+              "Route": "Proxy",
+              "Tag": "release-2-区2",
+              "TLS": "true"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "true",
+              "Host": "node-2-2.example.test",
+              "ID": "P202",
+              "Limit": "234",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Retention days": "14",
+              "Route": "Proxy",
+              "Tag": "release-2-区2",
+              "TLS": "true"
+            },
+            {
+              "action": "applied",
+              "Audit": "true",
+              "Host": "node-2-2.example.test",
+              "ID": "P202",
+              "Limit": "234",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Retention days": "14",
+              "Route": "Proxy",
+              "Tag": "release-2-区2",
+              "TLS": "true"
+            },
+            {
+              "action": "open",
+              "ID": "P203"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-2-3.example.test",
+              "ID": "P203",
+              "Port": "80",
+              "Route": "Direct",
+              "TLS": "false"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "false",
+              "Host": "node-2-3.example.test",
+              "ID": "P203",
+              "Limit": "334",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区3",
+              "TLS": "false"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "false",
+              "Host": "node-2-3.example.test",
+              "ID": "P203",
+              "Limit": "334",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区3",
+              "TLS": "false"
+            },
+            {
+              "action": "applied",
+              "Audit": "false",
+              "Host": "node-2-3.example.test",
+              "ID": "P203",
+              "Limit": "334",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区3",
+              "TLS": "false"
+            },
+            {
+              "action": "open",
+              "ID": "P204"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-2-4.example.test",
+              "ID": "P204",
+              "Port": "443",
+              "Proxy server": "proxy-2-4.example.test:8080",
+              "Route": "Proxy",
+              "TLS": "true"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "true",
+              "Host": "node-2-4.example.test",
+              "ID": "P204",
+              "Limit": "434",
+              "Port": "443",
+              "Proxy server": "proxy-2-4.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-2-区4",
+              "TLS": "true"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "true",
+              "Host": "node-2-4.example.test",
+              "ID": "P204",
+              "Limit": "434",
+              "Port": "443",
+              "Proxy server": "proxy-2-4.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-2-区4",
+              "TLS": "true"
+            },
+            {
+              "action": "applied",
+              "Audit": "true",
+              "Host": "node-2-4.example.test",
+              "ID": "P204",
+              "Limit": "434",
+              "Port": "443",
+              "Proxy server": "proxy-2-4.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-2-区4",
+              "TLS": "true"
+            },
+            {
+              "action": "finished",
+              "ID": "P204"
+            }
+          ],
+          "mode": "wizard",
+          "order": [
+            "P201",
+            "P202",
+            "P203",
+            "P204"
+          ],
+          "records": {
+            "P201": {
+              "Audit": "false",
+              "Host": "node-2-1.example.test",
+              "Limit": "134",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区1",
+              "TLS": "false"
+            },
+            "P202": {
+              "Audit": "true",
+              "Host": "node-2-2.example.test",
+              "Limit": "234",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Retention days": "14",
+              "Route": "Proxy",
+              "Tag": "release-2-区2",
+              "TLS": "true"
+            },
+            "P203": {
+              "Audit": "false",
+              "Host": "node-2-3.example.test",
+              "Limit": "334",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区3",
+              "TLS": "false"
+            },
+            "P204": {
+              "Audit": "true",
+              "Host": "node-2-4.example.test",
+              "Limit": "434",
+              "Port": "443",
+              "Proxy server": "proxy-2-4.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-2-区4",
+              "TLS": "true"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 221683,
+      "combined_turn_ms": 221683,
+      "evidence_sha256": {
+        "brief.txt": "a9b02c6ab868d80033c94d8787bee7074b67ebd59673846dff4fd4dbb035173e",
+        "source.json": "e8a25d93fe416bfdf610edddcf1aa3f2c6cdc7c7d3eb31fd69ef57a3300e8c47",
+        "saved.json": "04418bfc2b87d4295fc938033b16e841b16d294153f96678ee9b19c824661efc",
+        "trace.json": "b6e4a4158c718bf24efa3a17237273386fa3393b4f7697292b6d5912c572c221",
+        "runtime-context.json": "a5ebe9212c85249454d1abdc2869b675045fc90c434f7d1bb515e9d4253ee19e",
+        "launch.json": "740b62341bca3947eb477e42f229300b6d0b6e2ec22b9dd4c7f4cddba856399c",
+        "audit.json": "c81cc315af5395e1a3900c2cbb6b49af6027bf20141d9698d54416374c8e9cd9"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Bound exact supplied app path; all native UI and screenshot actions stayed in supplied app. Grouped edits from live source values; extra state reads for list transitions and one non-opening label click recovered without outside access. No tool errors; all original review/correction/save/completion checks passed; no AGENTS context.",
+        "runtime_context": {
+          "contexts": [
+            {
+              "cwd": "/private/tmp/cu-decision-boundaries-20261031/wizard-2-native/work",
+              "model": "gpt-6-astra",
+              "effort": "high",
+              "service_tier": null
+            }
+          ],
+          "messages": [
+            {
+              "role": "developer",
+              "chars": 21420,
+              "sha256": "35bd51b5f577cb7b24cd5f4629e49e37cb724ab57754ce6f8f202001635bab8a",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 12747,
+              "sha256": "2555797aff02f71da1b67f49b4498e19378a5808a6f43ed71abc8deff2569a65",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 2400,
+              "sha256": "3edd51083129388f52e881435e93e4b981e00c5ee3d62ab5d32e22c428fd504b",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 271,
+              "sha256": "6ded806e3cdbb35599ecaf8742574bc5274908472b1729090010c404c2151e8e",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 456,
+              "sha256": "27341fdccb506072c4cf65b5b11fd8eee3c7af9df887ef13b88ee8f52eb8a5cf",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 2375,
+              "sha256": "a9b02c6ab868d80033c94d8787bee7074b67ebd59673846dff4fd4dbb035173e",
+              "agents_injected": false
+            }
+          ],
+          "no_agents_injected": true,
+          "exit_code": 0
+        }
+      }
+    }
+  ],
+  "groups": [
+    {
+      "mode": "triage",
+      "arms": {
+        "cu": {
+          "counts": {
+            "passed": 2,
+            "failed": 0,
+            "excluded": 0,
+            "unreviewed": 0,
+            "pending": 0
+          },
+          "success_medians_ms": {
+            "combined_turn_ms": 108554.0
+          }
+        },
+        "native": {
+          "counts": {
+            "passed": 2,
+            "failed": 0,
+            "excluded": 0,
+            "unreviewed": 0,
+            "pending": 0
+          },
+          "success_medians_ms": {
+            "combined_turn_ms": 99254.5
+          }
+        }
+      },
+      "successful_pairs": [
+        {
+          "repeat": 1,
+          "go_cu_over_native": null,
+          "combined_cu_over_native": 0.9230535433868599
+        },
+        {
+          "repeat": 2,
+          "go_cu_over_native": null,
+          "combined_cu_over_native": 1.2624544106448639
+        }
+      ],
+      "median_paired_go_ratio": null,
+      "median_paired_combined_ratio": 1.0927539770158619
+    },
+    {
+      "mode": "document",
+      "arms": {
+        "cu": {
+          "counts": {
+            "passed": 2,
+            "failed": 0,
+            "excluded": 0,
+            "unreviewed": 0,
+            "pending": 0
+          },
+          "success_medians_ms": {
+            "combined_turn_ms": 127828.0
+          }
+        },
+        "native": {
+          "counts": {
+            "passed": 2,
+            "failed": 0,
+            "excluded": 0,
+            "unreviewed": 0,
+            "pending": 0
+          },
+          "success_medians_ms": {
+            "combined_turn_ms": 143987.5
+          }
+        }
+      },
+      "successful_pairs": [
+        {
+          "repeat": 1,
+          "go_cu_over_native": null,
+          "combined_cu_over_native": 0.8885369261200946
+        },
+        {
+          "repeat": 2,
+          "go_cu_over_native": null,
+          "combined_cu_over_native": 0.8869997001164664
+        }
+      ],
+      "median_paired_go_ratio": null,
+      "median_paired_combined_ratio": 0.8877683131182805
+    },
+    {
+      "mode": "wizard",
+      "arms": {
+        "cu": {
+          "counts": {
+            "passed": 2,
+            "failed": 0,
+            "excluded": 0,
+            "unreviewed": 0,
+            "pending": 0
+          },
+          "success_medians_ms": {
+            "combined_turn_ms": 164554.0
+          }
+        },
+        "native": {
+          "counts": {
+            "passed": 2,
+            "failed": 0,
+            "excluded": 0,
+            "unreviewed": 0,
+            "pending": 0
+          },
+          "success_medians_ms": {
+            "combined_turn_ms": 193397.5
+          }
+        }
+      },
+      "successful_pairs": [
+        {
+          "repeat": 1,
+          "go_cu_over_native": null,
+          "combined_cu_over_native": 1.1565361693880518
+        },
+        {
+          "repeat": 2,
+          "go_cu_over_native": null,
+          "combined_cu_over_native": 0.6231871636526031
+        }
+      ],
+      "median_paired_go_ratio": null,
+      "median_paired_combined_ratio": 0.8898616665203274
+    }
+  ],
+  "runtime_context": {
+    "classification": "Fresh-profile skill/native-API comparison; no global or project AGENTS instructions injected",
+    "working_directory": "unique neutral directory per participant outside the repository",
+    "isolated_codex_profile_per_trial": true,
+    "copied_history_or_memory": false,
+    "global_or_project_agents_injected": false,
+    "actual_initial_messages_audited": 12,
+    "cli_versions": [
+      "0.165.0"
+    ],
+    "native_plugin": "unified-computer-use",
+    "native_plugin_version": "26.1027.30824",
+    "native_plugin_files_sha256": {
+      ".codex-plugin/plugin.json": "75de537b724481731d7ad43eb55e15be8d0773b54b1306edf96638c4f9e30118",
+      ".mcp.json": "e7297a8851d46bb5d7f53d57e82d86cfdf4b04524bedf8c2ce6cf4a80ffe71da"
+    },
+    "profile_configs_unchanged": true,
+    "participant_turns_overlap": false,
+    "launch": "codex --no-daemon exec, project_doc_max_bytes=0, features.memories=false; exact argv and context hashes retained locally",
+    "timing": "One complete participant turn, including skill/API loading and task configuration. Profile provisioning, app launch, host process startup/shutdown, coordinator audit and cleanup are outside this timer.",
+    "limits": "Same macOS user session, permissions, Launch Services, native CUA service/runtime assets and system caches; no VM/reboot/cache flush. Fresh profile, neutral cwd, exact disposable app identity and initial app state per participant.",
+    "comparison_scope": "Two paired datasets per workflow. Previous clean block is historical, not randomized before/after evidence; do not pool with repository-context blocks.",
+    "native_plugin_fingerprint_scope": "bundled marketplace source",
+    "native_plugin_cache_files_sha256": {
+      ".codex-plugin/plugin.json": "75de537b724481731d7ad43eb55e15be8d0773b54b1306edf96638c4f9e30118",
+      ".mcp.json": "099471c610819c63054e3a0dc1b3e848ff6ef7aa8d967d64b284d9644108b57d"
+    },
+    "all_owned_app_and_broker_pids_stopped": true
+  },
+  "reporting_fingerprints": {
+    "tests/agent/benchmark_varied_workflows.py": "b8ed936c23bef07cf3ed0753e5103a3f184670daf4ca9615f39fc65df587970e",
+    "tests/agent/collect_codex_benchmark.py": "a35fba949ee73222e5e83eaeb35807ce8b7bfc43727c4db9fae4fa0f692f3d79"
+  },
+  "change_scope": {
+    "candidate_commit": "bce131580160a2512d1fa4ccf80c5cb9f97d2ee1",
+    "runtime_binary_unchanged_from_previous_clean_block": true,
+    "skill_entrypoint_bytes_before": 13744,
+    "skill_entrypoint_bytes_after": 7824,
+    "description": "Shorter generic guidance: group edits/navigation/final observation in one call, skip correct values, resume grouping after recovery, distinguish asynchronous destination conditions and departing menus. No task-specific solver, CLI change, fixed sleep or added validation."
+  }
+}

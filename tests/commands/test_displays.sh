@@ -27,22 +27,6 @@ print('|'.join([
 [[ "$PARSED" == *"shape_ok=True"* ]]         && _pass "every display has id/main/x/y/w/h"   || _fail "display shape"                 "$PARSED"
 [[ "$PARSED" == *"exactly_one_main=True"* ]] && _pass "exactly one display has main=true"   || _fail "main display count"            "$PARSED"
 
-section "snapshot --diff — displays still present"
-
-cu_json snapshot Finder --diff --limit 5
-cu_json snapshot Finder --diff --limit 5
-assert_ok "warm diff ok"
-HAS=$(echo "$OUT" | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-print('yes' if isinstance(d.get('displays'), list) and len(d['displays']) >= 1 else 'no')
-" 2>/dev/null || echo "error")
-if [[ "$HAS" == "yes" ]]; then
-  _pass "diff JSON includes displays"
-else
-  _fail "diff displays" "got $HAS"
-fi
-
 section "displays — bounds are realistic"
 
 # At least the main display must have positive width/height. Many setups have
