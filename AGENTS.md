@@ -100,8 +100,9 @@ These rules are derived from browser-pilot lessons and project experience. Follo
 - **Every element in snapshot must have a ref.** Only interactive roles get refs. Static layout elements are skipped.
 - Always return `{"ok": false, "error": "...", "hint": "..."}` on failure. Never fail silently.
 - `--compact` is an opt-in agent presentation: retain semantic fields and
-  errors/advisories, omit geometry/paths/routine metadata. Compact explicit
-  snapshots share the Broker's ref-delta baseline; ordinary JSON stays full.
+  errors/advisories, omit geometry/paths/routine metadata. Explicit snapshots
+  return the complete tree within the requested limit in both modes; only
+  action/wait snapshots use the Broker's ref-delta baseline.
 - Batch known local edits and authorized Save/Next, then observe once when the
   next target depends on the result. Do not add per-field or pre-save model
   rounds. Task-local shell helpers may reuse CLI arguments; they are not a new

@@ -9,7 +9,7 @@
     "minimum_version": "0.9.2",
     "machine_schema_version": "1.0"
   },
-  "private_broker_protocol": 6,
+  "private_broker_protocol": 7,
   "platforms": [
     "macos-arm64"
   ],

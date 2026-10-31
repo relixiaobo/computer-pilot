@@ -134,7 +134,7 @@ pub(crate) struct Cli {
     #[arg(long, conflicts_with = "human")]
     json: bool,
 
-    /// Concise JSON for agents: ref-based state deltas, without geometry or routine metadata
+    /// Concise JSON for agents: complete snapshots, action deltas, no geometry or routine metadata
     #[arg(long, conflicts_with_all = ["human", "json"])]
     compact: bool,
 
@@ -1947,7 +1947,7 @@ fn cmd_snapshot(
     broker::publish_observation(pid, &result);
 
     // Capture the previous cache before overwriting — `--diff` reads it below.
-    // Compact snapshots use the Broker baseline, not a second disk cache.
+    // Compact snapshots publish to the Broker, without a second disk cache.
     // Ordinary snapshots still seed the legacy --diff baseline.
     let previous = diff_mode.then(|| diff::load_previous(pid)).flatten();
     if !compact || diff_mode {

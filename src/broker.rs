@@ -28,7 +28,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 /// CLIs never restart each other's Broker; an older one is retired through
 /// StopIfIdle so a bug fix that did not change the wire format still takes
 /// effect. The machine therefore converges on the newest installed version.
-const INTERNAL_PROTOCOL: u32 = 6;
+const INTERNAL_PROTOCOL: u32 = 7;
 const DEFAULT_TIMEOUT_MS: u64 = 60_000;
 const MAX_TIMEOUT_MS: u64 = 300_000;
 const MAX_RECORDS: usize = 2048;
@@ -1811,15 +1811,9 @@ fn capture_observation(
             && previous.window_id == record.window_id
             && previous.bundle_id == record.bundle_id
             && previous.limit == record.limit
-    }) {
-        if let Some(snapshot) = output.get_mut("snapshot") {
-            compact_observation_delta(snapshot, &previous, &record);
-        } else if options.command == "snapshot"
-            && options.argv.iter().any(|arg| arg == "--compact")
-            && output.get("elements").is_some()
-        {
-            compact_observation_delta(&mut output, &previous, &record);
-        }
+    }) && let Some(snapshot) = output.get_mut("snapshot")
+    {
+        compact_observation_delta(snapshot, &previous, &record);
     }
     if let Some(object) = output.as_object_mut() {
         object.insert("observation_id".into(), observation_id.into());

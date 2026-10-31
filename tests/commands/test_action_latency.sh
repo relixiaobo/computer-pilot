@@ -168,7 +168,7 @@ try:
     assert typed["snapshot"]["focused"]["value"] == "late-field", typed
 
     # Compact observations use the same private full tree and refs. A shell
-    # group edits two fields, then returns one reconstructable state delta.
+    # group edits two fields, then returns complete concise state without a baseline.
     import os
     env = dict(os.environ, CU_BIN=cu, CU_APP=app,
                COMPUTER_PILOT_CLIENT_KEY="compact-latency")
@@ -180,8 +180,7 @@ try:
         assert p.returncode == 0, p.stderr
         return json.loads(p.stdout)
 
-    first = compact("snapshot", app, "--limit", "200")
-    state = {e["ref"]: e for e in first["elements"]}
+    compact("snapshot", app, "--limit", "200")
     exact = "compact中文😀\n\"quoted\"\\path " * 40
     script = "\n".join([
         ". " + shlex.quote(str(helper)),
@@ -193,18 +192,25 @@ try:
                              capture_output=True, text=True, timeout=15)
     assert grouped.returncode == 0, grouped.stderr
     outputs = [json.loads(line) for line in grouped.stdout.splitlines()]
-    delta = outputs[-1]
-    assert len(outputs) == 3 and delta["base_observation_id"] == first["observation_id"], outputs
+    current = outputs[-1]
+    assert len(outputs) == 3 and "base_observation_id" not in current, outputs
     assert outputs[:2] == [{"ok": True, "method": "ax-set-value"}] * 2, outputs[:2]
-    for removed in delta["removed_refs"]:
-        state.pop(removed)
-    state.update({e["ref"]: e for e in delta["elements"]})
+    state = {e["ref"]: e for e in current["elements"]}
     full = run("snapshot", app, "--limit", "200")
     assert {r: e.get("value") for r, e in state.items()} == {
-        e["ref"]: e.get("value") for e in full["elements"]}, delta
+        e["ref"]: e.get("value") for e in full["elements"]}, current
     assert state[int(ref)]["value"] == exact
     assert state[other["ref"]]["value"] == "second-field"
-    assert compact("snapshot", app, "--limit", "200")["elements"] == []
+    # Re-observing unchanged UI must still provide all targets and exact text.
+    repeated = compact("snapshot", app, "--limit", "200")
+    assert repeated["elements"] == current["elements"], repeated
+    assert "base_observation_id" not in repeated and "removed_refs" not in repeated
+    assert len(json.dumps(repeated)) < len(json.dumps(full)) * 0.6
+    # An unchanged target from that complete compact snapshot is actionable.
+    compact("set-value", str(other["ref"]), "from-complete-state", "--app", app,
+            "--observation", repeated["observation_id"], "--no-snapshot")
+    observed = compact("snapshot", app, "--limit", "200")
+    assert next(e for e in observed["elements"] if e["ref"] == other["ref"])["value"] == "from-complete-state"
     # A full JSON observation remains available, including paths/geometry.
     assert all("axPath" in e and "width" in e for e in full["elements"])
 
@@ -239,10 +245,12 @@ try:
     full = session("--json", "snapshot", app, "--limit", "200")
     urgent = next(e for e in full["elements"] if e.get("title") == "Urgent")
     assert urgent["value"] == "1", urgent
-    session("snapshot")  # Establish a compact delta baseline.
+    baseline = session("snapshot")
     for value, label in (("0", "off"), ("1", "on")):
-        session("click", urgent["ref"])
-        delta = session("snapshot")
+        action = compact("click", str(urgent["ref"]), "--app", app, "--limit", "200", "--no-verify")
+        delta = action["snapshot"]
+        assert delta["base_observation_id"] == baseline["observation_id"], delta
+        baseline = action
         checkbox = next(e for e in delta["elements"] if e.get("title") == "Urgent")
         assert checkbox["value"] == value, delta
         assert any(e.get("value") == f"Urgent callback: {label}" for e in delta["elements"]), delta

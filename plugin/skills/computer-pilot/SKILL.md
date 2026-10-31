@@ -90,7 +90,8 @@ Source that task file in each shell call. Its `cu` function wraps the verified
 binary, retaining the task environment for reads, waits and actions. It supplies
 the chosen app for UI commands; do not repeat `--app` or a positional app.
 Actions omit intermediate snapshots/effect checks and stop the group on errors.
-`cu snapshot` observes up to 200 elements; `cu wait` returns usable fresh refs.
+`cu snapshot` returns the complete concise state up to 200 elements, including
+unchanged controls and full values; `cu wait` returns usable fresh refs.
 For example, with refs 7, 12 and Save 15 in the current observation:
 
 ```bash
@@ -107,8 +108,9 @@ again. Do not add fixed sleeps. After `stale_observation`, observe once and use
 the current target; do not cycle through old refs, coordinates and OCR. Use OCR
 when the control lacks AX support, not when a ref merely expired.
 
-The helper passes root-option invocations through unchanged. For full JSON use
-`cu --json snapshot "$CU_APP" --limit 200` in the same sourced shell. Other commands
+The helper passes root-option invocations through unchanged. Use
+`cu --json snapshot "$CU_APP" --limit 200` only when geometry or axPaths are needed;
+`cu snapshot` already returns the full state. Other commands
 such as `tell`, `sdef`, `launch` and recovery keep their ordinary CLI arguments.
 For a single short task, direct CLI actions can use `--no-snapshot` and
 `--no-verify`; inspect the result at the group boundary.
@@ -202,12 +204,14 @@ dispatch; only observations and explicit verification report UI effects. Use ord
 metadata or machine integration are needed. Error and recovery output stays
 complete in both modes.
 
-Action, wait and compact explicit snapshots return changed refs when a
+Explicit `snapshot` returns the complete tree within its requested limit, even
+with `--compact`. It needs no prior baseline and retains full text.
+Action and wait snapshots return changed refs when a
 baseline exists. With `base_observation_id`, merge `elements` into that prior
 observation and remove `removed_refs`; unchanged refs retain their content.
 The new `observation_id` applies to the whole resulting tree. An empty delta
-is valid. If the baseline is unavailable, use `cu --json snapshot <PID>` once
-for a full tree. Explicit snapshots retain full text; action snapshots may cap
+is valid. If the baseline is unavailable, use `cu snapshot` in the session helper
+or `cu --compact snapshot <PID>` for a full tree. Action snapshots may cap
 long values and include `snapshot_hint` when they do.
 
 Act on `_hint`, `_reason`, `_advice`, `_error`, `verified:false`, and

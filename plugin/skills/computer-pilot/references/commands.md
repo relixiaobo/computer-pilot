@@ -12,7 +12,7 @@ All commands emit JSON when piped; use `--human` only for interactive reading.
 --timeout <milliseconds> Broker acceptance-to-completion deadline
 --json                   Force machine output
 --human                  Force human output
---compact                Concise JSON/ref deltas for agent UI work
+--compact                Concise JSON: complete snapshots and action deltas
 ```
 
 Environment equivalents:
@@ -80,11 +80,10 @@ label/value, geometry, and often `axPath`. Top-level `observation_id` binds refs
 to the current client and UI generation.
 
 For ordinary agent work, `cu --compact snapshot <app> --limit 200` omits
-geometry/paths and routine metadata. After the first full observation it returns
-ref deltas: merge `elements` and remove `removed_refs` from `base_observation_id`.
-No extra `--diff` is needed; that flag selects the legacy position-based diff.
-Use `cu --json snapshot` for a full tree or coordinates. Compact mode preserves
-full explicit-snapshot text, advisories, errors and recovery output.
+geometry/paths and routine metadata while returning the complete tree within
+the requested limit every time. It preserves full text, advisories, errors and
+recovery output. Use `cu --json snapshot` when coordinates or axPaths are needed.
+`--diff` explicitly selects the legacy position-based diff.
 
 - `--diff`: compare with this client's private, TTL-bounded prior snapshot.
 - `--annotated`: draw ref labels over a captured image.
