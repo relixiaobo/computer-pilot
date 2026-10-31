@@ -77,8 +77,13 @@ try:
     stale = run("click", ref, "--app", app, "--observation", snap["observation_id"],
                 "--no-snapshot", "--no-verify", ok=False)
     assert stale["code"] == "stale_observation", stale
-    snap = run("snapshot", app)
-    run("click", ref, "--app", app, "--observation", snap["observation_id"],
+    assert stale["diagnostics"]["dispatched"] is False, stale
+    recovered = stale["diagnostics"]["snapshot"]
+    assert recovered["elements"][0]["value"] == "smaller-limit", recovered
+    assert "axPath" in recovered["elements"][0], recovered
+    # Reuse the already-read recovery state, without another snapshot command.
+    run("click", str(recovered["elements"][0]["ref"]), "--app", app,
+        "--observation", stale["observation_id"],
         "--no-snapshot", "--no-verify")
 
     # Unrelated content changes must not invalidate the selected input.
@@ -293,7 +298,14 @@ try:
     found = session("find", "--role", "button", "--title-equals", "Next page", "--first")
     session("click", found["match"]["ref"])
     ready = session("wait", "--text", "Ready for input", "--timeout", "3")
-    field = next(e for e in ready["snapshot"]["elements"] if e["role"] == "textfield")
+    # A disappeared ref returns the current page and registers it for ordinary
+    # actions too. The stale write must not touch the replacement input.
+    missing = session("set-value", other["ref"], "must-not-run",
+                      "--observation", full["observation_id"], ok=False)
+    assert missing["code"] == "stale_observation" and "no longer exists" in missing["error"], missing
+    field = next(e for e in missing["diagnostics"]["snapshot"]["elements"] if e["role"] == "textfield")
+    assert field["value"] == "Ready for input", field
+    assert "axPath" not in field and missing["diagnostics"]["dispatched"] is False, missing
     session("set-value", field["ref"], "after-wait中文😀")
     # On timeout the last state remains actionable and is returned in full.
     expired = session("wait", "--text", "never present", "--timeout", "0", ok=False)
@@ -321,9 +333,12 @@ try:
     rejected = session("set-value", original["elements"][0]["ref"], "must-not-run",
                        "--observation", original["observation_id"], ok=False)
     assert rejected["code"] == "stale_observation" and "window changed" in rejected["error"], rejected
-    switched = session("--json", "snapshot")
-    assert switched["window_id"] != original["window_id"], switched
+    switched = rejected["diagnostics"]["snapshot"]
+    assert rejected["window_id"] != original["window_id"], rejected
     assert switched["elements"][0]["value"] == event_text, switched
+    session("set-value", switched["elements"][0]["ref"], "recovered-window",
+            "--observation", rejected["observation_id"])
+    assert session("snapshot")["elements"][0]["value"] == "recovered-window"
 
     # Standard window controls must be identifiable without guessing an empty
     # button's meaning. Check both readers, then close only the owned second window.
@@ -338,6 +353,7 @@ try:
     session("--compact", "click", close["ref"])
     remaining = run("window", "list", "--app", app)
     assert len(remaining["windows"]) == 1, remaining
+    assert session("snapshot")["elements"][0]["value"] == event_text
 
 finally:
     fixture.terminate()

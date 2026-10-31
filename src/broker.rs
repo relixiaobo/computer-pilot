@@ -1684,7 +1684,7 @@ fn execute_child(
     }
 
     let mut stdout = stdout_reader.join().unwrap_or_default();
-    let stderr = stderr_reader.join().unwrap_or_default();
+    let mut stderr = stderr_reader.join().unwrap_or_default();
     if let Some((status, code, error)) = forced_status {
         let _ = fs::remove_file(&observation_path);
         let _ = child.wait();
@@ -1705,12 +1705,8 @@ fn execute_child(
         );
         finish_child(shared, command_id, status, stdout, stderr, 1);
     } else {
-        // A timed-out wait still returns a valid final observation for recovery.
-        if completed_exit_code == Some(0) || options.command == "wait" {
-            stdout = capture_observation(shared, options, &observation_path, stdout);
-        } else {
-            let _ = fs::remove_file(&observation_path);
-        }
+        // Published state is useful on failure too (e.g. a timeout or stale ref).
+        capture_observation(shared, options, &observation_path, &mut stdout, &mut stderr);
         finish_child(
             shared,
             command_id,
@@ -1747,25 +1743,26 @@ fn capture_observation(
     shared: &SharedState,
     options: &RunOptions,
     observation_path: &Path,
-    stdout: String,
-) -> String {
+    stdout: &mut String,
+    stderr: &mut String,
+) {
     // All ref-producing commands publish the exact observed tree through this
     // private file, including human output and timeout recovery.
     let source = fs::read(observation_path)
         .ok()
         .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok());
     let _ = fs::remove_file(observation_path);
-    let Some(metadata) = source.and_then(|source| store_observation(shared, options, source))
+    let Some(serde_json::Value::Object(metadata)) =
+        source.and_then(|source| store_observation(shared, options, source))
     else {
-        return stdout;
+        return;
     };
-    let Ok(serde_json::Value::Object(mut output)) = serde_json::from_str(&stdout) else {
-        return stdout;
-    };
-    if let serde_json::Value::Object(metadata) = metadata {
-        output.extend(metadata);
+    for output in [stdout, stderr] {
+        if let Ok(serde_json::Value::Object(mut value)) = serde_json::from_str(output) {
+            value.extend(metadata.clone());
+            *output = serde_json::Value::Object(value).to_string();
+        }
     }
-    serde_json::to_string(&output).unwrap_or(stdout)
 }
 
 fn store_observation(
@@ -1884,8 +1881,16 @@ pub fn snapshot_for_ref_action(
                 .unwrap_or_else(|| "could not refresh target UI".into()),
         ));
     }
+    let stale_with_snapshot = |reason| {
+        publish_observation(&snapshot);
+        stale(reason)
+            .with_hint(
+                "action was not dispatched; re-plan from diagnostics.snapshot using its new refs",
+            )
+            .with_diagnostics(serde_json::json!({"dispatched": false, "snapshot": snapshot}))
+    };
     if expected.window_id != snapshot.window_id {
-        return Err(stale(format!(
+        return Err(stale_with_snapshot(format!(
             "target window changed from {} to {}",
             expected.window_id, snapshot.window_id
         )));
@@ -1894,9 +1899,9 @@ pub fn snapshot_for_ref_action(
         .elements
         .iter()
         .find(|element| element.ref_id == ref_id)
-        .ok_or_else(|| stale(format!("ref [{ref_id}] no longer exists")))?;
+        .ok_or_else(|| stale_with_snapshot(format!("ref [{ref_id}] no longer exists")))?;
     if !same_element(current, &expected.target) {
-        return Err(stale(format!(
+        return Err(stale_with_snapshot(format!(
             "ref [{ref_id}] now identifies a different element"
         )));
     }

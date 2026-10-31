@@ -50,7 +50,7 @@ solely because the caller timed out.
 | `focus_failed` | macOS did not make the exact requested PID frontmost | Re-resolve the PID; do not send global input. |
 | `observation_required` | Ref has no current client Observation | Run `cu state` or `cu snapshot`. |
 | `observation_not_found` | Observation missing, foreign, or expired | Observe again. |
-| `stale_observation` | UI/window/ref changed | Observe again and re-plan; do not dispatch old intent. |
+| `stale_observation` | UI/window/ref changed | Re-plan from `diagnostics.snapshot`, or observe if absent; do not dispatch old intent. |
 | `target_busy` | Resource cannot be accepted immediately | Inspect commands and retry only if safe. |
 | `capture_protected` | OS forbids screen capture | Continue with AX or manual verification. |
 | `verification_failed` | Requested verification failed | Inspect current state and choose another primitive. |
@@ -69,7 +69,8 @@ mutation is semantically safe.
 On `stale_observation`:
 
 1. Do not retry the same ref action.
-2. Run `cu state <app>` or `cu snapshot <app>`.
+2. Read `diagnostics.snapshot` when attached; its refs are already registered.
+   Otherwise run `cu state <app>` or `cu snapshot <app>`.
 3. Re-identify the intended control in the new Observation.
 4. Use the new observation's target; ordinary ref actions select it automatically.
 

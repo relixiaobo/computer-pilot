@@ -74,9 +74,10 @@ especially controlled editors, use the verified direct-CLI path below instead.
 
 ## Observe Transitions
 
-Use `snapshot` for the next decision, or `wait` for a known asynchronous
-condition. Include either at the end of the action group. A wait already returns
-a complete snapshot and usable refs; do not immediately snapshot it again.
+End an unfamiliar navigation with `snapshot` to discover what actually opened.
+Use `wait` when the next state is known and asynchronous, not to predict past an
+unseen dialog. Include the observation in the action group. A wait already
+returns a complete snapshot and usable refs; do not immediately snapshot it again.
 
 `wait --text` matches substrings in **any element's label or value**. Choose
 text that distinguishes the destination from the current UI. A word already in
@@ -97,8 +98,9 @@ never select a duplicate by whichever copy is active.
 Refs belong to one client's observation, PID, window and target signature.
 Ordinary actions use that client's latest observation. `--observation <id>` is
 only needed to choose an earlier observation. A ref number in a later snapshot
-may identify another element. After `stale_observation`, observe once and
-re-plan; do not retry the old ref or switch to OCR merely because it expired.
+may identify another element. After `stale_observation`, re-plan from the attached
+`diagnostics.snapshot`; observe once only when none is attached. Do not retry the
+old action or switch to OCR merely because its ref expired.
 Use `find` for a missing known label/role, or `why` for an unclear control.
 A window close button is not a navigation shortcut.
 

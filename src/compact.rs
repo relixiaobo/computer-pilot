@@ -3,6 +3,17 @@
 use serde_json::Value;
 
 pub fn apply(value: &mut Value) {
+    // Observations have the same presentation on success and recovery. Keep
+    // the error envelope and other diagnostics intact.
+    if let Some(snapshot) = value.get_mut("snapshot") {
+        compact_snapshot(snapshot);
+    }
+    if let Some(snapshot) = value
+        .get_mut("diagnostics")
+        .and_then(|diagnostics| diagnostics.get_mut("snapshot"))
+    {
+        compact_snapshot(snapshot);
+    }
     if value.get("ok") != Some(&Value::Bool(true)) {
         return;
     }
@@ -60,9 +71,6 @@ pub fn apply(value: &mut Value) {
             }
         }
         _ => {}
-    }
-    if let Some(snapshot) = object.get_mut("snapshot") {
-        compact_snapshot(snapshot);
     }
     compact_snapshot(value);
 }
