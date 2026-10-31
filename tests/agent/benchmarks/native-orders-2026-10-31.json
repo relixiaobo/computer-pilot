@@ -1,0 +1,258 @@
+{
+  "task": "Six native UI orders (five copied fields and conditional priority each), two corrections, archive",
+  "model": "gpt-5.6-sol",
+  "reasoning": "low",
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "versions": {
+    "before": {
+      "commit": "b9987a6289fac5a8a4413e5cd7b33441aa9f110f",
+      "sha256": "0a288e56ac17fffe69909d2194c6a3889cd65169944b9a80c40fd70b1ed0cf7f"
+    },
+    "after": {
+      "commit": "1f3d307606281acf4bcec07dc91d771e21192c8f",
+      "sha256": "72a94924e9b03174bf1781dceaef81e858349d74e8414cef57e53f6c43920713"
+    }
+  },
+  "fixture_sha256": "0e7136894dc4781a1fe8f6717f28299ac3359cf50b16d5c259b395cfa403f95b",
+  "methodology": "same current harness for both arms; setup/independent verification excluded",
+  "trial_order": [
+    "before-1",
+    "after-1",
+    "after-2",
+    "before-2",
+    "before-3",
+    "after-3"
+  ],
+  "calibration_excluded": "Before the measured series, harness-only argument guards were removed after rejecting valid read-only CLI forms. All six reported trials used the same unwrapped cu_result executor. Model/CLI failures within these trials are retained.",
+  "summary": {
+    "before": {
+      "successes": 2,
+      "trials": 3,
+      "all_trial_medians": {
+        "agent_loop_ms": 149286.0,
+        "model_ms": 141177.3,
+        "command_ms": 8096.9,
+        "model_calls": 49,
+        "commands": 50,
+        "input_tokens": 2203430,
+        "output_tokens": 3342
+      },
+      "successful_trial_medians": {
+        "agent_loop_ms": 172149.55,
+        "model_ms": 163199.7,
+        "command_ms": 8931.25,
+        "model_calls": 53.5,
+        "commands": 57.5,
+        "input_tokens": 2609477.5,
+        "output_tokens": 3501.5
+      }
+    },
+    "after": {
+      "successes": 2,
+      "trials": 3,
+      "all_trial_medians": {
+        "agent_loop_ms": 82311.3,
+        "model_ms": 75291.6,
+        "command_ms": 7009.9,
+        "model_calls": 16,
+        "commands": 49,
+        "input_tokens": 246134,
+        "output_tokens": 2499
+      },
+      "successful_trial_medians": {
+        "agent_loop_ms": 65076.350000000006,
+        "model_ms": 58411.850000000006,
+        "command_ms": 6654.85,
+        "model_calls": 15.5,
+        "commands": 48.5,
+        "input_tokens": 248068.5,
+        "output_tokens": 2401.5
+      }
+    }
+  },
+  "runs": [
+    {
+      "arm": "before",
+      "trial": 1,
+      "agent_status": "done",
+      "verified": true,
+      "timings": {
+        "agent_loop_ms": 130395.6,
+        "model_ms": 122326.7,
+        "command_ms": 8051.8,
+        "model_calls": 49,
+        "commands": 49
+      },
+      "input_tokens": 2122600,
+      "output_tokens": 2440,
+      "command_errors": 0,
+      "checks": {
+        "all_initial_fields_exact": true,
+        "all_final_fields_exact": true,
+        "both_corrections_saved": true,
+        "archive_completed": true
+      },
+      "mismatches": []
+    },
+    {
+      "arm": "after",
+      "trial": 1,
+      "agent_status": "done",
+      "verified": true,
+      "timings": {
+        "agent_loop_ms": 82311.3,
+        "model_ms": 75291.6,
+        "command_ms": 7009.9,
+        "model_calls": 15,
+        "commands": 49
+      },
+      "input_tokens": 250003,
+      "output_tokens": 2499,
+      "command_errors": 0,
+      "checks": {
+        "all_initial_fields_exact": true,
+        "all_final_fields_exact": true,
+        "both_corrections_saved": true,
+        "archive_completed": true
+      },
+      "mismatches": []
+    },
+    {
+      "arm": "after",
+      "trial": 2,
+      "agent_status": "done",
+      "verified": false,
+      "timings": {
+        "agent_loop_ms": 142211.6,
+        "model_ms": 134778.6,
+        "command_ms": 7424.9,
+        "model_calls": 16,
+        "commands": 51
+      },
+      "input_tokens": 226031,
+      "output_tokens": 3307,
+      "command_errors": 2,
+      "checks": {
+        "all_initial_fields_exact": false,
+        "all_final_fields_exact": false,
+        "both_corrections_saved": true,
+        "archive_completed": true
+      },
+      "mismatches": [
+        {
+          "stage": "initial",
+          "order": 1,
+          "field": "Memo",
+          "expected": "订单 1：请核对商品编码和数量，使用可回收包装。收货前电话联系，周一至周五配送；包装内附装箱清单。Reference batch-01; keep dry.",
+          "actual": "订单 1：请核对商品编码和数量，使用可回收包装。收货前电话联系，周一至周五配送；包装内附装箱单。Reference batch-01; keep dry."
+        },
+        {
+          "stage": "initial",
+          "order": 4,
+          "field": "Memo",
+          "expected": "订单 4：请核对商品编码和数量，使用可回收包装。收货前电话联系，周一至周五配送；包装内附装箱清单。Reference batch-04; keep dry.",
+          "actual": "订单 4：请核对商品编码和数量，使用可回收包装。收货前电话联系，周一至周五配送；包装内附装箱单。Reference batch-04; keep dry."
+        },
+        {
+          "stage": "records",
+          "order": 1,
+          "field": "Memo",
+          "expected": "订单 1：请核对商品编码和数量，使用可回收包装。收货前电话联系，周一至周五配送；包装内附装箱清单。Reference batch-01; keep dry.",
+          "actual": "订单 1：请核对商品编码和数量，使用可回收包装。收货前电话联系，周一至周五配送；包装内附装箱单。Reference batch-01; keep dry."
+        },
+        {
+          "stage": "records",
+          "order": 4,
+          "field": "Memo",
+          "expected": "订单 4：请核对商品编码和数量，使用可回收包装。收货前电话联系，周一至周五配送；包装内附装箱清单。Reference batch-04; keep dry.",
+          "actual": "订单 4：请核对商品编码和数量，使用可回收包装。收货前电话联系，周一至周五配送；包装内附装箱单。Reference batch-04; keep dry."
+        }
+      ]
+    },
+    {
+      "arm": "before",
+      "trial": 2,
+      "agent_status": "done",
+      "verified": false,
+      "timings": {
+        "agent_loop_ms": 149286.0,
+        "model_ms": 141177.3,
+        "command_ms": 8096.9,
+        "model_calls": 49,
+        "commands": 50
+      },
+      "input_tokens": 2203430,
+      "output_tokens": 3342,
+      "command_errors": 0,
+      "checks": {
+        "all_initial_fields_exact": false,
+        "all_final_fields_exact": false,
+        "both_corrections_saved": true,
+        "archive_completed": true
+      },
+      "mismatches": [
+        {
+          "stage": "initial",
+          "order": 6,
+          "field": "Priority",
+          "expected": "true",
+          "actual": "false"
+        },
+        {
+          "stage": "records",
+          "order": 6,
+          "field": "Priority",
+          "expected": "true",
+          "actual": "false"
+        }
+      ]
+    },
+    {
+      "arm": "before",
+      "trial": 3,
+      "agent_status": "done",
+      "verified": true,
+      "timings": {
+        "agent_loop_ms": 213903.5,
+        "model_ms": 204072.7,
+        "command_ms": 9810.7,
+        "model_calls": 58,
+        "commands": 66
+      },
+      "input_tokens": 3096355,
+      "output_tokens": 4563,
+      "command_errors": 7,
+      "checks": {
+        "all_initial_fields_exact": true,
+        "all_final_fields_exact": true,
+        "both_corrections_saved": true,
+        "archive_completed": true
+      },
+      "mismatches": []
+    },
+    {
+      "arm": "after",
+      "trial": 3,
+      "agent_status": "done",
+      "verified": true,
+      "timings": {
+        "agent_loop_ms": 47841.4,
+        "model_ms": 41532.1,
+        "command_ms": 6299.8,
+        "model_calls": 16,
+        "commands": 48
+      },
+      "input_tokens": 246134,
+      "output_tokens": 2304,
+      "command_errors": 0,
+      "checks": {
+        "all_initial_fields_exact": true,
+        "all_final_fields_exact": true,
+        "both_corrections_saved": true,
+        "archive_completed": true
+      },
+      "mismatches": []
+    }
+  ],
+  "raw_results": "test-results/long-workflow/20261031T093826/results.json"
+}
