@@ -28,5 +28,5 @@ jobs:
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
       - name: Test benchmark reporting
-        run: python3 -m unittest discover -s tests/agent -p 'test_benchmark_varied_workflows.py' -v
+        run: python3 -m unittest discover -s tests/agent -p 'test_benchmark*.py' -v
       - run: cargo build --release
