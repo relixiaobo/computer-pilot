@@ -32,6 +32,102 @@ python3 tests/agent/run.py --task tests/agent/tasks/mail_to_notes.json
 python3 tests/agent/run.py --dry-run
 ```
 
+## Standard protocol for new comparisons
+
+Use `benchmark_varied_workflows.py` for new **agent-level** cu versus built-in
+Computer Use comparisons. The older experiments below remain historical records;
+do not combine their samples with a new experiment. Deterministic tool replay
+measures dispatch overhead separately and is not an agent completion-time result.
+
+Start with one question: after the session/wait changes, does cu still take longer
+on ticket triage under the same model/settings? Run four paired datasets (eight
+fresh tasks), with native/cu and cu/native orders alternating. Choose the scope
+and repeat count before seeing any result. This is a diagnostic sample, not a
+statistical guarantee. Expand to document/wizard only after this comparison.
+
+```bash
+cargo build --release
+python3 tests/agent/benchmark_varied_workflows.py test-results/triage-v1 prepare \
+  --modes triage --repeats 4 --model gpt-6-astra --effort high
+```
+
+`manifest.json` freezes the planned sequence, expected actual model/effort/service
+tier, commit and binary/fixture/skill/helper/collector fingerprints. No tier
+override is the default; use `--service-tier` only when both arms actually use
+that tier. These options record the design; they do not configure or invoke a
+model. `start` refuses changed experiment inputs. Do not edit the manifest, code
+or skill during an experiment; use a new root for a new candidate.
+
+For **each** manifest entry, sequentially:
+
+1. Run `ROOT start LABEL`. Create one new task from the exact generated brief,
+   using the planned settings, and save its ID in `ROOT/LABEL/thread.txt`.
+   The app bundle/process, source/saved state, and cu Broker/client/output paths
+   are fresh. No other participant runs during setup or execution. Do not supply
+   a solver, source files, earlier outcomes or strategy coaching.
+2. Let setup finish with READY and one initial observation, without UI mutations.
+   Send exactly `GO cu-N.` or `GO native-N.` for that entry's dataset number N.
+   Keep all in-turn errors and recovery. Do not restart a slow/failed attempt,
+   provide hints, or add another GO to the same task.
+3. When the participant completes or reports blocked, run `ROOT collect LABEL`,
+   then `ROOT stop LABEL`. Collection reads only that task's rollout, exports
+   **all setup and GO tool records** to `trace.json` (a list of turns), and checks
+   saved fields, order and required original/correction states independently.
+   It hashes the source, saved state, brief, task config when present, and trace.
+   Stop also terminates the dedicated cu Broker; do not query status afterward
+   because status starts a Broker when absent.
+4. Review the complete trace once, offline, and save `ROOT/LABEL/audit.json`:
+
+   ```json
+   {"compliant": true, "note": "Reviewed setup and GO: fresh task, allowed backend, task environment retained on every app call, live UI sources only, no coaching."}
+   ```
+
+   For cu, inspect the sourced task configuration and every app call, not merely
+   setup; for native, require the actual native cua API. Check that setup did not
+   mutate the app and that tasks did not overlap. Mark any violation
+   `compliant: false` with its concrete reason. This review is intentionally
+   manual: matching a command string cannot prove shell environment isolation.
+   A tool error, slow recovery, or wrong final value is **not** an exclusion.
+
+Here `ROOT ACTION LABEL` abbreviates:
+
+```bash
+python3 tests/agent/benchmark_varied_workflows.py test-results/triage-v1 ACTION LABEL
+# After all planned attempts, or to inspect incomplete coverage:
+python3 tests/agent/benchmark_varied_workflows.py test-results/triage-v1 report
+```
+
+`report.json` and `report.md` retain every planned attempt. Missing results stay
+pending; missing audits stay unreviewed. Model-setting mismatch, reused task,
+changed/mismatched source data and explicit protocol violations are excluded
+with reasons. Correctly conducted task failures remain failures, including their
+elapsed time. An incomplete or extra GO is a protocol deviation, not a successful
+timing sample. Keep interrupted attempts and explain them in the audit. If more
+samples are needed, predeclare another complete block in a new root and report
+both blocks; do not silently replace individual failures or deviations.
+
+Report completion counts before speed. For each workflow show all sample times,
+then median setup, GO and combined times among successes. Paired cu/native ratios
+use only datasets where both arms passed; below 1 favors cu. Also inspect model
+calls, tool calls/errors, returned text, token usage and recorded tool intervals
+already collected per turn. These distinguish extra interaction rounds from
+slow tool execution. Do not merge workflow medians into a universal speed score.
+
+Setup and GO are measured as full participant turn durations; combined is their
+sum. Compilation, app launch, coordinator gaps, offline audit and verification
+are outside those times. Text characters exclude images; token usage and tool
+call counts are not necessarily equivalent across backends. Non-tool time
+includes model, network and scheduling, not just inference. Clean means new
+task/app/state, not reboot/VM/cache flush. Keep actual timestamps/order and these
+limits in any published report. Publish the aggregate and hashes; keep full local
+tool traces private and never export model reasoning.
+
+The protocol's offline regression tests need no GUI or model calls:
+
+```bash
+python3 -m unittest discover -s tests/agent -p 'test_benchmark_varied_workflows.py' -v
+```
+
 ## Latency comparisons
 
 The loop accepts a deterministic group of commands in one model response and
