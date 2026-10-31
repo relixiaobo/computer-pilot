@@ -1,0 +1,3763 @@
+{
+  "manifest": {
+    "protocol_version": 2,
+    "single_turn": true,
+    "sequence": [
+      {
+        "label": "triage-1-native",
+        "mode": "triage",
+        "repeat": 1,
+        "arm": "native"
+      },
+      {
+        "label": "triage-1-cu",
+        "mode": "triage",
+        "repeat": 1,
+        "arm": "cu"
+      },
+      {
+        "label": "triage-2-cu",
+        "mode": "triage",
+        "repeat": 2,
+        "arm": "cu"
+      },
+      {
+        "label": "triage-2-native",
+        "mode": "triage",
+        "repeat": 2,
+        "arm": "native"
+      },
+      {
+        "label": "document-1-cu",
+        "mode": "document",
+        "repeat": 1,
+        "arm": "cu"
+      },
+      {
+        "label": "document-1-native",
+        "mode": "document",
+        "repeat": 1,
+        "arm": "native"
+      },
+      {
+        "label": "document-2-native",
+        "mode": "document",
+        "repeat": 2,
+        "arm": "native"
+      },
+      {
+        "label": "document-2-cu",
+        "mode": "document",
+        "repeat": 2,
+        "arm": "cu"
+      },
+      {
+        "label": "wizard-1-native",
+        "mode": "wizard",
+        "repeat": 1,
+        "arm": "native"
+      },
+      {
+        "label": "wizard-1-cu",
+        "mode": "wizard",
+        "repeat": 1,
+        "arm": "cu"
+      },
+      {
+        "label": "wizard-2-cu",
+        "mode": "wizard",
+        "repeat": 2,
+        "arm": "cu"
+      },
+      {
+        "label": "wizard-2-native",
+        "mode": "wizard",
+        "repeat": 2,
+        "arm": "native"
+      }
+    ],
+    "settings": {
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null
+    },
+    "fingerprints": {
+      "target/release/cu": "48a9a474cc011ffa180f1e2c85454b168cabc3e167999d33e7c5e80e45d2cc6e",
+      "tests/fixtures/varied-workflows.swift": "5ac65cfd49a34286cb2292a8431434775ac24531b149be75566008dfe3857cb3",
+      "tests/agent/benchmark_varied_workflows.py": "5e7b815e55440b96c475f1ba239780605d255d3e5adde77ad4a7a2e2ff4f9660",
+      "tests/agent/collect_codex_benchmark.py": "304799b5a47f107803e77cc2dad5295baa0b31c0336c0354ab9ae92703b90f7c",
+      "plugin/skills/computer-pilot/SKILL.md": "3b090386becb3a361565560b79163f792c0eb512c0125964a305a9be5f047c8a",
+      "plugin/skills/computer-pilot/scripts/session.sh": "8fe2a050a3e91844ba64ddf64bea38d011ea48f7254a073b48de4ef4cf14b937"
+    },
+    "cu_commit": "49ef4fb7ca527d4205bf3a796e68e5d490443fab"
+  },
+  "actual_order": [
+    "triage-1-native",
+    "triage-1-cu",
+    "triage-2-cu",
+    "triage-2-native",
+    "document-1-cu",
+    "document-1-native",
+    "document-2-native",
+    "document-2-cu",
+    "wizard-1-native",
+    "wizard-1-cu",
+    "wizard-2-cu",
+    "wizard-2-native"
+  ],
+  "attempts": [
+    {
+      "label": "triage-1-native",
+      "mode": "triage",
+      "repeat": 1,
+      "arm": "native",
+      "status": "passed",
+      "reasons": [],
+      "pid": 11999,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/general-snapshot-20261031/triage-1-native/VariedWorkflow.app",
+      "runtime_home": null,
+      "source_sha256": "48b49543deb77e7d8f987936c4ccd399f4cc1216b013cc53e13eae194aa3741d",
+      "client_key": "triage-1-native",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/general-snapshot-20261031/triage-1-native/output",
+      "thread_id": "01a190d4-e8cf-71c0-b933-1befdcbb968b",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "native",
+          "thread_id": "01a190d4-e8cf-71c0-b933-1befdcbb968b",
+          "turn_id": "01a190d4-e958-7c61-97e5-60a269e28c2d",
+          "started_at": "2026-10-31T07:20:34.917Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T07:22:22.894Z",
+          "elapsed_ms": 107974,
+          "final": "DONE",
+          "model_calls": 22,
+          "tokens": {
+            "input_tokens": 783665,
+            "cached_input_tokens": 745728,
+            "output_tokens": 1201,
+            "total_tokens": 784866
+          },
+          "tool_calls": 21,
+          "tool_output_chars": 43321,
+          "tool_errors": 0,
+          "tool_interval_ms": 12690,
+          "non_tool_interval_ms": 95284,
+          "label": "triage-1-native"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "filter_and_search_used": true
+        },
+        "expected": {
+          "T101": {
+            "Queue": "East desk",
+            "SLA hours": "8",
+            "Urgent": "true",
+            "Note": "T101 / East desk / 8h"
+          },
+          "T103": {
+            "Queue": "East desk",
+            "SLA hours": "2",
+            "Urgent": "false",
+            "Note": "T103 / East desk / 2h"
+          },
+          "T104": {
+            "Queue": "West desk",
+            "SLA hours": "4",
+            "Urgent": "true",
+            "Note": "T104 / West desk / 4h"
+          },
+          "T105": {
+            "Queue": "East desk",
+            "SLA hours": "8",
+            "Urgent": "true",
+            "Note": "T105 / East desk / 8h"
+          },
+          "T107": {
+            "Queue": "East desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T107 / East desk / 24h"
+          },
+          "T108": {
+            "Queue": "West desk",
+            "SLA hours": "4",
+            "Urgent": "true",
+            "Note": "T108 / West desk / 4h"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "filter-open",
+              "ID": "T101"
+            },
+            {
+              "action": "open",
+              "ID": "T101"
+            },
+            {
+              "action": "save",
+              "ID": "T101",
+              "Note": "T101 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T103"
+            },
+            {
+              "action": "save",
+              "ID": "T103",
+              "Note": "T103 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T104"
+            },
+            {
+              "action": "save",
+              "ID": "T104",
+              "Note": "T104 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T105"
+            },
+            {
+              "action": "save",
+              "ID": "T105",
+              "Note": "T105 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T107"
+            },
+            {
+              "action": "save",
+              "ID": "T107",
+              "Note": "T107 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T108"
+            },
+            {
+              "action": "save",
+              "ID": "T108",
+              "Note": "T108 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            {
+              "action": "search",
+              "ID": "T108",
+              "query": "T103"
+            },
+            {
+              "action": "open",
+              "ID": "T103"
+            },
+            {
+              "action": "save",
+              "ID": "T103",
+              "Note": "T103 / East desk / 2h",
+              "Queue": "East desk",
+              "SLA hours": "2",
+              "Urgent": "false"
+            },
+            {
+              "action": "finished",
+              "ID": "T103"
+            }
+          ],
+          "mode": "triage",
+          "order": [
+            "T101",
+            "T102",
+            "T103",
+            "T104",
+            "T105",
+            "T106",
+            "T107",
+            "T108"
+          ],
+          "records": {
+            "T101": {
+              "Note": "T101 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            "T103": {
+              "Note": "T103 / East desk / 2h",
+              "Queue": "East desk",
+              "SLA hours": "2",
+              "Urgent": "false"
+            },
+            "T104": {
+              "Note": "T104 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            "T105": {
+              "Note": "T105 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            "T107": {
+              "Note": "T107 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            "T108": {
+              "Note": "T108 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 107974,
+      "combined_turn_ms": 107974,
+      "evidence_sha256": {
+        "brief.txt": "53462c96cea4b029a56c0d7584117b97b95053e3a2a9cf0754a69cfa2bee7aec",
+        "source.json": "48b49543deb77e7d8f987936c4ccd399f4cc1216b013cc53e13eae194aa3741d",
+        "saved.json": "2029111a3c5b0705f018ac413cc185ee331fe9616866245c0b21f4237c2b5b0e",
+        "trace.json": "ff8107d7fee589c2d9bedf40b68219b71428aa474c8a323f5f6c65ee1f575a1d"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Reviewed all 21 tool calls: one brief read, exact disposable app binding, and native App API only; source facts observed live before edits; no solver, coaching, other app or overlapping trial. Independent exact-state verification passed."
+      }
+    },
+    {
+      "label": "triage-1-cu",
+      "mode": "triage",
+      "repeat": 1,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 13101,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/general-snapshot-20261031/triage-1-cu/VariedWorkflow.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-varied-6lpzy2e1",
+      "source_sha256": "48b49543deb77e7d8f987936c4ccd399f4cc1216b013cc53e13eae194aa3741d",
+      "client_key": "triage-1-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/general-snapshot-20261031/triage-1-cu/output",
+      "thread_id": "01a190d6-ac3e-76d3-bf3f-3f0af09b6912",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a190d6-ac3e-76d3-bf3f-3f0af09b6912",
+          "turn_id": "01a190d6-acde-7f11-9823-cbef3bfd07f4",
+          "started_at": "2026-10-31T07:22:30.523Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T07:23:56.911Z",
+          "elapsed_ms": 86390,
+          "final": "DONE",
+          "model_calls": 24,
+          "tokens": {
+            "input_tokens": 863812,
+            "cached_input_tokens": 820992,
+            "output_tokens": 3635,
+            "reasoning_output_tokens": 925,
+            "total_tokens": 867447
+          },
+          "tool_calls": 23,
+          "tool_output_chars": 40365,
+          "tool_errors": 0,
+          "tool_interval_ms": 5283,
+          "non_tool_interval_ms": 81107,
+          "label": "triage-1-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "filter_and_search_used": true
+        },
+        "expected": {
+          "T101": {
+            "Queue": "East desk",
+            "SLA hours": "8",
+            "Urgent": "true",
+            "Note": "T101 / East desk / 8h"
+          },
+          "T103": {
+            "Queue": "East desk",
+            "SLA hours": "2",
+            "Urgent": "false",
+            "Note": "T103 / East desk / 2h"
+          },
+          "T104": {
+            "Queue": "West desk",
+            "SLA hours": "4",
+            "Urgent": "true",
+            "Note": "T104 / West desk / 4h"
+          },
+          "T105": {
+            "Queue": "East desk",
+            "SLA hours": "8",
+            "Urgent": "true",
+            "Note": "T105 / East desk / 8h"
+          },
+          "T107": {
+            "Queue": "East desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T107 / East desk / 24h"
+          },
+          "T108": {
+            "Queue": "West desk",
+            "SLA hours": "4",
+            "Urgent": "true",
+            "Note": "T108 / West desk / 4h"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "filter-open",
+              "ID": "T101"
+            },
+            {
+              "action": "open",
+              "ID": "T101"
+            },
+            {
+              "action": "save",
+              "ID": "T101",
+              "Note": "T101 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T103"
+            },
+            {
+              "action": "save",
+              "ID": "T103",
+              "Note": "T103 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T104"
+            },
+            {
+              "action": "save",
+              "ID": "T104",
+              "Note": "T104 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T105"
+            },
+            {
+              "action": "save",
+              "ID": "T105",
+              "Note": "T105 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T107"
+            },
+            {
+              "action": "save",
+              "ID": "T107",
+              "Note": "T107 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T108"
+            },
+            {
+              "action": "save",
+              "ID": "T108",
+              "Note": "T108 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            {
+              "action": "search",
+              "ID": "T108",
+              "query": "T103"
+            },
+            {
+              "action": "open",
+              "ID": "T103"
+            },
+            {
+              "action": "save",
+              "ID": "T103",
+              "Note": "T103 / East desk / 2h",
+              "Queue": "East desk",
+              "SLA hours": "2",
+              "Urgent": "false"
+            },
+            {
+              "action": "finished",
+              "ID": "T103"
+            }
+          ],
+          "mode": "triage",
+          "order": [
+            "T101",
+            "T102",
+            "T103",
+            "T104",
+            "T105",
+            "T106",
+            "T107",
+            "T108"
+          ],
+          "records": {
+            "T101": {
+              "Note": "T101 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            "T103": {
+              "Note": "T103 / East desk / 2h",
+              "Queue": "East desk",
+              "SLA hours": "2",
+              "Urgent": "false"
+            },
+            "T104": {
+              "Note": "T104 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            "T105": {
+              "Note": "T105 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            "T107": {
+              "Note": "T107 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            "T108": {
+              "Note": "T108 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 86390,
+      "combined_turn_ms": 86390,
+      "evidence_sha256": {
+        "brief.txt": "6113977bbde4c22df4c32ad259659d59c76f542d8aac7b72bc7e57a8679635ab",
+        "source.json": "48b49543deb77e7d8f987936c4ccd399f4cc1216b013cc53e13eae194aa3741d",
+        "saved.json": "2029111a3c5b0705f018ac413cc185ee331fe9616866245c0b21f4237c2b5b0e",
+        "cu-env.sh": "a022bcb31520b43271d0fb95cf29fc685b6d21bd3bc54eab6412b606bb51dfe1",
+        "trace.json": "60d3acaa29d5f7170d309e3db8bf06954c4a6d47ff9fe43584dc9abe077e25ed"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Reviewed all 23 tool calls and task environment file. Every app call sources the same exact binary/PID/client/Broker/output configuration; only brief, skill and helper are read. Live UI supplies facts, grouped edits use current refs, no other backend, coaching or overlap. Exact state and final observation passed."
+      }
+    },
+    {
+      "label": "triage-2-cu",
+      "mode": "triage",
+      "repeat": 2,
+      "arm": "cu",
+      "status": "excluded",
+      "reasons": [
+        "Initial `cu --compact snapshot --limit 200` bypassed session helper app injection and observed foreground Ghostty (PID 97956), including coordinator/prior-task text. Subsequent calls recovered exact assigned PID/environment and final saved state passed, but assigned-app-only isolation was violated; retain the 207885 ms attempt without replacement. Tool intervals 5174 ms do not explain most elapsed time."
+      ],
+      "pid": 14109,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/general-snapshot-20261031/triage-2-cu/VariedWorkflow.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-varied-i6houqra",
+      "source_sha256": "58b34388970f4cc3fba8f4b1fc86d4ae16674b2aaa428b7c466c57ee6e1530ef",
+      "client_key": "triage-2-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/general-snapshot-20261031/triage-2-cu/output",
+      "thread_id": "01a190d8-13bf-75f3-a2b8-aa4a426f13a1",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a190d8-13bf-75f3-a2b8-aa4a426f13a1",
+          "turn_id": "01a190d8-1429-7d41-8d30-eadea8a4cdb3",
+          "started_at": "2026-10-31T07:24:02.484Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T07:27:30.370Z",
+          "elapsed_ms": 207885,
+          "final": "DONE",
+          "model_calls": 26,
+          "tokens": {
+            "input_tokens": 1029902,
+            "cached_input_tokens": 973824,
+            "output_tokens": 5853,
+            "reasoning_output_tokens": 2404,
+            "total_tokens": 1035755
+          },
+          "tool_calls": 25,
+          "tool_output_chars": 49061,
+          "tool_errors": 0,
+          "tool_interval_ms": 5174,
+          "non_tool_interval_ms": 202711,
+          "label": "triage-2-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "filter_and_search_used": true
+        },
+        "expected": {
+          "T201": {
+            "Queue": "West desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T201 / West desk / 24h"
+          },
+          "T203": {
+            "Queue": "West desk",
+            "SLA hours": "2",
+            "Urgent": "true",
+            "Note": "T203 / West desk / 2h"
+          },
+          "T204": {
+            "Queue": "East desk",
+            "SLA hours": "8",
+            "Urgent": "true",
+            "Note": "T204 / East desk / 8h"
+          },
+          "T205": {
+            "Queue": "West desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T205 / West desk / 24h"
+          },
+          "T207": {
+            "Queue": "West desk",
+            "SLA hours": "4",
+            "Urgent": "true",
+            "Note": "T207 / West desk / 4h"
+          },
+          "T208": {
+            "Queue": "East desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T208 / East desk / 24h"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "filter-open",
+              "ID": "T201"
+            },
+            {
+              "action": "open",
+              "ID": "T201"
+            },
+            {
+              "action": "save",
+              "ID": "T201",
+              "Note": "T201 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T203"
+            },
+            {
+              "action": "save",
+              "ID": "T203",
+              "Note": "T203 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T204"
+            },
+            {
+              "action": "save",
+              "ID": "T204",
+              "Note": "T204 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T205"
+            },
+            {
+              "action": "save",
+              "ID": "T205",
+              "Note": "T205 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T207"
+            },
+            {
+              "action": "save",
+              "ID": "T207",
+              "Note": "T207 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T208"
+            },
+            {
+              "action": "save",
+              "ID": "T208",
+              "Note": "T208 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "search",
+              "ID": "T208",
+              "query": "T203"
+            },
+            {
+              "action": "open",
+              "ID": "T203"
+            },
+            {
+              "action": "save",
+              "ID": "T203",
+              "Note": "T203 / West desk / 2h",
+              "Queue": "West desk",
+              "SLA hours": "2",
+              "Urgent": "true"
+            },
+            {
+              "action": "finished",
+              "ID": "T203"
+            }
+          ],
+          "mode": "triage",
+          "order": [
+            "T201",
+            "T202",
+            "T203",
+            "T204",
+            "T205",
+            "T206",
+            "T207",
+            "T208"
+          ],
+          "records": {
+            "T201": {
+              "Note": "T201 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            "T203": {
+              "Note": "T203 / West desk / 2h",
+              "Queue": "West desk",
+              "SLA hours": "2",
+              "Urgent": "true"
+            },
+            "T204": {
+              "Note": "T204 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            "T205": {
+              "Note": "T205 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            "T207": {
+              "Note": "T207 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            "T208": {
+              "Note": "T208 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 207885,
+      "combined_turn_ms": 207885,
+      "evidence_sha256": {
+        "brief.txt": "4c7aa3794581cedd8b37e2ef4f8ba17149f30c97ce97196faa89ba606e0d21c5",
+        "source.json": "58b34388970f4cc3fba8f4b1fc86d4ae16674b2aaa428b7c466c57ee6e1530ef",
+        "saved.json": "f97bc6597b1955dd3911128ceb395da3f3b503346959e16a05e6ded83dd365d4",
+        "cu-env.sh": "cdae5cc35b9a6920056e81fa6319e78c6da1be30c574413f8ece5b59ec3ae8f2",
+        "trace.json": "5021da13d331900dd3fe0c64822d499edf4bd1891352bd909f6196ea685339c9"
+      },
+      "audit": {
+        "compliant": false,
+        "note": "Initial `cu --compact snapshot --limit 200` bypassed session helper app injection and observed foreground Ghostty (PID 97956), including coordinator/prior-task text. Subsequent calls recovered exact assigned PID/environment and final saved state passed, but assigned-app-only isolation was violated; retain the 207885 ms attempt without replacement. Tool intervals 5174 ms do not explain most elapsed time."
+      }
+    },
+    {
+      "label": "triage-2-native",
+      "mode": "triage",
+      "repeat": 2,
+      "arm": "native",
+      "status": "passed",
+      "reasons": [],
+      "pid": 15939,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/general-snapshot-20261031/triage-2-native/VariedWorkflow.app",
+      "runtime_home": null,
+      "source_sha256": "58b34388970f4cc3fba8f4b1fc86d4ae16674b2aaa428b7c466c57ee6e1530ef",
+      "client_key": "triage-2-native",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/general-snapshot-20261031/triage-2-native/output",
+      "thread_id": "01a190db-604a-7433-8bbd-2a5b129ed51d",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "native",
+          "thread_id": "01a190db-604a-7433-8bbd-2a5b129ed51d",
+          "turn_id": "01a190db-60ce-73a1-854a-35c34703c762",
+          "started_at": "2026-10-31T07:27:38.716Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T07:29:31.497Z",
+          "elapsed_ms": 112781,
+          "final": "DONE",
+          "model_calls": 24,
+          "tokens": {
+            "input_tokens": 880337,
+            "cached_input_tokens": 856064,
+            "output_tokens": 2399,
+            "reasoning_output_tokens": 852,
+            "total_tokens": 882736
+          },
+          "tool_calls": 23,
+          "tool_output_chars": 44726,
+          "tool_errors": 0,
+          "tool_interval_ms": 13119,
+          "non_tool_interval_ms": 99662,
+          "label": "triage-2-native"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "filter_and_search_used": true
+        },
+        "expected": {
+          "T201": {
+            "Queue": "West desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T201 / West desk / 24h"
+          },
+          "T203": {
+            "Queue": "West desk",
+            "SLA hours": "2",
+            "Urgent": "true",
+            "Note": "T203 / West desk / 2h"
+          },
+          "T204": {
+            "Queue": "East desk",
+            "SLA hours": "8",
+            "Urgent": "true",
+            "Note": "T204 / East desk / 8h"
+          },
+          "T205": {
+            "Queue": "West desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T205 / West desk / 24h"
+          },
+          "T207": {
+            "Queue": "West desk",
+            "SLA hours": "4",
+            "Urgent": "true",
+            "Note": "T207 / West desk / 4h"
+          },
+          "T208": {
+            "Queue": "East desk",
+            "SLA hours": "24",
+            "Urgent": "false",
+            "Note": "T208 / East desk / 24h"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "filter-open",
+              "ID": "T201"
+            },
+            {
+              "action": "open",
+              "ID": "T201"
+            },
+            {
+              "action": "save",
+              "ID": "T201",
+              "Note": "T201 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T203"
+            },
+            {
+              "action": "save",
+              "ID": "T203",
+              "Note": "T203 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T204"
+            },
+            {
+              "action": "save",
+              "ID": "T204",
+              "Note": "T204 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T205"
+            },
+            {
+              "action": "save",
+              "ID": "T205",
+              "Note": "T205 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "open",
+              "ID": "T207"
+            },
+            {
+              "action": "save",
+              "ID": "T207",
+              "Note": "T207 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            {
+              "action": "open",
+              "ID": "T208"
+            },
+            {
+              "action": "save",
+              "ID": "T208",
+              "Note": "T208 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            {
+              "action": "search",
+              "ID": "T208",
+              "query": "T203"
+            },
+            {
+              "action": "open",
+              "ID": "T203"
+            },
+            {
+              "action": "save",
+              "ID": "T203",
+              "Note": "T203 / West desk / 2h",
+              "Queue": "West desk",
+              "SLA hours": "2",
+              "Urgent": "true"
+            },
+            {
+              "action": "finished",
+              "ID": "T203"
+            }
+          ],
+          "mode": "triage",
+          "order": [
+            "T201",
+            "T202",
+            "T203",
+            "T204",
+            "T205",
+            "T206",
+            "T207",
+            "T208"
+          ],
+          "records": {
+            "T201": {
+              "Note": "T201 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            "T203": {
+              "Note": "T203 / West desk / 2h",
+              "Queue": "West desk",
+              "SLA hours": "2",
+              "Urgent": "true"
+            },
+            "T204": {
+              "Note": "T204 / East desk / 8h",
+              "Queue": "East desk",
+              "SLA hours": "8",
+              "Urgent": "true"
+            },
+            "T205": {
+              "Note": "T205 / West desk / 24h",
+              "Queue": "West desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            },
+            "T207": {
+              "Note": "T207 / West desk / 4h",
+              "Queue": "West desk",
+              "SLA hours": "4",
+              "Urgent": "true"
+            },
+            "T208": {
+              "Note": "T208 / East desk / 24h",
+              "Queue": "East desk",
+              "SLA hours": "24",
+              "Urgent": "false"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 112781,
+      "combined_turn_ms": 112781,
+      "evidence_sha256": {
+        "brief.txt": "c3c722c0662865612c8d1216954e4ff47212370e74d93bf8129d41511ef65f14",
+        "source.json": "58b34388970f4cc3fba8f4b1fc86d4ae16674b2aaa428b7c466c57ee6e1530ef",
+        "saved.json": "f97bc6597b1955dd3911128ceb395da3f3b503346959e16a05e6ded83dd365d4",
+        "trace.json": "c7fad8ea5950c49f278445ec3ed02ae4aadf2044ef401e88cdb19d2d2e59224f"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Reviewed all 23 tool calls. Initial brief read also listed own trial filenames and Git status, but no fixture source/expected/saved contents were read. Exact disposable app binding and native APIs only. Two no-effect clicks recovered using fresh state; retained in timing. No coaching or overlap; exact result and completion passed."
+      }
+    },
+    {
+      "label": "document-1-cu",
+      "mode": "document",
+      "repeat": 1,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 17040,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/general-snapshot-20261031/document-1-cu/VariedWorkflow.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-varied-segx552p",
+      "source_sha256": "8f6d577728d7c0e6483dfa6161f1f4bd6fbcec94c65fa149aa90c3a84cb1945d",
+      "client_key": "document-1-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/general-snapshot-20261031/document-1-cu/output",
+      "thread_id": "01a190dd-3e52-7430-85b4-4f906cde67aa",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a190dd-3e52-7430-85b4-4f906cde67aa",
+          "turn_id": "01a190dd-3edd-73e0-9b4c-c62528207efd",
+          "started_at": "2026-10-31T07:29:41.098Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T07:31:42.367Z",
+          "elapsed_ms": 121269,
+          "final": "DONE",
+          "model_calls": 24,
+          "tokens": {
+            "input_tokens": 877683,
+            "cached_input_tokens": 836480,
+            "output_tokens": 1995,
+            "total_tokens": 879678,
+            "reasoning_output_tokens": 16
+          },
+          "tool_calls": 23,
+          "tool_output_chars": 41134,
+          "tool_errors": 0,
+          "tool_interval_ms": 5258,
+          "non_tool_interval_ms": 116011,
+          "label": "document-1-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true
+        },
+        "expected": {
+          "S101": {
+            "Heading": "S101 · 章节 1-1 · 目标",
+            "Body": "定稿 1-1：目标需要核对中文、标点和数量，保留引用“样本 10”。\n第二段：本定稿仅用于本地测试；Reference 1-01, keep line breaks.\nReviewed: S101",
+            "Reviewed": "true"
+          },
+          "S102": {
+            "Heading": "S102 · 章节 1-2 · 范围",
+            "Body": "定稿 1-2：范围需要核对中文、标点和数量，保留引用“样本 11”。\n第二段：本定稿仅用于本地测试；Reference 1-02, keep line breaks.\nReviewed: S102",
+            "Reviewed": "true"
+          },
+          "S103": {
+            "Heading": "S103 · 章节 1-3 · 交付（复核）",
+            "Body": "定稿 1-3：交付需要核对中文、标点和数量，保留引用“样本 12”。\n第二段：本定稿仅用于本地测试；Reference 1-03, keep line breaks.\nReviewed: S103",
+            "Reviewed": "true"
+          },
+          "S104": {
+            "Heading": "S104 · 章节 1-4 · 质量",
+            "Body": "定稿 1-4：质量需要核对中文、标点和数量，保留引用“样本 13”。\n第二段：本定稿仅用于本地测试；Reference 1-04, keep line breaks.\nReviewed: S104",
+            "Reviewed": "true"
+          },
+          "S105": {
+            "Heading": "S105 · 章节 1-5 · 风险",
+            "Body": "定稿 1-5：风险需要核对中文、标点和数量，保留引用“样本 14”。\n第二段：本定稿仅用于本地测试；Reference 1-05, keep line breaks.\nReviewed: S105",
+            "Reviewed": "true"
+          },
+          "S106": {
+            "Heading": "S106 · 章节 1-6 · 结论",
+            "Body": "定稿 1-6：结论需要核对中文、标点和数量，保留引用“样本 15”。\n第二段：本定稿仅用于本地测试；Reference 1-06, keep line breaks.\nReviewed: S106",
+            "Reviewed": "true"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "open",
+              "ID": "S101"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 1-1：目标需要核对中文、标点和数量，保留引用“样本 10”。\n第二段：本定稿仅用于本地测试；Reference 1-01, keep line breaks.\nReviewed: S101",
+              "Heading": "S101 · 章节 1-1 · 目标",
+              "ID": "S101",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S102"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 1-2：范围需要核对中文、标点和数量，保留引用“样本 11”。\n第二段：本定稿仅用于本地测试；Reference 1-02, keep line breaks.\nReviewed: S102",
+              "Heading": "S102 · 章节 1-2 · 范围",
+              "ID": "S102",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S103"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 1-3：交付需要核对中文、标点和数量，保留引用“样本 12”。\n第二段：本定稿仅用于本地测试；Reference 1-03, keep line breaks.\nReviewed: S103",
+              "Heading": "S103 · 章节 1-3 · 交付",
+              "ID": "S103",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S104"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 1-4：质量需要核对中文、标点和数量，保留引用“样本 13”。\n第二段：本定稿仅用于本地测试；Reference 1-04, keep line breaks.\nReviewed: S104",
+              "Heading": "S104 · 章节 1-4 · 质量",
+              "ID": "S104",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S105"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 1-5：风险需要核对中文、标点和数量，保留引用“样本 14”。\n第二段：本定稿仅用于本地测试；Reference 1-05, keep line breaks.\nReviewed: S105",
+              "Heading": "S105 · 章节 1-5 · 风险",
+              "ID": "S105",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S106"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 1-6：结论需要核对中文、标点和数量，保留引用“样本 15”。\n第二段：本定稿仅用于本地测试；Reference 1-06, keep line breaks.\nReviewed: S106",
+              "Heading": "S106 · 章节 1-6 · 结论",
+              "ID": "S106",
+              "Reviewed": "true"
+            },
+            {
+              "action": "move",
+              "ID": "S106",
+              "position": "1"
+            },
+            {
+              "action": "move",
+              "ID": "S102",
+              "position": "4"
+            },
+            {
+              "action": "open",
+              "ID": "S103"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 1-3：交付需要核对中文、标点和数量，保留引用“样本 12”。\n第二段：本定稿仅用于本地测试；Reference 1-03, keep line breaks.\nReviewed: S103",
+              "Heading": "S103 · 章节 1-3 · 交付（复核）",
+              "ID": "S103",
+              "Reviewed": "true"
+            },
+            {
+              "action": "finished",
+              "ID": "S103"
+            }
+          ],
+          "mode": "document",
+          "order": [
+            "S106",
+            "S101",
+            "S103",
+            "S102",
+            "S104",
+            "S105"
+          ],
+          "records": {
+            "S101": {
+              "Body": "定稿 1-1：目标需要核对中文、标点和数量，保留引用“样本 10”。\n第二段：本定稿仅用于本地测试；Reference 1-01, keep line breaks.\nReviewed: S101",
+              "Heading": "S101 · 章节 1-1 · 目标",
+              "Reviewed": "true"
+            },
+            "S102": {
+              "Body": "定稿 1-2：范围需要核对中文、标点和数量，保留引用“样本 11”。\n第二段：本定稿仅用于本地测试；Reference 1-02, keep line breaks.\nReviewed: S102",
+              "Heading": "S102 · 章节 1-2 · 范围",
+              "Reviewed": "true"
+            },
+            "S103": {
+              "Body": "定稿 1-3：交付需要核对中文、标点和数量，保留引用“样本 12”。\n第二段：本定稿仅用于本地测试；Reference 1-03, keep line breaks.\nReviewed: S103",
+              "Heading": "S103 · 章节 1-3 · 交付（复核）",
+              "Reviewed": "true"
+            },
+            "S104": {
+              "Body": "定稿 1-4：质量需要核对中文、标点和数量，保留引用“样本 13”。\n第二段：本定稿仅用于本地测试；Reference 1-04, keep line breaks.\nReviewed: S104",
+              "Heading": "S104 · 章节 1-4 · 质量",
+              "Reviewed": "true"
+            },
+            "S105": {
+              "Body": "定稿 1-5：风险需要核对中文、标点和数量，保留引用“样本 14”。\n第二段：本定稿仅用于本地测试；Reference 1-05, keep line breaks.\nReviewed: S105",
+              "Heading": "S105 · 章节 1-5 · 风险",
+              "Reviewed": "true"
+            },
+            "S106": {
+              "Body": "定稿 1-6：结论需要核对中文、标点和数量，保留引用“样本 15”。\n第二段：本定稿仅用于本地测试；Reference 1-06, keep line breaks.\nReviewed: S106",
+              "Heading": "S106 · 章节 1-6 · 结论",
+              "Reviewed": "true"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 121269,
+      "combined_turn_ms": 121269,
+      "evidence_sha256": {
+        "brief.txt": "df2343f008dd0975a51aec43d94b721ffa8b78d6264bff3e6daa99a1a687056a",
+        "source.json": "8f6d577728d7c0e6483dfa6161f1f4bd6fbcec94c65fa149aa90c3a84cb1945d",
+        "saved.json": "8018ee516761a7b0f844128ac1d9d187e3a61bd7d37938f48ac0c05f36aa649d",
+        "cu-env.sh": "9e6f81196dbcb9151cfdc07eb624683ee5a13b1293571649a5a59e0eff2650e8",
+        "trace.json": "5ddafb53ae21bb9b2892a5068a31a79b86debea9ef24e202b873ab7e6609248d"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Reviewed all 23 tool calls and cu-env.sh: every app call sources the exact assigned binary/PID/client/Broker/output configuration. Brief/skill and live observations only; no other backend or stored fixture data. Full text edits, reordering and correction use observed refs; no coaching or overlap; exact result passed."
+      }
+    },
+    {
+      "label": "document-1-native",
+      "mode": "document",
+      "repeat": 1,
+      "arm": "native",
+      "status": "passed",
+      "reasons": [],
+      "pid": 18285,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/general-snapshot-20261031/document-1-native/VariedWorkflow.app",
+      "runtime_home": null,
+      "source_sha256": "8f6d577728d7c0e6483dfa6161f1f4bd6fbcec94c65fa149aa90c3a84cb1945d",
+      "client_key": "document-1-native",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/general-snapshot-20261031/document-1-native/output",
+      "thread_id": "01a190df-2db4-79f1-b1e9-44c6bc5977ec",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "native",
+          "thread_id": "01a190df-2db4-79f1-b1e9-44c6bc5977ec",
+          "turn_id": "01a190df-2e1d-7992-90cd-92d418005f65",
+          "started_at": "2026-10-31T07:31:47.880Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T07:34:10.068Z",
+          "elapsed_ms": 142229,
+          "final": "DONE",
+          "model_calls": 30,
+          "tokens": {
+            "input_tokens": 1120281,
+            "cached_input_tokens": 1078528,
+            "output_tokens": 2840,
+            "reasoning_output_tokens": 830,
+            "total_tokens": 1123121
+          },
+          "tool_calls": 29,
+          "tool_output_chars": 45255,
+          "tool_errors": 7,
+          "tool_interval_ms": 10106,
+          "non_tool_interval_ms": 132123,
+          "label": "document-1-native"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true
+        },
+        "expected": {
+          "S101": {
+            "Heading": "S101 · 章节 1-1 · 目标",
+            "Body": "定稿 1-1：目标需要核对中文、标点和数量，保留引用“样本 10”。\n第二段：本定稿仅用于本地测试；Reference 1-01, keep line breaks.\nReviewed: S101",
+            "Reviewed": "true"
+          },
+          "S102": {
+            "Heading": "S102 · 章节 1-2 · 范围",
+            "Body": "定稿 1-2：范围需要核对中文、标点和数量，保留引用“样本 11”。\n第二段：本定稿仅用于本地测试；Reference 1-02, keep line breaks.\nReviewed: S102",
+            "Reviewed": "true"
+          },
+          "S103": {
+            "Heading": "S103 · 章节 1-3 · 交付（复核）",
+            "Body": "定稿 1-3：交付需要核对中文、标点和数量，保留引用“样本 12”。\n第二段：本定稿仅用于本地测试；Reference 1-03, keep line breaks.\nReviewed: S103",
+            "Reviewed": "true"
+          },
+          "S104": {
+            "Heading": "S104 · 章节 1-4 · 质量",
+            "Body": "定稿 1-4：质量需要核对中文、标点和数量，保留引用“样本 13”。\n第二段：本定稿仅用于本地测试；Reference 1-04, keep line breaks.\nReviewed: S104",
+            "Reviewed": "true"
+          },
+          "S105": {
+            "Heading": "S105 · 章节 1-5 · 风险",
+            "Body": "定稿 1-5：风险需要核对中文、标点和数量，保留引用“样本 14”。\n第二段：本定稿仅用于本地测试；Reference 1-05, keep line breaks.\nReviewed: S105",
+            "Reviewed": "true"
+          },
+          "S106": {
+            "Heading": "S106 · 章节 1-6 · 结论",
+            "Body": "定稿 1-6：结论需要核对中文、标点和数量，保留引用“样本 15”。\n第二段：本定稿仅用于本地测试；Reference 1-06, keep line breaks.\nReviewed: S106",
+            "Reviewed": "true"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "open",
+              "ID": "S101"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 1-1：目标需要核对中文、标点和数量，保留引用“样本 10”。\n第二段：本定稿仅用于本地测试；Reference 1-01, keep line breaks.\nReviewed: S101",
+              "Heading": "S101 · 章节 1-1 · 目标",
+              "ID": "S101",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S102"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 1-2：范围需要核对中文、标点和数量，保留引用“样本 11”。\n第二段：本定稿仅用于本地测试；Reference 1-02, keep line breaks.\nReviewed: S102",
+              "Heading": "S102 · 章节 1-2 · 范围",
+              "ID": "S102",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S103"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 1-3：交付需要核对中文、标点和数量，保留引用“样本 12”。\n第二段：本定稿仅用于本地测试；Reference 1-03, keep line breaks.\nReviewed: S103",
+              "Heading": "S103 · 章节 1-3 · 交付",
+              "ID": "S103",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S104"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 1-4：质量需要核对中文、标点和数量，保留引用“样本 13”。\n第二段：本定稿仅用于本地测试；Reference 1-04, keep line breaks.\nReviewed: S104",
+              "Heading": "S104 · 章节 1-4 · 质量",
+              "ID": "S104",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S105"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 1-5：风险需要核对中文、标点和数量，保留引用“样本 14”。\n第二段：本定稿仅用于本地测试；Reference 1-05, keep line breaks.\nReviewed: S105",
+              "Heading": "S105 · 章节 1-5 · 风险",
+              "ID": "S105",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S106"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 1-6：结论需要核对中文、标点和数量，保留引用“样本 15”。\n第二段：本定稿仅用于本地测试；Reference 1-06, keep line breaks.\nReviewed: S106",
+              "Heading": "S106 · 章节 1-6 · 结论",
+              "ID": "S106",
+              "Reviewed": "true"
+            },
+            {
+              "action": "move",
+              "ID": "S106",
+              "position": "1"
+            },
+            {
+              "action": "move",
+              "ID": "S102",
+              "position": "4"
+            },
+            {
+              "action": "open",
+              "ID": "S103"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 1-3：交付需要核对中文、标点和数量，保留引用“样本 12”。\n第二段：本定稿仅用于本地测试；Reference 1-03, keep line breaks.\nReviewed: S103",
+              "Heading": "S103 · 章节 1-3 · 交付（复核）",
+              "ID": "S103",
+              "Reviewed": "true"
+            },
+            {
+              "action": "finished",
+              "ID": "S103"
+            }
+          ],
+          "mode": "document",
+          "order": [
+            "S106",
+            "S101",
+            "S103",
+            "S102",
+            "S104",
+            "S105"
+          ],
+          "records": {
+            "S101": {
+              "Body": "定稿 1-1：目标需要核对中文、标点和数量，保留引用“样本 10”。\n第二段：本定稿仅用于本地测试；Reference 1-01, keep line breaks.\nReviewed: S101",
+              "Heading": "S101 · 章节 1-1 · 目标",
+              "Reviewed": "true"
+            },
+            "S102": {
+              "Body": "定稿 1-2：范围需要核对中文、标点和数量，保留引用“样本 11”。\n第二段：本定稿仅用于本地测试；Reference 1-02, keep line breaks.\nReviewed: S102",
+              "Heading": "S102 · 章节 1-2 · 范围",
+              "Reviewed": "true"
+            },
+            "S103": {
+              "Body": "定稿 1-3：交付需要核对中文、标点和数量，保留引用“样本 12”。\n第二段：本定稿仅用于本地测试；Reference 1-03, keep line breaks.\nReviewed: S103",
+              "Heading": "S103 · 章节 1-3 · 交付（复核）",
+              "Reviewed": "true"
+            },
+            "S104": {
+              "Body": "定稿 1-4：质量需要核对中文、标点和数量，保留引用“样本 13”。\n第二段：本定稿仅用于本地测试；Reference 1-04, keep line breaks.\nReviewed: S104",
+              "Heading": "S104 · 章节 1-4 · 质量",
+              "Reviewed": "true"
+            },
+            "S105": {
+              "Body": "定稿 1-5：风险需要核对中文、标点和数量，保留引用“样本 14”。\n第二段：本定稿仅用于本地测试；Reference 1-05, keep line breaks.\nReviewed: S105",
+              "Heading": "S105 · 章节 1-5 · 风险",
+              "Reviewed": "true"
+            },
+            "S106": {
+              "Body": "定稿 1-6：结论需要核对中文、标点和数量，保留引用“样本 15”。\n第二段：本定稿仅用于本地测试；Reference 1-06, keep line breaks.\nReviewed: S106",
+              "Heading": "S106 · 章节 1-6 · 结论",
+              "Reviewed": "true"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 142229,
+      "combined_turn_ms": 142229,
+      "evidence_sha256": {
+        "brief.txt": "e22e3f08a0e63b284f6091b719bbb04251853bb5ac21c0fce424d602e3bdbee3",
+        "source.json": "8f6d577728d7c0e6483dfa6161f1f4bd6fbcec94c65fa149aa90c3a84cb1945d",
+        "saved.json": "8018ee516761a7b0f844128ac1d9d187e3a61bd7d37938f48ac0c05f36aa649d",
+        "trace.json": "d7092e4146ef9f722e84ac616ea687335651799449ee395631ec1656eed5c22e"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Reviewed all 29 tool calls: brief read, exact assigned app binding, native App APIs only. Seven combined open-and-observe calls reported AXError.failure; next state read showed successful navigation and participant recovered without repeating mutation. All recovery time retained. Live sources only, no coaching/overlap; exact text/order/original/correction verification passed."
+      }
+    },
+    {
+      "label": "document-2-native",
+      "mode": "document",
+      "repeat": 2,
+      "arm": "native",
+      "status": "passed",
+      "reasons": [],
+      "pid": 19635,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/general-snapshot-20261031/document-2-native/VariedWorkflow.app",
+      "runtime_home": null,
+      "source_sha256": "4b10946f4fda28b6b977767effa061cfde7a8ea615b734ec36ad4161575ffba8",
+      "client_key": "document-2-native",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/general-snapshot-20261031/document-2-native/output",
+      "thread_id": "01a190e1-8a54-7b81-95b8-39860294bd5d",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "native",
+          "thread_id": "01a190e1-8a54-7b81-95b8-39860294bd5d",
+          "turn_id": "01a190e1-8ad2-7cf1-8c3e-a607ebcb3584",
+          "started_at": "2026-10-31T07:34:22.688Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T07:36:47.163Z",
+          "elapsed_ms": 144478,
+          "final": "DONE",
+          "model_calls": 30,
+          "tokens": {
+            "input_tokens": 1121800,
+            "cached_input_tokens": 1086208,
+            "output_tokens": 2940,
+            "reasoning_output_tokens": 911,
+            "total_tokens": 1124740
+          },
+          "tool_calls": 29,
+          "tool_output_chars": 45255,
+          "tool_errors": 7,
+          "tool_interval_ms": 10193,
+          "non_tool_interval_ms": 134285,
+          "label": "document-2-native"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true
+        },
+        "expected": {
+          "S201": {
+            "Heading": "S201 · 章节 2-1 · 目标",
+            "Body": "定稿 2-1：目标需要核对中文、标点和数量，保留引用“样本 20”。\n第二段：本定稿仅用于本地测试；Reference 2-01, keep line breaks.\nReviewed: S201",
+            "Reviewed": "true"
+          },
+          "S202": {
+            "Heading": "S202 · 章节 2-2 · 范围",
+            "Body": "定稿 2-2：范围需要核对中文、标点和数量，保留引用“样本 21”。\n第二段：本定稿仅用于本地测试；Reference 2-02, keep line breaks.\nReviewed: S202",
+            "Reviewed": "true"
+          },
+          "S203": {
+            "Heading": "S203 · 章节 2-3 · 交付（复核）",
+            "Body": "定稿 2-3：交付需要核对中文、标点和数量，保留引用“样本 22”。\n第二段：本定稿仅用于本地测试；Reference 2-03, keep line breaks.\nReviewed: S203",
+            "Reviewed": "true"
+          },
+          "S204": {
+            "Heading": "S204 · 章节 2-4 · 质量",
+            "Body": "定稿 2-4：质量需要核对中文、标点和数量，保留引用“样本 23”。\n第二段：本定稿仅用于本地测试；Reference 2-04, keep line breaks.\nReviewed: S204",
+            "Reviewed": "true"
+          },
+          "S205": {
+            "Heading": "S205 · 章节 2-5 · 风险",
+            "Body": "定稿 2-5：风险需要核对中文、标点和数量，保留引用“样本 24”。\n第二段：本定稿仅用于本地测试；Reference 2-05, keep line breaks.\nReviewed: S205",
+            "Reviewed": "true"
+          },
+          "S206": {
+            "Heading": "S206 · 章节 2-6 · 结论",
+            "Body": "定稿 2-6：结论需要核对中文、标点和数量，保留引用“样本 25”。\n第二段：本定稿仅用于本地测试；Reference 2-06, keep line breaks.\nReviewed: S206",
+            "Reviewed": "true"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "open",
+              "ID": "S201"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 2-1：目标需要核对中文、标点和数量，保留引用“样本 20”。\n第二段：本定稿仅用于本地测试；Reference 2-01, keep line breaks.\nReviewed: S201",
+              "Heading": "S201 · 章节 2-1 · 目标",
+              "ID": "S201",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S202"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 2-2：范围需要核对中文、标点和数量，保留引用“样本 21”。\n第二段：本定稿仅用于本地测试；Reference 2-02, keep line breaks.\nReviewed: S202",
+              "Heading": "S202 · 章节 2-2 · 范围",
+              "ID": "S202",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S203"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 2-3：交付需要核对中文、标点和数量，保留引用“样本 22”。\n第二段：本定稿仅用于本地测试；Reference 2-03, keep line breaks.\nReviewed: S203",
+              "Heading": "S203 · 章节 2-3 · 交付",
+              "ID": "S203",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S204"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 2-4：质量需要核对中文、标点和数量，保留引用“样本 23”。\n第二段：本定稿仅用于本地测试；Reference 2-04, keep line breaks.\nReviewed: S204",
+              "Heading": "S204 · 章节 2-4 · 质量",
+              "ID": "S204",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S205"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 2-5：风险需要核对中文、标点和数量，保留引用“样本 24”。\n第二段：本定稿仅用于本地测试；Reference 2-05, keep line breaks.\nReviewed: S205",
+              "Heading": "S205 · 章节 2-5 · 风险",
+              "ID": "S205",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S206"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 2-6：结论需要核对中文、标点和数量，保留引用“样本 25”。\n第二段：本定稿仅用于本地测试；Reference 2-06, keep line breaks.\nReviewed: S206",
+              "Heading": "S206 · 章节 2-6 · 结论",
+              "ID": "S206",
+              "Reviewed": "true"
+            },
+            {
+              "action": "move",
+              "ID": "S206",
+              "position": "1"
+            },
+            {
+              "action": "move",
+              "ID": "S202",
+              "position": "4"
+            },
+            {
+              "action": "open",
+              "ID": "S203"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 2-3：交付需要核对中文、标点和数量，保留引用“样本 22”。\n第二段：本定稿仅用于本地测试；Reference 2-03, keep line breaks.\nReviewed: S203",
+              "Heading": "S203 · 章节 2-3 · 交付（复核）",
+              "ID": "S203",
+              "Reviewed": "true"
+            },
+            {
+              "action": "finished",
+              "ID": "S203"
+            }
+          ],
+          "mode": "document",
+          "order": [
+            "S206",
+            "S201",
+            "S203",
+            "S202",
+            "S204",
+            "S205"
+          ],
+          "records": {
+            "S201": {
+              "Body": "定稿 2-1：目标需要核对中文、标点和数量，保留引用“样本 20”。\n第二段：本定稿仅用于本地测试；Reference 2-01, keep line breaks.\nReviewed: S201",
+              "Heading": "S201 · 章节 2-1 · 目标",
+              "Reviewed": "true"
+            },
+            "S202": {
+              "Body": "定稿 2-2：范围需要核对中文、标点和数量，保留引用“样本 21”。\n第二段：本定稿仅用于本地测试；Reference 2-02, keep line breaks.\nReviewed: S202",
+              "Heading": "S202 · 章节 2-2 · 范围",
+              "Reviewed": "true"
+            },
+            "S203": {
+              "Body": "定稿 2-3：交付需要核对中文、标点和数量，保留引用“样本 22”。\n第二段：本定稿仅用于本地测试；Reference 2-03, keep line breaks.\nReviewed: S203",
+              "Heading": "S203 · 章节 2-3 · 交付（复核）",
+              "Reviewed": "true"
+            },
+            "S204": {
+              "Body": "定稿 2-4：质量需要核对中文、标点和数量，保留引用“样本 23”。\n第二段：本定稿仅用于本地测试；Reference 2-04, keep line breaks.\nReviewed: S204",
+              "Heading": "S204 · 章节 2-4 · 质量",
+              "Reviewed": "true"
+            },
+            "S205": {
+              "Body": "定稿 2-5：风险需要核对中文、标点和数量，保留引用“样本 24”。\n第二段：本定稿仅用于本地测试；Reference 2-05, keep line breaks.\nReviewed: S205",
+              "Heading": "S205 · 章节 2-5 · 风险",
+              "Reviewed": "true"
+            },
+            "S206": {
+              "Body": "定稿 2-6：结论需要核对中文、标点和数量，保留引用“样本 25”。\n第二段：本定稿仅用于本地测试；Reference 2-06, keep line breaks.\nReviewed: S206",
+              "Heading": "S206 · 章节 2-6 · 结论",
+              "Reviewed": "true"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 144478,
+      "combined_turn_ms": 144478,
+      "evidence_sha256": {
+        "brief.txt": "3ba8971d2ecdf6e3a9b0a55a42ba2cdc5fc94e41b1e75fde794ddaadd17020c5",
+        "source.json": "4b10946f4fda28b6b977767effa061cfde7a8ea615b734ec36ad4161575ffba8",
+        "saved.json": "b37c59b4ba87b15cff7c9196504a03cf8c6e8fcc2f8799aa5dd1530f175a1583",
+        "trace.json": "26484f4314442b14dd9cc742d138bc472a27861233ba38f0b42425e35b44f8aa"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Reviewed all 29 tool calls: only assigned brief and exact native App binding. Seven combined open-and-observe calls reported AXError.failure; fresh state reads recovered without repeating edits. No foreign app, fixture files, coaching or overlap. All recovery retained; exact result passed."
+      }
+    },
+    {
+      "label": "document-2-cu",
+      "mode": "document",
+      "repeat": 2,
+      "arm": "cu",
+      "status": "excluded",
+      "reasons": [
+        "Exact original/final fields and order passed, completion failed. After an unnecessary reopen, participant clicked unlabeled ref 11 (window close), then recovered outside its scoped environment, invoked open/kill/ps and wrote launchctl session variables. Coordinator sent STOP at that isolation breach; 331764 ms is an interrupted unsuccessful attempt, not a successful timing. All 37 calls retained. The three exact task launchctl values were removed; relaunched fixture processes had exited; dedicated Broker stopped. No replacement."
+      ],
+      "pid": 20901,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/general-snapshot-20261031/document-2-cu/VariedWorkflow.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-varied-gypotzlf",
+      "source_sha256": "4b10946f4fda28b6b977767effa061cfde7a8ea615b734ec36ad4161575ffba8",
+      "client_key": "document-2-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/general-snapshot-20261031/document-2-cu/output",
+      "thread_id": "01a190e3-dac9-7e32-b43d-b004bfad08db",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a190e3-dac9-7e32-b43d-b004bfad08db",
+          "turn_id": "01a190e3-db46-7aa2-a36a-775a30e4290a",
+          "started_at": "2026-10-31T07:36:54.354Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T07:42:26.117Z",
+          "elapsed_ms": 331764,
+          "final": "Blocked. The benchmark app window was closed accidentally during verification, and recovery was unsuccessful. The coordinator should clean up the task-owned app and environment.",
+          "model_calls": 38,
+          "tokens": {
+            "input_tokens": 1674053,
+            "cached_input_tokens": 1608960,
+            "output_tokens": 8321,
+            "reasoning_output_tokens": 3720,
+            "total_tokens": 1682374
+          },
+          "tool_calls": 37,
+          "tool_output_chars": 118667,
+          "tool_errors": 6,
+          "tool_interval_ms": 25495,
+          "non_tool_interval_ms": 306269,
+          "label": "document-2-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": false,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": false
+        },
+        "expected": {
+          "S201": {
+            "Heading": "S201 · 章节 2-1 · 目标",
+            "Body": "定稿 2-1：目标需要核对中文、标点和数量，保留引用“样本 20”。\n第二段：本定稿仅用于本地测试；Reference 2-01, keep line breaks.\nReviewed: S201",
+            "Reviewed": "true"
+          },
+          "S202": {
+            "Heading": "S202 · 章节 2-2 · 范围",
+            "Body": "定稿 2-2：范围需要核对中文、标点和数量，保留引用“样本 21”。\n第二段：本定稿仅用于本地测试；Reference 2-02, keep line breaks.\nReviewed: S202",
+            "Reviewed": "true"
+          },
+          "S203": {
+            "Heading": "S203 · 章节 2-3 · 交付（复核）",
+            "Body": "定稿 2-3：交付需要核对中文、标点和数量，保留引用“样本 22”。\n第二段：本定稿仅用于本地测试；Reference 2-03, keep line breaks.\nReviewed: S203",
+            "Reviewed": "true"
+          },
+          "S204": {
+            "Heading": "S204 · 章节 2-4 · 质量",
+            "Body": "定稿 2-4：质量需要核对中文、标点和数量，保留引用“样本 23”。\n第二段：本定稿仅用于本地测试；Reference 2-04, keep line breaks.\nReviewed: S204",
+            "Reviewed": "true"
+          },
+          "S205": {
+            "Heading": "S205 · 章节 2-5 · 风险",
+            "Body": "定稿 2-5：风险需要核对中文、标点和数量，保留引用“样本 24”。\n第二段：本定稿仅用于本地测试；Reference 2-05, keep line breaks.\nReviewed: S205",
+            "Reviewed": "true"
+          },
+          "S206": {
+            "Heading": "S206 · 章节 2-6 · 结论",
+            "Body": "定稿 2-6：结论需要核对中文、标点和数量，保留引用“样本 25”。\n第二段：本定稿仅用于本地测试；Reference 2-06, keep line breaks.\nReviewed: S206",
+            "Reviewed": "true"
+          }
+        },
+        "actual": {
+          "completed": false,
+          "events": [
+            {
+              "action": "open",
+              "ID": "S201"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 2-1：目标需要核对中文、标点和数量，保留引用“样本 20”。\n第二段：本定稿仅用于本地测试；Reference 2-01, keep line breaks.\nReviewed: S201",
+              "Heading": "S201 · 章节 2-1 · 目标",
+              "ID": "S201",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S202"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 2-2：范围需要核对中文、标点和数量，保留引用“样本 21”。\n第二段：本定稿仅用于本地测试；Reference 2-02, keep line breaks.\nReviewed: S202",
+              "Heading": "S202 · 章节 2-2 · 范围",
+              "ID": "S202",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S203"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 2-3：交付需要核对中文、标点和数量，保留引用“样本 22”。\n第二段：本定稿仅用于本地测试；Reference 2-03, keep line breaks.\nReviewed: S203",
+              "Heading": "S203 · 章节 2-3 · 交付",
+              "ID": "S203",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S204"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 2-4：质量需要核对中文、标点和数量，保留引用“样本 23”。\n第二段：本定稿仅用于本地测试；Reference 2-04, keep line breaks.\nReviewed: S204",
+              "Heading": "S204 · 章节 2-4 · 质量",
+              "ID": "S204",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S205"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 2-5：风险需要核对中文、标点和数量，保留引用“样本 24”。\n第二段：本定稿仅用于本地测试；Reference 2-05, keep line breaks.\nReviewed: S205",
+              "Heading": "S205 · 章节 2-5 · 风险",
+              "ID": "S205",
+              "Reviewed": "true"
+            },
+            {
+              "action": "open",
+              "ID": "S206"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 2-6：结论需要核对中文、标点和数量，保留引用“样本 25”。\n第二段：本定稿仅用于本地测试；Reference 2-06, keep line breaks.\nReviewed: S206",
+              "Heading": "S206 · 章节 2-6 · 结论",
+              "ID": "S206",
+              "Reviewed": "true"
+            },
+            {
+              "action": "move",
+              "ID": "S206",
+              "position": "1"
+            },
+            {
+              "action": "move",
+              "ID": "S202",
+              "position": "4"
+            },
+            {
+              "action": "open",
+              "ID": "S203"
+            },
+            {
+              "action": "save",
+              "Body": "定稿 2-3：交付需要核对中文、标点和数量，保留引用“样本 22”。\n第二段：本定稿仅用于本地测试；Reference 2-03, keep line breaks.\nReviewed: S203",
+              "Heading": "S203 · 章节 2-3 · 交付（复核）",
+              "ID": "S203",
+              "Reviewed": "true"
+            }
+          ],
+          "mode": "document",
+          "order": [
+            "S206",
+            "S201",
+            "S203",
+            "S202",
+            "S204",
+            "S205"
+          ],
+          "records": {
+            "S201": {
+              "Body": "定稿 2-1：目标需要核对中文、标点和数量，保留引用“样本 20”。\n第二段：本定稿仅用于本地测试；Reference 2-01, keep line breaks.\nReviewed: S201",
+              "Heading": "S201 · 章节 2-1 · 目标",
+              "Reviewed": "true"
+            },
+            "S202": {
+              "Body": "定稿 2-2：范围需要核对中文、标点和数量，保留引用“样本 21”。\n第二段：本定稿仅用于本地测试；Reference 2-02, keep line breaks.\nReviewed: S202",
+              "Heading": "S202 · 章节 2-2 · 范围",
+              "Reviewed": "true"
+            },
+            "S203": {
+              "Body": "定稿 2-3：交付需要核对中文、标点和数量，保留引用“样本 22”。\n第二段：本定稿仅用于本地测试；Reference 2-03, keep line breaks.\nReviewed: S203",
+              "Heading": "S203 · 章节 2-3 · 交付（复核）",
+              "Reviewed": "true"
+            },
+            "S204": {
+              "Body": "定稿 2-4：质量需要核对中文、标点和数量，保留引用“样本 23”。\n第二段：本定稿仅用于本地测试；Reference 2-04, keep line breaks.\nReviewed: S204",
+              "Heading": "S204 · 章节 2-4 · 质量",
+              "Reviewed": "true"
+            },
+            "S205": {
+              "Body": "定稿 2-5：风险需要核对中文、标点和数量，保留引用“样本 24”。\n第二段：本定稿仅用于本地测试；Reference 2-05, keep line breaks.\nReviewed: S205",
+              "Heading": "S205 · 章节 2-5 · 风险",
+              "Reviewed": "true"
+            },
+            "S206": {
+              "Body": "定稿 2-6：结论需要核对中文、标点和数量，保留引用“样本 25”。\n第二段：本定稿仅用于本地测试；Reference 2-06, keep line breaks.\nReviewed: S206",
+              "Heading": "S206 · 章节 2-6 · 结论",
+              "Reviewed": "true"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 331764,
+      "combined_turn_ms": 331764,
+      "evidence_sha256": {
+        "brief.txt": "e54182506e676c83749f4d685dca833d82cccd2cda9d5d67ae3a2df3680486fa",
+        "source.json": "4b10946f4fda28b6b977767effa061cfde7a8ea615b734ec36ad4161575ffba8",
+        "saved.json": "e94c309f6aee6582077ac1878f4c2c73d22ff23b319a2c59620269f9b372a5ec",
+        "cu-env.sh": "32083d3d8b923070c6a9816e20d0b105b548ae8506b1fef37093a493be12a3e4",
+        "trace.json": "45b8e0a091c178584c8abd2d964e2e2c3530c6415fff1071e446c121aaf111d9"
+      },
+      "audit": {
+        "compliant": false,
+        "note": "Exact original/final fields and order passed, completion failed. After an unnecessary reopen, participant clicked unlabeled ref 11 (window close), then recovered outside its scoped environment, invoked open/kill/ps and wrote launchctl session variables. Coordinator sent STOP at that isolation breach; 331764 ms is an interrupted unsuccessful attempt, not a successful timing. All 37 calls retained. The three exact task launchctl values were removed; relaunched fixture processes had exited; dedicated Broker stopped. No replacement."
+      }
+    },
+    {
+      "label": "wizard-1-native",
+      "mode": "wizard",
+      "repeat": 1,
+      "arm": "native",
+      "status": "passed",
+      "reasons": [],
+      "pid": 23728,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/general-snapshot-20261031/wizard-1-native/VariedWorkflow.app",
+      "runtime_home": null,
+      "source_sha256": "c7d17801f6b0204f9e46e385e78f00fdebb2f4492fbb8e968b4fcfff1f80df98",
+      "client_key": "wizard-1-native",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/general-snapshot-20261031/wizard-1-native/output",
+      "thread_id": "01a190e9-2c5d-7003-9591-9594700645c8",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "native",
+          "thread_id": "01a190e9-2c5d-7003-9591-9594700645c8",
+          "turn_id": "01a190e9-2ce7-7270-bb4a-9576bfe094dd",
+          "started_at": "2026-10-31T07:42:42.931Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T07:45:36.578Z",
+          "elapsed_ms": 173644,
+          "final": "DONE",
+          "model_calls": 37,
+          "tokens": {
+            "input_tokens": 1397861,
+            "cached_input_tokens": 1360640,
+            "output_tokens": 3022,
+            "reasoning_output_tokens": 1045,
+            "total_tokens": 1400883
+          },
+          "tool_calls": 36,
+          "tool_output_chars": 50111,
+          "tool_errors": 0,
+          "tool_interval_ms": 21734,
+          "non_tool_interval_ms": 151910,
+          "label": "wizard-1-native"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "review_correction_used_back": true,
+          "all_applies_confirmed": true
+        },
+        "expected": {
+          "P101": {
+            "Host": "node-1-1.example.test",
+            "Route": "Proxy",
+            "Port": "443",
+            "TLS": "true",
+            "Retention days": "30",
+            "Audit": "true",
+            "Limit": "117",
+            "Tag": "release-1-区1",
+            "Proxy server": "proxy-1-1.example.test:8080"
+          },
+          "P102": {
+            "Host": "node-1-2.example.test",
+            "Route": "Direct",
+            "Port": "80",
+            "TLS": "false",
+            "Retention days": "14",
+            "Audit": "false",
+            "Limit": "217",
+            "Tag": "release-1-区2"
+          },
+          "P103": {
+            "Host": "node-1-3.example.test",
+            "Route": "Proxy",
+            "Port": "443",
+            "TLS": "true",
+            "Retention days": "30",
+            "Audit": "true",
+            "Limit": "317",
+            "Tag": "release-1-区3",
+            "Proxy server": "proxy-1-3.example.test:8080"
+          },
+          "P104": {
+            "Host": "node-1-4.example.test",
+            "Route": "Direct",
+            "Port": "80",
+            "TLS": "false",
+            "Retention days": "7",
+            "Audit": "false",
+            "Limit": "417",
+            "Tag": "release-1-区4"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "open",
+              "ID": "P101"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-1-1.example.test",
+              "ID": "P101",
+              "Port": "443",
+              "Proxy server": "proxy-1-1.example.test:8080",
+              "Route": "Proxy",
+              "TLS": "true"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "true",
+              "Host": "node-1-1.example.test",
+              "ID": "P101",
+              "Limit": "117",
+              "Port": "443",
+              "Proxy server": "proxy-1-1.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区1",
+              "TLS": "true"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "true",
+              "Host": "node-1-1.example.test",
+              "ID": "P101",
+              "Limit": "117",
+              "Port": "443",
+              "Proxy server": "proxy-1-1.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区1",
+              "TLS": "true"
+            },
+            {
+              "action": "applied",
+              "Audit": "true",
+              "Host": "node-1-1.example.test",
+              "ID": "P101",
+              "Limit": "117",
+              "Port": "443",
+              "Proxy server": "proxy-1-1.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区1",
+              "TLS": "true"
+            },
+            {
+              "action": "open",
+              "ID": "P102"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-1-2.example.test",
+              "ID": "P102",
+              "Port": "80",
+              "Route": "Direct",
+              "TLS": "false"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "false",
+              "Host": "node-1-2.example.test",
+              "ID": "P102",
+              "Limit": "217",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-1-区2",
+              "TLS": "false"
+            },
+            {
+              "action": "back-policy",
+              "ID": "P102"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "false",
+              "Host": "node-1-2.example.test",
+              "ID": "P102",
+              "Limit": "217",
+              "Port": "80",
+              "Retention days": "14",
+              "Route": "Direct",
+              "Tag": "release-1-区2",
+              "TLS": "false"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "false",
+              "Host": "node-1-2.example.test",
+              "ID": "P102",
+              "Limit": "217",
+              "Port": "80",
+              "Retention days": "14",
+              "Route": "Direct",
+              "Tag": "release-1-区2",
+              "TLS": "false"
+            },
+            {
+              "action": "applied",
+              "Audit": "false",
+              "Host": "node-1-2.example.test",
+              "ID": "P102",
+              "Limit": "217",
+              "Port": "80",
+              "Retention days": "14",
+              "Route": "Direct",
+              "Tag": "release-1-区2",
+              "TLS": "false"
+            },
+            {
+              "action": "open",
+              "ID": "P103"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-1-3.example.test",
+              "ID": "P103",
+              "Port": "443",
+              "Proxy server": "proxy-1-3.example.test:8080",
+              "Route": "Proxy",
+              "TLS": "true"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "true",
+              "Host": "node-1-3.example.test",
+              "ID": "P103",
+              "Limit": "317",
+              "Port": "443",
+              "Proxy server": "proxy-1-3.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区3",
+              "TLS": "true"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "true",
+              "Host": "node-1-3.example.test",
+              "ID": "P103",
+              "Limit": "317",
+              "Port": "443",
+              "Proxy server": "proxy-1-3.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区3",
+              "TLS": "true"
+            },
+            {
+              "action": "applied",
+              "Audit": "true",
+              "Host": "node-1-3.example.test",
+              "ID": "P103",
+              "Limit": "317",
+              "Port": "443",
+              "Proxy server": "proxy-1-3.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区3",
+              "TLS": "true"
+            },
+            {
+              "action": "open",
+              "ID": "P104"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-1-4.example.test",
+              "ID": "P104",
+              "Port": "80",
+              "Route": "Direct",
+              "TLS": "false"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "false",
+              "Host": "node-1-4.example.test",
+              "ID": "P104",
+              "Limit": "417",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-1-区4",
+              "TLS": "false"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "false",
+              "Host": "node-1-4.example.test",
+              "ID": "P104",
+              "Limit": "417",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-1-区4",
+              "TLS": "false"
+            },
+            {
+              "action": "applied",
+              "Audit": "false",
+              "Host": "node-1-4.example.test",
+              "ID": "P104",
+              "Limit": "417",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-1-区4",
+              "TLS": "false"
+            },
+            {
+              "action": "finished",
+              "ID": "P104"
+            }
+          ],
+          "mode": "wizard",
+          "order": [
+            "P101",
+            "P102",
+            "P103",
+            "P104"
+          ],
+          "records": {
+            "P101": {
+              "Audit": "true",
+              "Host": "node-1-1.example.test",
+              "Limit": "117",
+              "Port": "443",
+              "Proxy server": "proxy-1-1.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区1",
+              "TLS": "true"
+            },
+            "P102": {
+              "Audit": "false",
+              "Host": "node-1-2.example.test",
+              "Limit": "217",
+              "Port": "80",
+              "Retention days": "14",
+              "Route": "Direct",
+              "Tag": "release-1-区2",
+              "TLS": "false"
+            },
+            "P103": {
+              "Audit": "true",
+              "Host": "node-1-3.example.test",
+              "Limit": "317",
+              "Port": "443",
+              "Proxy server": "proxy-1-3.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区3",
+              "TLS": "true"
+            },
+            "P104": {
+              "Audit": "false",
+              "Host": "node-1-4.example.test",
+              "Limit": "417",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-1-区4",
+              "TLS": "false"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 173644,
+      "combined_turn_ms": 173644,
+      "evidence_sha256": {
+        "brief.txt": "2c5922ede88235ab066dcfa199b28e2d3379ee8020613ce92a95edc6a79f2ea3",
+        "source.json": "c7d17801f6b0204f9e46e385e78f00fdebb2f4492fbb8e968b4fcfff1f80df98",
+        "saved.json": "634fd3ca6823872aca97d1ca9210c2b669573658704f089cfdd1f934bc64549a",
+        "trace.json": "33fd61971329ee73bc38fdb371f3c4c2eb87a2198fa912f322c1b956a0fb29d3"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Reviewed all 36 tool calls: brief and own trial filename listing, exact assigned native App binding, live sources and native actions only. Includes dropdowns, checked states, back correction and observed async list completion; no coaching or overlap. All original/final fields and confirmations passed."
+      }
+    },
+    {
+      "label": "wizard-1-cu",
+      "mode": "wizard",
+      "repeat": 1,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 25391,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/general-snapshot-20261031/wizard-1-cu/VariedWorkflow.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-varied-5vg7sdru",
+      "source_sha256": "c7d17801f6b0204f9e46e385e78f00fdebb2f4492fbb8e968b4fcfff1f80df98",
+      "client_key": "wizard-1-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/general-snapshot-20261031/wizard-1-cu/output",
+      "thread_id": "01a190ec-2806-71d3-a5f6-c739f795a452",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a190ec-2806-71d3-a5f6-c739f795a452",
+          "turn_id": "01a190ec-2964-7ad1-8378-10b3244ab5cf",
+          "started_at": "2026-10-31T07:45:58.680Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T07:48:27.807Z",
+          "elapsed_ms": 149131,
+          "final": "DONE",
+          "model_calls": 36,
+          "tokens": {
+            "input_tokens": 1383568,
+            "cached_input_tokens": 1357824,
+            "output_tokens": 4729,
+            "reasoning_output_tokens": 1254,
+            "total_tokens": 1388297
+          },
+          "tool_calls": 35,
+          "tool_output_chars": 51441,
+          "tool_errors": 1,
+          "tool_interval_ms": 9862,
+          "non_tool_interval_ms": 139269,
+          "label": "wizard-1-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "review_correction_used_back": true,
+          "all_applies_confirmed": true
+        },
+        "expected": {
+          "P101": {
+            "Host": "node-1-1.example.test",
+            "Route": "Proxy",
+            "Port": "443",
+            "TLS": "true",
+            "Retention days": "30",
+            "Audit": "true",
+            "Limit": "117",
+            "Tag": "release-1-区1",
+            "Proxy server": "proxy-1-1.example.test:8080"
+          },
+          "P102": {
+            "Host": "node-1-2.example.test",
+            "Route": "Direct",
+            "Port": "80",
+            "TLS": "false",
+            "Retention days": "14",
+            "Audit": "false",
+            "Limit": "217",
+            "Tag": "release-1-区2"
+          },
+          "P103": {
+            "Host": "node-1-3.example.test",
+            "Route": "Proxy",
+            "Port": "443",
+            "TLS": "true",
+            "Retention days": "30",
+            "Audit": "true",
+            "Limit": "317",
+            "Tag": "release-1-区3",
+            "Proxy server": "proxy-1-3.example.test:8080"
+          },
+          "P104": {
+            "Host": "node-1-4.example.test",
+            "Route": "Direct",
+            "Port": "80",
+            "TLS": "false",
+            "Retention days": "7",
+            "Audit": "false",
+            "Limit": "417",
+            "Tag": "release-1-区4"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "open",
+              "ID": "P101"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-1-1.example.test",
+              "ID": "P101",
+              "Port": "443",
+              "Proxy server": "proxy-1-1.example.test:8080",
+              "Route": "Proxy",
+              "TLS": "true"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "true",
+              "Host": "node-1-1.example.test",
+              "ID": "P101",
+              "Limit": "117",
+              "Port": "443",
+              "Proxy server": "proxy-1-1.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区1",
+              "TLS": "true"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "true",
+              "Host": "node-1-1.example.test",
+              "ID": "P101",
+              "Limit": "117",
+              "Port": "443",
+              "Proxy server": "proxy-1-1.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区1",
+              "TLS": "true"
+            },
+            {
+              "action": "applied",
+              "Audit": "true",
+              "Host": "node-1-1.example.test",
+              "ID": "P101",
+              "Limit": "117",
+              "Port": "443",
+              "Proxy server": "proxy-1-1.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区1",
+              "TLS": "true"
+            },
+            {
+              "action": "open",
+              "ID": "P102"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-1-2.example.test",
+              "ID": "P102",
+              "Port": "80",
+              "Route": "Direct",
+              "TLS": "false"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "false",
+              "Host": "node-1-2.example.test",
+              "ID": "P102",
+              "Limit": "217",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-1-区2",
+              "TLS": "false"
+            },
+            {
+              "action": "back-policy",
+              "ID": "P102"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "false",
+              "Host": "node-1-2.example.test",
+              "ID": "P102",
+              "Limit": "217",
+              "Port": "80",
+              "Retention days": "14",
+              "Route": "Direct",
+              "Tag": "release-1-区2",
+              "TLS": "false"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "false",
+              "Host": "node-1-2.example.test",
+              "ID": "P102",
+              "Limit": "217",
+              "Port": "80",
+              "Retention days": "14",
+              "Route": "Direct",
+              "Tag": "release-1-区2",
+              "TLS": "false"
+            },
+            {
+              "action": "applied",
+              "Audit": "false",
+              "Host": "node-1-2.example.test",
+              "ID": "P102",
+              "Limit": "217",
+              "Port": "80",
+              "Retention days": "14",
+              "Route": "Direct",
+              "Tag": "release-1-区2",
+              "TLS": "false"
+            },
+            {
+              "action": "open",
+              "ID": "P103"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-1-3.example.test",
+              "ID": "P103",
+              "Port": "443",
+              "Proxy server": "proxy-1-3.example.test:8080",
+              "Route": "Proxy",
+              "TLS": "true"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "true",
+              "Host": "node-1-3.example.test",
+              "ID": "P103",
+              "Limit": "317",
+              "Port": "443",
+              "Proxy server": "proxy-1-3.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区3",
+              "TLS": "true"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "true",
+              "Host": "node-1-3.example.test",
+              "ID": "P103",
+              "Limit": "317",
+              "Port": "443",
+              "Proxy server": "proxy-1-3.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区3",
+              "TLS": "true"
+            },
+            {
+              "action": "applied",
+              "Audit": "true",
+              "Host": "node-1-3.example.test",
+              "ID": "P103",
+              "Limit": "317",
+              "Port": "443",
+              "Proxy server": "proxy-1-3.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区3",
+              "TLS": "true"
+            },
+            {
+              "action": "open",
+              "ID": "P104"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-1-4.example.test",
+              "ID": "P104",
+              "Port": "80",
+              "Route": "Direct",
+              "TLS": "false"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "false",
+              "Host": "node-1-4.example.test",
+              "ID": "P104",
+              "Limit": "417",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-1-区4",
+              "TLS": "false"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "false",
+              "Host": "node-1-4.example.test",
+              "ID": "P104",
+              "Limit": "417",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-1-区4",
+              "TLS": "false"
+            },
+            {
+              "action": "applied",
+              "Audit": "false",
+              "Host": "node-1-4.example.test",
+              "ID": "P104",
+              "Limit": "417",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-1-区4",
+              "TLS": "false"
+            },
+            {
+              "action": "finished",
+              "ID": "P104"
+            }
+          ],
+          "mode": "wizard",
+          "order": [
+            "P101",
+            "P102",
+            "P103",
+            "P104"
+          ],
+          "records": {
+            "P101": {
+              "Audit": "true",
+              "Host": "node-1-1.example.test",
+              "Limit": "117",
+              "Port": "443",
+              "Proxy server": "proxy-1-1.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区1",
+              "TLS": "true"
+            },
+            "P102": {
+              "Audit": "false",
+              "Host": "node-1-2.example.test",
+              "Limit": "217",
+              "Port": "80",
+              "Retention days": "14",
+              "Route": "Direct",
+              "Tag": "release-1-区2",
+              "TLS": "false"
+            },
+            "P103": {
+              "Audit": "true",
+              "Host": "node-1-3.example.test",
+              "Limit": "317",
+              "Port": "443",
+              "Proxy server": "proxy-1-3.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区3",
+              "TLS": "true"
+            },
+            "P104": {
+              "Audit": "false",
+              "Host": "node-1-4.example.test",
+              "Limit": "417",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-1-区4",
+              "TLS": "false"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 149131,
+      "combined_turn_ms": 149131,
+      "evidence_sha256": {
+        "brief.txt": "544f96f77714bab2c05cab40f7c5d2e72864f56e2e70881e3febc3c2a2fca919",
+        "source.json": "c7d17801f6b0204f9e46e385e78f00fdebb2f4492fbb8e968b4fcfff1f80df98",
+        "saved.json": "634fd3ca6823872aca97d1ca9210c2b669573658704f089cfdd1f934bc64549a",
+        "cu-env.sh": "5097807e7a36c4875fa34414a847b445187cab713c688955064c39eef8e88329",
+        "trace.json": "c9c0e6611a6229996b194c0068e6698e4ed2981fe23b62d6dc01698480bc7c02"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Reviewed all 35 calls and cu-env.sh: exact assigned environment on every app call, only brief/skill/helper and own filenames read. Menu transition produced a stale_observation error before wrong ref dispatch; fresh observation recovered. Async saves used wait-returned refs. No coaching or overlap; all exact outcomes passed."
+      }
+    },
+    {
+      "label": "wizard-2-cu",
+      "mode": "wizard",
+      "repeat": 2,
+      "arm": "cu",
+      "status": "excluded",
+      "reasons": [
+        "All 38 tool calls and output/cu-env.sh reviewed. Initial root-option click omitted target and was rejected; subsequent `cu --compact snapshot --limit 200` bypassed helper target injection and read foreground Ghostty. Exact final saved outcome passed after recovery, but isolation was violated. Retain 204076 ms without replacement. Later menu stale_observation recovery remains included. Actual config was output/cu-env.sh; its contents are in the trace."
+      ],
+      "pid": 27017,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/general-snapshot-20261031/wizard-2-cu/VariedWorkflow.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-varied-a8h4zmqa",
+      "source_sha256": "e8a25d93fe416bfdf610edddcf1aa3f2c6cdc7c7d3eb31fd69ef57a3300e8c47",
+      "client_key": "wizard-2-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/general-snapshot-20261031/wizard-2-cu/output",
+      "thread_id": "01a190ee-97d3-7413-8bfc-8084795e48c0",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a190ee-97d3-7413-8bfc-8084795e48c0",
+          "turn_id": "01a190ee-9898-7ac3-9e71-38e08cf9ef48",
+          "started_at": "2026-10-31T07:48:38.188Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T07:52:02.266Z",
+          "elapsed_ms": 204076,
+          "final": "DONE",
+          "model_calls": 39,
+          "tokens": {
+            "input_tokens": 1579404,
+            "cached_input_tokens": 1528832,
+            "output_tokens": 5255,
+            "reasoning_output_tokens": 1111,
+            "total_tokens": 1584659
+          },
+          "tool_calls": 38,
+          "tool_output_chars": 59439,
+          "tool_errors": 2,
+          "tool_interval_ms": 10797,
+          "non_tool_interval_ms": 193279,
+          "label": "wizard-2-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "review_correction_used_back": true,
+          "all_applies_confirmed": true
+        },
+        "expected": {
+          "P201": {
+            "Host": "node-2-1.example.test",
+            "Route": "Direct",
+            "Port": "80",
+            "TLS": "false",
+            "Retention days": "7",
+            "Audit": "false",
+            "Limit": "134",
+            "Tag": "release-2-区1"
+          },
+          "P202": {
+            "Host": "node-2-2.example.test",
+            "Route": "Proxy",
+            "Port": "443",
+            "TLS": "true",
+            "Retention days": "14",
+            "Audit": "true",
+            "Limit": "234",
+            "Tag": "release-2-区2",
+            "Proxy server": "proxy-2-2.example.test:8080"
+          },
+          "P203": {
+            "Host": "node-2-3.example.test",
+            "Route": "Direct",
+            "Port": "80",
+            "TLS": "false",
+            "Retention days": "7",
+            "Audit": "false",
+            "Limit": "334",
+            "Tag": "release-2-区3"
+          },
+          "P204": {
+            "Host": "node-2-4.example.test",
+            "Route": "Proxy",
+            "Port": "443",
+            "TLS": "true",
+            "Retention days": "30",
+            "Audit": "true",
+            "Limit": "434",
+            "Tag": "release-2-区4",
+            "Proxy server": "proxy-2-4.example.test:8080"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "open",
+              "ID": "P201"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-2-1.example.test",
+              "ID": "P201",
+              "Port": "80",
+              "Route": "Direct",
+              "TLS": "false"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "false",
+              "Host": "node-2-1.example.test",
+              "ID": "P201",
+              "Limit": "134",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区1",
+              "TLS": "false"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "false",
+              "Host": "node-2-1.example.test",
+              "ID": "P201",
+              "Limit": "134",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区1",
+              "TLS": "false"
+            },
+            {
+              "action": "applied",
+              "Audit": "false",
+              "Host": "node-2-1.example.test",
+              "ID": "P201",
+              "Limit": "134",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区1",
+              "TLS": "false"
+            },
+            {
+              "action": "open",
+              "ID": "P202"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-2-2.example.test",
+              "ID": "P202",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Route": "Proxy",
+              "TLS": "true"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "true",
+              "Host": "node-2-2.example.test",
+              "ID": "P202",
+              "Limit": "234",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-2-区2",
+              "TLS": "true"
+            },
+            {
+              "action": "back-policy",
+              "ID": "P202"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "true",
+              "Host": "node-2-2.example.test",
+              "ID": "P202",
+              "Limit": "234",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Retention days": "14",
+              "Route": "Proxy",
+              "Tag": "release-2-区2",
+              "TLS": "true"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "true",
+              "Host": "node-2-2.example.test",
+              "ID": "P202",
+              "Limit": "234",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Retention days": "14",
+              "Route": "Proxy",
+              "Tag": "release-2-区2",
+              "TLS": "true"
+            },
+            {
+              "action": "applied",
+              "Audit": "true",
+              "Host": "node-2-2.example.test",
+              "ID": "P202",
+              "Limit": "234",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Retention days": "14",
+              "Route": "Proxy",
+              "Tag": "release-2-区2",
+              "TLS": "true"
+            },
+            {
+              "action": "open",
+              "ID": "P203"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-2-3.example.test",
+              "ID": "P203",
+              "Port": "80",
+              "Route": "Direct",
+              "TLS": "false"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "false",
+              "Host": "node-2-3.example.test",
+              "ID": "P203",
+              "Limit": "334",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区3",
+              "TLS": "false"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "false",
+              "Host": "node-2-3.example.test",
+              "ID": "P203",
+              "Limit": "334",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区3",
+              "TLS": "false"
+            },
+            {
+              "action": "applied",
+              "Audit": "false",
+              "Host": "node-2-3.example.test",
+              "ID": "P203",
+              "Limit": "334",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区3",
+              "TLS": "false"
+            },
+            {
+              "action": "open",
+              "ID": "P204"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-2-4.example.test",
+              "ID": "P204",
+              "Port": "443",
+              "Proxy server": "proxy-2-4.example.test:8080",
+              "Route": "Proxy",
+              "TLS": "true"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "true",
+              "Host": "node-2-4.example.test",
+              "ID": "P204",
+              "Limit": "434",
+              "Port": "443",
+              "Proxy server": "proxy-2-4.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-2-区4",
+              "TLS": "true"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "true",
+              "Host": "node-2-4.example.test",
+              "ID": "P204",
+              "Limit": "434",
+              "Port": "443",
+              "Proxy server": "proxy-2-4.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-2-区4",
+              "TLS": "true"
+            },
+            {
+              "action": "applied",
+              "Audit": "true",
+              "Host": "node-2-4.example.test",
+              "ID": "P204",
+              "Limit": "434",
+              "Port": "443",
+              "Proxy server": "proxy-2-4.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-2-区4",
+              "TLS": "true"
+            },
+            {
+              "action": "finished",
+              "ID": "P204"
+            }
+          ],
+          "mode": "wizard",
+          "order": [
+            "P201",
+            "P202",
+            "P203",
+            "P204"
+          ],
+          "records": {
+            "P201": {
+              "Audit": "false",
+              "Host": "node-2-1.example.test",
+              "Limit": "134",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区1",
+              "TLS": "false"
+            },
+            "P202": {
+              "Audit": "true",
+              "Host": "node-2-2.example.test",
+              "Limit": "234",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Retention days": "14",
+              "Route": "Proxy",
+              "Tag": "release-2-区2",
+              "TLS": "true"
+            },
+            "P203": {
+              "Audit": "false",
+              "Host": "node-2-3.example.test",
+              "Limit": "334",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区3",
+              "TLS": "false"
+            },
+            "P204": {
+              "Audit": "true",
+              "Host": "node-2-4.example.test",
+              "Limit": "434",
+              "Port": "443",
+              "Proxy server": "proxy-2-4.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-2-区4",
+              "TLS": "true"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 204076,
+      "combined_turn_ms": 204076,
+      "evidence_sha256": {
+        "brief.txt": "aed407fd253e2418d73653847b6869325a144bc26fab92719f718c60fc428103",
+        "source.json": "e8a25d93fe416bfdf610edddcf1aa3f2c6cdc7c7d3eb31fd69ef57a3300e8c47",
+        "saved.json": "04418bfc2b87d4295fc938033b16e841b16d294153f96678ee9b19c824661efc",
+        "trace.json": "ce5e9d1bb14cf93691b66cbc4a73840dcee1ca3d028ab4156ecd7b0d44b0b164"
+      },
+      "audit": {
+        "compliant": false,
+        "note": "All 38 tool calls and output/cu-env.sh reviewed. Initial root-option click omitted target and was rejected; subsequent `cu --compact snapshot --limit 200` bypassed helper target injection and read foreground Ghostty. Exact final saved outcome passed after recovery, but isolation was violated. Retain 204076 ms without replacement. Later menu stale_observation recovery remains included. Actual config was output/cu-env.sh; its contents are in the trace.",
+        "config_sha256": "7f9d3539ccda6cc6dae90081bcaaf97c30c79683c61a1af758b703e1f8f3ab3e"
+      }
+    },
+    {
+      "label": "wizard-2-native",
+      "mode": "wizard",
+      "repeat": 2,
+      "arm": "native",
+      "status": "passed",
+      "reasons": [],
+      "pid": 28992,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/general-snapshot-20261031/wizard-2-native/VariedWorkflow.app",
+      "runtime_home": null,
+      "source_sha256": "e8a25d93fe416bfdf610edddcf1aa3f2c6cdc7c7d3eb31fd69ef57a3300e8c47",
+      "client_key": "wizard-2-native",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/general-snapshot-20261031/wizard-2-native/output",
+      "thread_id": "01a190f1-dff3-7670-a2a5-8b1a2dc04503",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "native",
+          "thread_id": "01a190f1-dff3-7670-a2a5-8b1a2dc04503",
+          "turn_id": "01a190f1-e076-7a90-8779-e89662b84d11",
+          "started_at": "2026-10-31T07:52:13.186Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T07:54:41.924Z",
+          "elapsed_ms": 148736,
+          "final": "DONE",
+          "model_calls": 34,
+          "tokens": {
+            "input_tokens": 1249486,
+            "cached_input_tokens": 1208448,
+            "output_tokens": 1756,
+            "total_tokens": 1251242,
+            "reasoning_output_tokens": 11
+          },
+          "tool_calls": 33,
+          "tool_output_chars": 48534,
+          "tool_errors": 0,
+          "tool_interval_ms": 19852,
+          "non_tool_interval_ms": 128884,
+          "label": "wizard-2-native"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "review_correction_used_back": true,
+          "all_applies_confirmed": true
+        },
+        "expected": {
+          "P201": {
+            "Host": "node-2-1.example.test",
+            "Route": "Direct",
+            "Port": "80",
+            "TLS": "false",
+            "Retention days": "7",
+            "Audit": "false",
+            "Limit": "134",
+            "Tag": "release-2-区1"
+          },
+          "P202": {
+            "Host": "node-2-2.example.test",
+            "Route": "Proxy",
+            "Port": "443",
+            "TLS": "true",
+            "Retention days": "14",
+            "Audit": "true",
+            "Limit": "234",
+            "Tag": "release-2-区2",
+            "Proxy server": "proxy-2-2.example.test:8080"
+          },
+          "P203": {
+            "Host": "node-2-3.example.test",
+            "Route": "Direct",
+            "Port": "80",
+            "TLS": "false",
+            "Retention days": "7",
+            "Audit": "false",
+            "Limit": "334",
+            "Tag": "release-2-区3"
+          },
+          "P204": {
+            "Host": "node-2-4.example.test",
+            "Route": "Proxy",
+            "Port": "443",
+            "TLS": "true",
+            "Retention days": "30",
+            "Audit": "true",
+            "Limit": "434",
+            "Tag": "release-2-区4",
+            "Proxy server": "proxy-2-4.example.test:8080"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "open",
+              "ID": "P201"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-2-1.example.test",
+              "ID": "P201",
+              "Port": "80",
+              "Route": "Direct",
+              "TLS": "false"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "false",
+              "Host": "node-2-1.example.test",
+              "ID": "P201",
+              "Limit": "134",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区1",
+              "TLS": "false"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "false",
+              "Host": "node-2-1.example.test",
+              "ID": "P201",
+              "Limit": "134",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区1",
+              "TLS": "false"
+            },
+            {
+              "action": "applied",
+              "Audit": "false",
+              "Host": "node-2-1.example.test",
+              "ID": "P201",
+              "Limit": "134",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区1",
+              "TLS": "false"
+            },
+            {
+              "action": "open",
+              "ID": "P202"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-2-2.example.test",
+              "ID": "P202",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Route": "Proxy",
+              "TLS": "true"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "true",
+              "Host": "node-2-2.example.test",
+              "ID": "P202",
+              "Limit": "234",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-2-区2",
+              "TLS": "true"
+            },
+            {
+              "action": "back-policy",
+              "ID": "P202"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "true",
+              "Host": "node-2-2.example.test",
+              "ID": "P202",
+              "Limit": "234",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Retention days": "14",
+              "Route": "Proxy",
+              "Tag": "release-2-区2",
+              "TLS": "true"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "true",
+              "Host": "node-2-2.example.test",
+              "ID": "P202",
+              "Limit": "234",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Retention days": "14",
+              "Route": "Proxy",
+              "Tag": "release-2-区2",
+              "TLS": "true"
+            },
+            {
+              "action": "applied",
+              "Audit": "true",
+              "Host": "node-2-2.example.test",
+              "ID": "P202",
+              "Limit": "234",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Retention days": "14",
+              "Route": "Proxy",
+              "Tag": "release-2-区2",
+              "TLS": "true"
+            },
+            {
+              "action": "open",
+              "ID": "P203"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-2-3.example.test",
+              "ID": "P203",
+              "Port": "80",
+              "Route": "Direct",
+              "TLS": "false"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "false",
+              "Host": "node-2-3.example.test",
+              "ID": "P203",
+              "Limit": "334",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区3",
+              "TLS": "false"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "false",
+              "Host": "node-2-3.example.test",
+              "ID": "P203",
+              "Limit": "334",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区3",
+              "TLS": "false"
+            },
+            {
+              "action": "applied",
+              "Audit": "false",
+              "Host": "node-2-3.example.test",
+              "ID": "P203",
+              "Limit": "334",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区3",
+              "TLS": "false"
+            },
+            {
+              "action": "open",
+              "ID": "P204"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-2-4.example.test",
+              "ID": "P204",
+              "Port": "443",
+              "Proxy server": "proxy-2-4.example.test:8080",
+              "Route": "Proxy",
+              "TLS": "true"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "true",
+              "Host": "node-2-4.example.test",
+              "ID": "P204",
+              "Limit": "434",
+              "Port": "443",
+              "Proxy server": "proxy-2-4.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-2-区4",
+              "TLS": "true"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "true",
+              "Host": "node-2-4.example.test",
+              "ID": "P204",
+              "Limit": "434",
+              "Port": "443",
+              "Proxy server": "proxy-2-4.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-2-区4",
+              "TLS": "true"
+            },
+            {
+              "action": "applied",
+              "Audit": "true",
+              "Host": "node-2-4.example.test",
+              "ID": "P204",
+              "Limit": "434",
+              "Port": "443",
+              "Proxy server": "proxy-2-4.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-2-区4",
+              "TLS": "true"
+            },
+            {
+              "action": "finished",
+              "ID": "P204"
+            }
+          ],
+          "mode": "wizard",
+          "order": [
+            "P201",
+            "P202",
+            "P203",
+            "P204"
+          ],
+          "records": {
+            "P201": {
+              "Audit": "false",
+              "Host": "node-2-1.example.test",
+              "Limit": "134",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区1",
+              "TLS": "false"
+            },
+            "P202": {
+              "Audit": "true",
+              "Host": "node-2-2.example.test",
+              "Limit": "234",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Retention days": "14",
+              "Route": "Proxy",
+              "Tag": "release-2-区2",
+              "TLS": "true"
+            },
+            "P203": {
+              "Audit": "false",
+              "Host": "node-2-3.example.test",
+              "Limit": "334",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区3",
+              "TLS": "false"
+            },
+            "P204": {
+              "Audit": "true",
+              "Host": "node-2-4.example.test",
+              "Limit": "434",
+              "Port": "443",
+              "Proxy server": "proxy-2-4.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-2-区4",
+              "TLS": "true"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 148736,
+      "combined_turn_ms": 148736,
+      "evidence_sha256": {
+        "brief.txt": "20e60afe9841daae3aebccef341ba39059b524594aa95a9a5942c083e9fde453",
+        "source.json": "e8a25d93fe416bfdf610edddcf1aa3f2c6cdc7c7d3eb31fd69ef57a3300e8c47",
+        "saved.json": "04418bfc2b87d4295fc938033b16e841b16d294153f96678ee9b19c824661efc",
+        "trace.json": "7d6e1ca2044bcfa69f4e1f716d46bfee891956aa12d8f6349d297374fec5f61d"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Reviewed all 33 tool calls: only assigned brief, exact native App binding and native APIs. Live sources, dropdown selection, policy correction and async saves; no coaching or overlap. All exact outcomes passed."
+      }
+    }
+  ],
+  "groups": [
+    {
+      "mode": "triage",
+      "arms": {
+        "cu": {
+          "counts": {
+            "passed": 1,
+            "failed": 0,
+            "excluded": 1,
+            "unreviewed": 0,
+            "pending": 0
+          },
+          "success_medians_ms": {
+            "combined_turn_ms": 86390
+          }
+        },
+        "native": {
+          "counts": {
+            "passed": 2,
+            "failed": 0,
+            "excluded": 0,
+            "unreviewed": 0,
+            "pending": 0
+          },
+          "success_medians_ms": {
+            "combined_turn_ms": 110377.5
+          }
+        }
+      },
+      "successful_pairs": [
+        {
+          "repeat": 1,
+          "go_cu_over_native": null,
+          "combined_cu_over_native": 0.8001000240798711
+        }
+      ],
+      "median_paired_go_ratio": null,
+      "median_paired_combined_ratio": 0.8001000240798711
+    },
+    {
+      "mode": "document",
+      "arms": {
+        "cu": {
+          "counts": {
+            "passed": 1,
+            "failed": 0,
+            "excluded": 1,
+            "unreviewed": 0,
+            "pending": 0
+          },
+          "success_medians_ms": {
+            "combined_turn_ms": 121269
+          }
+        },
+        "native": {
+          "counts": {
+            "passed": 2,
+            "failed": 0,
+            "excluded": 0,
+            "unreviewed": 0,
+            "pending": 0
+          },
+          "success_medians_ms": {
+            "combined_turn_ms": 143353.5
+          }
+        }
+      },
+      "successful_pairs": [
+        {
+          "repeat": 1,
+          "go_cu_over_native": null,
+          "combined_cu_over_native": 0.8526320230051536
+        }
+      ],
+      "median_paired_go_ratio": null,
+      "median_paired_combined_ratio": 0.8526320230051536
+    },
+    {
+      "mode": "wizard",
+      "arms": {
+        "cu": {
+          "counts": {
+            "passed": 1,
+            "failed": 0,
+            "excluded": 1,
+            "unreviewed": 0,
+            "pending": 0
+          },
+          "success_medians_ms": {
+            "combined_turn_ms": 149131
+          }
+        },
+        "native": {
+          "counts": {
+            "passed": 2,
+            "failed": 0,
+            "excluded": 0,
+            "unreviewed": 0,
+            "pending": 0
+          },
+          "success_medians_ms": {
+            "combined_turn_ms": 161190.0
+          }
+        }
+      },
+      "successful_pairs": [
+        {
+          "repeat": 1,
+          "go_cu_over_native": null,
+          "combined_cu_over_native": 0.8588318628918937
+        }
+      ],
+      "median_paired_go_ratio": null,
+      "median_paired_combined_ratio": 0.8588318628918937
+    }
+  ]
+}

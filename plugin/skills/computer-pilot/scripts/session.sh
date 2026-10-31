@@ -3,7 +3,15 @@
 set -e
 
 cu() {
+    local cu_format=--compact
     case "$1" in
+        --compact|--json|--human) cu_format="$1"; shift ;;
+    esac
+    case "$1" in
+        --*)
+            printf '%s\n' 'Use "$CU_BIN" with explicit app targeting for other root options.' >&2
+            return 2
+            ;;
         click|type|key)
             set -- "$@" --app "${CU_APP:?set the chosen pid selector}" --no-snapshot --no-verify
             ;;
@@ -21,7 +29,5 @@ cu() {
             set -- "$@" --app "${CU_APP:?set the chosen pid selector}"
             ;;
     esac
-    # Root options are an explicit ordinary-CLI invocation (e.g. --json).
-    case "$1" in --*) ;; *) set -- --compact "$@" ;; esac
-    command "${CU_BIN:?set the verified Computer Pilot binary path}" "$@"
+    command "${CU_BIN:?set the verified Computer Pilot binary path}" "$cu_format" "$@"
 }

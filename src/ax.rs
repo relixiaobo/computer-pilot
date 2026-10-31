@@ -1281,17 +1281,22 @@ unsafe fn read_batch_ref_node(element: CFTypeRef, batch_keys: CFArrayRef) -> Ref
         } else {
             CGSize::default()
         };
-        let path_title =
-            ax_string(element, "AXTitle").or_else(|| ax_string(element, "AXDescription"));
-        let path_segment = build_path_segment(
-            role.as_deref().unwrap_or_default(),
-            path_title.as_deref().filter(|s| !s.is_empty()),
-        );
+        let path_title = ax_string(element, "AXTitle")
+            .filter(|s| !s.is_empty())
+            .or_else(|| ax_string(element, "AXDescription").filter(|s| !s.is_empty()));
+        let path_segment =
+            build_path_segment(role.as_deref().unwrap_or_default(), path_title.as_deref());
         let title = if projected {
             path_title
-                .or_else(|| ax_string(element, "AXHelp"))
-                .or_else(|| ax_string(element, "AXIdentifier"))
-                .filter(|s| !s.is_empty())
+                .or_else(|| ax_string(element, "AXHelp").filter(|s| !s.is_empty()))
+                .or_else(|| ax_string(element, "AXIdentifier").filter(|s| !s.is_empty()))
+                .or_else(|| {
+                    if role.as_deref() == Some("AXButton") {
+                        ax_string(element, "AXRoleDescription").filter(|s| !s.is_empty())
+                    } else {
+                        None
+                    }
+                })
         } else {
             None
         };
@@ -1326,16 +1331,30 @@ unsafe fn read_batch_ref_node(element: CFTypeRef, batch_keys: CFArrayRef) -> Ref
         CGSize::default()
     };
     let path_title = batch_string_with_fallback(values, BA_TITLE, element, "AXTitle")
-        .or_else(|| batch_string_with_fallback(values, BA_DESC, element, "AXDescription"));
-    let path_segment = build_path_segment(
-        role.as_deref().unwrap_or_default(),
-        path_title.as_deref().filter(|s| !s.is_empty()),
-    );
+        .filter(|s| !s.is_empty())
+        .or_else(|| {
+            batch_string_with_fallback(values, BA_DESC, element, "AXDescription")
+                .filter(|s| !s.is_empty())
+        });
+    let path_segment =
+        build_path_segment(role.as_deref().unwrap_or_default(), path_title.as_deref());
     let title = if projected {
         path_title
-            .or_else(|| batch_string_with_fallback(values, BA_HELP, element, "AXHelp"))
-            .or_else(|| batch_string_with_fallback(values, BA_IDENTIFIER, element, "AXIdentifier"))
-            .filter(|s| !s.is_empty())
+            .or_else(|| {
+                batch_string_with_fallback(values, BA_HELP, element, "AXHelp")
+                    .filter(|s| !s.is_empty())
+            })
+            .or_else(|| {
+                batch_string_with_fallback(values, BA_IDENTIFIER, element, "AXIdentifier")
+                    .filter(|s| !s.is_empty())
+            })
+            .or_else(|| {
+                if role.as_deref() == Some("AXButton") {
+                    ax_string(element, "AXRoleDescription").filter(|s| !s.is_empty())
+                } else {
+                    None
+                }
+            })
     } else {
         None
     };
@@ -1782,8 +1801,8 @@ unsafe fn child_matches_segment(child: CFTypeRef, role: &str, title: Option<&str
         return false;
     }
     let child_title = ax_string(child, "AXTitle")
-        .or_else(|| ax_string(child, "AXDescription"))
-        .filter(|s| !s.is_empty());
+        .filter(|s| !s.is_empty())
+        .or_else(|| ax_string(child, "AXDescription").filter(|s| !s.is_empty()));
     match (title, child_title.as_deref()) {
         (Some(want), Some(got)) => {
             // Compare via the same sanitization the writer used so titles

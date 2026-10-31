@@ -111,9 +111,11 @@ again. Do not add fixed sleeps. After `stale_observation`, observe once and use
 the current target; do not cycle through old refs, coordinates and OCR. Use OCR
 when the control lacks AX support, not when a ref merely expired.
 
-The helper passes root-option invocations through unchanged. Use
-`cu --json snapshot "$CU_APP" --limit 200` only when geometry or axPaths are needed;
-`cu snapshot` already returns the full state. Other commands
+The helper accepts `--compact`, `--json` or `--human` before the command without
+changing target binding or grouped-action behavior. Use `cu --json snapshot`
+when geometry or axPaths are needed; `cu snapshot` already returns the full state.
+For other root options or default action verification, invoke `"$CU_BIN"`
+directly and supply the target explicitly. Other commands
 such as `tell`, `sdef`, `launch` and recovery keep their ordinary CLI arguments.
 For a single short task, direct CLI actions can use `--no-snapshot` and
 `--no-verify`; inspect the result at the group boundary.
@@ -165,13 +167,13 @@ the observation that produced it.
 
 Use this bounded path for Electron/CEF editors:
 
-When the session helper is loaded, start these calls with a root option to keep
-default verification; supply the app explicitly:
+Use the verified binary directly to keep default verification; supply the app
+explicitly:
 
 ```bash
-cu --compact click <editor-ref> --app "$CU_APP"
+"$CU_BIN" --compact click <editor-ref> --app "$CU_APP"
 # After reading the click's focus result:
-cu --compact type "<intended text>" --app "$CU_APP"
+"$CU_BIN" --compact type "<intended text>" --app "$CU_APP"
 ```
 
 1. Select the exact `pid:<PID>` and retain it across the loop.
@@ -200,6 +202,8 @@ the target. A changed target, PID, or window still fails before dispatch.
 - Use `--observation <id>` only to select a particular earlier observation.
 - Never reuse another Agent's Observation or ref.
 - Never treat the same integer in a later snapshot as the same element.
+- An unlabeled control is not a navigation shortcut. Inspect its role/action
+  with `cu why` or its visual context before choosing it; do not guess.
 - On `stale_observation`, do not retry the action. Observe again and re-plan.
 - User activity can invalidate an Observation; Computer Pilot never locks out
   the user to preserve stale state.
@@ -257,7 +261,10 @@ Use root `--timeout <milliseconds>`. A post-dispatch timeout returns
 `unknown_outcome`; inspect UI state before another mutation.
 
 Branch on stable `code`, not English error text. Never blindly retry a
-mutation. Read [recovery.md](references/recovery.md) for the error matrix,
+mutation. Keep recovery within the authorized task: do not change login-session
+environment or restart an app to work around a missing control. Report blocked
+when recovery requires permissions or setup outside that scope.
+Read [recovery.md](references/recovery.md) for the error matrix,
 command states, verification recovery, and routing methods.
 
 ## Command Discovery

@@ -48,8 +48,8 @@ window that supplies the tree and reused for publication/freshness checks;
 there is no second window geometry query. Snapshots carry their PID even when
 an application has no window. Private Broker protocol 8 retires old response
 semantics. Skill instructions, CLI help, recipes and command tests match this
-contract. Existing benchmark sections below describe their frozen historical
-commits; their timings do not measure this cleanup.
+contract. The general three-workflow block below measures this snapshot cleanup;
+earlier blocks describe their own frozen historical commits.
 
 Validation: 43 Rust tests, 8 offline protocol tests, Clippy with warnings denied,
 formatting/version checks and release build passed. Eleven affected command
@@ -175,6 +175,72 @@ initialization. There is no separately measured setup duration: the legacy JSON
 initialization was free. `execution_ms` and `combined_turn_ms` both hold the full
 turn duration; there is no GO-only ratio. Never pool these timings with protocol
 v1 or claim that removing the turn boundary alone caused a cross-block change.
+
+## General three-workflow block (2026-10-31)
+
+Candidate `49ef4fb` used the unified full snapshots and the same production skill
+for triage, document editing and an asynchronous wizard. Before execution, the
+manifest fixed two paired datasets per workflow, alternating native/cu order:
+12 new Codex tasks, disposable apps and state directories. Actual settings were
+`gpt-6-astra / high`, no service-tier override. Each full turn includes setup.
+No benchmark solver or task-specific production branch was added. Inputs stayed
+frozen throughout; all timestamps confirm sequential, non-overlapping trials.
+
+**Eligible outcomes: native 6 passed; cu 3 passed and 3 excluded.** Independent
+saved-state checks passed in 11/12 attempts. The excluded document attempt saved
+the right fields and order but never completed the workflow. Exclusions are
+real integration failures, not evidence that cu is reliable on half the inputs.
+They are retained without replacement in the [complete report](benchmarks/general-snapshot-2026-10-31.json).
+
+| Workflow / dataset | cu full task | Native full task | Outcome |
+| --- | ---: | ---: | --- |
+| Triage 1 | 86.4 s | 108.0 s | both pass |
+| Triage 2 | 207.9 s | 112.8 s | cu excluded: observed foreground app |
+| Document 1 | 121.3 s | 142.2 s | both pass |
+| Document 2 | 331.8 s | 144.5 s | cu excluded: incomplete, recovery exceeded scope; coordinator stopped it |
+| Wizard 1 | 149.1 s | 173.6 s | both pass |
+| Wizard 2 | 204.1 s | 148.7 s | cu excluded: observed foreground app |
+
+There is only **one eligible pair per workflow**: cu/native full-task ratios
+0.800, 0.853 and 0.859 respectively. Do not pool these into a general speed claim
+or compare success-only medians across different eligible datasets. In those
+pairs, recorded cu/native tool intervals were 5.3/12.7 s, 5.3/10.1 s and
+9.9/21.7 s. Most full-task time remained outside tools, including model, network
+and scheduling. The native document tasks each recovered from seven AX errors;
+these costs remain counted. cu's menu transitions also exercised stale-ref
+rejection and recovery; those checks prevented dispatch to changed targets.
+
+Trace review identified two general problems, fixed **after** this frozen block:
+
+- The session helper interpreted a leading output option as an unwrapped CLI
+  call. `cu --compact snapshot --limit 200` therefore dropped the bound PID in
+  both triage and wizard. Output options now change only presentation; the
+  helper always retains its target and grouping behavior. Advanced root options
+  and verified input use the explicit binary with an explicit target. Unsupported
+  root options no longer silently bypass task binding.
+- Standard window buttons had empty labels. After an unnecessary reopen, the
+  document participant guessed that an empty button was navigation and closed
+  the window. Empty strings now permit label fallback, and unlabeled buttons
+  use the system role description. The skill directs unknown controls to
+  existing inspection capabilities and keeps recovery inside the authorized
+  task. No new retry, sleep, per-action verification, task detector or API was added.
+
+The document recovery changed three login-session environment values. The
+coordinator sent a stop instruction, removed those exact task values and stopped
+the extra Broker; its 331.8 s is an interrupted unsuccessful duration, not time
+to completion. All disposable fixtures and dedicated Brokers were stopped.
+Full traces remain local; the report exports results, audits and evidence hashes,
+not model reasoning or unrelated foreground contents.
+
+Post-block validation: 43 Rust tests, Clippy with warnings denied, release build,
+format/version checks and the affected native command suites passed (16 checks,
+one TextEdit skip to preserve the existing session). Real shell tests cover
+targeted reads/edits with output flags in sh, bash and zsh; the native fixture
+checks button descriptions in both AX readers and closes only its second window.
+The 8 offline protocol tests passed before the unchanged benchmark harness ran.
+These regression checks validate the fixes; the timings above do **not** measure
+the subsequent helper/label changes. This is a diagnostic sample in three modes
+of one AppKit fixture, sharing the OS and caches, not proof for arbitrary apps.
 
 ## Latency comparisons
 

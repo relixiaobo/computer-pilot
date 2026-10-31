@@ -236,9 +236,19 @@ try:
         assert (p.returncode == 0) == ok and d["ok"] == ok, d
         return d
 
+    full = session("--json", "snapshot", "--limit", "200")
+    # Output flags must not silently switch to untargeted ordinary CLI calls.
+    # Exercise real edits from independent shells, then read the assigned app.
+    for shell in ("/bin/sh", "/bin/bash", "/bin/zsh"):
+        scoped = session("--compact", "snapshot", shell=shell)
+        assert scoped["pid"] == fixture.pid, scoped
+        session("--compact", "set-value", other["ref"], shell, shell=shell)
+        observed = session("--json", "snapshot", shell=shell)
+        assert observed["pid"] == fixture.pid, observed
+        assert next(e for e in observed["elements"] if e["ref"] == other["ref"])["value"] == shell
+    session("set-value", other["ref"], "second-field")
     # Checkbox state belongs on the control in complete compact snapshots. The
     # independent callback label proves the actual control changed on/off.
-    full = session("--json", "snapshot", app, "--limit", "200")
     urgent = next(e for e in full["elements"] if e.get("title") == "Urgent")
     assert urgent["value"] == "1", urgent
     for value, label in (("0", "off"), ("1", "on")):
@@ -291,7 +301,7 @@ try:
     last = next(e for e in expired["snapshot"]["elements"] if e["role"] == "textfield")
     assert last["value"] == "after-wait中文😀", last
     session("set-value", last["ref"], "after-timeout", "--observation", expired["observation_id"])
-    full = session("--json", "snapshot", app)
+    full = session("--json", "snapshot")
     assert full["client_key"] == "compact-latency" and full["pid"] == fixture.pid, full
     assert full["elements"][0]["value"] == "after-timeout" and "axPath" in full["elements"][0], full
     selected = session("key", "cmd+a")
@@ -300,7 +310,7 @@ try:
     event_text = exact.replace("\n", " ")
     typed = session("type", event_text, "--no-paste")
     assert "combo" not in selected and "text" not in typed, (selected, typed)
-    full = session("--json", "snapshot", app)
+    full = session("--json", "snapshot")
     assert full["elements"][0]["value"] == event_text, full
 
     # A different window with identical title/field/value must not accept the
@@ -311,9 +321,23 @@ try:
     rejected = session("set-value", original["elements"][0]["ref"], "must-not-run",
                        "--observation", original["observation_id"], ok=False)
     assert rejected["code"] == "stale_observation" and "window changed" in rejected["error"], rejected
-    switched = session("--json", "snapshot", app)
+    switched = session("--json", "snapshot")
     assert switched["window_id"] != original["window_id"], switched
     assert switched["elements"][0]["value"] == event_text, switched
+
+    # Standard window controls must be identifiable without guessing an empty
+    # button's meaning. Check both readers, then close only the owned second window.
+    close = next(e for e in switched["elements"] if e.get("title") == "close button")
+    fallback = subprocess.run([cu, "--json", "snapshot", app, "--limit", "200"],
+                              env=dict(os.environ, CU_TEST_AX_BATCH_FAIL_ROLE="AXButton",
+                                       COMPUTER_PILOT_BROKER_CHILD="1"),
+                              capture_output=True, text=True, timeout=15)
+    assert fallback.returncode == 0, fallback.stderr
+    assert any(e.get("title") == close["title"] and e["ref"] == close["ref"]
+               for e in json.loads(fallback.stdout)["elements"]), fallback.stdout
+    session("--compact", "click", close["ref"])
+    remaining = run("window", "list", "--app", app)
+    assert len(remaining["windows"]) == 1, remaining
 
 finally:
     fixture.terminate()
