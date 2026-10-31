@@ -2810,7 +2810,7 @@ fn cmd_type(
     }
     if webarea_input && !no_verify {
         result["effect_stability_ms"] = WEB_INPUT_STABILITY_DELAY_MS.into();
-        result["effect_advice"] = "The focused AXValue was changed after the Chromium stability delay. This verifies stable text input, but not every controlled-editor side effect; inspect the app's visible submit/search state before invoking it.".into();
+        result["effect_advice"] = "AX text changed after the stability delay. Virtual editors may expose a document slice or synthetic boundary newlines; this is not saved-file content. Resolve discrepancies using the editor's document view/cursor state before changing the text again.".into();
     }
     if let Some(reason) = paste_reason {
         result["paste_reason"] = serde_json::Value::String(reason);

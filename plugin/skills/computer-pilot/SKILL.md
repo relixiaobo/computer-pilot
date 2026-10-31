@@ -23,8 +23,8 @@ use `cu tell`; consult [scripting.md](references/scripting.md) if needed.
 Use `cu apps` once when the target or scripting support is unknown. For UI,
 start with an AX snapshot; use screenshots/OCR when AX lacks the needed content.
 
-For multiple rounds, keep a fixed task working directory. Copy the packaged
-helper into `./cu-env.sh`, append the task values, and take the first observation
+For repeated UI actions, keep a fixed task working directory. Copy the packaged
+helper into `./cu-env.sh`, append the task values, and take the first UI observation
 in one shell call. Resolve the helper path relative to this SKILL.md:
 
 ```bash
@@ -156,6 +156,9 @@ or input failure. Omit the click when the intended editor is already focused:
 ```
 
 The click keeps its private focus check; typing returns the group's observation.
+Virtual editors can expose only a document slice or add boundary newlines in AX.
+Resolve text discrepancies using the editor's document view and cursor/line state
+before changing the content again; AX text is not a saved-file byte dump.
 If AX lacks the text, inspect visible evidence before deciding input failed; do
 not replay it to obtain a verification flag. See
 [recovery.md](references/recovery.md#verification) for uncertain outcomes.

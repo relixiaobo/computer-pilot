@@ -207,6 +207,42 @@ them. App listing also returns structured data directly instead of serializing,
 reparsing and silently falling back to an empty list. The discovery test now
 checks metadata without issuing AppleEvents from a test thread.
 
+### Frozen cleanup retest — 2026-10-31
+
+[Audited results](benchmarks/real-app-cleanup-2026-10-31.json) contain two
+predeclared cu-only attempts on `67942c9`, same datasets/model, fresh profiles and
+neutral cwds with no AGENTS. Native results were not rerun; shared app sessions
+and historical comparisons retain the limitations above.
+
+| Application | Previous cu retest | Cleanup cu retest | Calls / errors |
+| --- | --- | --- | --- |
+| TextEdit | Passed, 167.348 s | Passed, 161.806 s | 12 / 0 failed tool calls |
+| VS Code | Interrupted, 599.303 s | Failed, 269.576 s | 29 / 7 |
+
+TextEdit used AX edits and app-native save/readback; exact saved bytes passed.
+It still made multiple discovery calls and corrected a newline stripped by shell
+command substitution. Two attempts to execute its non-executable configuration
+file were masked by shell flow, so zero failed tool calls is not zero shell errors.
+VS Code completed and reported DONE, but independently saved artifacts contained
+`production.example.com` instead of `production.example.test` and unchanged
+`sandbox` headings in two files. All three retained their final newline. Its seven
+stale-ref failures were preserved; it used deferred helper typing despite the
+skill's verified-input recipe. This is time to a failed result, not faster success.
+Tool intervals totalled 0.864 s and 4.635 s; most task time remained outside tools.
+
+The installed editor's `getScreenReaderContentState` implementation appends a
+newline when the selection reaches the empty final line. Earlier cu traces show
+that exposed value prompting destructive newline correction; cu's scalar decoder
+returns the app's raw text. Post-block guidance now explains virtual-editor slices
+and boundary characters, without trimming AX values or adding an application-name
+special case. The helper setup example is scoped to repeated UI actions instead
+of implying every scripting workflow must first snapshot. These final wording
+changes were not part of the timed candidate and have no claimed timing benefit.
+
+All dedicated test windows and owned Brokers closed; shared user apps remained
+alive and VS Code settings retained SHA-256
+`40dfa081420c5e2f384ebe1626aa32b590a0ee5a98726f8eb8e45736eb1cb19d`.
+
 ## Architecture
 
 ```
