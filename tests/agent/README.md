@@ -89,3 +89,54 @@ so dispatch success and frequent per-action snapshots did not establish task
 correctness. The benchmark exits nonzero when any independent check fails.
 See [machine-readable results](benchmarks/native-orders-2026-10-31.json) for
 binary hashes, all timings, command errors, and exact field mismatches.
+
+## Built-in Computer Use tool comparison
+
+The same task was also executed through Codex's actual `cua_repl` native App
+API and through the optimized `cu` CLI. Both arms ran a deterministic script
+that copied live AX source values. Each trial made 32 field writes, 15 clicks,
+and 20 state observations at identical group boundaries. There was no model
+inference inside either measured interval; these times must not be compared
+directly with the agent-loop times above.
+
+| Tool execution, three-trial median | cu | Built-in cua_repl |
+| --- | ---: | ---: |
+| Complete workflow | 7.33 s | 16.36 s |
+| State observations | 2.08 s | 13.04 s |
+| Field writes | 2.53 s | 1.62 s |
+| Clicks | 2.76 s | 1.76 s |
+| Exact task success | 3/3 | 3/3 |
+
+All high-level calls were timed, including CLI process/Broker overhead. Native
+binding and a matching CLI warm-up observation were excluded, along with fixture
+setup, independent verification, and cleanup. Native observations used their
+default diffs after the initial full tree. CLI writes used `--no-snapshot`, and
+clicks also used `--no-verify`; explicit snapshots read the same group boundaries.
+Ref freshness checks remained enabled. Neither timed arm added sleeps.
+
+The built-in API was faster at mutations, while state observation dominated its
+total time. Its documented behavior includes waiting for UI updates; this test
+does not separately measure settling versus AX traversal. The fixture updates
+synchronously, so this result does not establish performance or reliability on
+asynchronous apps, browsers, or a complete Codex model-driven session.
+
+Reproduction uses the same owned fixture and independent field checker:
+
+```bash
+python3 tests/agent/benchmark_builtin_tools.py /tmp/cu-tool-comparison/session.json init
+python3 tests/agent/benchmark_builtin_tools.py /tmp/cu-tool-comparison/session.json start builtin-1
+```
+
+In the real Codex `cua_repl`, bind the returned `app_path` with `cua.getApp()`.
+Load the definition from [builtin_order_workflow.js](builtin_order_workflow.js)
+into that REPL and call `await runNativeBenchmark(app)` in a separate call.
+The returned object contains per-operation timings and observation traces.
+Then run `SESSION verify` through the Python helper. For a fresh CLI trial, run
+`SESSION start cu-1`, followed by `SESSION cu`; finish with `SESSION stop`.
+Alternate arms and repeat three times. The helper does not recreate or expose
+the private built-in API to an external model.
+
+[Recorded results](benchmarks/builtin-tools-2026-10-31.json) include all three
+samples per arm, per-method timing arrays, fixture/binary hashes, controls, and
+independent verification. Native parser/REPL calibration failures occurred before
+the measured series and are explicitly excluded from that report.
