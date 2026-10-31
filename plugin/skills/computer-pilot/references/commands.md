@@ -47,8 +47,9 @@ identity comes from NSWorkspace and does not request Automation permission.
 
 ### `cu menu <app>`
 
-List menu bar items and enabled state. This currently uses System Events and
-may require per-target Automation access.
+List menu bar items and enabled state through native Accessibility. This is a
+read-only listing, not a source of refs or axPaths. Use an app-native scripting
+operation or its known shortcut; do not invent a menu axPath.
 
 ### `cu sdef <app>`
 
@@ -173,8 +174,9 @@ actions in a deterministic group; focus and target checks still run.
 ### `cu key <combo> --app <app> [--no-snapshot] [--no-verify]`
 
 Send modifiers and keys through PID-targeted CGEvents. Event dispatch is
-reported separately from observable effect. Enter on a focused input returns
-`verification_failed` when neither the input nor surrounding AX state changes.
+reported separately from observable effect, including Enter. A generic tree
+change cannot prove what a shortcut did. Inspect the returned snapshot or the
+final group state; `--no-snapshot` skips the action snapshot.
 
 ### `cu scroll <direction> [amount] --x <x> --y <y> --app <app>`
 

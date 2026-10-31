@@ -23,8 +23,8 @@ use `cu tell`; consult [scripting.md](references/scripting.md) if needed.
 Use `cu apps` once when the target or scripting support is unknown. For UI,
 start with an AX snapshot; use screenshots/OCR when AX lacks the needed content.
 
-For multiple rounds, keep a fixed task working directory. Copy the packaged
-helper into `./cu-env.sh`, append the task values, and take the first observation
+For repeated UI actions, keep a fixed task working directory. Copy the packaged
+helper into `./cu-env.sh`, append the task values, and take the first UI observation
 in one shell call. Resolve the helper path relative to this SKILL.md:
 
 ```bash
@@ -44,7 +44,11 @@ The copied [helper](scripts/session.sh) contains the `cu` function and stops the
 shell on errors; it can be used without reading its implementation. Source only
 `./cu-env.sh` in each subsequent shell call; use its absolute path if cwd changes.
 Keep the supplied PID, binary and environment in that file throughout the task.
-Its `cu` function supplies the target; omit repeated `--app` or positional apps.
+Its `cu` function supplies the PID for UI commands (including `window`); omit
+repeated `--app` or positional apps. It also supplies `--no-snapshot` for actions
+and `--no-verify` for click/type/key. Other commands keep ordinary CLI arguments:
+`cu sdef "App Name"` and `cu tell "App Name" '<expression>'` require an explicit
+application name or bundle path; AppleScript does not accept `pid:<PID>`.
 
 ## One Call Per Decision Boundary
 
@@ -66,6 +70,8 @@ page, dialog or unknown control needs a decision. Grouping does not authorize
 additional external effects.
 
 - Use `set-value` for native textfields, textareas and editable comboboxes.
+  For Electron/CEF or fields inside `AXWebArea`, use the verified click/type
+  path under Controlled Editors below; AXValue writes can bypass editor handlers.
 - Leave already-correct values, checkboxes and selections alone.
 - For a dropdown that needs changing, open it and observe the menu. Select the
   observed item with `perform <ref> AXPress` (or its supported action).
@@ -131,14 +137,31 @@ visible/disruptive and require a workflow that explicitly needs foreground
 operation. `launch` opens in the background. Do not recreate input through
 System Events or `osascript`/`pbcopy`.
 
+AX editor focus does not make an app frontmost. Some apps receive background
+shortcuts but ignore menu commands such as Select All or Save. Prefer app-native
+scripting for document operations; when foreground editing is authorized, focus
+the intended window explicitly. A changed editor buffer is not proof of saving:
+use the app's saved/modified state at the final group boundary.
+
 ## Controlled Editors And Recovery
 
-For Electron/CEF or an `AXWebArea` input, read the
-[verified-input path](references/recovery.md#verification). Use the verified
-binary directly with an explicit app: require exact editor focus before typing
-and correct final text after typing. A successful AXValue write alone does not
-prove the application handled input. Stop unconfirmed delivery; use an explicitly
-provided development CDP/Playwright endpoint when available.
+For Electron/CEF or an `AXWebArea` input, use verified click/type instead of
+AXValue writes. Group the known edit in one shell call; the CLI stops on focus
+or input failure. Omit the click when the intended editor is already focused:
+
+```bash
+. ./cu-env.sh
+"$CU_BIN" --compact click <editor-ref> --app "$CU_APP" --limit 200 --no-snapshot
+"$CU_BIN" --compact type "<intended text>" --app "$CU_APP"
+```
+
+The click keeps its private focus check; typing returns the group's observation.
+Virtual editors can expose only a document slice or add boundary newlines in AX.
+Resolve text discrepancies using the editor's document view and cursor/line state
+before changing the content again; AX text is not a saved-file byte dump.
+If AX lacks the text, inspect visible evidence before deciding input failed; do
+not replay it to obtain a verification flag. See
+[recovery.md](references/recovery.md#verification) for uncertain outcomes.
 
 Success receipts report dispatch; observations and explicit verification report
 effects. Read returned errors/advisories and false verification results. Reuse

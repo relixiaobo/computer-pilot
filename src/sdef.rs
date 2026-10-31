@@ -1,8 +1,9 @@
 //! Sdef (Scripting Definition) parser — pure Rust, no osascript.
-//! Reads .sdef XML files from app bundles and returns structured JSON.
+//! Reads .sdef XML and converts legacy Cocoa dictionaries through macOS OSA.
 
 use quick_xml::events::Event;
 use quick_xml::reader::Reader;
+use std::ffi::c_void;
 use std::path::{Path, PathBuf};
 
 #[derive(serde::Serialize)]
@@ -44,63 +45,126 @@ pub struct SdefCommand {
     pub parameters: Vec<String>,
 }
 
-/// Locate the .sdef file for an app given its bundle path.
-fn find_sdef(bundle_path: &str) -> Option<PathBuf> {
-    let resources = Path::new(bundle_path).join("Contents/Resources");
-    let entries = std::fs::read_dir(&resources).ok()?;
-    for entry in entries.flatten() {
-        let name = entry.file_name();
-        if name.to_string_lossy().ends_with(".sdef") {
-            return Some(entry.path());
-        }
-    }
-    None
+// Cocoa apps can ship .scriptSuite instead of .sdef. Ask the OS to convert
+// that legacy format, then feed the same XML parser used for modern bundles.
+#[link(name = "Carbon", kind = "framework")]
+unsafe extern "C" {
+    fn OSACopyScriptingDefinitionFromURL(
+        url: *const c_void,
+        flags: i32,
+        data: *mut *const c_void,
+    ) -> i32;
 }
 
-/// Count classes in sdef without full parse (for cu apps).
-pub fn count_classes(bundle_path: &str) -> Option<usize> {
-    let sdef_path = find_sdef(bundle_path)?;
-    let xml = std::fs::read_to_string(&sdef_path).ok()?;
+#[link(name = "CoreFoundation", kind = "framework")]
+unsafe extern "C" {
+    fn CFURLCreateFromFileSystemRepresentation(
+        allocator: *const c_void,
+        bytes: *const u8,
+        length: isize,
+        directory: u8,
+    ) -> *const c_void;
+    fn CFDataGetLength(data: *const c_void) -> isize;
+    fn CFDataGetBytePtr(data: *const c_void) -> *const u8;
+    fn CFRelease(value: *const c_void);
+}
+
+fn definition_path(bundle_path: &str) -> Option<PathBuf> {
+    let mut legacy = None;
+    for entry in std::fs::read_dir(Path::new(bundle_path).join("Contents/Resources"))
+        .ok()?
+        .flatten()
+    {
+        let path = entry.path();
+        match path.extension().and_then(|value| value.to_str()) {
+            Some("sdef") => return Some(path),
+            Some("scriptSuite") => legacy = Some(path),
+            _ => {}
+        }
+    }
+    legacy
+}
+
+fn read_definition(bundle_path: &str) -> Result<String, String> {
+    let path = definition_path(bundle_path).ok_or("not scriptable (no scripting dictionary)")?;
+    if path.extension().is_some_and(|ext| ext == "sdef") {
+        return std::fs::read_to_string(path).map_err(|e| format!("failed to read sdef: {e}"));
+    }
+    // OSA may request dynamic terminology from the app. Only explicit sdef
+    // discovery uses it; listing apps must remain a local metadata read.
+    unsafe {
+        let url = CFURLCreateFromFileSystemRepresentation(
+            std::ptr::null(),
+            bundle_path.as_ptr(),
+            bundle_path.len() as isize,
+            1,
+        );
+        if url.is_null() {
+            return Err("failed to create scripting dictionary URL".into());
+        }
+        let mut data = std::ptr::null();
+        let status = OSACopyScriptingDefinitionFromURL(url, 0, &mut data);
+        CFRelease(url);
+        if status != 0 || data.is_null() {
+            if !data.is_null() {
+                CFRelease(data);
+            }
+            return Err(format!(
+                "failed to load scripting dictionary (OSA error {status})"
+            ));
+        }
+        let length = CFDataGetLength(data) as usize;
+        let xml = if length == 0 {
+            Err("empty scripting dictionary".into())
+        } else {
+            let bytes = std::slice::from_raw_parts(CFDataGetBytePtr(data), length);
+            String::from_utf8(bytes.to_vec())
+                .map_err(|e| format!("invalid scripting dictionary UTF-8: {e}"))
+        };
+        CFRelease(data);
+        xml
+    }
+}
+
+/// Detect scripting support without launching or sending events to an app.
+/// A legacy dictionary has no XML class count until explicitly converted.
+pub fn dictionary_info(bundle_path: &str) -> (bool, Option<usize>) {
+    let Some(path) = definition_path(bundle_path) else {
+        return (false, None);
+    };
+    if path.extension().is_some_and(|ext| ext == "scriptSuite") {
+        return (true, None);
+    }
+    let Ok(xml) = std::fs::read_to_string(path) else {
+        return (false, None);
+    };
     let mut reader = Reader::from_str(&xml);
     let mut count = 0usize;
     loop {
         match reader.read_event() {
             Ok(Event::Empty(ref e) | Event::Start(ref e)) => {
-                let name = e.name();
-                if name.as_ref() == b"class" || name.as_ref() == b"class-extension" {
+                if matches!(e.name().as_ref(), b"class" | b"class-extension") {
                     count += 1;
                 }
             }
             Ok(Event::Eof) => break,
-            Err(_) => return None,
+            Err(_) => return (false, None),
             _ => {}
         }
     }
-    Some(count)
+    (true, Some(count))
 }
 
 /// Parse the full sdef and return structured result.
 pub fn parse(app: &str, bundle_path: &str) -> SdefResult {
-    let sdef_path = match find_sdef(bundle_path) {
-        Some(p) => p,
-        None => {
+    let xml = match read_definition(bundle_path) {
+        Ok(xml) => xml,
+        Err(error) => {
             return SdefResult {
                 ok: false,
                 app: app.to_string(),
                 suites: None,
-                error: Some(format!("{app} is not scriptable (no sdef file)")),
-            };
-        }
-    };
-
-    let xml = match std::fs::read_to_string(&sdef_path) {
-        Ok(x) => x,
-        Err(e) => {
-            return SdefResult {
-                ok: false,
-                app: app.to_string(),
-                suites: None,
-                error: Some(format!("failed to read sdef: {e}")),
+                error: Some(format!("{app}: {error}")),
             };
         }
     };
@@ -313,5 +377,22 @@ pub fn parse(app: &str, bundle_path: &str) -> SdefResult {
         app: app.to_string(),
         suites: Some(suites),
         error: None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn legacy_discovery_does_not_request_dynamic_app_terminology() {
+        // This app has only Cocoa metadata; scanning it must not invoke OSA.
+        assert_eq!(
+            dictionary_info("/System/Applications/TextEdit.app"),
+            (true, None)
+        );
+        let (scriptable, classes) = dictionary_info("/System/Library/CoreServices/Finder.app");
+        assert!(scriptable && classes.is_some_and(|count| count > 0));
+        assert_eq!(dictionary_info("/nonexistent.app"), (false, None));
     }
 }

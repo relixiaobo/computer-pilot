@@ -1844,9 +1844,12 @@ pub fn snapshot_for_ref_action(
     app_name: &str,
     ref_id: usize,
     limit: usize,
-) -> Result<crate::ax::SnapshotResult, CuError> {
+) -> Result<(crate::ax::SnapshotResult, crate::ax::RefTarget), CuError> {
     let Some(encoded) = std::env::var_os(EXPECTED_OBSERVATION) else {
-        return Ok(crate::ax::snapshot(pid, app_name, limit));
+        let (snapshot, target) = crate::ax::snapshot_with_ref(pid, app_name, limit, ref_id);
+        return target
+            .map(|target| (snapshot, target))
+            .ok_or_else(|| CuError::msg(format!("ref [{ref_id}] not found")));
     };
     let expected: ObservationExpectation = serde_json::from_str(&encoded.to_string_lossy())
         .map_err(|_| CuError::msg("invalid private Observation expectation"))?;
@@ -1873,7 +1876,8 @@ pub fn snapshot_for_ref_action(
     }
     // Only the selected target must still match. Unrelated content changes do
     // not invalidate a ref; fresh geometry is used during actual dispatch.
-    let mut snapshot = crate::ax::snapshot(pid, app_name, expected.limit.max(limit));
+    let (mut snapshot, target) =
+        crate::ax::snapshot_with_ref(pid, app_name, expected.limit.max(limit), ref_id);
     if !snapshot.ok {
         return Err(stale(
             snapshot
@@ -1905,8 +1909,10 @@ pub fn snapshot_for_ref_action(
             "ref [{ref_id}] now identifies a different element"
         )));
     }
+    let target =
+        target.ok_or_else(|| stale_with_snapshot(format!("ref [{ref_id}] no longer exists")))?;
     snapshot.restrict_limit(limit);
-    Ok(snapshot)
+    Ok((snapshot, target))
 }
 
 fn finish_child(

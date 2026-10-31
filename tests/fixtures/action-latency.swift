@@ -6,13 +6,26 @@ final class Field: NSTextField {
         NSAccessibility.post(element: NSApp!, notification: .valueChanged)
     }
 }
+final class ReorderingWindow: NSWindow {
+    var armed = false
+    var reordered = false
+    override func accessibilityChildren() -> [Any]? {
+        guard var children = super.accessibilityChildren() else { return nil }
+        let fields = children.indices.filter { (children[$0] as? NSCell)?.controlView is Field }
+        if reordered && fields.count == 2 { children.swapAt(fields[0], fields[1]) }
+        // The returned array represents the current read. A later traversal
+        // sees the reorder; retaining an AX object must still address it.
+        if armed { armed = false; reordered.toggle() }
+        return children
+    }
+}
 final class Delegate: NSObject, NSApplicationDelegate {
     var window: NSWindow!
     var otherWindow: NSWindow?
     var choiceLabel: NSTextField!
     var urgentLabel: NSTextField!
     func applicationDidFinishLaunching(_ notification: Notification) {
-        window = NSWindow(contentRect: NSRect(x: 50, y: 360, width: 400, height: 440),
+        window = ReorderingWindow(contentRect: NSRect(x: 50, y: 360, width: 400, height: 440),
                           styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = "Computer Pilot latency fixture"
         let input = Field(frame: NSRect(x: 20, y: 395, width: 350, height: 26))
@@ -51,10 +64,29 @@ final class Delegate: NSObject, NSApplicationDelegate {
         urgentLabel = NSTextField(labelWithString: "Urgent callback: untouched")
         urgentLabel.frame = NSRect(x: 120, y: 420, width: 260, height: 20)
         window.contentView!.addSubview(urgentLabel)
+        let keyEvents = NSTextField(labelWithString: "Key events: 0")
+        keyEvents.frame = NSRect(x: 20, y: 0, width: 160, height: 20)
+        window.contentView!.addSubview(keyEvents)
+        let arm = NSButton(title: "Reorder on read", target: self, action: #selector(armReorder))
+        arm.frame = NSRect(x: 200, y: 0, width: 180, height: 20)
+        window.contentView!.addSubview(arm)
+        var keyCount = 0
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if event.keyCode == 36 {
+                FileHandle.standardOutput.write(Data("enter handled\n".utf8))
+                return nil // A handled shortcut need not change the AX tree.
+            }
+            keyCount += 1
+            keyEvents.stringValue = "Key events: \(keyCount)"
+            return event
+        }
         window.orderBack(nil)
         window.makeKey()
         window.makeMain()
         window.makeFirstResponder(input)
+    }
+    @objc func armReorder() {
+        (window as? ReorderingWindow)?.armed = true
     }
     @objc func selectRoute(_ sender: NSPopUpButton) {
         choiceLabel.stringValue = "Choice: \(sender.titleOfSelectedItem!)"

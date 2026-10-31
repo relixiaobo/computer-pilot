@@ -14,14 +14,14 @@ for ARGS in "" "-h" "--help"; do
     LABEL="cu $ARGS"
   fi
 
-  if echo "$OUT_TXT" | grep -q "COMMANDS BY CATEGORY"; then
+  if grep -q "COMMANDS BY CATEGORY" <<< "$OUT_TXT"; then
     _pass "$LABEL shows COMMANDS BY CATEGORY block"
   else
     _fail "$LABEL category block" "missing COMMANDS BY CATEGORY"
   fi
 
   for CAT in "Discover" "Observe" "Act" "Script & System" "Recover"; do
-    if echo "$OUT_TXT" | grep -qF "$CAT"; then
+    if grep -qF "$CAT" <<< "$OUT_TXT"; then
       _pass "$LABEL has '$CAT' category"
     else
       _fail "$LABEL '$CAT' category" "missing"
@@ -30,7 +30,7 @@ for ARGS in "" "-h" "--help"; do
 
   # Sanity: each newly-added VLM command appears in the categories
   for CMD in "find" "nearest" "observe-region"; do
-    if echo "$OUT_TXT" | grep -qF "$CMD"; then
+    if grep -qF "$CMD" <<< "$OUT_TXT"; then
       _pass "$LABEL lists '$CMD'"
     else
       _fail "$LABEL '$CMD'" "not in categorization"
@@ -41,7 +41,7 @@ done
 section "help — flat command list still present in --help"
 
 OUT_TXT=$("$CU" --help 2>&1)
-if echo "$OUT_TXT" | grep -qE '^Commands:$'; then
+if grep -qE '^Commands:$' <<< "$OUT_TXT"; then
   _pass "flat 'Commands:' section present"
 else
   _fail "flat Commands section" "missing"
@@ -51,7 +51,7 @@ fi
 EXPECTED_CMDS="status commands command cancel setup apps snapshot state type perform set-value key wait find nearest observe-region ocr click scroll hover drag screenshot window launch warm why menu defaults sdef tell examples"
 ALL_FOUND=yes
 for cmd in $EXPECTED_CMDS; do
-  if ! echo "$OUT_TXT" | grep -qE "^  $cmd  "; then
+  if ! grep -qE "^  $cmd  " <<< "$OUT_TXT"; then
     ALL_FOUND="no ($cmd missing)"
     break
   fi
@@ -62,13 +62,13 @@ else
   _fail "flat listing complete" "$ALL_FOUND"
 fi
 
-if echo "$OUT_TXT" | grep -qE "COMMANDS BY CATEGORY \(31 total\)"; then
+if grep -qE "COMMANDS BY CATEGORY \(31 total\)" <<< "$OUT_TXT"; then
   _pass "category header reports 31 total"
 else
   _fail "category header total" "expected 31"
 fi
 
-if echo "$OUT_TXT" | grep -q "__broker"; then
+if grep -q "__broker" <<< "$OUT_TXT"; then
   _fail "private Broker command is hidden" "__broker leaked into public help"
 else
   _pass "private Broker command is hidden"
@@ -77,13 +77,13 @@ fi
 section "help — long_about narrative present in --help"
 
 OUT_TXT=$("$CU" --help 2>&1)
-if echo "$OUT_TXT" | grep -q "THREE-TIER CONTROL"; then
+if grep -q "THREE-TIER CONTROL" <<< "$OUT_TXT"; then
   _pass "--help still shows THREE-TIER CONTROL workflow"
 else
   _fail "--help workflow narrative" "THREE-TIER missing"
 fi
 
-if echo "$OUT_TXT" | grep -q "WORKFLOW FOR VLM AGENTS"; then
+if grep -q "WORKFLOW FOR VLM AGENTS" <<< "$OUT_TXT"; then
   _pass "--help shows VLM-agent workflow"
 else
   _fail "--help VLM workflow" "missing"
@@ -92,7 +92,7 @@ fi
 section "help — subcommand help still accessible"
 
 OUT_TXT=$("$CU" snapshot --help 2>&1)
-if echo "$OUT_TXT" | grep -qE "^Usage: cu snapshot"; then
+if grep -qE "^Usage: cu snapshot" <<< "$OUT_TXT"; then
   _pass "cu <subcmd> --help still works"
 else
   _fail "subcmd help" "${OUT_TXT:0:200}"
@@ -104,7 +104,7 @@ section "help — PREFER blocks on overlapping subcommands (G4)"
 # include a `PREFER:` block in --help that disambiguates the choice.
 for CMD in set-value type perform tell find nearest observe-region; do
   OUT_TXT=$("$CU" $CMD --help 2>&1)
-  if echo "$OUT_TXT" | grep -qE '^PREFER:'; then
+  if grep -qE '^PREFER:' <<< "$OUT_TXT"; then
     _pass "cu $CMD --help has PREFER block"
   else
     _fail "cu $CMD PREFER" "missing"
