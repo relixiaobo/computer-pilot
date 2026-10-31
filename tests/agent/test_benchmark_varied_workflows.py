@@ -150,6 +150,36 @@ class ProtocolTests(unittest.TestCase):
         self.assertEqual(result['combined_turn_ms'], 300)
         self.assertFalse(result['verification']['passed'])
 
+    def test_interrupted_task_keeps_duration_and_order_without_zero_success_time(self):
+        self.write(self.root / 'manifest.json', dict(sequence=self.sequence, settings=self.settings, single_turn=True))
+        trial = self.root / 'triage-1-cu'
+        trial.mkdir()
+        self.write(trial / 'meta.json', dict(self.sequence[0], source_sha256='source'))
+        (trial / 'thread.txt').write_text('aborted')
+        self.write(trial / 'source.json', bench.source('triage', 1))
+        events = [
+            dict(type='event_msg', timestamp='2026-10-31T00:00:00Z',
+                 payload=dict(turn_id='one', type='task_started')),
+            dict(type='turn_context', payload=dict(turn_id='one', model='test-model', effort='high')),
+            dict(type='event_msg', timestamp='2026-10-31T00:00:03Z',
+                 payload=dict(turn_id='one', type='turn_aborted', duration_ms=3000)),
+        ]
+        (self.root / 'rollout-aborted.jsonl').write_text('\n'.join(json.dumps(e) for e in events))
+        with contextlib.redirect_stdout(io.StringIO()):
+            bench.collect(self.root, 'triage-1-cu', self.root)
+        self.sample('triage-1-native', setup=[], setup_ms=0,
+                    runs=[dict(self.settings, elapsed_ms=2000, started_at='2026-10-31T00:00:04Z')],
+                    execution_ms=2000, combined_turn_ms=2000)
+        report = self.report()
+        interrupted = report['attempts'][0]
+        self.assertEqual(interrupted['status'], 'excluded')
+        self.assertEqual(interrupted['interruptions'][0]['interrupted_elapsed_ms'], 3000)
+        self.assertEqual(report['actual_order'], ['triage-1-cu', 'triage-1-native'])
+        self.assertEqual(report['groups'][0]['successful_pairs'], [])
+        markdown = (self.root / 'report.md').read_text()
+        self.assertIn('| triage-1-cu | excluded | — |', markdown)
+        self.assertIn('Interrupted after 3.000s', markdown)
+
 
 if __name__ == '__main__':
     unittest.main()

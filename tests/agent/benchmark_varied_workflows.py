@@ -200,6 +200,9 @@ def collect(root, label, rollout_dir):
             traces.append(turn)
             if 'started_at' in turn:
                 result['incomplete_turns'].append(turn['turn_id'])
+                result.setdefault('interruptions', []).append({
+                    k: turn[k] for k in ('turn_id', 'started_at', 'aborted_at', 'interrupted_elapsed_ms')
+                    if k in turn})
             continue
         summarize(turn)
         if single_turn:
@@ -243,6 +246,9 @@ def report(root):
                                else 'Expected setup and exactly one completed GO turn')
             if row.get('incomplete_turns'):
                 reasons.append('Interrupted turns have no complete timing; tool evidence retained')
+                for interruption in row.get('interruptions', []):
+                    if 'interrupted_elapsed_ms' in interruption:
+                        reasons.append(f"Interrupted after {interruption['interrupted_elapsed_ms'] / 1000:.3f}s")
             if any(any(t.get(k) != v for k, v in manifest['settings'].items()) for t in turns):
                 reasons.append('Actual model/effort/service tier differs from the manifest')
             if row['source_sha256'] != row['evidence_sha256']['source.json']:
@@ -293,9 +299,10 @@ def report(root):
         groups.append(dict(mode=mode, arms=arms, successful_pairs=pairs,
                            median_paired_go_ratio=statistics.median(p['go_cu_over_native'] for p in pairs) if pairs and not single_turn else None,
                            median_paired_combined_ratio=statistics.median(p['combined_cu_over_native'] for p in pairs) if pairs else None))
-    actual_order = [r['label'] for r in sorted(
-        (r for r in attempts if (r.get('setup') or r.get('runs')) and (r.get('setup') or r['runs'])[0].get('started_at')),
-        key=lambda r: (r.get('setup') or r['runs'])[0]['started_at'])]
+    starts = [(t['started_at'], r['label']) for r in attempts
+              for t in r.get('setup', []) + r.get('runs', []) + r.get('interruptions', [])
+              if t.get('started_at')]
+    actual_order = list(dict.fromkeys(label for _, label in sorted(starts)))
     result = dict(manifest=manifest, actual_order=actual_order, attempts=attempts, groups=groups)
     (root / 'report.json').write_text(json.dumps(result, ensure_ascii=False, indent=2))
     lines = ['# Fresh-task comparison', '',
@@ -315,6 +322,8 @@ def report(root):
     for r in attempts:
         times = [f'{r[k] / 1000:.1f}' if k in r else '—' for k in
                  (('combined_turn_ms',) if single_turn else ('setup_ms', 'execution_ms', 'combined_turn_ms'))]
+        if r.get('incomplete_turns'):
+            times = ['—'] * len(times)
         reason = '; '.join(r['reasons']).replace('|', '\\|').replace('\n', ' ')
         lines.append(f"| {r['label']} | {r['status']} | {' | '.join(times)} | {reason} |")
     for group in groups:

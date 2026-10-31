@@ -40,6 +40,10 @@ def collect_turns(path, arm, thread_id):
                 turn.update(completed_at=event['timestamp'],
                             elapsed_ms=payload['duration_ms'],
                             final=payload.get('last_agent_message'))
+            elif kind == 'turn_aborted':
+                turn['aborted_at'] = event['timestamp']
+                if payload.get('duration_ms') is not None:
+                    turn['interrupted_elapsed_ms'] = payload['duration_ms']
             elif kind == 'item_completed':
                 item = payload['item']
                 if (item.get('type') == 'FunctionCallOutput'

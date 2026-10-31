@@ -99,7 +99,9 @@ For **each** manifest entry, sequentially:
    Those files guide development; the skill (cu) or native API documentation
    supplies computer-use instructions. The brief uses an absolute skill path.
    Inspect actual initial context as part of the audit: a new task alone does
-   not prove a clean runtime context. If the host only inherits the coordinator's
+   not prove a clean runtime context. Remove **global** AGENTS instructions too;
+   changing cwd or setting `project_doc_max_bytes=0` alone does not do this.
+   If the host only inherits the coordinator's
    repository directory, report a repository-context diagnostic, not a clean
    skill-only performance comparison.
    The app bundle/process, source/saved state, and cu Broker/client/output paths
@@ -184,6 +186,122 @@ initialization. There is no separately measured setup duration: the legacy JSON
 initialization was free. `execution_ms` and `combined_turn_ms` both hold the full
 turn duration; there is no GO-only ratio. Never pool these timings with protocol
 v1 or claim that removing the turn boundary alone caused a cross-block change.
+
+### Clean Codex runtime context
+
+Use a fresh `CODEX_HOME` and a neutral cwd for **each participant**, with no
+`AGENTS.md`, `AGENTS.override.md`, session/history databases or memories copied
+into that profile. Keep authentication and the same installed skills/runtime
+available. Copy configuration privately; never rename the user's global AGENTS
+file, change their global configuration, or ask the participant to ignore
+instructions that were already injected.
+
+With Codex CLI 0.165.0, the bundled marketplace must be copied into the new
+profile's `.tmp/bundled-marketplaces/openai-bundled`, and its configured source
+must point there. Merely pointing the new profile at the original reserved
+marketplace left native Computer Use unavailable. Copy its installed plugin
+cache as well. Verify the actual `mcp__cua_repl.js` capability in a separate
+non-task probe before the measured block; do not substitute another backend.
+
+Launch each generated brief with the same CLI binary and settings, for example:
+
+```bash
+CODEX_HOME="$BENCH_PROFILE" codex --no-daemon exec \
+  -C "$BENCH_WORKDIR" --skip-git-repo-check \
+  -m gpt-6-astra -c 'model_reasoning_effort="high"' \
+  -c project_doc_max_bytes=0 -c features.memories=false \
+  -c 'approval_policy="never"' -s danger-full-access \
+  --json --color never -o "$TRIAL/final.txt" - \
+  < "$TRIAL/brief.txt" > "$TRIAL/events.jsonl" 2> "$TRIAL/stderr.log"
+```
+
+Unset inherited `CODEX_SESSION_ID`, `CODEX_THREAD_ID` and `CODEX_TOOL_CALL_ID`
+in the participant process environment. Save its launch arguments, thread ID,
+and initial-context audit alongside the normal evidence. Collect with
+`--rollouts "$BENCH_PROFILE/sessions"`. Inspect the actual initial user and
+developer messages for global/project AGENTS content and the `turn_context`
+for cwd/model/effort/tier; absence of files alone is insufficient. Hash task
+shell configuration in its actual location, including when it lives in the
+neutral cwd rather than the fixture directory.
+
+This isolates runtime instructions, history and task/app state. It does not
+reset macOS, Launch Services, user permissions or system caches. Keep exact
+app/PID bindings and disclose any recovery that resolves a generic name to an
+old fixture. Retain and exclude that attempt; do not replace it with a clean
+success. An interrupted turn's zero completed-turn sum is **not** its elapsed
+time: report the interruption duration separately and omit it from successful
+timing comparisons.
+
+## Skill-only runtime block (2026-10-31)
+
+The post-fix candidate `4b611c6` was tested in 12 fresh CLI sessions with **no
+global or project AGENTS instructions injected**. cu passed 6/6 attempts; native
+passed 5/6, with one incomplete protocol deviation retained and excluded.
+Removing development instructions did **not** eliminate the wizard timing gap.
+
+Each participant used a new private Codex profile, neutral cwd, fixture process,
+state and, for cu, Broker/client/output directory. Actual initial messages were
+audited, not inferred from the launch command. All sessions used Codex CLI
+0.165.0, `gpt-6-astra` / `high`, no service-tier override, and native
+`unified-computer-use` 26.1027.30824. They ran sequentially in the predeclared
+alternating order. No model coaching, replacement attempts or runtime/skill
+changes occurred during the block. Protocol v2 includes skill/API initialization
+in the same measured task turn; host provisioning/startup/shutdown is outside it.
+
+| Workflow / dataset | cu full task s | Native full task s | Outcome |
+| --- | ---: | ---: | --- |
+| Triage 1 | 116.107 | 96.880 | Both passed |
+| Triage 2 | 80.595 | 80.521 | Both passed |
+| Document 1 | 83.707 | 100.031 | Both passed |
+| Document 2 | 157.993 | — | cu passed; native interrupted after 221.690 s and excluded |
+| Wizard 1 | 298.765 | 179.675 | Both passed |
+| Wizard 2 | 338.202 | 150.838 | Both passed |
+
+Success medians (cu/native seconds) are triage **98.4/88.7**, document
+**120.8/100.0**, and wizard **318.5/165.3**. Document medians use unequal
+success counts and are not a paired estimate. Median paired cu/native ratios
+are **1.100** for triage (two pairs), **0.837** for document (one pair), and
+**1.952** for wizard (two pairs). These small samples do not establish a general
+speed ranking, nor a causal before/after effect of removing AGENTS; keep older
+repository-context experiments separate.
+
+The traces explain the remaining costs:
+
+- cu triage used 21/22 tool calls versus native's 20/20, with no errors. The
+  leading `--compact` path appeared naturally and kept the correct target.
+- cu document 1 tried nonexistent `observe` before using the skill's snapshot
+  path. Document 2 used 33 calls versus the first one's 22, splitting many
+  mutations and boundary snapshots across calls. An old ref after Save was
+  rejected before dispatch, then recovered with fresh state. Both exact outcomes
+  passed; these errors remain in the timing.
+- Native document 1 recovered from seven `AXError.failure` responses and passed.
+  Document 2 saved all originals, reopened a section instead of moving it, then
+  clicked the labeled window close button. Recovery resolved a generic app name
+  to an old fixture identity. The coordinator interrupted that deviation; order,
+  final correction and completion were missing. Its 35 calls, 16 errors and
+  221.690-second interruption remain recorded; it is not a zero-time completion.
+- cu wizard used **44/62 calls**, versus native's **32/31**. Menu transitions
+  invalidated refs, broad wait text could already match navigation labels, and
+  one wait for the list ran while a confirmation sheet was pending (10.149-second
+  timeout). The second cu task adopted per-field snapshots despite the skill's
+  grouping guidance. Repeated reads and the same-target OCR detour are retained
+  strategy costs, not exclusions.
+- Wizard tool intervals totaled **21.595/9.726 seconds** for cu and
+  **20.140/20.187 seconds** for native. Most of the total gap lies outside those
+  intervals: extra model rounds, model/network/scheduling time and recovery.
+  This does not justify removing target identity checks that prevented wrong
+  dispatch, or adding task-specific solvers and aliases.
+
+The macOS user session, permissions, caches and Launch Services were shared;
+this was not a VM reset. In particular, old fixture names remained registered,
+which the excluded native recovery reached. Exact app binding and actual-context
+audits are therefore part of the result, not a claim of complete OS isolation.
+All task-owned app processes and Brokers were stopped; unrelated sessions were
+preserved. After the block, only offline reporting was adjusted to retain
+interrupted duration/order and avoid rendering absent completion time as zero.
+
+[All 12 outcomes, runtime audits, timings and evidence hashes](benchmarks/skill-only-2026-10-31.json).
+Full tool traces and model reasoning are not published.
 
 ## General three-workflow block (2026-10-31)
 
