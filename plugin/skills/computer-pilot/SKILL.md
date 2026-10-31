@@ -90,6 +90,9 @@ Source that task file in each shell call. Its `cu` function wraps the verified
 binary, retaining the task environment for reads, waits and actions. It supplies
 the chosen app for UI commands; do not repeat `--app` or a positional app.
 Actions omit intermediate snapshots/effect checks and stop the group on errors.
+Use this grouping for known controls whose combined result can be inspected at
+the boundary. For uncertain input delivery, use the ordinary CLI with default
+verification as described below.
 `cu snapshot` returns the complete concise state up to 200 elements, including
 unchanged controls and full values; `cu wait` returns usable fresh refs.
 For example, with refs 7, 12 and Save 15 in the current observation:
@@ -161,6 +164,15 @@ the observation that produced it.
 ## Electron And Controlled Editors
 
 Use this bounded path for Electron/CEF editors:
+
+When the session helper is loaded, start these calls with a root option to keep
+default verification; supply the app explicitly:
+
+```bash
+cu --compact click <editor-ref> --app "$CU_APP"
+# After reading the click's focus result:
+cu --compact type "<intended text>" --app "$CU_APP"
+```
 
 1. Select the exact `pid:<PID>` and retain it across the loop.
 2. Click the editor and require `focus_verified:true` before typing.
