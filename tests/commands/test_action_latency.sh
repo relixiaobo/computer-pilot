@@ -234,6 +234,27 @@ try:
         assert (p.returncode == 0) == ok and d["ok"] == ok, d
         return d
 
+    # Checkbox state belongs on the control, including compact deltas. The
+    # independent callback label proves the actual control changed on/off.
+    full = session("--json", "snapshot", app, "--limit", "200")
+    urgent = next(e for e in full["elements"] if e.get("title") == "Urgent")
+    assert urgent["value"] == "1", urgent
+    session("snapshot")  # Establish a compact delta baseline.
+    for value, label in (("0", "off"), ("1", "on")):
+        session("click", urgent["ref"])
+        delta = session("snapshot")
+        checkbox = next(e for e in delta["elements"] if e.get("title") == "Urgent")
+        assert checkbox["value"] == value, delta
+        assert any(e.get("value") == f"Urgent callback: {label}" for e in delta["elements"]), delta
+    # Exercise the existing single-attribute fallback as well as batch decoding.
+    fallback = subprocess.run([cu, "--json", "snapshot", app, "--limit", "200"],
+                              env=dict(os.environ, CU_TEST_AX_BATCH_FAIL_ROLE="AXCheckBox",
+                                       COMPUTER_PILOT_BROKER_CHILD="1"),
+                              capture_output=True, text=True, timeout=15)
+    assert fallback.returncode == 0, fallback.stderr
+    assert next(e for e in json.loads(fallback.stdout)["elements"]
+                if e.get("title") == "Urgent")["value"] == "1", fallback.stdout
+
     # Menu selection uses AXPress and fires the application's real handler.
     found = session("find", "--role", "popupbutton", "--first", shell="/bin/zsh")
     popup = found["match"]["ref"]

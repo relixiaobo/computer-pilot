@@ -129,6 +129,22 @@ The protocol's offline regression tests need no GUI or model calls:
 python3 -m unittest discover -s tests/agent -p 'test_benchmark_varied_workflows.py' -v
 ```
 
+For a separately declared **continuous protocol-v2** experiment, add
+`--single-turn` to `prepare`. For the checkbox-state follow-up use a new root,
+`--modes triage --repeats 4 --model gpt-6-astra --effort high --single-turn`.
+This retains the four paired datasets and alternating order. Create each fresh
+task from its generated brief and let it initialize and complete the workflow
+in that same turn. Do not pause at READY or send GO. Then collect, stop and audit
+the whole turn using the same isolation, backend, exact-outcome and retention
+rules. Only the split-setup/no-mutation check is inapplicable.
+
+The report labels this **full task time**, including skill/API loading and
+initialization. There is no separately measured setup duration: the legacy JSON
+`setup` list is empty and `setup_ms` is 0 because no setup turn exists, not because
+initialization was free. `execution_ms` and `combined_turn_ms` both hold the full
+turn duration; there is no GO-only ratio. Never pool these timings with protocol
+v1 or claim that removing the turn boundary alone caused a cross-block change.
+
 ## Latency comparisons
 
 The loop accepts a deterministic group of commands in one model response and

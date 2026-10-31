@@ -16,6 +16,8 @@ type CFTypeID = u64;
 type Boolean = u8;
 
 const CF_STRING_ENCODING_UTF8: u32 = 0x0800_0100;
+const CF_NUMBER_SINT64: isize = 4;
+const CF_NUMBER_FLOAT64: isize = 6;
 
 #[link(name = "CoreFoundation", kind = "framework")]
 unsafe extern "C" {
@@ -43,6 +45,9 @@ unsafe extern "C" {
     fn CFArrayGetValueAtIndex(the_array: CFArrayRef, idx: CFIndex) -> CFTypeRef;
 
     fn CFBooleanGetTypeID() -> CFTypeID;
+    fn CFNumberGetTypeID() -> CFTypeID;
+    fn CFNumberIsFloatType(number: CFTypeRef) -> Boolean;
+    fn CFNumberGetValue(number: CFTypeRef, number_type: isize, value: *mut c_void) -> Boolean;
 }
 
 // ── Accessibility FFI ───────────────────────────────────────────────────────
@@ -358,6 +363,89 @@ unsafe fn ax_string(element: CFTypeRef, name: &str) -> Option<String> {
     };
     CFRelease(value);
     result
+}
+
+/// AXValue can be text, a checkbox boolean/integer, or a numeric control value.
+/// Decode the value already read; no additional AX query is needed.
+unsafe fn scalar_to_string(value: CFTypeRef) -> Option<String> {
+    let kind = CFGetTypeID(value);
+    if kind == CFStringGetTypeID() {
+        cfstring_to_string(value)
+    } else if kind == CFBooleanGetTypeID() {
+        Some(if value == kCFBooleanTrue { "1" } else { "0" }.into())
+    } else if kind == CFNumberGetTypeID() {
+        if CFNumberIsFloatType(value) != 0 {
+            let mut number: f64 = 0.0;
+            (CFNumberGetValue(
+                value,
+                CF_NUMBER_FLOAT64,
+                &mut number as *mut _ as *mut c_void,
+            ) != 0)
+                .then(|| number.to_string())
+        } else {
+            let mut number: i64 = 0;
+            (CFNumberGetValue(
+                value,
+                CF_NUMBER_SINT64,
+                &mut number as *mut _ as *mut c_void,
+            ) != 0)
+                .then(|| number.to_string())
+        }
+    } else {
+        None
+    }
+}
+
+unsafe fn ax_value(element: CFTypeRef) -> Option<String> {
+    let value = ax_attr(element, "AXValue")?;
+    let result = scalar_to_string(value);
+    CFRelease(value);
+    result
+}
+
+#[cfg(test)]
+mod scalar_value_tests {
+    use super::*;
+
+    unsafe extern "C" {
+        fn CFNumberCreate(allocator: CFTypeRef, kind: isize, value: *const c_void) -> CFTypeRef;
+    }
+
+    #[test]
+    fn preserves_checkbox_states_and_numeric_precision() {
+        unsafe {
+            assert_eq!(scalar_to_string(kCFBooleanTrue).as_deref(), Some("1"));
+            assert_eq!(scalar_to_string(kCFBooleanFalse).as_deref(), Some("0"));
+            for number in [0_i64, 1, 2, 9_007_199_254_740_993] {
+                let value = CFNumberCreate(
+                    std::ptr::null(),
+                    CF_NUMBER_SINT64,
+                    &number as *const _ as *const c_void,
+                );
+                assert_eq!(scalar_to_string(value), Some(number.to_string()));
+                CFRelease(value);
+            }
+            let number = 0.25_f64;
+            let value = CFNumberCreate(
+                std::ptr::null(),
+                CF_NUMBER_FLOAT64,
+                &number as *const _ as *const c_void,
+            );
+            assert_eq!(scalar_to_string(value).as_deref(), Some("0.25"));
+            CFRelease(value);
+            let text = cfstr("中文😀").unwrap();
+            assert_eq!(scalar_to_string(text).as_deref(), Some("中文😀"));
+            CFRelease(text);
+            let array = CFArrayCreate(
+                std::ptr::null(),
+                std::ptr::null(),
+                0,
+                &kCFTypeArrayCallBacks as *const _ as CFTypeRef,
+            );
+            assert_eq!(scalar_to_string(array), None);
+            CFRelease(array);
+        }
+    }
 }
 
 /// Get the position (AXPosition → CGPoint).
@@ -835,6 +923,17 @@ unsafe fn batch_string(values: CFArrayRef, idx: usize) -> Option<String> {
     cfstring_to_string(val)
 }
 
+unsafe fn batch_value(values: CFArrayRef) -> Option<String> {
+    if BA_VALUE >= CFArrayGetCount(values) as usize {
+        return None;
+    }
+    let value = CFArrayGetValueAtIndex(values, BA_VALUE as CFIndex);
+    if value.is_null() {
+        return None;
+    }
+    scalar_to_string(value)
+}
+
 /// Extract position (CGPoint) from batch values.
 unsafe fn batch_position(values: CFArrayRef, idx: usize) -> Option<CGPoint> {
     let count = CFArrayGetCount(values) as usize;
@@ -1193,7 +1292,7 @@ unsafe fn read_batch_ref_node(element: CFTypeRef, batch_keys: CFArrayRef) -> Ref
             None
         };
         let value = if projected {
-            ax_string(element, "AXValue").filter(|s| !s.is_empty())
+            ax_value(element).filter(|s| !s.is_empty())
         } else {
             None
         };
@@ -1237,7 +1336,9 @@ unsafe fn read_batch_ref_node(element: CFTypeRef, batch_keys: CFArrayRef) -> Ref
         None
     };
     let value = if projected {
-        batch_string_with_fallback(values, BA_VALUE, element, "AXValue").filter(|s| !s.is_empty())
+        batch_value(values)
+            .or_else(|| ax_value(element))
+            .filter(|s| !s.is_empty())
     } else {
         None
     };
@@ -2097,7 +2198,7 @@ unsafe fn detect_focused(app_el: CFTypeRef, elements: &[Element]) -> Option<Focu
     let title = ax_string(fel, "AXTitle")
         .or_else(|| ax_string(fel, "AXDescription"))
         .filter(|s| !s.is_empty());
-    let value = ax_string(fel, "AXValue").filter(|s| !s.is_empty());
+    let value = ax_value(fel).filter(|s| !s.is_empty());
     let pos = ax_position(fel);
     CFRelease(fel);
 

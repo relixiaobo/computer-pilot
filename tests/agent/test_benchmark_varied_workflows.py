@@ -96,6 +96,34 @@ class ProtocolTests(unittest.TestCase):
                          ['native', 'cu', 'cu', 'native', 'native', 'cu', 'cu', 'native'])
         self.assertEqual(manifest['settings'], self.settings)
 
+    def test_single_turn_report_counts_initialization_in_full_task_time(self):
+        self.write(self.root / 'manifest.json', dict(sequence=self.sequence, settings=self.settings, single_turn=True))
+        self.sample('triage-1-cu', setup=[], setup_ms=0, elapsed=3000, combined_turn_ms=3000)
+        self.sample('triage-1-native', setup=[], setup_ms=0, elapsed=2000, combined_turn_ms=2000)
+        result = self.report()
+        self.assertEqual(result['groups'][0]['median_paired_combined_ratio'], 1.5)
+        self.assertIsNone(result['groups'][0]['median_paired_go_ratio'])
+        markdown = (self.root / 'report.md').read_text()
+        self.assertIn('Full task s', markdown)
+        self.assertNotIn('GO s', markdown)
+
+    def test_single_turn_collection_needs_no_go_marker(self):
+        self.write(self.root / 'manifest.json', dict(sequence=self.sequence, settings=self.settings, single_turn=True))
+        trial = self.root / 'triage-1-cu'
+        trial.mkdir()
+        self.write(trial / 'meta.json', dict(self.sequence[0], source_sha256='source'))
+        (trial / 'thread.txt').write_text('continuous')
+        (self.root / 'rollout-continuous.jsonl').write_text('')
+        self.write(trial / 'source.json', bench.source('triage', 1))
+        turn = dict(self.settings, elapsed_ms=3000, tools=[], usage_records={}, turn_id='one')
+        with patch.object(bench, 'collect_turns', return_value=[turn]), contextlib.redirect_stdout(io.StringIO()):
+            bench.collect(self.root, 'triage-1-cu', self.root)
+        result = json.loads((trial / 'result.json').read_text())
+        self.assertEqual(result['setup'], [])
+        self.assertEqual(len(result['runs']), 1)
+        self.assertEqual(result['combined_turn_ms'], 3000)
+        self.assertEqual(result['runs'][0]['label'], 'triage-1-cu')
+
     def test_collect_preserves_setup_and_all_go_tools(self):
         trial = self.root / 'triage-1-cu'
         trial.mkdir()

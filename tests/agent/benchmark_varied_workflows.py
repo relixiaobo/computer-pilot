@@ -129,7 +129,7 @@ def fingerprints():
     return {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
 
 
-def prepare(root, modes, repeats, model, effort, service_tier):
+def prepare(root, modes, repeats, model, effort, service_tier, single_turn=False):
     root.mkdir(parents=True, exist_ok=False)
     executable = root / 'VariedWorkflow'
     subprocess.run(['swiftc', str(ROOT / 'tests/fixtures/varied-workflows.swift'), '-o', str(executable)], check=True)
@@ -138,7 +138,7 @@ def prepare(root, modes, repeats, model, effort, service_tier):
         for repeat in range(1, repeats + 1):
             arms = ('native', 'cu') if (mode_index + repeat) % 2 else ('cu', 'native')
             sequence.extend(dict(label=f'{mode}-{repeat}-{arm}', mode=mode, repeat=repeat, arm=arm) for arm in arms)
-    manifest = dict(protocol_version=1, sequence=sequence,
+    manifest = dict(protocol_version=2 if single_turn else 1, single_turn=single_turn, sequence=sequence,
                     settings=dict(model=model, reasoning_effort=effort, service_tier=service_tier),
                     fingerprints=fingerprints(),
                     cu_commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip())
@@ -151,6 +151,7 @@ def start(root, label):
     if manifest.get('fingerprints') != fingerprints():
         raise RuntimeError('Benchmark inputs changed since prepare; start a new experiment.')
     entry = next(e for e in manifest['sequence'] if e['label'] == label)
+    single_turn = manifest.get('single_turn', False)
     trial = root / label; trial.mkdir()
     bundle = trial / 'VariedWorkflow.app/Contents'; (bundle / 'MacOS').mkdir(parents=True)
     executable = bundle / 'MacOS/VariedWorkflow'; shutil.copy2(root / 'VariedWorkflow', executable)
@@ -169,23 +170,25 @@ def start(root, label):
     (trial / 'meta.json').write_text(json.dumps(meta, indent=2))
     common = f'''You are a participant in a user-authorized desktop benchmark. Use only the supplied disposable app. Do not inspect other tasks, source/expected/saved files, benchmark scripts or prior results. Do not invoke another model or change model/runtime settings. Do not alter repository files. Task-owned shell configuration may be created in your trial directory. No real user data or external messages are involved.
 
-Workflow for the measured GO turn:
+Workflow for the measured {'complete task turn' if single_turn else 'GO turn'}:
 {goal(spec)}
 
 Read source values from live UI, not files or memory from another trial. Normal efficient grouping and generated code using the allowed tools are permitted, but prewritten solvers are not. Do not add artificial sleeps. If actually blocked, report the blocker instead of claiming completion. Reply DONE only after observing workflow completion. The coordinator independently verifies every saved value and required original/correction states.
 
-This is a fresh task, app process and state directory. Initialization is reported separately and combined with execution; the complete GO turn is timed. Do only setup now and wait for GO without UI mutations.
+This is a fresh task, app process and state directory. {'Initialize and execute the complete workflow in this same turn. The full turn, including initialization, is timed. Do not wait for GO or reply READY.' if single_turn else 'Initialization is reported separately and combined with execution; the complete GO turn is timed. Do only setup now and wait for GO without UI mutations.'}
 '''
+    ending = 'Then execute the workflow above and reply DONE after observing completion.' if single_turn else 'Reply READY.'
     if entry['arm'] == 'cu':
-        common += f'''Your arm: use only the existing shell and {CU} for app reads/actions. Read plugin/skills/computer-pilot/SKILL.md and initialize its multi-round task configuration. CU_APP=pid:{app.pid}; COMPUTER_PILOT_CLIENT_KEY={label}; COMPUTER_PILOT_HOME={runtime}; COMPUTER_PILOT_OUTPUT_DIR={trial / 'output'}. Computer Pilot and permissions are already verified. Take one observation of this PID. Do not use another automation backend. Reply READY.'''
+        common += f'''Your arm: use only the existing shell and {CU} for app reads/actions. Read plugin/skills/computer-pilot/SKILL.md and initialize its multi-round task configuration. CU_APP=pid:{app.pid}; COMPUTER_PILOT_CLIENT_KEY={label}; COMPUTER_PILOT_HOME={runtime}; COMPUTER_PILOT_OUTPUT_DIR={trial / 'output'}. Computer Pilot and permissions are already verified. Take one observation of this PID. Do not use another automation backend. {ending}'''
     else:
-        common += f'''Your arm: use only actual mcp__cua_repl native App APIs. This explicitly authorizes that API instead of the repository cu integration. Bind {bundle.parent} using cua.getApp, read its documentation and take the initial observation. Do not use cu or another backend. Reply READY.'''
+        common += f'''Your arm: use only actual mcp__cua_repl native App APIs. This explicitly authorizes that API instead of the repository cu integration. Bind {bundle.parent} using cua.getApp, read its documentation and take the initial observation. Do not use cu or another backend. {ending}'''
     (trial / 'brief.txt').write_text(common)
     print(json.dumps(dict(meta, brief=str(trial / 'brief.txt'))))
 
 
 def collect(root, label, rollout_dir):
     trial = root / label; meta = json.loads((trial / 'meta.json').read_text())
+    single_turn = json.loads((root / 'manifest.json').read_text()).get('single_turn', False)
     tid = (trial / 'thread.txt').read_text().strip()
     paths = list(rollout_dir.rglob(f'*{tid}.jsonl'))
     if len(paths) != 1: raise RuntimeError(f'Expected one rollout for {tid}')
@@ -199,6 +202,8 @@ def collect(root, label, rollout_dir):
                 result['incomplete_turns'].append(turn['turn_id'])
             continue
         summarize(turn)
+        if single_turn:
+            turn['label'] = label
         traces.append(turn)
         if 'label' not in turn:
             result['setup'].append({k: v for k, v in turn.items() if k != 'tools'})
@@ -223,6 +228,7 @@ def collect(root, label, rollout_dir):
 
 def report(root):
     manifest = json.loads((root / 'manifest.json').read_text())
+    single_turn = manifest.get('single_turn', False)
     attempts = []
     for entry in manifest['sequence']:
         trial = root / entry['label']
@@ -232,8 +238,9 @@ def report(root):
             row.update(json.loads(path.read_text()))
             reasons = []
             turns = row['setup'] + row['runs']
-            if not row['setup'] or len(row['runs']) != 1:
-                reasons.append('Expected setup and exactly one completed GO turn')
+            if len(row['runs']) != 1 or bool(row['setup']) != (not single_turn):
+                reasons.append('Expected exactly one complete task turn' if single_turn
+                               else 'Expected setup and exactly one completed GO turn')
             if row.get('incomplete_turns'):
                 reasons.append('Interrupted turns have no complete timing; tool evidence retained')
             if any(any(t.get(k) != v for k, v in manifest['settings'].items()) for t in turns):
@@ -252,6 +259,8 @@ def report(root):
                 row['status'] = 'unreviewed'
             else:
                 row['status'] = 'passed' if row['verification']['passed'] else 'failed'
+                if row['status'] == 'failed':
+                    row['reasons'] = [k for k, passed in row['verification'].get('checks', {}).items() if not passed]
         attempts.append(row)
     # Reusing a task carries prior history into both arms, even when final values are correct.
     thread_ids = [r['thread_id'] for r in attempts if 'thread_id' in r]
@@ -271,7 +280,7 @@ def report(root):
                     r['reasons'].append('Paired source datasets differ')
                 continue
             if all(pair[a]['status'] == 'passed' for a in ('cu', 'native')):
-                pairs.append(dict(repeat=repeat, go_cu_over_native=pair['cu']['execution_ms'] / pair['native']['execution_ms'],
+                pairs.append(dict(repeat=repeat, go_cu_over_native=None if single_turn else pair['cu']['execution_ms'] / pair['native']['execution_ms'],
                                   combined_cu_over_native=pair['cu']['combined_turn_ms'] / pair['native']['combined_turn_ms']))
         arms = {}
         for arm in ('cu', 'native'):
@@ -280,36 +289,40 @@ def report(root):
             arms[arm] = dict(counts={s: sum(r['status'] == s for r in samples)
                                     for s in ('passed', 'failed', 'excluded', 'unreviewed', 'pending')},
                              success_medians_ms={k: statistics.median(r[k] for r in passed) if passed else None
-                                                 for k in ('setup_ms', 'execution_ms', 'combined_turn_ms')})
+                                                 for k in (('combined_turn_ms',) if single_turn else ('setup_ms', 'execution_ms', 'combined_turn_ms'))})
         groups.append(dict(mode=mode, arms=arms, successful_pairs=pairs,
-                           median_paired_go_ratio=statistics.median(p['go_cu_over_native'] for p in pairs) if pairs else None,
+                           median_paired_go_ratio=statistics.median(p['go_cu_over_native'] for p in pairs) if pairs and not single_turn else None,
                            median_paired_combined_ratio=statistics.median(p['combined_cu_over_native'] for p in pairs) if pairs else None))
     actual_order = [r['label'] for r in sorted(
-        (r for r in attempts if r.get('setup') and r['setup'][0].get('started_at')),
-        key=lambda r: r['setup'][0]['started_at'])]
+        (r for r in attempts if (r.get('setup') or r.get('runs')) and (r.get('setup') or r['runs'])[0].get('started_at')),
+        key=lambda r: (r.get('setup') or r['runs'])[0]['started_at'])]
     result = dict(manifest=manifest, actual_order=actual_order, attempts=attempts, groups=groups)
     (root / 'report.json').write_text(json.dumps(result, ensure_ascii=False, indent=2))
     lines = ['# Fresh-task comparison', '',
              'All planned attempts are retained. Ratios use only pairs where both tasks passed; below 1 favors cu.',
-             'Failed durations are time to failure, not completion time. Unreviewed results are not accepted.', '']
+             'Failed durations are time to an unsuccessful outcome. Unreviewed results are not accepted.', '']
+    if single_turn:
+        lines += ['Full task timing includes initialization in the same turn; setup is not separately measured.', '']
     for group in groups:
         for arm, summary in group['arms'].items():
             counts = ', '.join(f'{n} {s}' for s, n in summary['counts'].items())
             medians = ' / '.join(f'{v / 1000:.1f}' if v is not None else '—'
                                  for v in summary['success_medians_ms'].values())
-            lines.append(f"{group['mode']} / {arm}: {counts}. Success median setup / GO / combined seconds: {medians}.")
-    lines += ['', '| Attempt | Status | Setup s | GO s | Combined s | Reason |',
-              '| --- | --- | ---: | ---: | ---: | --- |']
+            timing = 'full-task' if single_turn else 'setup / GO / combined'
+            lines.append(f"{group['mode']} / {arm}: {counts}. Success median {timing} seconds: {medians}.")
+    lines += (['', '| Attempt | Status | Full task s | Reason |', '| --- | --- | ---: | --- |'] if single_turn else
+              ['', '| Attempt | Status | Setup s | GO s | Combined s | Reason |', '| --- | --- | ---: | ---: | ---: | --- |'])
     for r in attempts:
-        times = [f'{r[k] / 1000:.1f}' if k in r else '—' for k in ('setup_ms', 'execution_ms', 'combined_turn_ms')]
+        times = [f'{r[k] / 1000:.1f}' if k in r else '—' for k in
+                 (('combined_turn_ms',) if single_turn else ('setup_ms', 'execution_ms', 'combined_turn_ms'))]
         reason = '; '.join(r['reasons']).replace('|', '\\|').replace('\n', ' ')
         lines.append(f"| {r['label']} | {r['status']} | {' | '.join(times)} | {reason} |")
     for group in groups:
         ratio = group['median_paired_go_ratio']
         combined = group['median_paired_combined_ratio']
-        lines += ['', f"{group['mode']}: {len(group['successful_pairs'])} successful pairs; "
-                  + (f'median paired cu/native GO ratio {ratio:.3f}, combined ratio {combined:.3f}.'
-                     if ratio is not None else 'no paired timing estimate.')]
+        timing = (f'median paired cu/native full-task ratio {combined:.3f}.' if single_turn else
+                  f'median paired cu/native GO ratio {ratio:.3f}, combined ratio {combined:.3f}.') if combined is not None else 'no paired timing estimate.'
+        lines += ['', f"{group['mode']}: {len(group['successful_pairs'])} successful pairs; {timing}"]
     (root / 'report.md').write_text('\n'.join(lines) + '\n')
     print('\n'.join(lines))
 
@@ -341,12 +354,13 @@ def main():
     parser.add_argument('--model', default='gpt-6-astra')
     parser.add_argument('--effort', default='high')
     parser.add_argument('--service-tier', default=None)
+    parser.add_argument('--single-turn', action='store_true', help='Time initialization and workflow in one uninterrupted task turn')
     args = parser.parse_args(); root = args.root.resolve()
     if args.action not in ('prepare', 'report') and not args.label:
         parser.error(f'{args.action} requires a label')
     if args.repeats < 1 or len(set(args.modes)) != len(args.modes):
         parser.error('Use positive repeats and unique modes')
-    if args.action == 'prepare': prepare(root, args.modes, args.repeats, args.model, args.effort, args.service_tier)
+    if args.action == 'prepare': prepare(root, args.modes, args.repeats, args.model, args.effort, args.service_tier, args.single_turn)
     elif args.action == 'report': report(root)
     elif args.action == 'start': start(root, args.label)
     elif args.action == 'stop': stop(root, args.label)

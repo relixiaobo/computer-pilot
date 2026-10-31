@@ -9,6 +9,7 @@ final class Field: NSTextField {
 final class Delegate: NSObject, NSApplicationDelegate {
     var window: NSWindow!
     var choiceLabel: NSTextField!
+    var urgentLabel: NSTextField!
     func applicationDidFinishLaunching(_ notification: Notification) {
         window = NSWindow(contentRect: NSRect(x: 50, y: 360, width: 400, height: 440),
                           styleMask: [.titled, .closable], backing: .buffered, defer: false)
@@ -42,6 +43,13 @@ final class Delegate: NSObject, NSApplicationDelegate {
         let next = NSButton(title: "Next page", target: self, action: #selector(nextPage))
         next.frame = NSRect(x: 270, y: 360, width: 100, height: 26)
         window.contentView!.addSubview(next)
+        let urgent = NSButton(checkboxWithTitle: "Urgent", target: self, action: #selector(toggleUrgent(_:)))
+        urgent.frame = NSRect(x: 20, y: 420, width: 100, height: 20)
+        urgent.state = .on
+        window.contentView!.addSubview(urgent)
+        urgentLabel = NSTextField(labelWithString: "Urgent callback: untouched")
+        urgentLabel.frame = NSRect(x: 120, y: 420, width: 260, height: 20)
+        window.contentView!.addSubview(urgentLabel)
         window.orderBack(nil)
         window.makeKey()
         window.makeMain()
@@ -49,6 +57,10 @@ final class Delegate: NSObject, NSApplicationDelegate {
     }
     @objc func selectRoute(_ sender: NSPopUpButton) {
         choiceLabel.stringValue = "Choice: \(sender.titleOfSelectedItem!)"
+        NSAccessibility.post(element: NSApp!, notification: .valueChanged)
+    }
+    @objc func toggleUrgent(_ sender: NSButton) {
+        urgentLabel.stringValue = "Urgent callback: \(sender.state == .on ? "on" : "off")"
         NSAccessibility.post(element: NSApp!, notification: .valueChanged)
     }
     @objc func nextPage() {

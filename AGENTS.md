@@ -95,6 +95,7 @@ These rules are derived from browser-pilot lessons and project experience. Follo
 
 - **JSON when piped, human when TTY.** Detect via `process.stdout.isTTY`.
 - **Keep it flat and short.** `[3] button "Submit" (10,40 30x24)` beats a 10-line JSON object.
+- Preserve scalar `AXValue` in `value`: text, booleans as `0`/`1`, and exact numeric strings (including checkbox mixed state `2`). Decode the existing read; do not add a state query.
 - **Include hints only in errors, not in success.** Don't explain what went well.
 - **Every element in snapshot must have a ref.** Only interactive roles get refs. Static layout elements are skipped.
 - Always return `{"ok": false, "error": "...", "hint": "..."}` on failure. Never fail silently.
