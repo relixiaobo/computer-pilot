@@ -195,7 +195,8 @@ try:
     outputs = [json.loads(line) for line in grouped.stdout.splitlines()]
     current = outputs[-1]
     assert len(outputs) == 3 and "base_observation_id" not in current, outputs
-    assert outputs[:2] == [{"ok": True, "method": "ax-set-value"}] * 2, outputs[:2]
+    assert outputs[:2] == [{"ok": True, "method": "ax-set-value", "confidence": "medium",
+                           "dispatched": True, "ax_value_written": True}] * 2, outputs[:2]
     state = {e["ref"]: e for e in current["elements"]}
     full = run("snapshot", app, "--limit", "200")
     assert {r: e.get("value") for r, e in state.items()} == {
@@ -300,7 +301,9 @@ try:
     option = next(e for e in opened["snapshot"]["elements"]
                   if e["role"] == "menuitem" and e.get("title") == "Proxy")
     selected = session("perform", option["ref"], "AXPress", shell="/bin/bash")
-    assert "available_actions" not in selected and "effect_advice" not in selected, selected
+    assert "available_actions" not in selected, selected
+    assert selected["dispatched"] is True and selected["effect_verified"] is None, selected
+    assert selected["confidence"] == "medium" and selected["effect_advice"], selected
     chosen = session("snapshot")
     assert any(e.get("value") == "Choice: Proxy" for e in chosen["elements"]), chosen
     assert not any(e["role"] == "menuitem" for e in chosen["elements"]), chosen

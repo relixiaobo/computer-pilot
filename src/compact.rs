@@ -34,15 +34,9 @@ pub fn apply(value: &mut Value) {
         "window_id",
         "command_id",
         "command_status",
-        "confidence",
         "settle_ms",
     ] {
         object.remove(key);
-    }
-    for key in ["dispatched", "ax_value_written"] {
-        if object.get(key) == Some(&Value::Bool(true)) {
-            object.remove(key);
-        }
     }
     // Receipts echo arguments already supplied by the caller. Keep the route
     // and observed effect; full field contents remain in observations.
@@ -59,16 +53,12 @@ pub fn apply(value: &mut Value) {
         }
         Some("ax-perform") => {
             object.remove("action");
-            object.remove("effect_advice");
         }
         Some("unicode-pid" | "unicode-global" | "paste-pid" | "paste-global") => {
             object.remove("text");
         }
         Some("key-pid" | "key-global") => {
             object.remove("combo");
-            if object.get("effect_verified") == Some(&Value::Null) {
-                object.remove("effect_advice");
-            }
         }
         _ => {}
     }
@@ -110,6 +100,42 @@ fn compact_element(value: &mut Value) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn action_receipts_keep_dispatch_confidence_and_effect_advice() {
+        for (mut result, echo) in [
+            (
+                serde_json::json!({
+                    "ok": true, "method": "ax-set-value", "dispatched": true,
+                    "ax_value_written": true, "confidence": "low",
+                    "controlled_editor_risk": true, "value": "Draft",
+                    "effect_advice": "AXValue does not prove input handlers ran"
+                }),
+                "value",
+            ),
+            (
+                serde_json::json!({
+                    "ok": true, "method": "ax-perform", "dispatched": true,
+                    "effect_verified": null, "confidence": "medium", "action": "AXPress",
+                    "effect_advice": "AX accepted the action; observe its effect"
+                }),
+                "action",
+            ),
+            (
+                serde_json::json!({
+                    "ok": true, "method": "key-pid", "dispatched": true,
+                    "effect_verified": null, "confidence": "medium", "combo": "escape",
+                    "effect_advice": "No generic observable effect; inspect before retry"
+                }),
+                "combo",
+            ),
+        ] {
+            let mut expected = result.clone();
+            expected.as_object_mut().unwrap().remove(echo);
+            apply(&mut result);
+            assert_eq!(result, expected);
+        }
+    }
 
     #[test]
     fn partial_and_unverified_results_keep_their_recovery_evidence() {
