@@ -5,6 +5,7 @@
 //! --text which matches by content rather than position.
 
 use crate::ax;
+use crate::broker;
 use crate::error::CuError;
 use crate::system;
 use std::time::{Duration, Instant};
@@ -105,17 +106,12 @@ pub fn wait_for(
 
         let elapsed = start.elapsed().as_millis() as u64;
 
-        if met {
+        if met || Instant::now() >= deadline {
+            // Return refs from the same observation the next action will use.
+            // Timeout snapshots also remain usable for recovery.
+            broker::publish_observation(pid, &snap);
             return Ok(WaitResult {
-                met: true,
-                elapsed_ms: elapsed,
-                snapshot: snap,
-            });
-        }
-
-        if Instant::now() >= deadline {
-            return Ok(WaitResult {
-                met: false,
+                met,
                 elapsed_ms: elapsed,
                 snapshot: snap,
             });

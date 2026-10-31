@@ -105,6 +105,10 @@ These rules are derived from browser-pilot lessons and project experience. Follo
   next target depends on the result. Do not add per-field or pre-save model
   rounds. Task-local shell helpers may reuse CLI arguments; they are not a new
   transport or Agent API. Preserve target/ref identity and clipboard guarantees.
+- `wait` publishes its final snapshot, including on timeout, so returned refs
+  can be used directly. Do not add a snapshot round after a completed wait.
+- Enumerate supported AX actions on failure only; successful dispatch does not
+  need another capability query or a list of actions.
 
 ### 2. Auto-snapshot after every action
 

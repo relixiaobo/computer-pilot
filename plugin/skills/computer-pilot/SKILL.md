@@ -59,56 +59,64 @@ For Browser UI, use Browser Pilot when available. Read
 
 Use `cu --compact snapshot "<known app>" --limit 200` to start ordinary UI
 work. Use `state` only when window/display metadata or a screenshot is needed.
-Prefer `set-value` for native fields; it avoids click/select/type.
+Prefer `set-value` for native textfields/textareas and editable comboboxes.
+For a dropdown, open it, observe its menu items, then use `perform <item> AXPress`
+(or the supported action reported on failure). An AXValue write to a popup can
+be accepted without selecting the option or firing its application handler.
 
 Group known actions in one shell call, including filling fields and an
-already-authorized Save/Next. Observe once at the boundary where a new page,
-dialog or unknown target requires another decision. Do not add a pre-save
-inspection, per-field check, or second confirmation of an observed result.
-Use `cu wait` for a specific asynchronous condition, never a fixed sleep.
-External effects still require the user's authorization; grouping adds none.
+already-authorized Save/Next. Observe once when a new page, dialog or unknown
+target requires another decision. Skip per-field/pre-save inspections and
+repeated confirmation of an observed result. External effects still require
+the user's authorization; grouping adds none.
 
-For a task with multiple rounds, save its setup **once** in a task-owned shell
-file (use the verified binary and exact PID returned by the first observation):
+For multiple rounds, save setup once in a task-owned shell file. The helper is
+[scripts/session.sh](scripts/session.sh), **relative to this SKILL.md, not the
+repository root**. Use its resolved absolute path:
 
 ```bash
 # /absolute/task/cu-env.sh
 export CU_BIN="/verified/path/to/cu"
 export CU_APP="pid:89806"
 export COMPUTER_PILOT_CLIENT_KEY="<stable-task-key>"
-# Set COMPUTER_PILOT_OUTPUT_DIR here only if creating screenshots/files.
-. /absolute/path/to/computer-pilot/scripts/session.sh
+# Keep any supplied COMPUTER_PILOT_HOME and COMPUTER_PILOT_OUTPUT_DIR here too.
+. /absolute/skill-directory/scripts/session.sh
 ```
 
-Reuse that file in each shell invocation instead of rewriting environment,
-PID, observation IDs and action flags. The bundled helper is ordinary shell;
-`cu_do` invokes the CLI with this PID, skips intermediate snapshots/effect
-checks, and stops the group on errors. `cu_see` returns one compact observation.
-For example, when refs 7, 12 and Save button 15 are in the current observation:
+Use the directory from which you read this skill. In this repository the helper
+is `plugin/skills/computer-pilot/scripts/session.sh`.
+
+Source that task file in each shell call. Its `cu` function wraps the verified
+binary, retaining the task environment for reads, waits and actions. It supplies
+the chosen app for UI commands; do not repeat `--app` or a positional app.
+Actions omit intermediate snapshots/effect checks and stop the group on errors.
+`cu snapshot` observes up to 200 elements; `cu wait` returns usable fresh refs.
+For example, with refs 7, 12 and Save 15 in the current observation:
 
 ```bash
 . /absolute/task/cu-env.sh
-cu_do set-value 7 "Quarterly review"
-cu_do set-value 12 "Draft"
-cu_do click 15
-cu_see
+cu set-value 7 "Quarterly review"
+cu set-value 12 "Draft"
+cu click 15
+cu wait --text "Saved"
 ```
 
-The latest observation for this task and PID is selected automatically; repeat
-`--observation` only when deliberately binding an older observation. Ref and
-PID freshness checks remain active. Do not reuse pre-navigation refs after
-layout changes. Intermediate dispatch is not proof of the final task outcome;
-read the boundary state and stop once the requested outcome is shown.
+Use `cu snapshot` at a synchronous boundary, or `cu wait` for a known asynchronous
+condition; the wait's snapshot is already the observation, so do not snapshot
+again. Do not add fixed sleeps. After `stale_observation`, observe once and use
+the current target; do not cycle through old refs, coordinates and OCR. Use OCR
+when the control lacks AX support, not when a ref merely expired.
 
-For a short task, use the CLI directly. Intermediate actions take
-`--no-snapshot`; `click`, `type` and `key` also take `--no-verify`. Keep the
-final action's attached snapshot or issue one explicit snapshot in the same
-shell call. Do not add a model round solely to inspect an intermediate result.
+The helper passes root-option invocations through unchanged. For full JSON use
+`cu --json snapshot "$CU_APP" --limit 200` in the same sourced shell. Other commands
+such as `tell`, `sdef`, `launch` and recovery keep their ordinary CLI arguments.
+For a single short task, direct CLI actions can use `--no-snapshot` and
+`--no-verify`; inspect the result at the group boundary.
 
 ## Targeting Rules
 
-Pass `--app` to `click`, `type`, `key`, `scroll`, `hover`, `drag`, `set-value`,
-and `perform` when targeting a background app. Without `--app`, input is
+Outside the session helper, pass `--app` to `click`, `type`, `key`, `scroll`,
+`hover`, `drag`, `set-value` and `perform` when targeting a background app. Without `--app`, input is
 delivered to the current frontmost PID without moving the user's cursor. Treat
 any `*-global` method as disruptive: it appears only when `--allow-global` was
 explicitly supplied. Terminal and IDE frontmost targets still require an
@@ -187,13 +195,14 @@ An `axPath` avoids ref renumbering but does not make intent permanent.
 ## Output And Errors
 
 `--compact` is concise JSON for ref-based agent work. It omits geometry,
-axPaths, routine command metadata and echoed `set-value` arguments, while
-retaining labels, values, target PID, observation IDs, effect/focus results,
-and all advisories/errors. Use ordinary `--json` when coordinates, full
+axPaths, routine command metadata, echoed action arguments and routine
+dispatch reminders. It retains observed labels/values, PID/observation identity,
+effect/focus results and actionable advisories/errors. Success receipts report
+dispatch; only observations and explicit verification report UI effects. Use ordinary `--json` when coordinates, full
 metadata or machine integration are needed. Error and recovery output stays
 complete in both modes.
 
-Action snapshots and compact explicit snapshots return changed refs when a
+Action, wait and compact explicit snapshots return changed refs when a
 baseline exists. With `base_observation_id`, merge `elements` into that prior
 observation and remove `removed_refs`; unchanged refs retain their content.
 The new `observation_id` applies to the whole resulting tree. An empty delta

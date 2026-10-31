@@ -28,7 +28,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 /// CLIs never restart each other's Broker; an older one is retired through
 /// StopIfIdle so a bug fix that did not change the wire format still takes
 /// effect. The machine therefore converges on the newest installed version.
-const INTERNAL_PROTOCOL: u32 = 5;
+const INTERNAL_PROTOCOL: u32 = 6;
 const DEFAULT_TIMEOUT_MS: u64 = 60_000;
 const MAX_TIMEOUT_MS: u64 = 300_000;
 const MAX_RECORDS: usize = 2048;
@@ -1725,7 +1725,8 @@ fn execute_child(
         );
         finish_child(shared, command_id, status, stdout, stderr, 1);
     } else {
-        if completed_exit_code == Some(0) {
+        // A timed-out wait still returns a valid final observation for recovery.
+        if completed_exit_code == Some(0) || options.command == "wait" {
             stdout = capture_observation(shared, options, &observation_path, stdout);
         } else {
             let _ = fs::remove_file(&observation_path);
@@ -1805,7 +1806,8 @@ fn capture_observation(
         return serde_json::to_string(&output).unwrap_or(stdout);
     };
     if let Some(previous) = previous.filter(|previous| {
-        previous.diffable
+        output.get("ok") == Some(&serde_json::Value::Bool(true))
+            && previous.diffable
             && previous.window_id == record.window_id
             && previous.bundle_id == record.bundle_id
             && previous.limit == record.limit

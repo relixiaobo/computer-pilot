@@ -3014,17 +3014,13 @@ fn cmd_perform(
     };
     let snapshot_app = fixed_target_selector(Some(pid), &app);
 
-    let (selector_kind, selector_value, available) = if let Some(p) = ax_path.as_deref() {
+    let (selector_kind, selector_value) = if let Some(p) = ax_path.as_deref() {
         ax::ax_perform_by_path(pid, p, &action)?;
-        (
-            "ax-path",
-            serde_json::Value::String(p.to_string()),
-            Vec::<String>::new(),
-        )
+        ("ax-path", serde_json::Value::String(p.to_string()))
     } else {
         let r = ref_id.unwrap();
-        let avail = ax::ax_perform(pid, r, limit, &action)?;
-        ("ref", serde_json::Value::Number(r.into()), avail)
+        ax::ax_perform(pid, r, limit, &action)?;
+        ("ref", serde_json::Value::Number(r.into()))
     };
 
     let mut result = serde_json::json!({
@@ -3035,7 +3031,6 @@ fn cmd_perform(
         "method": "ax-perform",
         "dispatched": true,
         "effect_verified": serde_json::Value::Null,
-        "available_actions": available,
     });
     result["effect_advice"] = "AX accepted the action. Check the final state for the intended effect; use cu wait for asynchronous transitions.".into();
     let _ = capture_and_maybe_attach_snapshot(

@@ -1,26 +1,27 @@
-# Source from a task-owned shell file that sets CU_BIN, CU_APP and
-# COMPUTER_PILOT_CLIENT_KEY. These functions only invoke the public CLI.
-# A group stops on the first failed command; cu_see observes its result once.
+# Source from a task-owned file exporting CU_BIN, CU_APP and the task's
+# COMPUTER_PILOT_* environment. Every call uses the same binary and session.
 set -e
 
-cu_do() {
+cu() {
     case "$1" in
         click|type|key)
-            command "${CU_BIN:?set the verified Computer Pilot binary path}" --compact "$@" \
-                --app "${CU_APP:?set the chosen pid selector}" --no-snapshot --no-verify
+            set -- "$@" --app "${CU_APP:?set the chosen pid selector}" --no-snapshot --no-verify
             ;;
         set-value|perform|scroll|hover|drag)
-            command "${CU_BIN:?set the verified Computer Pilot binary path}" --compact "$@" \
-                --app "${CU_APP:?set the chosen pid selector}" --no-snapshot
+            set -- "$@" --app "${CU_APP:?set the chosen pid selector}" --no-snapshot
             ;;
-        *)
-            printf 'cu_do accepts action commands; use cu_see or the CLI for reads\n' >&2
-            return 2
+        snapshot)
+            if [ "$#" -eq 1 ]; then set -- "$@" --limit 200; fi
+            set -- "$@" "${CU_APP:?set the chosen pid selector}"
+            ;;
+        state|ocr|menu)
+            set -- "$@" "${CU_APP:?set the chosen pid selector}"
+            ;;
+        wait|find|why|screenshot|nearest|observe-region)
+            set -- "$@" --app "${CU_APP:?set the chosen pid selector}"
             ;;
     esac
-}
-
-cu_see() {
-    command "${CU_BIN:?set the verified Computer Pilot binary path}" --compact snapshot \
-        "${CU_APP:?set the chosen pid selector}" --limit 200
+    # Root options are an explicit ordinary-CLI invocation (e.g. --json).
+    case "$1" in --*) ;; *) set -- --compact "$@" ;; esac
+    command "${CU_BIN:?set the verified Computer Pilot binary path}" "$@"
 }

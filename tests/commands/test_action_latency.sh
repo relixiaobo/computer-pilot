@@ -185,9 +185,9 @@ try:
     exact = "compact中文😀\n\"quoted\"\\path " * 40
     script = "\n".join([
         ". " + shlex.quote(str(helper)),
-        shlex.join(["cu_do", "set-value", ref, exact]),
-        shlex.join(["cu_do", "set-value", str(other["ref"]), "second-field"]),
-        "cu_see",
+        shlex.join(["cu", "set-value", ref, exact]),
+        shlex.join(["cu", "set-value", str(other["ref"]), "second-field"]),
+        "cu snapshot",
     ])
     grouped = subprocess.run(["/bin/sh", "-ec", script], env=env,
                              capture_output=True, text=True, timeout=15)
@@ -195,6 +195,7 @@ try:
     outputs = [json.loads(line) for line in grouped.stdout.splitlines()]
     delta = outputs[-1]
     assert len(outputs) == 3 and delta["base_observation_id"] == first["observation_id"], outputs
+    assert outputs[:2] == [{"ok": True, "method": "ax-set-value"}] * 2, outputs[:2]
     for removed in delta["removed_refs"]:
         state.pop(removed)
     state.update({e["ref"]: e for e in delta["elements"]})
@@ -209,14 +210,70 @@ try:
 
     # Failing an action stops the sourced helper's group before the next edit.
     failed = subprocess.run(["/bin/sh", "-ec", "\n".join([
-        ". " + shlex.quote(str(helper)), "cu_do click 99999",
-        shlex.join(["cu_do", "set-value", ref, "must-not-run"]), "cu_see",
+        ". " + shlex.quote(str(helper)), "cu click 99999",
+        shlex.join(["cu", "set-value", ref, "must-not-run"]), "cu snapshot",
     ])], env=env, capture_output=True, text=True, timeout=15)
     assert failed.returncode != 0 and not failed.stdout, failed
     error = json.loads(failed.stderr)
     assert error["ok"] is False and error["code"] == "stale_observation", error
     final = run("snapshot", app, "--limit", "200")
     assert next(e for e in final["elements"] if e["ref"] == int(ref))["value"] == exact
+
+    # Use the same task file for every kind of command and across new shells.
+    # The configured binary must win even if another `cu` is on PATH.
+    config = bundle.parent / "cu-env.sh"
+    config.write_text("\n".join(
+        f"export {key}={shlex.quote(env[key])}" for key in
+        ("CU_BIN", "CU_APP", "COMPUTER_PILOT_CLIENT_KEY")
+    ) + "\n. " + shlex.quote(str(helper)) + "\n")
+
+    def session(*args, shell="/bin/sh", ok=True):
+        script = ". " + shlex.quote(str(config)) + "\n" + shlex.join(["cu", *map(str, args)])
+        p = subprocess.run([shell, "-ec", script], capture_output=True, text=True, timeout=15)
+        d = json.loads(p.stdout or p.stderr)
+        assert (p.returncode == 0) == ok and d["ok"] == ok, d
+        return d
+
+    # Menu selection uses AXPress and fires the application's real handler.
+    found = session("find", "--role", "popupbutton", "--first", shell="/bin/zsh")
+    popup = found["match"]["ref"]
+    session("perform", popup, "AXPress")
+    opened = session("wait", "--text", "Proxy", "--timeout", "3")
+    option = next(e for e in opened["snapshot"]["elements"]
+                  if e["role"] == "menuitem" and e.get("title") == "Proxy")
+    selected = session("perform", option["ref"], "AXPress", shell="/bin/bash")
+    assert "available_actions" not in selected and "effect_advice" not in selected, selected
+    chosen = session("wait", "--text", "Choice: Proxy", "--timeout", "3")
+    assert chosen["ok"], chosen
+    # Failure still exposes supported actions, without another why/snapshot.
+    found = session("find", "--role", "popupbutton", "--first")
+    rejected = session("perform", found["match"]["ref"], "AXBogusAction", ok=False)
+    assert "AXPress" in rejected["diagnostics"]["available_actions"], rejected
+
+    # Replace the entire view asynchronously. Refs returned by wait must be
+    # usable directly, without a redundant snapshot to register them first.
+    found = session("find", "--role", "button", "--title-equals", "Next page", "--first")
+    session("click", found["match"]["ref"])
+    ready = session("wait", "--text", "Ready for input", "--timeout", "3")
+    field = next(e for e in ready["snapshot"]["elements"] if e["role"] == "textfield")
+    session("set-value", field["ref"], "after-wait中文😀")
+    # On timeout the last state remains actionable and is returned in full.
+    expired = session("wait", "--text", "never present", "--timeout", "0", ok=False)
+    assert "base_observation_id" not in expired["snapshot"], expired
+    last = next(e for e in expired["snapshot"]["elements"] if e["role"] == "textfield")
+    assert last["value"] == "after-wait中文😀", last
+    session("set-value", last["ref"], "after-timeout", "--observation", expired["observation_id"])
+    full = session("--json", "snapshot", app)
+    assert full["client_key"] == "compact-latency" and full["pid"] == fixture.pid, full
+    assert full["elements"][0]["value"] == "after-timeout" and "axPath" in full["elements"][0], full
+    selected = session("key", "cmd+a")
+    # NSTextField treats a newline as submit; exercise long event input without
+    # submitting this single-line editor. AXValue above covers exact newlines.
+    event_text = exact.replace("\n", " ")
+    typed = session("type", event_text, "--no-paste")
+    assert "combo" not in selected and "text" not in typed, (selected, typed)
+    full = session("--json", "snapshot", app)
+    assert full["elements"][0]["value"] == event_text, full
 
 finally:
     fixture.terminate()

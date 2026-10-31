@@ -1979,12 +1979,7 @@ pub fn ax_set_value(pid: i32, ref_id: usize, _limit: usize, value: &str) -> Resu
 /// Find element by ref and perform a named AX action (e.g. AXShowMenu,
 /// AXIncrement, AXScrollToVisible). On failure, the hint includes the list
 /// of actions the element actually supports — feed that back to the agent.
-pub fn ax_perform(
-    pid: i32,
-    ref_id: usize,
-    _limit: usize,
-    action: &str,
-) -> Result<Vec<String>, CuError> {
+pub fn ax_perform(pid: i32, ref_id: usize, _limit: usize, action: &str) -> Result<(), CuError> {
     unsafe {
         let app_el = create_app_element(pid);
         if app_el.is_null() {
@@ -1999,9 +1994,11 @@ pub fn ax_perform(
         let walk_root = window_el.unwrap_or(app_el);
 
         let (result, counter) = resolve_ref_with(walk_root, ref_id, |element, _, _| {
-            let success = try_action(element, action);
-            let available = copy_action_names(element);
-            (success, available)
+            if try_action(element, action) {
+                Ok(())
+            } else {
+                Err(copy_action_names(element))
+            }
         });
 
         if let Some(w) = window_el {
@@ -2010,8 +2007,8 @@ pub fn ax_perform(
         CFRelease(app_el);
 
         match result {
-            Some((true, available)) => Ok(available),
-            Some((false, available)) => {
+            Some(Ok(())) => Ok(()),
+            Some(Err(available)) => {
                 let mut err = CuError::msg(format!(
                     "element [{ref_id}] does not support {action}"
                 ));

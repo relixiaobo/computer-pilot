@@ -33,9 +33,33 @@ pub fn apply(value: &mut Value) {
             object.remove(key);
         }
     }
-    // This value is the supplied argument, not a read-back verification.
-    if object.get("method").and_then(Value::as_str) == Some("ax-set-value") {
-        object.remove("value");
+    // Receipts echo arguments already supplied by the caller. Keep the route
+    // and observed effect; full field contents remain in observations.
+    if object.contains_key("method") {
+        object.remove("app");
+        if object.remove("ref").is_some() {
+            object.remove("x");
+            object.remove("y");
+        }
+    }
+    match object.get("method").and_then(Value::as_str) {
+        Some("ax-set-value") => {
+            object.remove("value");
+        }
+        Some("ax-perform") => {
+            object.remove("action");
+            object.remove("effect_advice");
+        }
+        Some("unicode-pid" | "unicode-global" | "paste-pid" | "paste-global") => {
+            object.remove("text");
+        }
+        Some("key-pid" | "key-global") => {
+            object.remove("combo");
+            if object.get("effect_verified") == Some(&Value::Null) {
+                object.remove("effect_advice");
+            }
+        }
+        _ => {}
     }
     if let Some(snapshot) = object.get_mut("snapshot") {
         compact_snapshot(snapshot);

@@ -368,7 +368,7 @@ labels, values and warnings, omits geometry/routine metadata, and returns change
 refs after the first observation. Ordinary `--json` remains the complete machine
 interface. For multi-round tasks, the skill's `scripts/session.sh` reuses a chosen
 PID and task environment: batch known edits plus authorized Save/Next, then
-observe once with `cu_see`. No per-field or pre-save model round is required.
+observe once with `cu snapshot` or `cu wait`. No per-field or pre-save model round is required.
 
 ## Architecture
 
