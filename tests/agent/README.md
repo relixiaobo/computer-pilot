@@ -232,6 +232,88 @@ success. An interrupted turn's zero completed-turn sum is **not** its elapsed
 time: report the interruption duration separately and omit it from successful
 timing comparisons.
 
+## Recovery state and menu transitions (2026-10-31)
+
+Two further frozen four-attempt wizard blocks tested the remaining recovery and
+menu costs. All eight tasks passed, using the same model/settings and protocol-v2
+fresh-profile procedure below. Actual initial contexts contained no global or
+project AGENTS. Each attempt had its own neutral cwd, app state and, for cu,
+Broker/client/output directory. There were no replacements, coaching or input
+changes within either block.
+
+The first candidate, `7ee446b`, fixes discarded recovery state: a stale-ref check
+already reads the current UI, so its error now returns that same snapshot in
+`diagnostics.snapshot` and registers the refs. The Broker captures published
+observations from either output stream without a success/wait special case.
+Compact error snapshots use the same presentation as successful snapshots while
+preserving error metadata and full text. No extra AX read or validation is added.
+
+| Candidate / dataset | cu seconds | Native seconds | cu / native calls | cu / native errors |
+| --- | ---: | ---: | ---: | ---: |
+| Recovery state / 1 | 238.292 | 163.614 | 37 / 34 | 2 / 0 |
+| Recovery state / 2 | 198.001 | 175.730 | 32 / 33 | 2 / 1 |
+| Menu transition / 1 | 104.485 | 156.766 | 31 / 32 | 0 / 0 |
+| Menu transition / 2 | 182.350 | 126.096 | 33 / 33 | 1 / 0 |
+
+In the recovery-state block, cu directly reused three of four stale-error
+snapshots; one still prompted a redundant observation. This removed real recovery
+work but did not establish an overall speed improvement: the median paired
+cu/native time ratio was **1.292**. A premature menu selection plus navigation
+also exposed a race: the UI reached the policy page, then a delayed menu callback
+rebuilt the network page. Native also repeated an accepted menu selection and
+recovered from an invalid element ID in its second attempt.
+
+Separate owned AppKit probes isolated that race. Menu-item AXPress returned in
+**73–81 ms**, while the immediately following snapshot still contained the menu.
+`AXMenuClosed` arrived roughly 400 ms after the probe was armed; by then the new
+selection and dynamically added/removed fields were visible. The final candidate,
+`7954532`, reuses the existing AX observer and 500 ms deadline specifically for
+menu-item AXPress. It subscribes before dispatch to menu close/open notifications
+(the latter allows submenu opening), then returns after a notification or the
+deadline. It adds no snapshot, polling loop, retry or fixed sleep. Missing
+subscription support keeps the existing immediate-dispatch behavior; this is a
+bounded transition wait, not a universal proof that an app finished all work.
+
+After this change, ref perform, ref click and path perform took **447–489 ms** in
+the dynamic-menu probe. Their immediate snapshots all showed the correct selected
+value and conditional fields, with no departing menu. The new menu subscription
+does not apply to ordinary field actions. The skill also observes controls after
+menu selection and uses `./cu-env.sh` in a fixed task cwd, retaining absolute paths
+when cwd changes.
+In the preceding cu traces, repeated source paths accounted for 2,380/2,040 of
+4,088/3,595 subsequent command characters; short paths remove that repetition.
+
+In the final block, all four cu menu selections led directly to the expected
+controls: **zero stale menu errors**, compared with four stale errors in the
+preceding block. Output tokens fell from **5,696/4,858 to 3,489/3,755** (31% fewer
+combined); calls were **31/33**, versus native's **32/33**. Median full-task times
+were **143.4/141.4 seconds** for cu/native, and the median paired ratio was
+**1.056**. Each arm won one pair. Tool intervals were cu **9.122/8.976 seconds**,
+native **19.583/19.495**; most elapsed time remains outside tools. These small
+historical blocks do not isolate the timing effect of each change or prove a
+general speed advantage.
+
+Remaining strategy costs are retained. cu still sometimes took a snapshot before
+a known wait; its second final attempt read the helper and invented
+`--timeout-ms`, then recovered without repeating the preceding confirmation.
+Later `--timeout 10000` values were seconds, not milliseconds, although all those
+conditions met promptly. No compatibility alias or task-specific solver was
+added. Native used a screenshot and extra state reads around one menu transition.
+
+Validation: 43 Rust tests, Clippy, release build and skill validation passed.
+The owned command fixture verifies recovery after a changed value, missing ref
+and changed window without a redundant snapshot; stale writes remain rejected.
+It also verifies immediate menu callback state through all three action entry
+points. One intermediate run hit the existing long-Unicode snapshot-equality
+assertion; two subsequent isolated runs passed, with typing code unchanged.
+Benchmark/probe-owned processes were stopped, and actual configuration/plugin
+hashes and non-overlapping execution were checked. macOS user-session state and
+the native service remain shared, so this is not a VM-isolation result.
+
+[Recovery-state attempts](benchmarks/recovery-state-2026-10-31.json) and
+[final menu-transition attempts plus probe measurements](benchmarks/menu-transition-2026-10-31.json)
+retain every outcome, audit and evidence hash. Full traces and reasoning stay local.
+
 ## Shorter skill follow-up (2026-10-31)
 
 Candidate `bce1315` shortened the skill entrypoint from 289 lines / 13,744 bytes

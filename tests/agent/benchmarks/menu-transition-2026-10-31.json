@@ -1,0 +1,1946 @@
+{
+  "manifest": {
+    "protocol_version": 2,
+    "single_turn": true,
+    "sequence": [
+      {
+        "label": "wizard-1-native",
+        "mode": "wizard",
+        "repeat": 1,
+        "arm": "native"
+      },
+      {
+        "label": "wizard-1-cu",
+        "mode": "wizard",
+        "repeat": 1,
+        "arm": "cu"
+      },
+      {
+        "label": "wizard-2-cu",
+        "mode": "wizard",
+        "repeat": 2,
+        "arm": "cu"
+      },
+      {
+        "label": "wizard-2-native",
+        "mode": "wizard",
+        "repeat": 2,
+        "arm": "native"
+      }
+    ],
+    "settings": {
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null
+    },
+    "fingerprints": {
+      "target/release/cu": "f467ad32a004ff4f074fb8abb723a9658fc208173261b0003fa59fb64061af33",
+      "tests/fixtures/varied-workflows.swift": "5ac65cfd49a34286cb2292a8431434775ac24531b149be75566008dfe3857cb3",
+      "tests/agent/benchmark_varied_workflows.py": "b8ed936c23bef07cf3ed0753e5103a3f184670daf4ca9615f39fc65df587970e",
+      "tests/agent/collect_codex_benchmark.py": "a35fba949ee73222e5e83eaeb35807ce8b7bfc43727c4db9fae4fa0f692f3d79",
+      "plugin/skills/computer-pilot/SKILL.md": "53c78c2c2ea5194f8f75d2030c48d6f5ae7c249bce6dcadc98b2dbf8e7f97f84",
+      "plugin/skills/computer-pilot/scripts/session.sh": "cb57e12ea7cc71a9e6fa83abf77a25664be598077428cdad73e5aa55ea7cd687"
+    },
+    "cu_commit": "7954532b3250693e8dc1194deccac4becb095f4b"
+  },
+  "actual_order": [
+    "wizard-1-native",
+    "wizard-1-cu",
+    "wizard-2-cu",
+    "wizard-2-native"
+  ],
+  "attempts": [
+    {
+      "label": "wizard-1-native",
+      "mode": "wizard",
+      "repeat": 1,
+      "arm": "native",
+      "status": "passed",
+      "reasons": [],
+      "pid": 19433,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/menu-transition-20261031/wizard-1-native/VariedWorkflow.app",
+      "runtime_home": null,
+      "source_sha256": "c7d17801f6b0204f9e46e385e78f00fdebb2f4492fbb8e968b4fcfff1f80df98",
+      "client_key": "wizard-1-native",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/menu-transition-20261031/wizard-1-native/output",
+      "thread_id": "01a191a7-b6ba-7e92-812e-ef5dde2e739b",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "native",
+          "thread_id": "01a191a7-b6ba-7e92-812e-ef5dde2e739b",
+          "turn_id": "01a191a7-b744-7580-be93-b7b095c526f4",
+          "started_at": "2026-10-31T11:10:50.200Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T11:13:26.959Z",
+          "elapsed_ms": 156766,
+          "final": "DONE",
+          "model_calls": 33,
+          "tokens": {
+            "input_tokens": 939457,
+            "cached_input_tokens": 907136,
+            "output_tokens": 1706,
+            "total_tokens": 941163,
+            "reasoning_output_tokens": 25
+          },
+          "tool_calls": 32,
+          "tool_output_chars": 46038,
+          "tool_errors": 0,
+          "tool_interval_ms": 19583,
+          "non_tool_interval_ms": 137183,
+          "label": "wizard-1-native"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "review_correction_used_back": true,
+          "all_applies_confirmed": true
+        },
+        "expected": {
+          "P101": {
+            "Host": "node-1-1.example.test",
+            "Route": "Proxy",
+            "Port": "443",
+            "TLS": "true",
+            "Retention days": "30",
+            "Audit": "true",
+            "Limit": "117",
+            "Tag": "release-1-区1",
+            "Proxy server": "proxy-1-1.example.test:8080"
+          },
+          "P102": {
+            "Host": "node-1-2.example.test",
+            "Route": "Direct",
+            "Port": "80",
+            "TLS": "false",
+            "Retention days": "14",
+            "Audit": "false",
+            "Limit": "217",
+            "Tag": "release-1-区2"
+          },
+          "P103": {
+            "Host": "node-1-3.example.test",
+            "Route": "Proxy",
+            "Port": "443",
+            "TLS": "true",
+            "Retention days": "30",
+            "Audit": "true",
+            "Limit": "317",
+            "Tag": "release-1-区3",
+            "Proxy server": "proxy-1-3.example.test:8080"
+          },
+          "P104": {
+            "Host": "node-1-4.example.test",
+            "Route": "Direct",
+            "Port": "80",
+            "TLS": "false",
+            "Retention days": "7",
+            "Audit": "false",
+            "Limit": "417",
+            "Tag": "release-1-区4"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "open",
+              "ID": "P101"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-1-1.example.test",
+              "ID": "P101",
+              "Port": "443",
+              "Proxy server": "proxy-1-1.example.test:8080",
+              "Route": "Proxy",
+              "TLS": "true"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "true",
+              "Host": "node-1-1.example.test",
+              "ID": "P101",
+              "Limit": "117",
+              "Port": "443",
+              "Proxy server": "proxy-1-1.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区1",
+              "TLS": "true"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "true",
+              "Host": "node-1-1.example.test",
+              "ID": "P101",
+              "Limit": "117",
+              "Port": "443",
+              "Proxy server": "proxy-1-1.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区1",
+              "TLS": "true"
+            },
+            {
+              "action": "applied",
+              "Audit": "true",
+              "Host": "node-1-1.example.test",
+              "ID": "P101",
+              "Limit": "117",
+              "Port": "443",
+              "Proxy server": "proxy-1-1.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区1",
+              "TLS": "true"
+            },
+            {
+              "action": "open",
+              "ID": "P102"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-1-2.example.test",
+              "ID": "P102",
+              "Port": "80",
+              "Route": "Direct",
+              "TLS": "false"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "false",
+              "Host": "node-1-2.example.test",
+              "ID": "P102",
+              "Limit": "217",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-1-区2",
+              "TLS": "false"
+            },
+            {
+              "action": "back-policy",
+              "ID": "P102"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "false",
+              "Host": "node-1-2.example.test",
+              "ID": "P102",
+              "Limit": "217",
+              "Port": "80",
+              "Retention days": "14",
+              "Route": "Direct",
+              "Tag": "release-1-区2",
+              "TLS": "false"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "false",
+              "Host": "node-1-2.example.test",
+              "ID": "P102",
+              "Limit": "217",
+              "Port": "80",
+              "Retention days": "14",
+              "Route": "Direct",
+              "Tag": "release-1-区2",
+              "TLS": "false"
+            },
+            {
+              "action": "applied",
+              "Audit": "false",
+              "Host": "node-1-2.example.test",
+              "ID": "P102",
+              "Limit": "217",
+              "Port": "80",
+              "Retention days": "14",
+              "Route": "Direct",
+              "Tag": "release-1-区2",
+              "TLS": "false"
+            },
+            {
+              "action": "open",
+              "ID": "P103"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-1-3.example.test",
+              "ID": "P103",
+              "Port": "443",
+              "Proxy server": "proxy-1-3.example.test:8080",
+              "Route": "Proxy",
+              "TLS": "true"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "true",
+              "Host": "node-1-3.example.test",
+              "ID": "P103",
+              "Limit": "317",
+              "Port": "443",
+              "Proxy server": "proxy-1-3.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区3",
+              "TLS": "true"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "true",
+              "Host": "node-1-3.example.test",
+              "ID": "P103",
+              "Limit": "317",
+              "Port": "443",
+              "Proxy server": "proxy-1-3.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区3",
+              "TLS": "true"
+            },
+            {
+              "action": "applied",
+              "Audit": "true",
+              "Host": "node-1-3.example.test",
+              "ID": "P103",
+              "Limit": "317",
+              "Port": "443",
+              "Proxy server": "proxy-1-3.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区3",
+              "TLS": "true"
+            },
+            {
+              "action": "open",
+              "ID": "P104"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-1-4.example.test",
+              "ID": "P104",
+              "Port": "80",
+              "Route": "Direct",
+              "TLS": "false"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "false",
+              "Host": "node-1-4.example.test",
+              "ID": "P104",
+              "Limit": "417",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-1-区4",
+              "TLS": "false"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "false",
+              "Host": "node-1-4.example.test",
+              "ID": "P104",
+              "Limit": "417",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-1-区4",
+              "TLS": "false"
+            },
+            {
+              "action": "applied",
+              "Audit": "false",
+              "Host": "node-1-4.example.test",
+              "ID": "P104",
+              "Limit": "417",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-1-区4",
+              "TLS": "false"
+            },
+            {
+              "action": "finished",
+              "ID": "P104"
+            }
+          ],
+          "mode": "wizard",
+          "order": [
+            "P101",
+            "P102",
+            "P103",
+            "P104"
+          ],
+          "records": {
+            "P101": {
+              "Audit": "true",
+              "Host": "node-1-1.example.test",
+              "Limit": "117",
+              "Port": "443",
+              "Proxy server": "proxy-1-1.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区1",
+              "TLS": "true"
+            },
+            "P102": {
+              "Audit": "false",
+              "Host": "node-1-2.example.test",
+              "Limit": "217",
+              "Port": "80",
+              "Retention days": "14",
+              "Route": "Direct",
+              "Tag": "release-1-区2",
+              "TLS": "false"
+            },
+            "P103": {
+              "Audit": "true",
+              "Host": "node-1-3.example.test",
+              "Limit": "317",
+              "Port": "443",
+              "Proxy server": "proxy-1-3.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区3",
+              "TLS": "true"
+            },
+            "P104": {
+              "Audit": "false",
+              "Host": "node-1-4.example.test",
+              "Limit": "417",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-1-区4",
+              "TLS": "false"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 156766,
+      "combined_turn_ms": 156766,
+      "evidence_sha256": {
+        "brief.txt": "9ba9de1cc50d9012a8d6418dc4b58f5af364cfb5b151eaf2d86f55d0e9befaa1",
+        "source.json": "c7d17801f6b0204f9e46e385e78f00fdebb2f4492fbb8e968b4fcfff1f80df98",
+        "saved.json": "634fd3ca6823872aca97d1ca9210c2b669573658704f089cfdd1f934bc64549a",
+        "trace.json": "084324eef10db389dd443fc87b6c77207b1914bea2ff48f659694785e90f5d48",
+        "runtime-context.json": "721ac5ab9a330768e08ef9bf6ccaaa567d9d0cc933d6e33d31287f37543acf8f",
+        "launch.json": "ef9845bf83fc6b6e952bb26787d85efc4b06221c67dc64bbaeb00f56c3ef6a8b",
+        "audit.json": "eba7c5a6575b72baf4c8f3cb1232c2e5ddf6366fa000fa601a903d4dd7f2f491"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Exact supplied app binding; only native task UI. Grouped live-source edits and navigation, with three extra state reads around proxy/list transitions. No errors or outside access. All original review, correction, saves and completion passed; no AGENTS context.",
+        "runtime_context": {
+          "contexts": [
+            {
+              "cwd": "/private/tmp/cu-menu-transition-20261031/wizard-1-native/work",
+              "model": "gpt-6-astra",
+              "effort": "high",
+              "service_tier": null
+            }
+          ],
+          "messages": [
+            {
+              "role": "developer",
+              "chars": 21420,
+              "sha256": "35bd51b5f577cb7b24cd5f4629e49e37cb724ab57754ce6f8f202001635bab8a",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 12743,
+              "sha256": "c0be28bf20b20c98e9c2662fbd152f609f0c31ff9d975adcedc0bbe813e527ba",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 2400,
+              "sha256": "3edd51083129388f52e881435e93e4b981e00c5ee3d62ab5d32e22c428fd504b",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 271,
+              "sha256": "6ded806e3cdbb35599ecaf8742574bc5274908472b1729090010c404c2151e8e",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 448,
+              "sha256": "38dea6f306041444bf92a6e0db5c45f1a49d257a5ef5ceed8fba6ac11b4542e2",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 2371,
+              "sha256": "9ba9de1cc50d9012a8d6418dc4b58f5af364cfb5b151eaf2d86f55d0e9befaa1",
+              "agents_injected": false
+            }
+          ],
+          "no_agents_injected": true,
+          "exit_code": 0
+        }
+      }
+    },
+    {
+      "label": "wizard-1-cu",
+      "mode": "wizard",
+      "repeat": 1,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 20550,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/menu-transition-20261031/wizard-1-cu/VariedWorkflow.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-varied-ked_8rxf",
+      "source_sha256": "c7d17801f6b0204f9e46e385e78f00fdebb2f4492fbb8e968b4fcfff1f80df98",
+      "client_key": "wizard-1-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/menu-transition-20261031/wizard-1-cu/output",
+      "thread_id": "01a191aa-2deb-7381-8c0b-fc39b4a890c9",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a191aa-2deb-7381-8c0b-fc39b4a890c9",
+          "turn_id": "01a191aa-2e18-7dc1-abd6-ae0ee2c70ac9",
+          "started_at": "2026-10-31T11:13:31.681Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T11:15:16.164Z",
+          "elapsed_ms": 104485,
+          "final": "DONE",
+          "model_calls": 32,
+          "tokens": {
+            "input_tokens": 896009,
+            "cached_input_tokens": 859392,
+            "output_tokens": 3489,
+            "reasoning_output_tokens": 700,
+            "total_tokens": 899498
+          },
+          "tool_calls": 31,
+          "tool_output_chars": 42858,
+          "tool_errors": 0,
+          "tool_interval_ms": 9122,
+          "non_tool_interval_ms": 95363,
+          "label": "wizard-1-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "review_correction_used_back": true,
+          "all_applies_confirmed": true
+        },
+        "expected": {
+          "P101": {
+            "Host": "node-1-1.example.test",
+            "Route": "Proxy",
+            "Port": "443",
+            "TLS": "true",
+            "Retention days": "30",
+            "Audit": "true",
+            "Limit": "117",
+            "Tag": "release-1-区1",
+            "Proxy server": "proxy-1-1.example.test:8080"
+          },
+          "P102": {
+            "Host": "node-1-2.example.test",
+            "Route": "Direct",
+            "Port": "80",
+            "TLS": "false",
+            "Retention days": "14",
+            "Audit": "false",
+            "Limit": "217",
+            "Tag": "release-1-区2"
+          },
+          "P103": {
+            "Host": "node-1-3.example.test",
+            "Route": "Proxy",
+            "Port": "443",
+            "TLS": "true",
+            "Retention days": "30",
+            "Audit": "true",
+            "Limit": "317",
+            "Tag": "release-1-区3",
+            "Proxy server": "proxy-1-3.example.test:8080"
+          },
+          "P104": {
+            "Host": "node-1-4.example.test",
+            "Route": "Direct",
+            "Port": "80",
+            "TLS": "false",
+            "Retention days": "7",
+            "Audit": "false",
+            "Limit": "417",
+            "Tag": "release-1-区4"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "open",
+              "ID": "P101"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-1-1.example.test",
+              "ID": "P101",
+              "Port": "443",
+              "Proxy server": "proxy-1-1.example.test:8080",
+              "Route": "Proxy",
+              "TLS": "true"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "true",
+              "Host": "node-1-1.example.test",
+              "ID": "P101",
+              "Limit": "117",
+              "Port": "443",
+              "Proxy server": "proxy-1-1.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区1",
+              "TLS": "true"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "true",
+              "Host": "node-1-1.example.test",
+              "ID": "P101",
+              "Limit": "117",
+              "Port": "443",
+              "Proxy server": "proxy-1-1.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区1",
+              "TLS": "true"
+            },
+            {
+              "action": "applied",
+              "Audit": "true",
+              "Host": "node-1-1.example.test",
+              "ID": "P101",
+              "Limit": "117",
+              "Port": "443",
+              "Proxy server": "proxy-1-1.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区1",
+              "TLS": "true"
+            },
+            {
+              "action": "open",
+              "ID": "P102"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-1-2.example.test",
+              "ID": "P102",
+              "Port": "80",
+              "Route": "Direct",
+              "TLS": "false"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "false",
+              "Host": "node-1-2.example.test",
+              "ID": "P102",
+              "Limit": "217",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-1-区2",
+              "TLS": "false"
+            },
+            {
+              "action": "back-policy",
+              "ID": "P102"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "false",
+              "Host": "node-1-2.example.test",
+              "ID": "P102",
+              "Limit": "217",
+              "Port": "80",
+              "Retention days": "14",
+              "Route": "Direct",
+              "Tag": "release-1-区2",
+              "TLS": "false"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "false",
+              "Host": "node-1-2.example.test",
+              "ID": "P102",
+              "Limit": "217",
+              "Port": "80",
+              "Retention days": "14",
+              "Route": "Direct",
+              "Tag": "release-1-区2",
+              "TLS": "false"
+            },
+            {
+              "action": "applied",
+              "Audit": "false",
+              "Host": "node-1-2.example.test",
+              "ID": "P102",
+              "Limit": "217",
+              "Port": "80",
+              "Retention days": "14",
+              "Route": "Direct",
+              "Tag": "release-1-区2",
+              "TLS": "false"
+            },
+            {
+              "action": "open",
+              "ID": "P103"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-1-3.example.test",
+              "ID": "P103",
+              "Port": "443",
+              "Proxy server": "proxy-1-3.example.test:8080",
+              "Route": "Proxy",
+              "TLS": "true"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "true",
+              "Host": "node-1-3.example.test",
+              "ID": "P103",
+              "Limit": "317",
+              "Port": "443",
+              "Proxy server": "proxy-1-3.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区3",
+              "TLS": "true"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "true",
+              "Host": "node-1-3.example.test",
+              "ID": "P103",
+              "Limit": "317",
+              "Port": "443",
+              "Proxy server": "proxy-1-3.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区3",
+              "TLS": "true"
+            },
+            {
+              "action": "applied",
+              "Audit": "true",
+              "Host": "node-1-3.example.test",
+              "ID": "P103",
+              "Limit": "317",
+              "Port": "443",
+              "Proxy server": "proxy-1-3.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区3",
+              "TLS": "true"
+            },
+            {
+              "action": "open",
+              "ID": "P104"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-1-4.example.test",
+              "ID": "P104",
+              "Port": "80",
+              "Route": "Direct",
+              "TLS": "false"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "false",
+              "Host": "node-1-4.example.test",
+              "ID": "P104",
+              "Limit": "417",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-1-区4",
+              "TLS": "false"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "false",
+              "Host": "node-1-4.example.test",
+              "ID": "P104",
+              "Limit": "417",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-1-区4",
+              "TLS": "false"
+            },
+            {
+              "action": "applied",
+              "Audit": "false",
+              "Host": "node-1-4.example.test",
+              "ID": "P104",
+              "Limit": "417",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-1-区4",
+              "TLS": "false"
+            },
+            {
+              "action": "finished",
+              "ID": "P104"
+            }
+          ],
+          "mode": "wizard",
+          "order": [
+            "P101",
+            "P102",
+            "P103",
+            "P104"
+          ],
+          "records": {
+            "P101": {
+              "Audit": "true",
+              "Host": "node-1-1.example.test",
+              "Limit": "117",
+              "Port": "443",
+              "Proxy server": "proxy-1-1.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区1",
+              "TLS": "true"
+            },
+            "P102": {
+              "Audit": "false",
+              "Host": "node-1-2.example.test",
+              "Limit": "217",
+              "Port": "80",
+              "Retention days": "14",
+              "Route": "Direct",
+              "Tag": "release-1-区2",
+              "TLS": "false"
+            },
+            "P103": {
+              "Audit": "true",
+              "Host": "node-1-3.example.test",
+              "Limit": "317",
+              "Port": "443",
+              "Proxy server": "proxy-1-3.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-1-区3",
+              "TLS": "true"
+            },
+            "P104": {
+              "Audit": "false",
+              "Host": "node-1-4.example.test",
+              "Limit": "417",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-1-区4",
+              "TLS": "false"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 104485,
+      "combined_turn_ms": 104485,
+      "evidence_sha256": {
+        "brief.txt": "f57e0cf97ff4e22ec57e8b161eb3334608cba78b99e8504d6c7725c9b3e2f816",
+        "source.json": "c7d17801f6b0204f9e46e385e78f00fdebb2f4492fbb8e968b4fcfff1f80df98",
+        "saved.json": "634fd3ca6823872aca97d1ca9210c2b669573658704f089cfdd1f934bc64549a",
+        "trace.json": "42f52ed161b8025b112ad03457a5a704c96c549246d8fbdb616cb3365acfa2fe",
+        "runtime-context.json": "3579101ec25d613890195475018f6476d8448de50be83530fb195d3a66b3031d",
+        "launch.json": "12330bb7455bc286fe7db4337c0748fbeb15d5c78ec3b68486b848aaaacb2353",
+        "audit.json": "cecfb9375f89d683c8f60031a46baef1f00e764e6a6194e88a2a73e573aa683a"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Exact supplied PID/client/home/binary/output; relative task config in neutral cwd. Both menu selections immediately returned new controls and subsequent grouped edits succeeded without stale errors or standalone menu recovery reads. Some save groups retained snapshot plus wait. All exact original review/correction/save/completion checks passed, no outside access/coaching/AGENTS.",
+        "runtime_context": {
+          "contexts": [
+            {
+              "cwd": "/private/tmp/cu-menu-transition-20261031/wizard-1-cu/work",
+              "model": "gpt-6-astra",
+              "effort": "high",
+              "service_tier": null
+            }
+          ],
+          "messages": [
+            {
+              "role": "developer",
+              "chars": 21420,
+              "sha256": "35bd51b5f577cb7b24cd5f4629e49e37cb724ab57754ce6f8f202001635bab8a",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 12739,
+              "sha256": "7b7fb1a011661d0409fbfed98e84e142efadc78d970d04330fafc04f1584e6d7",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 2400,
+              "sha256": "3edd51083129388f52e881435e93e4b981e00c5ee3d62ab5d32e22c428fd504b",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 271,
+              "sha256": "6ded806e3cdbb35599ecaf8742574bc5274908472b1729090010c404c2151e8e",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 440,
+              "sha256": "3da265f7030b733fe856b18493ad9ae9ff6e9b593ad7ff86d246ebd2436d2eff",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 2658,
+              "sha256": "f57e0cf97ff4e22ec57e8b161eb3334608cba78b99e8504d6c7725c9b3e2f816",
+              "agents_injected": false
+            }
+          ],
+          "no_agents_injected": true,
+          "exit_code": 0
+        },
+        "task_config_sha256": "e03aeb3f33d2f0533fe7c3f6c7fe61bf3092b3a6904b581081ba168e3a76c051"
+      }
+    },
+    {
+      "label": "wizard-2-cu",
+      "mode": "wizard",
+      "repeat": 2,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 21531,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/menu-transition-20261031/wizard-2-cu/VariedWorkflow.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-varied-772a6mgy",
+      "source_sha256": "e8a25d93fe416bfdf610edddcf1aa3f2c6cdc7c7d3eb31fd69ef57a3300e8c47",
+      "client_key": "wizard-2-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/menu-transition-20261031/wizard-2-cu/output",
+      "thread_id": "01a191ab-de43-79c2-b55b-44e862139889",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a191ab-de43-79c2-b55b-44e862139889",
+          "turn_id": "01a191ab-de65-7c51-a788-78d71bddbf16",
+          "started_at": "2026-10-31T11:15:22.347Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T11:18:24.725Z",
+          "elapsed_ms": 182350,
+          "final": "DONE",
+          "model_calls": 34,
+          "tokens": {
+            "input_tokens": 959038,
+            "cached_input_tokens": 922240,
+            "output_tokens": 3755,
+            "reasoning_output_tokens": 744,
+            "total_tokens": 962793
+          },
+          "tool_calls": 33,
+          "tool_output_chars": 43058,
+          "tool_errors": 1,
+          "tool_interval_ms": 8976,
+          "non_tool_interval_ms": 173374,
+          "label": "wizard-2-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "review_correction_used_back": true,
+          "all_applies_confirmed": true
+        },
+        "expected": {
+          "P201": {
+            "Host": "node-2-1.example.test",
+            "Route": "Direct",
+            "Port": "80",
+            "TLS": "false",
+            "Retention days": "7",
+            "Audit": "false",
+            "Limit": "134",
+            "Tag": "release-2-区1"
+          },
+          "P202": {
+            "Host": "node-2-2.example.test",
+            "Route": "Proxy",
+            "Port": "443",
+            "TLS": "true",
+            "Retention days": "14",
+            "Audit": "true",
+            "Limit": "234",
+            "Tag": "release-2-区2",
+            "Proxy server": "proxy-2-2.example.test:8080"
+          },
+          "P203": {
+            "Host": "node-2-3.example.test",
+            "Route": "Direct",
+            "Port": "80",
+            "TLS": "false",
+            "Retention days": "7",
+            "Audit": "false",
+            "Limit": "334",
+            "Tag": "release-2-区3"
+          },
+          "P204": {
+            "Host": "node-2-4.example.test",
+            "Route": "Proxy",
+            "Port": "443",
+            "TLS": "true",
+            "Retention days": "30",
+            "Audit": "true",
+            "Limit": "434",
+            "Tag": "release-2-区4",
+            "Proxy server": "proxy-2-4.example.test:8080"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "open",
+              "ID": "P201"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-2-1.example.test",
+              "ID": "P201",
+              "Port": "80",
+              "Route": "Direct",
+              "TLS": "false"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "false",
+              "Host": "node-2-1.example.test",
+              "ID": "P201",
+              "Limit": "134",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区1",
+              "TLS": "false"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "false",
+              "Host": "node-2-1.example.test",
+              "ID": "P201",
+              "Limit": "134",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区1",
+              "TLS": "false"
+            },
+            {
+              "action": "applied",
+              "Audit": "false",
+              "Host": "node-2-1.example.test",
+              "ID": "P201",
+              "Limit": "134",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区1",
+              "TLS": "false"
+            },
+            {
+              "action": "open",
+              "ID": "P202"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-2-2.example.test",
+              "ID": "P202",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Route": "Proxy",
+              "TLS": "true"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "true",
+              "Host": "node-2-2.example.test",
+              "ID": "P202",
+              "Limit": "234",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-2-区2",
+              "TLS": "true"
+            },
+            {
+              "action": "back-policy",
+              "ID": "P202"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "true",
+              "Host": "node-2-2.example.test",
+              "ID": "P202",
+              "Limit": "234",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Retention days": "14",
+              "Route": "Proxy",
+              "Tag": "release-2-区2",
+              "TLS": "true"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "true",
+              "Host": "node-2-2.example.test",
+              "ID": "P202",
+              "Limit": "234",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Retention days": "14",
+              "Route": "Proxy",
+              "Tag": "release-2-区2",
+              "TLS": "true"
+            },
+            {
+              "action": "applied",
+              "Audit": "true",
+              "Host": "node-2-2.example.test",
+              "ID": "P202",
+              "Limit": "234",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Retention days": "14",
+              "Route": "Proxy",
+              "Tag": "release-2-区2",
+              "TLS": "true"
+            },
+            {
+              "action": "open",
+              "ID": "P203"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-2-3.example.test",
+              "ID": "P203",
+              "Port": "80",
+              "Route": "Direct",
+              "TLS": "false"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "false",
+              "Host": "node-2-3.example.test",
+              "ID": "P203",
+              "Limit": "334",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区3",
+              "TLS": "false"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "false",
+              "Host": "node-2-3.example.test",
+              "ID": "P203",
+              "Limit": "334",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区3",
+              "TLS": "false"
+            },
+            {
+              "action": "applied",
+              "Audit": "false",
+              "Host": "node-2-3.example.test",
+              "ID": "P203",
+              "Limit": "334",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区3",
+              "TLS": "false"
+            },
+            {
+              "action": "open",
+              "ID": "P204"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-2-4.example.test",
+              "ID": "P204",
+              "Port": "443",
+              "Proxy server": "proxy-2-4.example.test:8080",
+              "Route": "Proxy",
+              "TLS": "true"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "true",
+              "Host": "node-2-4.example.test",
+              "ID": "P204",
+              "Limit": "434",
+              "Port": "443",
+              "Proxy server": "proxy-2-4.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-2-区4",
+              "TLS": "true"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "true",
+              "Host": "node-2-4.example.test",
+              "ID": "P204",
+              "Limit": "434",
+              "Port": "443",
+              "Proxy server": "proxy-2-4.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-2-区4",
+              "TLS": "true"
+            },
+            {
+              "action": "applied",
+              "Audit": "true",
+              "Host": "node-2-4.example.test",
+              "ID": "P204",
+              "Limit": "434",
+              "Port": "443",
+              "Proxy server": "proxy-2-4.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-2-区4",
+              "TLS": "true"
+            },
+            {
+              "action": "finished",
+              "ID": "P204"
+            }
+          ],
+          "mode": "wizard",
+          "order": [
+            "P201",
+            "P202",
+            "P203",
+            "P204"
+          ],
+          "records": {
+            "P201": {
+              "Audit": "false",
+              "Host": "node-2-1.example.test",
+              "Limit": "134",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区1",
+              "TLS": "false"
+            },
+            "P202": {
+              "Audit": "true",
+              "Host": "node-2-2.example.test",
+              "Limit": "234",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Retention days": "14",
+              "Route": "Proxy",
+              "Tag": "release-2-区2",
+              "TLS": "true"
+            },
+            "P203": {
+              "Audit": "false",
+              "Host": "node-2-3.example.test",
+              "Limit": "334",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区3",
+              "TLS": "false"
+            },
+            "P204": {
+              "Audit": "true",
+              "Host": "node-2-4.example.test",
+              "Limit": "434",
+              "Port": "443",
+              "Proxy server": "proxy-2-4.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-2-区4",
+              "TLS": "true"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 182350,
+      "combined_turn_ms": 182350,
+      "evidence_sha256": {
+        "brief.txt": "fb4985633eacdecb13320a5420dde5fb6acdb105d61d33c7087b4384cb308fea",
+        "source.json": "e8a25d93fe416bfdf610edddcf1aa3f2c6cdc7c7d3eb31fd69ef57a3300e8c47",
+        "saved.json": "04418bfc2b87d4295fc938033b16e841b16d294153f96678ee9b19c824661efc",
+        "trace.json": "e72582b0c0357235aab361fb3fe3dba2ba3bcb2997fe5d235a475b2a159cf117",
+        "runtime-context.json": "171b2daa436a77376696ff9388eda58474854ed84e2324d9cccf6ddc3dad952a",
+        "launch.json": "f5d60306f368c937a9b4a62abc2be7e94c15648b6d17a752c86d675ec8b57184",
+        "audit.json": "68b32e218f1793eca7d42f4727219b1408b8b8a7519f3c49240feed813060c7d"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Read packaged skill/helper and listed only neutral cwd; retained exact supplied PID/client/home/binary/output in relative task config. Both menu selections immediately exposed new controls, with no stale menu retries. Invalid --timeout-ms rejected after confirmation; recovered by observing without repeating confirmation. Later --timeout 10000 is seconds, not milliseconds; all waits met, mistake retained. Exact outcome passed; no outside access/coaching/AGENTS.",
+        "runtime_context": {
+          "contexts": [
+            {
+              "cwd": "/private/tmp/cu-menu-transition-20261031/wizard-2-cu/work",
+              "model": "gpt-6-astra",
+              "effort": "high",
+              "service_tier": null
+            }
+          ],
+          "messages": [
+            {
+              "role": "developer",
+              "chars": 21420,
+              "sha256": "35bd51b5f577cb7b24cd5f4629e49e37cb724ab57754ce6f8f202001635bab8a",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 12739,
+              "sha256": "1f6162bde04efa384d0e4448fa3fd78dfd677adc757664b5d8bc96e25799de19",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 2400,
+              "sha256": "3edd51083129388f52e881435e93e4b981e00c5ee3d62ab5d32e22c428fd504b",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 271,
+              "sha256": "6ded806e3cdbb35599ecaf8742574bc5274908472b1729090010c404c2151e8e",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 440,
+              "sha256": "2c23d9128e97c384399c3b27686e7c1f1462abaa7a2e0624c2419876657fd99a",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 2658,
+              "sha256": "fb4985633eacdecb13320a5420dde5fb6acdb105d61d33c7087b4384cb308fea",
+              "agents_injected": false
+            }
+          ],
+          "no_agents_injected": true,
+          "exit_code": 0
+        },
+        "task_config_sha256": "31851b81c9c9c0583901260bb79fd4c97456aa56c22ad12a1da5582d105a7cf3"
+      }
+    },
+    {
+      "label": "wizard-2-native",
+      "mode": "wizard",
+      "repeat": 2,
+      "arm": "native",
+      "status": "passed",
+      "reasons": [],
+      "pid": 23014,
+      "app_path": "/Users/lixiaobo/Coding/computer-pilot/test-results/menu-transition-20261031/wizard-2-native/VariedWorkflow.app",
+      "runtime_home": null,
+      "source_sha256": "e8a25d93fe416bfdf610edddcf1aa3f2c6cdc7c7d3eb31fd69ef57a3300e8c47",
+      "client_key": "wizard-2-native",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/menu-transition-20261031/wizard-2-native/output",
+      "thread_id": "01a191ae-b803-7e43-9237-44a0e60e6c7a",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "native",
+          "thread_id": "01a191ae-b803-7e43-9237-44a0e60e6c7a",
+          "turn_id": "01a191ae-b828-7ba2-bd61-70818f0a5092",
+          "started_at": "2026-10-31T11:18:29.163Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T11:20:35.261Z",
+          "elapsed_ms": 126096,
+          "final": "DONE",
+          "model_calls": 34,
+          "tokens": {
+            "input_tokens": 1105537,
+            "cached_input_tokens": 1077120,
+            "output_tokens": 2589,
+            "reasoning_output_tokens": 837,
+            "total_tokens": 1108126
+          },
+          "tool_calls": 33,
+          "tool_output_chars": 111382,
+          "tool_errors": 0,
+          "tool_interval_ms": 19495,
+          "non_tool_interval_ms": 106601,
+          "label": "wizard-2-native"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "final_fields_exact": true,
+          "initial_versions_exact": true,
+          "order_exact": true,
+          "completed": true,
+          "review_correction_used_back": true,
+          "all_applies_confirmed": true
+        },
+        "expected": {
+          "P201": {
+            "Host": "node-2-1.example.test",
+            "Route": "Direct",
+            "Port": "80",
+            "TLS": "false",
+            "Retention days": "7",
+            "Audit": "false",
+            "Limit": "134",
+            "Tag": "release-2-区1"
+          },
+          "P202": {
+            "Host": "node-2-2.example.test",
+            "Route": "Proxy",
+            "Port": "443",
+            "TLS": "true",
+            "Retention days": "14",
+            "Audit": "true",
+            "Limit": "234",
+            "Tag": "release-2-区2",
+            "Proxy server": "proxy-2-2.example.test:8080"
+          },
+          "P203": {
+            "Host": "node-2-3.example.test",
+            "Route": "Direct",
+            "Port": "80",
+            "TLS": "false",
+            "Retention days": "7",
+            "Audit": "false",
+            "Limit": "334",
+            "Tag": "release-2-区3"
+          },
+          "P204": {
+            "Host": "node-2-4.example.test",
+            "Route": "Proxy",
+            "Port": "443",
+            "TLS": "true",
+            "Retention days": "30",
+            "Audit": "true",
+            "Limit": "434",
+            "Tag": "release-2-区4",
+            "Proxy server": "proxy-2-4.example.test:8080"
+          }
+        },
+        "actual": {
+          "completed": true,
+          "events": [
+            {
+              "action": "open",
+              "ID": "P201"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-2-1.example.test",
+              "ID": "P201",
+              "Port": "80",
+              "Route": "Direct",
+              "TLS": "false"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "false",
+              "Host": "node-2-1.example.test",
+              "ID": "P201",
+              "Limit": "134",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区1",
+              "TLS": "false"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "false",
+              "Host": "node-2-1.example.test",
+              "ID": "P201",
+              "Limit": "134",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区1",
+              "TLS": "false"
+            },
+            {
+              "action": "applied",
+              "Audit": "false",
+              "Host": "node-2-1.example.test",
+              "ID": "P201",
+              "Limit": "134",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区1",
+              "TLS": "false"
+            },
+            {
+              "action": "open",
+              "ID": "P202"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-2-2.example.test",
+              "ID": "P202",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Route": "Proxy",
+              "TLS": "true"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "true",
+              "Host": "node-2-2.example.test",
+              "ID": "P202",
+              "Limit": "234",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-2-区2",
+              "TLS": "true"
+            },
+            {
+              "action": "back-policy",
+              "ID": "P202"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "true",
+              "Host": "node-2-2.example.test",
+              "ID": "P202",
+              "Limit": "234",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Retention days": "14",
+              "Route": "Proxy",
+              "Tag": "release-2-区2",
+              "TLS": "true"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "true",
+              "Host": "node-2-2.example.test",
+              "ID": "P202",
+              "Limit": "234",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Retention days": "14",
+              "Route": "Proxy",
+              "Tag": "release-2-区2",
+              "TLS": "true"
+            },
+            {
+              "action": "applied",
+              "Audit": "true",
+              "Host": "node-2-2.example.test",
+              "ID": "P202",
+              "Limit": "234",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Retention days": "14",
+              "Route": "Proxy",
+              "Tag": "release-2-区2",
+              "TLS": "true"
+            },
+            {
+              "action": "open",
+              "ID": "P203"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-2-3.example.test",
+              "ID": "P203",
+              "Port": "80",
+              "Route": "Direct",
+              "TLS": "false"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "false",
+              "Host": "node-2-3.example.test",
+              "ID": "P203",
+              "Limit": "334",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区3",
+              "TLS": "false"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "false",
+              "Host": "node-2-3.example.test",
+              "ID": "P203",
+              "Limit": "334",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区3",
+              "TLS": "false"
+            },
+            {
+              "action": "applied",
+              "Audit": "false",
+              "Host": "node-2-3.example.test",
+              "ID": "P203",
+              "Limit": "334",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区3",
+              "TLS": "false"
+            },
+            {
+              "action": "open",
+              "ID": "P204"
+            },
+            {
+              "action": "network-saved",
+              "Host": "node-2-4.example.test",
+              "ID": "P204",
+              "Port": "443",
+              "Proxy server": "proxy-2-4.example.test:8080",
+              "Route": "Proxy",
+              "TLS": "true"
+            },
+            {
+              "action": "policy-saved",
+              "Audit": "true",
+              "Host": "node-2-4.example.test",
+              "ID": "P204",
+              "Limit": "434",
+              "Port": "443",
+              "Proxy server": "proxy-2-4.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-2-区4",
+              "TLS": "true"
+            },
+            {
+              "action": "apply-confirmed",
+              "Audit": "true",
+              "Host": "node-2-4.example.test",
+              "ID": "P204",
+              "Limit": "434",
+              "Port": "443",
+              "Proxy server": "proxy-2-4.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-2-区4",
+              "TLS": "true"
+            },
+            {
+              "action": "applied",
+              "Audit": "true",
+              "Host": "node-2-4.example.test",
+              "ID": "P204",
+              "Limit": "434",
+              "Port": "443",
+              "Proxy server": "proxy-2-4.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-2-区4",
+              "TLS": "true"
+            },
+            {
+              "action": "finished",
+              "ID": "P204"
+            }
+          ],
+          "mode": "wizard",
+          "order": [
+            "P201",
+            "P202",
+            "P203",
+            "P204"
+          ],
+          "records": {
+            "P201": {
+              "Audit": "false",
+              "Host": "node-2-1.example.test",
+              "Limit": "134",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区1",
+              "TLS": "false"
+            },
+            "P202": {
+              "Audit": "true",
+              "Host": "node-2-2.example.test",
+              "Limit": "234",
+              "Port": "443",
+              "Proxy server": "proxy-2-2.example.test:8080",
+              "Retention days": "14",
+              "Route": "Proxy",
+              "Tag": "release-2-区2",
+              "TLS": "true"
+            },
+            "P203": {
+              "Audit": "false",
+              "Host": "node-2-3.example.test",
+              "Limit": "334",
+              "Port": "80",
+              "Retention days": "7",
+              "Route": "Direct",
+              "Tag": "release-2-区3",
+              "TLS": "false"
+            },
+            "P204": {
+              "Audit": "true",
+              "Host": "node-2-4.example.test",
+              "Limit": "434",
+              "Port": "443",
+              "Proxy server": "proxy-2-4.example.test:8080",
+              "Retention days": "30",
+              "Route": "Proxy",
+              "Tag": "release-2-区4",
+              "TLS": "true"
+            }
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 126096,
+      "combined_turn_ms": 126096,
+      "evidence_sha256": {
+        "brief.txt": "8fea2a3a79d25d8c1796d59b562fe96a57fb3c0a547026204d9c947233cc0043",
+        "source.json": "e8a25d93fe416bfdf610edddcf1aa3f2c6cdc7c7d3eb31fd69ef57a3300e8c47",
+        "saved.json": "04418bfc2b87d4295fc938033b16e841b16d294153f96678ee9b19c824661efc",
+        "trace.json": "e0286a2b8606cf694e8089d502951476715a7a2ded1d1532873de85a68bcd036",
+        "runtime-context.json": "373ccb0196f498b498581a2bd8c9a8ce6ab39db1d655c847cf2a9eca14287c5c",
+        "launch.json": "01e651e1aa256947a8ba4864d8878456f802e4b7340849161c8d1580ba14c143",
+        "audit.json": "5af1ecf5e26cdda297c71890d1cdc19b9b0da567379d1c42d7f86c14c9575526"
+      },
+      "audit": {
+        "compliant": true,
+        "note": "Exact supplied app path; only task native UI and screenshot. Grouped edits from live data, screenshot plus full-state read around proxy transition, repeated state reads around saves. No tool errors; all original review/correction/save/completion checks passed, no coaching/outside access/AGENTS.",
+        "runtime_context": {
+          "contexts": [
+            {
+              "cwd": "/private/tmp/cu-menu-transition-20261031/wizard-2-native/work",
+              "model": "gpt-6-astra",
+              "effort": "high",
+              "service_tier": null
+            }
+          ],
+          "messages": [
+            {
+              "role": "developer",
+              "chars": 21420,
+              "sha256": "35bd51b5f577cb7b24cd5f4629e49e37cb724ab57754ce6f8f202001635bab8a",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 12743,
+              "sha256": "387045b009a870f17777a5d02bcc0b915a854b75b445b06f673cfb287f2b7287",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 2400,
+              "sha256": "3edd51083129388f52e881435e93e4b981e00c5ee3d62ab5d32e22c428fd504b",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 271,
+              "sha256": "6ded806e3cdbb35599ecaf8742574bc5274908472b1729090010c404c2151e8e",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 448,
+              "sha256": "0bbb3e4bf72a6d7abddaed9fabf7de801f77c94449cd803dbda4f3838848aa15",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 2371,
+              "sha256": "8fea2a3a79d25d8c1796d59b562fe96a57fb3c0a547026204d9c947233cc0043",
+              "agents_injected": false
+            }
+          ],
+          "no_agents_injected": true,
+          "exit_code": 0
+        }
+      }
+    }
+  ],
+  "groups": [
+    {
+      "mode": "wizard",
+      "arms": {
+        "cu": {
+          "counts": {
+            "passed": 2,
+            "failed": 0,
+            "excluded": 0,
+            "unreviewed": 0,
+            "pending": 0
+          },
+          "success_medians_ms": {
+            "combined_turn_ms": 143417.5
+          }
+        },
+        "native": {
+          "counts": {
+            "passed": 2,
+            "failed": 0,
+            "excluded": 0,
+            "unreviewed": 0,
+            "pending": 0
+          },
+          "success_medians_ms": {
+            "combined_turn_ms": 141431.0
+          }
+        }
+      },
+      "successful_pairs": [
+        {
+          "repeat": 1,
+          "go_cu_over_native": null,
+          "combined_cu_over_native": 0.6665029406886698
+        },
+        {
+          "repeat": 2,
+          "go_cu_over_native": null,
+          "combined_cu_over_native": 1.4461204161908388
+        }
+      ],
+      "median_paired_go_ratio": null,
+      "median_paired_combined_ratio": 1.0563116784397542
+    }
+  ],
+  "runtime_context": {
+    "classification": "Fresh-profile skill/native-API comparison; no global or project AGENTS instructions injected",
+    "working_directory": "unique neutral directory per participant outside the repository",
+    "isolated_codex_profile_per_trial": true,
+    "copied_history_or_memory": false,
+    "global_or_project_agents_injected": false,
+    "actual_initial_messages_audited": 4,
+    "cli_versions": [
+      "0.165.0"
+    ],
+    "native_plugin": "unified-computer-use",
+    "native_plugin_version": "26.1027.30824",
+    "native_plugin_files_sha256": {
+      ".codex-plugin/plugin.json": "75de537b724481731d7ad43eb55e15be8d0773b54b1306edf96638c4f9e30118",
+      ".mcp.json": "e7297a8851d46bb5d7f53d57e82d86cfdf4b04524bedf8c2ce6cf4a80ffe71da"
+    },
+    "profile_configs_unchanged": true,
+    "participant_turns_overlap": false,
+    "launch": "codex --no-daemon exec, project_doc_max_bytes=0, features.memories=false; exact argv and context hashes retained locally",
+    "timing": "One complete participant turn, including skill/API loading and task configuration. Profile provisioning, app launch, host process startup/shutdown, coordinator audit and cleanup are outside this timer.",
+    "limits": "Same macOS user session, permissions, Launch Services, native CUA service/runtime assets and system caches; no VM/reboot/cache flush. Fresh profile, neutral cwd, exact disposable app identity and initial app state per participant.",
+    "comparison_scope": "Two paired wizard datasets targeting the previously observed recovery overhead. Previous clean block is historical, not randomized before/after evidence; do not pool with repository-context blocks.",
+    "native_plugin_fingerprint_scope": "bundled marketplace source",
+    "native_plugin_cache_files_sha256": {
+      ".codex-plugin/plugin.json": "75de537b724481731d7ad43eb55e15be8d0773b54b1306edf96638c4f9e30118",
+      ".mcp.json": "099471c610819c63054e3a0dc1b3e848ff6ef7aa8d967d64b284d9644108b57d"
+    },
+    "all_owned_app_and_broker_pids_stopped": true
+  },
+  "reporting_fingerprints": {
+    "tests/agent/benchmark_varied_workflows.py": "b8ed936c23bef07cf3ed0753e5103a3f184670daf4ca9615f39fc65df587970e",
+    "tests/agent/collect_codex_benchmark.py": "a35fba949ee73222e5e83eaeb35807ce8b7bfc43727c4db9fae4fa0f692f3d79"
+  },
+  "change_scope": {
+    "candidate_commit": "7954532b3250693e8dc1194deccac4becb095f4b",
+    "runtime_binary_unchanged_from_previous_clean_block": false,
+    "description": "Reuse existing bounded AX observation for menu-item AXPress, subscribing to menu close/open before dispatch so the next action or observation follows the menu transition when supported. No added snapshot, polling loop, retry or fixed sleep. Skill uses a relative task config in a fixed working directory and observes controls after menu selection. Includes the preceding stale-state recovery fix."
+  },
+  "menu_transition_probe": {
+    "scope": "Separate owned AppKit dynamic-menu probes, outside agent timers",
+    "before_action_seconds": [
+      0.08089408301748335,
+      0.07804987509734929,
+      0.07311925000976771
+    ],
+    "before_immediate_menu_items": [
+      2,
+      2,
+      2
+    ],
+    "after_action_seconds": [
+      0.4891394169535488,
+      0.45406924991402775,
+      0.447343833046034
+    ],
+    "after_immediate_menu_items": [
+      0,
+      0,
+      0
+    ],
+    "after_routes": [
+      "perform ref",
+      "click ref",
+      "perform ax-path"
+    ],
+    "after_selected_value_and_dynamic_field_correct": [
+      true,
+      true,
+      true
+    ],
+    "evidence_sha256": {
+      "before.json": "9b384a534a08b704d82c0f414e1ba03a3b015003f925e031ba07f827790e2304",
+      "after.json": "2ad7d55239e5c51ae80000fe83e7ae0838c5ad80a78c2c11c71870d3f9499fcc"
+    }
+  }
+}
