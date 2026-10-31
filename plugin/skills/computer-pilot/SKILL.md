@@ -23,8 +23,7 @@ use `cu tell`; consult [scripting.md](references/scripting.md) if needed.
 Use `cu apps` once when the target or scripting support is unknown. For UI,
 start with an AX snapshot; use screenshots/OCR when AX lacks the needed content.
 
-For multiple rounds, save the task configuration once, for example
-`/absolute/task/cu-env.sh`:
+For multiple rounds, keep a fixed task working directory and save `./cu-env.sh`:
 
 ```bash
 export CU_BIN="/verified/path/to/cu"
@@ -37,7 +36,8 @@ export COMPUTER_PILOT_OUTPUT_DIR="/absolute/task/output"
 
 Resolve [scripts/session.sh](scripts/session.sh) relative to this SKILL.md.
 Keep the same PID, client key and supplied environment throughout the task.
-Source the task file in each shell call. Its `cu` function supplies the target;
+Source `./cu-env.sh` in each shell call from that directory; use its absolute
+path if the working directory changes. Its `cu` function supplies the target;
 do not repeat `--app` or a positional app. Start with `cu snapshot`.
 
 ## One Call Per Decision Boundary
@@ -47,7 +47,7 @@ Save/Next actions **with their final snapshot or wait in the same shell call**.
 For example, if refs 7, 12 and 15 are the observed fields and Save button:
 
 ```bash
-. /absolute/task/cu-env.sh
+. ./cu-env.sh
 cu set-value 7 "Quarterly review"
 cu set-value 12 "Draft"
 cu click 15
@@ -63,6 +63,7 @@ additional external effects.
 - Leave already-correct values, checkboxes and selections alone.
 - For a dropdown that needs changing, open it and observe the menu. Select the
   observed item with `perform <ref> AXPress` (or its supported action).
+  Observe the resulting controls before further edits or navigation.
   Writing the popup's AXValue may not select the item or fire its handler.
 - Skip per-field and pre-save inspections. After a recoverable error, refresh
   the relevant state and resume grouping; do not turn the rest of the workflow

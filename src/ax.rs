@@ -1499,7 +1499,7 @@ where
 ///  13:   Keyboard spacebar (universal button trigger)
 ///  14:   Ancestor press/confirm (walk up)
 ///  15:   CGEvent mouse click (handled by caller)
-unsafe fn try_ax_actions(element: CFTypeRef) -> Option<&'static str> {
+unsafe fn try_ax_actions(pid: i32, element: CFTypeRef) -> Option<&'static str> {
     // Text inputs are focus targets, not buttons. Chromium exposes AXPress on
     // contenteditable elements and returns AX_OK even when that action does
     // not move AXFocusedUIElement. Prefer the semantic AXFocused write and
@@ -1514,7 +1514,7 @@ unsafe fn try_ax_actions(element: CFTypeRef) -> Option<&'static str> {
 
     // Steps 1-4: Direct actions
     for action in &["AXPress", "AXConfirm", "AXOpen", "AXPick"] {
-        if try_action(element, action) {
+        if try_action_with_menu_wait(pid, element, Some(&role), action) {
             return Some("ax-action");
         }
     }
@@ -1632,6 +1632,22 @@ unsafe fn try_action(element: CFTypeRef, action: &str) -> bool {
     err == AX_OK
 }
 
+unsafe fn try_action_with_menu_wait(
+    pid: i32,
+    element: CFTypeRef,
+    role: Option<&str>,
+    action: &str,
+) -> bool {
+    let observer = (role == Some("AXMenuItem") && action == "AXPress")
+        .then(|| crate::observer::ActionObserver::menu_transition(pid))
+        .flatten();
+    let accepted = try_action(element, action);
+    if accepted && observer.is_some() {
+        crate::observer::wait_for_settle(observer, crate::POST_ACTION_DELAY_MS);
+    }
+    accepted
+}
+
 unsafe fn try_set_value(element: CFTypeRef, attr: &str, val: CFTypeRef) -> bool {
     let Some(key) = cfstr(attr) else { return false };
     let err = AXUIElementSetAttributeValue(element, key, val);
@@ -1736,7 +1752,7 @@ fn resolve_ref(pid: i32, ref_id: usize, perform_actions: bool) -> Result<(bool, 
             let cx = pos.x + node.size.width / 2.0;
             let cy = pos.y + node.size.height / 2.0;
             let acted = if perform_actions {
-                try_ax_actions(element).is_some()
+                try_ax_actions(pid, element).is_some()
             } else {
                 false
             };
@@ -1991,7 +2007,7 @@ pub fn resolve_by_ax_path(
         let pos = ax_position(element).unwrap_or_default();
         let size = ax_size(element).unwrap_or_default();
         let acted = if perform_actions {
-            try_ax_actions(element).is_some()
+            try_ax_actions(pid, element).is_some()
         } else {
             false
         };
@@ -2009,7 +2025,10 @@ pub fn resolve_by_ax_path(
 /// `cu perform --ax-path X` — fire the named AX action on the matched element.
 pub fn ax_perform_by_path(pid: i32, ax_path: &str, action: &str) -> Result<(), CuError> {
     let ok = with_ax_path(pid, ax_path, |element| unsafe {
-        try_action(element, action)
+        let role = (action == "AXPress")
+            .then(|| ax_string(element, "AXRole"))
+            .flatten();
+        try_action_with_menu_wait(pid, element, role.as_deref(), action)
     })
     .map_err(|e| {
         CuError::msg(e).with_hint("axPath did not resolve — re-snapshot to refresh paths")
@@ -2117,8 +2136,8 @@ pub fn ax_perform(pid: i32, ref_id: usize, _limit: usize, action: &str) -> Resul
         }
         let walk_root = window_el.unwrap_or(app_el);
 
-        let (result, counter) = resolve_ref_with(walk_root, ref_id, |element, _, _| {
-            if try_action(element, action) {
+        let (result, counter) = resolve_ref_with(walk_root, ref_id, |element, node, _| {
+            if try_action_with_menu_wait(pid, element, node.role.as_deref(), action) {
                 Ok(())
             } else {
                 Err(copy_action_names(element))

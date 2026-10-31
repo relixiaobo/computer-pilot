@@ -109,6 +109,24 @@ pub struct ActionObserver {
 impl ActionObserver {
     /// Register before dispatch, on the same thread that will wait and drop.
     pub fn new(pid: i32) -> Option<Self> {
+        Self::subscribe(
+            pid,
+            &[
+                "AXValueChanged",
+                "AXFocusedUIElementChanged",
+                "AXMainWindowChanged",
+                "AXSelectedChildrenChanged",
+            ],
+        )
+    }
+
+    /// A menu-item press can close a menu or open a submenu. Other AX changes
+    /// can arrive before that transition and must not release the caller early.
+    pub fn menu_transition(pid: i32) -> Option<Self> {
+        Self::subscribe(pid, &["AXMenuClosed", "AXMenuOpened"])
+    }
+
+    fn subscribe(pid: i32, notifications: &[&str]) -> Option<Self> {
         unsafe {
             let mut observer = std::ptr::null();
             if AXObserverCreate(pid, fired_callback, &mut observer) != AX_OK || observer.is_null() {
@@ -123,12 +141,7 @@ impl ActionObserver {
             if pending.app.is_null() {
                 return None;
             }
-            for name in [
-                "AXValueChanged",
-                "AXFocusedUIElementChanged",
-                "AXMainWindowChanged",
-                "AXSelectedChildrenChanged",
-            ] {
+            for name in notifications {
                 let cf = cfstr(name);
                 if cf.is_null() {
                     continue;

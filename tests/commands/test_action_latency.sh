@@ -283,11 +283,24 @@ try:
                   if e["role"] == "menuitem" and e.get("title") == "Proxy")
     selected = session("perform", option["ref"], "AXPress", shell="/bin/bash")
     assert "available_actions" not in selected and "effect_advice" not in selected, selected
-    chosen = session("wait", "--text", "Choice: Proxy", "--timeout", "3")
-    assert chosen["ok"], chosen
-    assert "base_observation_id" not in chosen["snapshot"], chosen
-    assert next(e for e in chosen["snapshot"]["elements"] if e["ref"] == int(ref))["value"] == exact
+    chosen = session("snapshot")
+    assert any(e.get("value") == "Choice: Proxy" for e in chosen["elements"]), chosen
+    assert not any(e["role"] == "menuitem" for e in chosen["elements"]), chosen
+    assert next(e for e in chosen["elements"] if e["ref"] == int(ref))["value"] == exact
     session("set-value", ref, exact, "--observation", chosen["observation_id"])
+    # Menu transition waiting applies to click and path-based perform as well,
+    # even with --no-snapshot. The next observation sees the completed callback.
+    for label, use_path in (("Direct", False), ("Proxy", True)):
+        session("perform", popup, "AXPress")
+        opened = session("--json", "snapshot")
+        option = next(e for e in opened["elements"] if e["role"] == "menuitem" and e.get("title") == label)
+        if use_path:
+            session("perform", "AXPress", "--ax-path", option["axPath"])
+        else:
+            session("click", option["ref"])
+        chosen = session("snapshot")
+        assert any(e.get("value") == f"Choice: {label}" for e in chosen["elements"]), chosen
+        assert not any(e["role"] == "menuitem" for e in chosen["elements"]), chosen
     # Failure still exposes supported actions, without another why/snapshot.
     found = session("find", "--role", "popupbutton", "--first")
     rejected = session("perform", found["match"]["ref"], "AXBogusAction", ok=False)
