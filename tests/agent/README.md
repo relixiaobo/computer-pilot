@@ -237,6 +237,94 @@ success. An interrupted turn's zero completed-turn sum is **not** its elapsed
 time: report the interruption duration separately and omit it from successful
 timing comparisons.
 
+## cu-only retest with historical controls (2026-10-31)
+
+Predeclared six cu attempts (three workflows, two datasets); **5 accepted passes,
+1 excluded protocol deviation, no replacements**. All six reached independently
+verified final states, but final correctness does not repair a broken target
+boundary. Native Computer Use was **not rerun**. The four historical clean reports
+and their hashes were fixed before execution and are embedded in the
+[retest artifact](benchmarks/cu-retest-2026-10-31.json).
+
+Candidate `5a06abc` changes only the benchmark coordinator to allow `--arms cu`.
+The binary, skill, helper and fixture match `7954532` byte-for-byte. Each run used
+gpt-6-astra/high, Codex CLI 0.165.0, no service-tier override, a fresh profile and
+neutral cwd, independent exact fixture PID/state and private cu runtime. Actual
+initial contexts contained no global/project AGENTS. Skill loading and setup
+are inside the single full-task timer. No coaching or mid-block changes occurred.
+
+| Current attempt | Full task s | Calls | Tool errors¹ | Tool interval s | Status |
+| --- | ---: | ---: | ---: | ---: | --- |
+| triage-1-cu | 147.740 | 21 | 0 | 4.960 | passed |
+| triage-2-cu | 129.153 | 21 | 0 | 5.013 | passed |
+| document-1-cu | 115.432 | 22 | 0 | 5.310 | passed |
+| document-2-cu | 124.774 | 22 | 0 | 5.104 | passed |
+| wizard-1-cu | 180.765 | 34 | 0 | 7.168 | passed |
+| wizard-2-cu | 240.218 | 34 | 1 | 11.281 | excluded |
+
+¹ Tool errors count failed host calls. In wizard-2, a rejected untargeted
+`click` was followed by a successful snapshot in the same shell; the shell exited
+zero, so that CLI error is additionally recorded by manual audit, not counted as
+a failed host call.
+
+All historical sample times below are retained separately. Columns 1/2 are the
+same source datasets as the current block; units are full-task seconds. These
+are **historical controls, not contemporaneous pairs or causal estimates**.
+
+| Workflow | Block | cu 1 / 2 | Native 1 / 2 |
+| --- | --- | ---: | ---: |
+| triage | skill-only | 116.107 / 80.595 | 96.880 / 80.521 |
+| triage | decision-boundaries | 91.110 / 125.998 | 98.705 / 99.804 |
+| triage | cu-retest | 147.740 / 129.153 | — / — |
+| document | skill-only | 83.707 / 157.993 | 100.031 / excluded (interrupted 221.690) |
+| document | decision-boundaries | 128.470 / 127.186 | 144.586 / 143.389 |
+| document | cu-retest | 115.432 / 124.774 | — / — |
+| wizard | skill-only | 298.765 / 338.202 | 179.675 / 150.838 |
+| wizard | decision-boundaries | 190.958 / 138.150 | 165.112 / 221.683 |
+| wizard | recovery-state | 238.292 / 198.001 | 163.614 / 175.730 |
+| wizard | menu-transition | 104.485 / 182.350 | 156.766 / 126.096 |
+| wizard | cu-retest | 180.765 / 240.218 (excluded) | — / — |
+
+Triage medians were current cu **138.4 s**, prior decision-boundaries cu **108.6 s**
+and native **99.3 s**. Current calls were 21/21 versus prior cu 21/22; current tool
+intervals were about 5 s each, slightly lower than before. The slowdown therefore
+occurred outside tools. Document median was **120.1 s**, versus prior cu **127.8 s**
+and native **144.0 s**, still with 22 calls per task. Older native document-1 was
+100.0 s; this is not consistent dominance across all historical rounds.
+
+Only wizard dataset 1 supplies an accepted new timing: **180.8 s**, versus the
+same-binary previous cu **104.5 s** and historical native **156.8 s**. Current cu
+used 34 calls, versus 31/32 previously. Four saves produced a saving-state
+snapshot followed by a separate wait; three repeated an already observed flow.
+Five `--timeout 10000` values mean seconds, not milliseconds; all conditions met
+promptly. Both menu selections returned the new controls directly with no stale
+menu errors. No task-specific fix or compatibility flag was added during testing.
+
+Wizard-2 completed in **240.2 s** but is excluded. Its generated task config
+exported the supplied variables without sourcing `session.sh`. The next shell
+sourced only that config: bare `cu` resolved through PATH, the untargeted click
+was rejected with `observation_required`, and a following snapshot read a
+non-fixture application. The model restored the helper and target for subsequent
+calls and completed the fixture. It also tried a nonexistent helper path once.
+The missing helper source bypassed both target binding and shell stop-on-error;
+this is a concrete setup failure, not a reason to remove observation identity
+checks. Full unrelated UI output stays local and is not exported. Its correct
+final state and two successful menu transitions are diagnostic evidence only,
+not an accepted performance sample.
+
+Tools occupy roughly **3–5%** of accepted elapsed time. The remaining interval
+includes model inference, service/host scheduling and other inter-tool overhead;
+it cannot be identified as model thinking or a specific provider delay from
+these traces alone. Repeated same-binary variability and historical controls
+limit speed claims. Remaining concrete costs are repeated async observations,
+ambiguous timeout use and fragile generated helper initialization.
+
+All planned traces/configs/context records were reviewed and fingerprinted.
+All observed benchmark app/Broker PIDs stopped; no stopped runtime was restarted
+for verification. System permissions, caches and native service assets remain
+shared; this is not VM isolation. The coordinator change passed 10 offline
+protocol tests and hosted CI; unchanged Rust code was not rebuilt or retested.
+
 ## Recovery state and menu transitions (2026-10-31)
 
 Two further frozen four-attempt wizard blocks tested the remaining recovery and
