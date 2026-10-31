@@ -70,6 +70,8 @@ page, dialog or unknown control needs a decision. Grouping does not authorize
 additional external effects.
 
 - Use `set-value` for native textfields, textareas and editable comboboxes.
+  For Electron/CEF or fields inside `AXWebArea`, use the verified click/type
+  path under Controlled Editors below; AXValue writes can bypass editor handlers.
 - Leave already-correct values, checkboxes and selections alone.
 - For a dropdown that needs changing, open it and observe the menu. Select the
   observed item with `perform <ref> AXPress` (or its supported action).

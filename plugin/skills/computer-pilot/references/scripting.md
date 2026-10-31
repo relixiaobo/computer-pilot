@@ -21,8 +21,11 @@ address the intended document explicitly when the app has multiple documents.
 
 ## Execute
 
-`cu tell` wraps the expression in an escaped target-app tell block and applies
-a timeout:
+`cu tell` wraps the expression in an escaped target-app tell block. Its timeout
+defaults to 10 seconds; use `cu tell App '<expression>' --timeout 30` for 30
+seconds. The root option before `tell` instead sets the Broker deadline in
+milliseconds. Keep document/table operations in their object's tell block and
+application operations outside it:
 
 ```bash
 cu tell Safari 'get URL of current tab of front window'

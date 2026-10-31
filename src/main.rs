@@ -3066,7 +3066,7 @@ fn cmd_key(
         "effect_verified": effect_verified,
     });
     if effect_verified.is_none() {
-        result["effect_advice"] = "The key event was dispatched, but this shortcut has no reliably observable generic AX effect. Verify the intended application state before any retry.".into();
+        result["effect_advice"] = "Key dispatched; inspect the intended result before retrying. Background apps may ignore menu shortcuts even with AX editor focus. Use app scripting, or explicitly focus the intended window when foreground editing is authorized.".into();
     }
     annotate_method(&mut result);
     if effect_verified == Some(true) {

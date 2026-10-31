@@ -142,6 +142,46 @@ unlike its initial pilot attempt. The command suite also exposed a help-test
 SIGPIPE false failure from `echo | grep -q` under `pipefail`; direct input fixes
 the harness without changing CLI behavior.
 
+### Fresh cu-only retest — 2026-10-31
+
+[Audited results](benchmarks/real-app-fixes-2026-10-31.json) retain three
+predeclared attempts on frozen candidate `2e3eb7b`, using the same model, tasks
+and 600-second wall cap. All three had fresh model profiles/cwds without AGENTS.
+The native pilot above was not rerun. Shared TextEdit/VS Code application state
+remains a limitation; these are historical comparisons, not simultaneous pairs.
+
+| Application | Earlier cu | Fresh cu | Fresh calls / errors |
+| --- | --- | --- | --- |
+| TextEdit | Failed, 88.689 s | Passed, 167.348 s; AX edit and Save | 9 / 0 |
+| VS Code | Failed, 110.599 s | Interrupted at 599.303 s; incomplete files, excluded | 48 / 8 completed |
+| Numbers | Passed, 125.107 s | Passed, 246.572 s; scripting and save-dialog recovery | 40 / 8 |
+
+TextEdit now saved exact contents but remained slower than the historical native
+53.219-second success. Numbers passed all independently reopened values/formulas,
+but took more recovery rounds than its earlier cu attempt. VS Code saved correct
+JSON; the other two files had newline/content mismatches. Its trace also contains
+read-only calls outside the task runtime and a snapshot redirected outside the
+brief's permitted configuration writes. It is retained as interrupted/excluded,
+never as a zero-second result. Seven recorded errors were stale-ref rejections;
+the eighth was the coordinator's missing screenshot output directory. Two more
+CLI misuse errors were hidden by shell pipelines and are documented in its audit.
+
+Tool intervals totalled 0.433 s (TextEdit), 6.558 s (VS Code partial) and 15.732 s
+(Numbers). Most elapsed time was outside recorded tool intervals; these results
+do not establish an overall speed improvement. Dynamic editor recovery, late
+foregrounding and script construction remain agent-level completion problems.
+Shared VS Code settings were unchanged and all task windows/owned processes were
+cleaned up; shared user applications remained running.
+
+Post-block fixes are deliberately separate from the timed candidate: legacy
+`.scriptSuite` dictionaries now use macOS OSA conversion with the existing XML
+parser, so `apps` and `sdef` no longer misclassify TextEdit. The coordinator creates
+its screenshot output directory before launch. Skill guidance distinguishes native
+AX writes from controlled-editor input and explains scripting timeout units/context;
+shortcut advice identifies background menu handling. These changes have functional
+verification, not a replacement performance sample. CI moves from retired/brownout
+macOS 14 hosting to macOS 15; the desktop permission tests remain local.
+
 ## Architecture
 
 ```

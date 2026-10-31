@@ -124,6 +124,7 @@ def start(root, label):
     if manifest['fingerprints'] != fingerprints(): raise RuntimeError('Frozen inputs changed')
     entry=next(e for e in manifest['sequence'] if e['label']==label)
     mode=entry['mode'];trial=root/label;trial.mkdir()
+    (trial/'output').mkdir()
     work=trial/('CP-'+root.name+'-'+label);work.mkdir()
     spec=source(mode);(trial/'source.json').write_text(json.dumps(spec,ensure_ascii=False))
     files = {name: (work.name+'-'+name if mode=='textedit' else name) for name in spec.get('files', {})}
