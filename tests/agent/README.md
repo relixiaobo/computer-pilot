@@ -291,3 +291,95 @@ session. The owned fixture test covers long exact Unicode values, compact delta
 reconstruction, unchanged-ref use, fail-fast shell grouping, complete errors,
 and unchanged ordinary JSON geometry/path output. Private Broker protocol 5
 ensures old Brokers cannot silently omit compact explicit-snapshot deltas.
+
+## Varied workflows with a fresh task for every attempt
+
+The next comparison (2026-10-31, candidate `c01665d`, production binary unchanged)
+uses three different native AppKit workflows, each with two paired datasets:
+
+- **Ticket triage:** filter Open tickets, process six records across pages, apply
+  conditional queue/SLA/urgency rules, then search and correct one record.
+- **Document editing:** transform six multiline Chinese sections, preserve exact
+  punctuation/newlines, mark reviewed, reorder twice, then correct one heading.
+- **Configuration wizard:** four profiles with a real route dropdown and
+  conditional proxy field, Network/Policy/Review pages, a required return/edit,
+  confirmation sheets, and deterministic asynchronous saves (0.35–0.95 seconds).
+
+Every attempt gets a new Codex task, unique app bundle ID/path, fresh process and
+saved state. Valid cu attempts also use fresh Broker/output directories and a task-specific
+client key on every app call. The task receives only its brief and live UI;
+no prewritten solver, source/expected/saved-file access, other task history, or
+correctness/timing feedback. Setup reads the skill/API documentation and observes
+once without mutations. GO uses that same untouched process. All actual setup
+and execution metadata records `gpt-6-astra`, `high`, no service-tier override.
+Only one participant runs at a time, including initialization.
+
+“Clean” means these task/app/state boundaries, **not** a reboot, VM, flushed
+system caches, or identical backend load. The cases use custom native controls
+with AX value setters; they do not establish browser/Electron/commercial-app
+performance. Setup is now measured explicitly. Combined time sums setup and GO
+turn durations; fixture compilation/launch, coordinator gaps and offline checks
+are excluded. The existing tool/token metric limitations above still apply.
+
+| Workflow / dataset | cu setup | Native setup | cu GO | Native GO | cu combined | Native combined |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Triage 1 | 93.5 s | 25.7 s | 207.5 s | 126.0 s | 301.0 s | 151.6 s |
+| Triage 2 | 61.4 s | 15.4 s | 162.6 s | 113.5 s | 224.0 s | 128.8 s |
+| Document 1 | 68.8 s | 21.3 s | 177.0 s | **failed at 323.3 s** | 245.9 s | **failed at 344.6 s** |
+| Document 2 | 50.1 s | 20.4 s | 147.6 s | 197.5 s | 197.7 s | 217.9 s |
+| Wizard 1 | 16.1 s | 18.1 s | 121.5 s | 182.4 s | 137.5 s | 200.5 s |
+| Wizard 2 | 27.8 s | 26.3 s | 147.2 s | 227.5 s | 175.0 s | 253.8 s |
+
+Independent exact checks passed **6/6 cu** and **5/6 native**. Native document-1
+clicked Move S103 instead of Open S103, then closed the main window while trying
+to dismiss the move page. Its first two bodies also contained literal `\n` text.
+It reported blocked after failed recovery. Native document-2 recovered from eight
+recorded AX/tool errors and passed. Failed durations are time to reported blocker,
+not time to successful completion, and are not included in a success-time average.
+
+cu was slower on both triage datasets: mean GO 185.0 vs 119.7 seconds (1.55x).
+Its recorded tool intervals were only 4.86–5.22 seconds vs native 11.57–12.32;
+the observed difference is mainly outside those intervals, not evidence of slow
+native click dispatch. On the successful document pair cu used 147.6 vs 197.5
+seconds. Both valid wizard pairs favored cu (121.5/147.2 vs 182.4/227.5 seconds).
+cu setup sometimes guessed the wrong helper path: triage-1 repaired it during
+setup, document-2 during GO. All recovery time is retained. These small samples
+show task/strategy dependence, not a universal winner or causal speedup estimate.
+
+Two additional cu attempts are retained as **isolation deviations**, outside the
+12 primary samples. The original triage-2-cu omitted `COMPUTER_PILOT_HOME`
+throughout (67.7 s setup + 207.5 s GO, exact outcome). The original wizard-2-cu
+configured a fresh Broker, but three GO app calls bypassed its configuration
+(52.5 s + 411.8 s, exact outcome). That slow wizard attempt tried popup set-value,
+stale menu refs, keyboard, OCR and coordinates before AXPress/condition-wait
+recovery. It is not evidence for the strictly isolated workflow. Each was
+replaced by a new task/app/state with the same brief, with no performance feedback.
+Both replacements ran after the paired native trial, so the final order is not
+fully counterbalanced. The artifact records all 14 attempts and actual order;
+slow/error samples with valid isolation were retained.
+
+[Complete results and evidence hashes](benchmarks/varied-fresh-workflows-2026-10-31.json)
+include per-turn settings, timing, tokens, errors, exact checks, failed field
+comparisons and both deviations. Local traces contain tools only, no reasoning.
+All owned fixture processes and dedicated Brokers were stopped after collection.
+
+To repeat the protocol:
+
+```bash
+python3 tests/agent/benchmark_varied_workflows.py /new/experiment prepare
+python3 tests/agent/benchmark_varied_workflows.py /new/experiment start triage-1-native
+# Create one NEW Codex task from the printed brief; save its ID in LABEL/thread.txt.
+# Wait for READY. Check actual model and, for cu, task config/Broker isolation.
+# Send GO native-1. (or GO cu-1., GO native-2., GO cu-2. for that arm/dataset).
+# Wait for completion, then collect before stopping:
+python3 tests/agent/benchmark_varied_workflows.py /new/experiment collect triage-1-native
+python3 tests/agent/benchmark_varied_workflows.py /new/experiment stop triage-1-native
+```
+
+Repeat for the manifest sequence, never reusing a task. Audit every app call's
+backend/environment before accepting a sample; a correct setup alone does not
+prove later calls retained isolation. Preserve any excluded attempt and its reason.
+The fixture passed complete coordinator smoke runs for all three workflows before
+formal trials, and the independent verifier rejected deliberately corrupted saved
+fields. These are benchmark additions; the earlier production checks remain
+applicable because the measured CLI/skill code did not change during this series.
