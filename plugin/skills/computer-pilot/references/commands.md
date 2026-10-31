@@ -123,13 +123,18 @@ Poll until `--text`, `--ref`, `--gone`, `--new-window`, `--modal`,
 `--focused-changed`, or `--app-running` succeeds. Prefer semantic text/window
 conditions over ref conditions.
 
+`--text` is a substring match across all element labels/values, including
+navigation buttons. Use a distinguishing destination condition. Successful and
+timed-out waits return a fresh snapshot; its refs are ready for the next action.
+
 ### `cu why <ref> --app <app>`
 
 Explain target enabled state, bounds, supported AX actions, and recovery advice.
 
 ## Act
 
-Always pass `--app`. Ref actions should also pass `--observation`.
+Always pass `--app` outside the session helper. Ordinary ref actions use the
+client's latest observation; pass `--observation` only to select an earlier one.
 
 ### `cu click <ref|x y> --app <app> [options]`
 

@@ -71,7 +71,7 @@ On `stale_observation`:
 1. Do not retry the same ref action.
 2. Run `cu state <app>` or `cu snapshot <app>`.
 3. Re-identify the intended control in the new Observation.
-4. Dispatch with the new `observation_id`.
+4. Use the new observation's target; ordinary ref actions select it automatically.
 
 ## Verification
 
@@ -92,6 +92,20 @@ development app's explicitly provided localhost CDP/Playwright endpoint when
 available; otherwise report the unsupported delivery instead of using global
 keystrokes, System Events click/keystroke, name-based activation, or repeated
 AXValue writes.
+
+The session helper skips effect verification for grouped native edits. For
+controlled input, use the verified binary directly with an explicit target:
+
+```bash
+"$CU_BIN" --compact click <editor-ref> --app "$CU_APP"
+# Read the focus result before typing.
+"$CU_BIN" --compact type "<intended text>" --app "$CU_APP"
+```
+
+`type` requires a focused AX text input and automatically uses PID-targeted
+clipboard paste below `AXWebArea` or in known chat apps. Do not override that
+route with `--no-paste`. Clipboard contents are restored unless the user changed
+them mid-paste; read `clipboard_hint` when restoration was skipped or failed.
 
 ## Method Routing
 

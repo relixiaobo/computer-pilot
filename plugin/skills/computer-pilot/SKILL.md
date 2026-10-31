@@ -1,289 +1,152 @@
 ---
 name: computer-pilot
-description: Control macOS desktop applications through the `cu` CLI and an Agent's existing shell. Use for reading or operating native app UI, clicking controls, filling fields, typing, keyboard shortcuts, window management, AppleScript-capable app data, screenshots, or OCR. Prefer Browser Pilot for web-page DOM tasks. Do not use for text-only file edits that do not require GUI interaction.
+description: Read and operate macOS app UI through the cu CLI and the Agent's existing shell, including native controls, text input, AppleScript, screenshots and OCR. Prefer Browser Pilot for web-page DOM tasks. Not needed for ordinary file edits.
 ---
 
 # Computer Pilot
 
-Use only `Agent -> this skill -> existing shell -> cu CLI`. Never look for or
-expose MCP, stdio, JSON-RPC, a native SDK, or Agent-specific adapters. The
-per-user Broker is a private `cu` implementation detail.
+Use this skill and the existing shell to call `cu`. The private Broker is not
+an Agent API; do not look for an MCP server, SDK or alternative transport.
 
-## Initialize
+## Start The Task
 
-If the caller has already verified the Computer Pilot binary and permissions,
-start directly with the task. Otherwise run this preflight once per session.
-Put the managed install directory first on `PATH`
-so every later `cu` in this skill resolves to Computer Pilot:
+Use the caller's verified binary and permissions directly. Otherwise put
+`${XDG_DATA_HOME:-$HOME/.local/share}/computer-pilot/bin` first on PATH and run
+`cu --version` once. Computer Pilot prints `cu <semver>`; macOS's unrelated
+`/usr/bin/cu` prints `cu (Taylor UUCP)`. For a missing/outdated binary, use
+[installation](references/permissions.md#installation) and
+[compatibility.json](compatibility.json). Run `cu setup` only after installation
+or a permission error.
 
-```bash
-export PATH="${XDG_DATA_HOME:-$HOME/.local/share}/computer-pilot/bin:$PATH"
-cu --version
-```
+Choose the cheapest suitable interface. For a known scriptable app's data,
+use `cu tell`; consult [scripting.md](references/scripting.md) if needed.
+Use `cu apps` once when the target or scripting support is unknown. For UI,
+start with an AX snapshot; use screenshots/OCR when AX lacks the needed content.
 
-macOS ships an unrelated `/usr/bin/cu` (the UUCP serial dialer) that answers
-`cu --version` with `cu (Taylor UUCP) 1.07`. Computer Pilot always prints
-`cu <semver>`. Treat any other output — and any failure — as "not
-installed"; never run desktop commands against the UUCP binary.
-
-If the verified binary is missing or below `cli.minimum_version` in
-[compatibility.json](compatibility.json), follow the pinned installation steps
-in [permissions.md](references/permissions.md#installation). Run `cu setup`
-only on first use or after a permission error, not before every task.
-
-Establish stable task identity:
+For multiple rounds, save the task configuration once, for example
+`/absolute/task/cu-env.sh`:
 
 ```bash
-export COMPUTER_PILOT_CLIENT_KEY="<stable-logical-agent-key>"
-export COMPUTER_PILOT_OUTPUT_DIR="/absolute/task-owned/output-dir"
-```
-
-Keep the client key stable for one logical Agent and use another key for each
-other Agent. Set an absolute output directory before creating screenshots.
-
-## Choose A Control Tier
-
-Use the cheapest reliable tier:
-
-1. If the target or its scripting support is unknown, use `cu apps` once.
-   For a known app, go directly to the relevant command.
-2. Use `cu tell` for data-level work in scriptable apps.
-3. Use AX observation and actions for ordinary UI work.
-4. Use OCR or screenshots only when AX is sparse or visual state matters.
-
-For Browser UI, use Browser Pilot when available. Read
-[scripting.md](references/scripting.md) for AppleScript and
-[visual.md](references/visual.md) for screenshot/OCR workflows.
-
-## Observe And Act In Groups
-
-Use `cu --compact snapshot "<known app>" --limit 200` to start ordinary UI
-work. Use `state` only when window/display metadata or a screenshot is needed.
-Prefer `set-value` for native textfields/textareas and editable comboboxes.
-For a dropdown, open it, observe its menu items, then use `perform <item> AXPress`
-(or the supported action reported on failure). An AXValue write to a popup can
-be accepted without selecting the option or firing its application handler.
-
-Group known actions in one shell call, including filling fields and an
-already-authorized Save/Next. Observe once when a new page, dialog or unknown
-target requires another decision. Skip per-field/pre-save inspections and
-repeated confirmation of an observed result. External effects still require
-the user's authorization; grouping adds none.
-
-For multiple rounds, save setup once in a task-owned shell file. The helper is
-[scripts/session.sh](scripts/session.sh), **relative to this SKILL.md, not the
-repository root**. Use its resolved absolute path:
-
-```bash
-# /absolute/task/cu-env.sh
 export CU_BIN="/verified/path/to/cu"
 export CU_APP="pid:89806"
-export COMPUTER_PILOT_CLIENT_KEY="<stable-task-key>"
-# Keep any supplied COMPUTER_PILOT_HOME and COMPUTER_PILOT_OUTPUT_DIR here too.
+export COMPUTER_PILOT_CLIENT_KEY="<unique-stable-task-key>"
+export COMPUTER_PILOT_OUTPUT_DIR="/absolute/task/output"
+# Preserve any caller-supplied COMPUTER_PILOT_HOME here too.
 . /absolute/skill-directory/scripts/session.sh
 ```
 
-Use the directory from which you read this skill. In this repository the helper
-is `plugin/skills/computer-pilot/scripts/session.sh`.
+Resolve [scripts/session.sh](scripts/session.sh) relative to this SKILL.md.
+Keep the same PID, client key and supplied environment throughout the task.
+Source the task file in each shell call. Its `cu` function supplies the target;
+do not repeat `--app` or a positional app. Start with `cu snapshot`.
 
-Source that task file in each shell call. Its `cu` function wraps the verified
-binary, retaining the task environment for reads, waits and actions. It supplies
-the chosen app for UI commands; do not repeat `--app` or a positional app.
-Actions omit intermediate snapshots/effect checks and stop the group on errors.
-Use this grouping for known controls whose combined result can be inspected at
-the boundary. For uncertain input delivery, use the ordinary CLI with default
-verification as described below.
-`cu snapshot` returns the complete concise state up to 200 elements, including
-unchanged controls and full values; `cu wait` returns usable fresh refs.
-For example, with refs 7, 12 and Save 15 in the current observation:
+## One Call Per Decision Boundary
+
+From the current observation, group all known field changes and authorized
+Save/Next actions **with their final snapshot or wait in the same shell call**.
+For example, if refs 7, 12 and 15 are the observed fields and Save button:
 
 ```bash
 . /absolute/task/cu-env.sh
 cu set-value 7 "Quarterly review"
 cu set-value 12 "Draft"
 cu click 15
-cu wait --text "Saved"
+cu snapshot
 ```
 
-Use `cu snapshot` at a synchronous boundary, or `cu wait` for a known asynchronous
-condition; the wait's snapshot is already the observation, so do not snapshot
-again. Do not add fixed sleeps. After `stale_observation`, observe once and use
-the current target; do not cycle through old refs, coordinates and OCR. Use OCR
-when the control lacks AX support, not when a ref merely expired.
+Do not end one tool call after Save only to request its snapshot in the next.
+Make the next model decision from the group result. Stop the group when a new
+page, dialog or unknown control needs a decision. Grouping does not authorize
+additional external effects.
 
-The helper accepts `--compact`, `--json` or `--human` before the command without
-changing target binding or grouped-action behavior. Use `cu --json snapshot`
-when geometry or axPaths are needed; `cu snapshot` already returns the full state.
-For other root options or default action verification, invoke `"$CU_BIN"`
-directly and supply the target explicitly. Other commands
-such as `tell`, `sdef`, `launch` and recovery keep their ordinary CLI arguments.
-For a single short task, direct CLI actions can use `--no-snapshot` and
-`--no-verify`; inspect the result at the group boundary.
+- Use `set-value` for native textfields, textareas and editable comboboxes.
+- Leave already-correct values, checkboxes and selections alone.
+- For a dropdown that needs changing, open it and observe the menu. Select the
+  observed item with `perform <ref> AXPress` (or its supported action).
+  Writing the popup's AXValue may not select the item or fire its handler.
+- Skip per-field and pre-save inspections. After a recoverable error, refresh
+  the relevant state and resume grouping; do not turn the rest of the workflow
+  into one-field-at-a-time checks.
 
-## Targeting Rules
+The helper omits action snapshots/effect checks and stops on command errors.
+The final observation checks the group's result. For uncertain input delivery,
+especially controlled editors, use the verified direct-CLI path below instead.
 
-Outside the session helper, pass `--app` to `click`, `type`, `key`, `scroll`,
-`hover`, `drag`, `set-value` and `perform` when targeting a background app. Without `--app`, input is
-delivered to the current frontmost PID without moving the user's cursor. Treat
-any `*-global` method as disruptive: it appears only when `--allow-global` was
-explicitly supplied. Terminal and IDE frontmost targets still require an
-explicit `--app`; do not answer that refusal with `--allow-global`.
-Treat `cu window focus` as explicitly disruptive and user-visible; never use it
-as an automatic fallback. `cu launch` opens apps in the background and never
-takes the user's focus. `cu tell` refuses `activate` and System Events
-`keystroke`/`key code` — use PID-targeted `cu key`/`cu type` instead.
+## Observe Transitions
 
-The private Broker can optionally show a click-through software cursor for the
-human observer. Set `COMPUTER_PILOT_VISUAL_CURSOR=1` before the first `cu`
-command in a session. It applies to pointer actions only, follows the target
-window without moving the real cursor, and is never part of agent screenshots.
-The overlay is presentation-only and may fail open without changing the action.
+Use `snapshot` for the next decision, or `wait` for a known asynchronous
+condition. Include either at the end of the action group. A wait already returns
+a complete snapshot and usable refs; do not immediately snapshot it again.
 
-Use a unique application name, bundle identifier, or `pid:<PID>`. `cu apps`
-returns each process's `selector`. Ambiguous names/bundles fail without acting;
-choose from `diagnostics.candidates` and reuse that PID for the whole loop:
+`wait --text` matches substrings in **any element's label or value**. Choose
+text that distinguishes the destination from the current UI. A word already in
+"Next: …", a source label, or an unchanged field does not establish arrival.
+Inspect an unexpected confirmation dialog before waiting for the state beyond
+it; use `wait --modal` when the expected next state is a dialog.
 
-Never select a duplicate by whichever copy is active. After restart, resolve a
-new PID and create a fresh Observation.
+AX actions can return before a menu closes or a view updates. If the observation
+still shows the departing menu/view, observe again or wait for the distinguishing
+next state; do not repeat the accepted action. Do not add fixed sleeps.
 
-Prefer targeting in this order:
+## Target And Ref Identity
 
-1. Use a ref already present in the current Observation.
-2. Use `cu find` when the target is missing and its role or label is known.
-3. Use `axPath` for a known structural selector.
-4. Use `cu nearest` or `cu observe-region` for visual coordinates.
-5. Use `cu click --text` when only OCR can see the label.
-6. Use raw coordinate clicks only as the final fallback.
+Use an exact `pid:<PID>` or a unique app/bundle name. For `ambiguous_target`,
+choose a selector from the reported candidates. Resolve a new PID after exit;
+never select a duplicate by whichever copy is active.
 
-```bash
-cu find --app "Mail" --role button --title-equals "Send" --first
-cu click 12 --app "Mail" --observation "<observation_id>"
-```
+Refs belong to one client's observation, PID, window and target signature.
+Ordinary actions use that client's latest observation. `--observation <id>` is
+only needed to choose an earlier observation. A ref number in a later snapshot
+may identify another element. After `stale_observation`, observe once and
+re-plan; do not retry the old ref or switch to OCR merely because it expired.
+Use `find` for a missing known label/role, or `why` for an unclear control.
+A window close button is not a navigation shortcut.
 
-Do not pipe a newly discovered ref directly into an action without retaining
-the observation that produced it.
+Outside the helper, pass `--app` to actions. Keep background work PID-targeted;
+never respond to delivery failures by dropping the target, using global input,
+or automatically focusing the app. `window focus` and `--allow-global` are
+visible/disruptive and require a workflow that explicitly needs foreground
+operation. `launch` opens in the background. Do not recreate input through
+System Events or `osascript`/`pbcopy`.
 
-## Electron And Controlled Editors
+## Controlled Editors And Recovery
 
-Use this bounded path for Electron/CEF editors:
+For Electron/CEF or an `AXWebArea` input, read the
+[verified-input path](references/recovery.md#verification). Use the verified
+binary directly with an explicit app: require exact editor focus before typing
+and correct final text after typing. A successful AXValue write alone does not
+prove the application handled input. Stop unconfirmed delivery; use an explicitly
+provided development CDP/Playwright endpoint when available.
 
-Use the verified binary directly to keep default verification; supply the app
-explicitly:
+Success receipts report dispatch; observations and explicit verification report
+effects. Read returned errors/advisories and false verification results. Reuse
+attached state for recovery. A missing/failed snapshot is not permission to
+repeat a mutation. For timeout/unknown outcome, inspect current state before
+another mutation; use a request ID when a consequential action needs idempotent
+recovery, not for every local field edit.
 
-```bash
-"$CU_BIN" --compact click <editor-ref> --app "$CU_APP"
-# After reading the click's focus result:
-"$CU_BIN" --compact type "<intended text>" --app "$CU_APP"
-```
-
-1. Select the exact `pid:<PID>` and retain it across the loop.
-2. Click the editor and require `focus_verified:true` before typing.
-3. Type the intended text once with default verification. Continue only when
-   the final text is correct. `cu type` automatically uses PID-targeted paste for
-   a focused input below `AXWebArea`; do not override it with `--no-paste`.
-4. Stop and inspect the current state on
-   `verification_failed`, `effect_verified:false`, or missing focus.
-
-For a dev Electron app with an explicitly provided localhost CDP/Playwright
-endpoint, switch to it. Otherwise report unconfirmed delivery. Never drop
-`--app`, use global System Events keystrokes, or activate by app name.
-
-If an element path contains `webarea`, do not use `cu set-value` as proof that
-a React/ProseMirror-style controlled editor handled input. AXValue can change
-without firing its input/onChange handler or enabling Send.
-
-## Observation And Ref Safety
-
-Refs are ephemeral and bind to one Observation's client, PID, bundle, window,
-and target element signature. Unrelated elements may change without invalidating
-the target. A changed target, PID, or window still fails before dispatch.
-
-- Ordinary ref actions use the latest observation for this client and target.
-- Use `--observation <id>` only to select a particular earlier observation.
-- Never reuse another Agent's Observation or ref.
-- Never treat the same integer in a later snapshot as the same element.
-- An unlabeled control is not a navigation shortcut. Inspect its role/action
-  with `cu why` or its visual context before choosing it; do not guess.
-- On `stale_observation`, do not retry the action. Observe again and re-plan.
-- User activity can invalidate an Observation; Computer Pilot never locks out
-  the user to preserve stale state.
-
-An `axPath` avoids ref renumbering but does not make intent permanent.
-
-## Output And Errors
-
-`--compact` is concise JSON for ref-based agent work. It omits geometry,
-axPaths, routine command metadata, echoed action arguments and routine
-dispatch reminders. It retains observed labels/values, PID/observation identity,
-effect/focus results and actionable advisories/errors. Success receipts report
-dispatch; only observations and explicit verification report UI effects. Use ordinary `--json` when coordinates, full
-metadata or machine integration are needed. Error and recovery output stays
-complete in both modes.
-
-All snapshots, including action and wait output, contain the complete tree
-within the requested limit and full text. Use the returned `observation_id`
-and refs directly; no baseline or merge is needed. If `truncation_hint` says
-controls are missing, increase `--limit` before assuming a target is absent.
-
-Act on `_hint`, `_reason`, `_advice`, `_error`, `verified:false`, and
-`effect_verified:false`. A `snapshot_error` is missing state, not a reason to
-repeat a mutation blindly. Default click/type verification remains available
-for uncertain delivery (especially controlled editors). `verified:true` only
-means AX changed; assess the requested outcome at the group boundary.
-
-`cu type` uses PID-targeted clipboard paste for focused `AXWebArea` inputs or
-known chat apps, and Unicode events for native inputs. It requires a focused
-AX text input. Do not recreate this with `osascript` or `pbcopy`.
-
-## File Results
-
-Set `COMPUTER_PILOT_OUTPUT_DIR` to an absolute task-owned directory. File
-commands return the legacy path plus structured metadata containing absolute
-`path`, `mime`, `bytes`, `width`, `height`, and `scale`.
-
-Writes are atomic `0600`, do not overwrite, and reject relative paths or
-symlink traversal. Read returned paths with the host's normal file capability.
-
-## Recovery
-
-Use `--request-id` when a consequential or long-running mutation needs
-idempotent recovery after a timeout. Ordinary local field edits do not need it:
-
-```bash
-cu --request-id "send-draft-17" click 12 --app "Mail" --observation "<id>"
-cu status
-cu commands --limit 20
-cu command "<command_id>"
-cu cancel "<command_id>"
-```
-
-Use root `--timeout <milliseconds>`. A post-dispatch timeout returns
-`unknown_outcome`; inspect UI state before another mutation.
-
-Branch on stable `code`, not English error text. Never blindly retry a
-mutation. Keep recovery within the authorized task: do not change login-session
+Keep recovery within the authorized task. Do not change login-session
 environment or restart an app to work around a missing control. Report blocked
-when recovery requires permissions or setup outside that scope.
-Read [recovery.md](references/recovery.md) for the error matrix,
-command states, verification recovery, and routing methods.
+when recovery needs setup or permissions outside that scope. See
+[recovery.md](references/recovery.md) for command inspection and error codes.
 
-## Command Discovery
+## Output And Further Commands
 
-Use runtime help as the authoritative inventory:
+The helper defaults to concise JSON and complete snapshots up to 200 elements,
+including unchanged controls and full values. Increase `--limit` only when a
+truncation hint says needed content is missing. `--compact`, `--json` and
+`--human` before the command retain task binding; `--json` adds geometry/axPaths,
+not a different state model. For other root options or default action
+verification, call `"$CU_BIN"` directly with the explicit target.
 
-```bash
-cu --help
-cu <command> --help
-```
+For a single short task, direct CLI actions may use `--no-snapshot` and
+`--no-verify`, with one final observation. Use `state` when window/display
+metadata or an image is needed. File outputs need an absolute task-owned output
+directory; read returned paths through the host's normal file capability.
 
-Read references only when needed:
+Use `cu <command> --help` for unfamiliar syntax. Read only the relevant reference:
 
-- [commands.md](references/commands.md): command groups, important flags, and output fields.
-- [scripting.md](references/scripting.md): `cu apps`, `cu sdef`, and `cu tell`.
-- [visual.md](references/visual.md): screenshot, annotation, OCR, and coordinate mapping.
-- [recovery.md](references/recovery.md): stable errors, request IDs, cancellation, and method routing.
-- [permissions.md](references/permissions.md): Accessibility, Screen Recording, and per-app Automation.
-- [embedding.md](references/embedding.md): install and bundle Computer Pilot in any shell-capable Agent.
-
-For unknown or newly added flags, trust `cu <command> --help` over remembered
-syntax.
+- [commands.md](references/commands.md): CLI options and command inventory.
+- [visual.md](references/visual.md): screenshots, OCR, coordinates and file output.
+- [permissions.md](references/permissions.md): installation and permission errors.
+- [embedding.md](references/embedding.md): packaging the skill for an Agent host.
