@@ -383,3 +383,54 @@ The fixture passed complete coordinator smoke runs for all three workflows befor
 formal trials, and the independent verifier rejected deliberately corrupted saved
 fields. These are benchmark additions; the earlier production checks remain
 applicable because the measured CLI/skill code did not change during this series.
+
+## Wait handoff and simpler sessions
+
+Follow-up `96c9b7b` fixes an error exposed in both valid wizard runs above:
+`wait` returned the new list/ref, but did not publish it to the Broker. The next
+click was rejected against the older observation. This was a CLI state-handoff
+bug, **not** the participant ignoring a fresh-ref requirement. The final wait
+snapshot now becomes the latest observation on success and timeout; timeout
+output remains full and nonzero. Private protocol 6 retires Brokers that would
+discard timeout observations.
+
+The skill helper now supplies one `cu` function for UI reads, waits and actions;
+`cu_do`/`cu_see` were replaced, with no compatibility shim or new transport.
+The skill locates the helper relative to its own directory and guides dropdown
+selection through existing AX actions. It uses the wait result directly instead
+of requesting another snapshot. Stale refs require a fresh observation, not a
+series of unrelated keyboard/OCR/coordinate attempts.
+
+Successful `perform` no longer queries or returns `available_actions` in either
+output mode. Those diagnostics are collected only after a rejected action.
+Compact receipts omit echoed app/ref/coordinates and text/key/action arguments,
+plus routine key/perform dispatch reminders. Actual field values, method routes,
+effect/focus results, degraded-state advisories and errors remain available.
+Ordinary JSON retains echoed arguments; it intentionally loses the redundant
+success-only `perform.available_actions` field.
+
+Two new isolated `gpt-6-astra / high` tasks used the same briefs and dataset 1 as
+above. Both resolved the helper path and retained the task environment on every
+app call; both exact outcomes passed. All setup/GO time is retained:
+
+| Workflow | Earlier GO | Follow-up GO | Follow-up setup | Follow-up combined | Returned text, earlier → follow-up |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Triage | 207.5 s | 179.6 s | 44.2 s | 223.9 s | 28,426 → 25,993 characters |
+| Wizard | 121.5 s | 153.0 s | 21.3 s | 174.3 s | 37,559 → 31,057 characters |
+
+Triage had no tool errors. Wizard used wait refs directly, with no wait-handoff
+error; one transient menu identity change was recovered through AX without OCR
+or coordinates. Returned text was lower in both samples, but elapsed time moved
+in opposite directions. These are forward behavior tests with historical timing
+references, **not** a controlled timing estimate or a new native comparison.
+[Follow-up records](benchmarks/session-followup-2026-10-31.json) retain settings,
+usage, checks, prior samples and tool-only evidence hashes.
+
+Validation: 43 Rust tests, Clippy, release build, version/skill validation, and
+45 command-suite checks passed; two TextEdit cases were skipped to preserve the
+user's open session. The owned native regression covers menu callback effects,
+error action hints, async view replacement followed by direct wait-ref use,
+actionable timeout snapshots, exact Unicode contents after receipt compaction,
+ordinary JSON, and sourced sessions across sh/bash/zsh. Broker upgrade tests cover
+retirement of incompatible versions. No per-field effect checks, automatic retry
+framework or new configuration layer was added.
