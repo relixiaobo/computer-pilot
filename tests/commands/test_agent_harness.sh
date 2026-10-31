@@ -603,4 +603,42 @@ else
     "verify_task no longer consults the ok/text pair of its check command"
 fi
 
+section "agent harness — groups stop on error and preserve complete observations"
+
+if (cd "$ROOT_DIR" && python3 - <<'PYTEST'
+import importlib.util, json
+spec = importlib.util.spec_from_file_location("harness", "tests/agent/run.py")
+harness = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(harness)
+harness.run_setup = lambda *a, **k: None
+harness.run_cleanup = lambda *a, **k: []
+harness.time.sleep = lambda _: (_ for _ in ()).throw(AssertionError("blind loop sleep"))
+large = json.dumps({"ok": True, "value": "x" * 7000, "end": "complete"})
+commands = []
+rounds = []
+def command(args):
+    commands.append(args)
+    return {"ok": len(commands) == 1, "text": large if len(commands) == 1 else '{"ok":false,"error":"fixture"}'}
+def model(name, messages):
+    rounds.append(1)
+    if len(rounds) == 1:
+        return "cu snapshot Fixture\ncu key enter --app Fixture\ncu type MUST_NOT_RUN --app Fixture", 1, 1
+    results = next(m["content"] for m in messages if m["content"].startswith("Results:"))
+    assert large in results and "group stopped" in results.lower(), results
+    return "DONE", 1, 1
+harness.cu_result = command
+harness.call_llm = model
+result = harness.run_agent_task({"id":"group", "name":"group", "goal":"fixture", "verify":[]},
+                                "stub-model", max_steps=3, verbose=False)
+assert [args[0] for args in commands] == ["snapshot", "key"], commands
+assert result["timings"]["model_calls"] == 2 and result["timings"]["commands"] == 2, result
+assert all(e["ms"] >= 0 for e in result["trace"]), result
+assert result["trace"][1]["output_chars"] == len(large), result
+PYTEST
+); then
+  _pass "one group per round, stop on failure, full JSON, and separate model/command timings"
+else
+  _fail "group execution and latency accounting" "harness behavior assertions failed"
+fi
+
 summary

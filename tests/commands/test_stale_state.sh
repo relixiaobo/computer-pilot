@@ -16,7 +16,6 @@ assert_json_field "client key bound" ".client_key" "stale.agent"
 assert_json_field_exists "pid present" ".pid"
 assert_json_field_exists "bundle_id present" ".bundle_id"
 assert_json_field_exists "window_id present" ".window_id"
-assert_json_field_exists "AX generation present" ".ax_generation"
 
 OBSERVATION_ID=$(json_get '.observation_id')
 OLD_X=$(echo "$OUT" | python3 -c 'import json,sys; print(round(json.load(sys.stdin)["window_frame"]["x"]))')

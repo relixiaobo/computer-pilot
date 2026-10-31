@@ -14,6 +14,7 @@
 source "$(dirname "$0")/helpers.sh"
 
 CURRENT_VERSION="$(sed -n 's/^version = "\([^"]*\)"/\1/p' "$ROOT_DIR/Cargo.toml" | head -1)"
+CURRENT_PROTOCOL="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["private_broker_protocol"])' "$ROOT_DIR/plugin/skills/computer-pilot/compatibility.json")"
 SANDBOX="$(mktemp -d "${TMPDIR:-/tmp}/cu-broker-upgrade.XXXXXX")"
 FAKE_PIDS=()
 
@@ -129,7 +130,7 @@ section "broker reuse — a NEWER Broker serves an older CLI unchanged"
 # The coexistence direction: an Agent-bundled newer cu started the Broker, then
 # an older global install runs. Restarting here is the churn bug.
 HOME_NEWER="$SANDBOX/newer"
-NEWER_PID=$(start_fake_broker "$HOME_NEWER" 3 "99.0.0" false)
+NEWER_PID=$(start_fake_broker "$HOME_NEWER" "$CURRENT_PROTOCOL" "99.0.0" false)
 run_cu "$CU" "$HOME_NEWER" status
 if [[ $EXIT -eq 0 && "$(served_pid)" == "$NEWER_PID" ]] && kill -0 "$NEWER_PID" 2>/dev/null; then
   _pass "newer same-protocol Broker is reused in place, not restarted"
@@ -142,7 +143,7 @@ kill "$NEWER_PID" 2>/dev/null || true
 section "broker retirement — an OLDER Broker is replaced so upgrades take effect"
 
 HOME_OLDER="$SANDBOX/older"
-OLDER_PID=$(start_fake_broker "$HOME_OLDER" 3 "0.0.1" false)
+OLDER_PID=$(start_fake_broker "$HOME_OLDER" "$CURRENT_PROTOCOL" "0.0.1" false)
 run_cu "$CU" "$HOME_OLDER" status
 assert_ok "command succeeds after retiring the older Broker"
 if [[ "$(served_pid)" != "$OLDER_PID" ]]; then
@@ -156,7 +157,7 @@ assert_json_field "the replacement reports this CLI's version" ".version" "$CURR
 section "broker retirement — a busy older Broker keeps serving instead of failing"
 
 HOME_BUSY="$SANDBOX/busy"
-BUSY_PID=$(start_fake_broker "$HOME_BUSY" 3 "0.0.1" true)
+BUSY_PID=$(start_fake_broker "$HOME_BUSY" "$CURRENT_PROTOCOL" "0.0.1" true)
 run_cu "$CU" "$HOME_BUSY" status
 if [[ $EXIT -eq 0 && "$(served_pid)" == "$BUSY_PID" ]]; then
   _pass "a busy older Broker serves the command rather than returning target_busy"

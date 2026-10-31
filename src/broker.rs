@@ -9,7 +9,6 @@ use crate::visual_cursor;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, OpenOptions};
-use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::os::unix::net::{UnixListener, UnixStream};
@@ -29,7 +28,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 /// CLIs never restart each other's Broker; an older one is retired through
 /// StopIfIdle so a bug fix that did not change the wire format still takes
 /// effect. The machine therefore converges on the newest installed version.
-const INTERNAL_PROTOCOL: u32 = 3;
+const INTERNAL_PROTOCOL: u32 = 4;
 const DEFAULT_TIMEOUT_MS: u64 = 60_000;
 const MAX_TIMEOUT_MS: u64 = 300_000;
 const MAX_RECORDS: usize = 2048;
@@ -70,7 +69,7 @@ pub struct RunOptions {
     pub test_frontmost_override: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct ObservedElement {
     #[serde(rename = "ref")]
     pub ref_id: usize,
@@ -90,14 +89,11 @@ pub struct ObservedElement {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ObservationExpectation {
     pub observation_id: String,
-    pub client_key: String,
     pub pid: i32,
     pub bundle_id: String,
     pub window_id: u32,
-    pub ax_generation: u64,
     pub limit: usize,
     pub target: ObservedElement,
-    pub elements: Vec<ObservedElement>,
 }
 
 #[derive(Clone)]
@@ -108,10 +104,10 @@ struct ObservationRecord {
     pid: i32,
     bundle_id: String,
     window_id: u32,
-    ax_generation: u64,
     limit: usize,
     elements: Vec<ObservedElement>,
     created_at_ms: u64,
+    diffable: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -1461,14 +1457,11 @@ fn resolve_expectation(
         })?;
     Ok(Some(ObservationExpectation {
         observation_id: observation.id.clone(),
-        client_key: observation.client_key.clone(),
         pid: observation.pid,
         bundle_id: observation.bundle_id.clone(),
         window_id: observation.window_id,
-        ax_generation: observation.ax_generation,
         limit: observation.limit,
         target,
-        elements: observation.elements.clone(),
     }))
 }
 
@@ -1781,7 +1774,7 @@ fn capture_observation(
             .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok());
         let _ = fs::remove_file(observation_path);
         if let Some(source) = source {
-            store_observation(shared, options, &source);
+            store_observation(shared, options, &source, false);
         }
         return stdout;
     };
@@ -1795,16 +1788,37 @@ fn capture_observation(
         })
         .unwrap_or_else(|| output.clone());
     let _ = fs::remove_file(observation_path);
-    let Some((record, observation_id)) = store_observation(shared, options, &source) else {
+    let visible = output.get("snapshot").unwrap_or(&output).get("elements");
+    let diffable = visible
+        .and_then(serde_json::Value::as_array)
+        .zip(source.get("elements").and_then(serde_json::Value::as_array))
+        .is_some_and(|(visible, full)| {
+            visible.len() == full.len()
+                && visible
+                    .iter()
+                    .zip(full)
+                    .all(|(a, b)| a.get("ref") == b.get("ref"))
+        });
+    let Some((record, observation_id, previous)) =
+        store_observation(shared, options, &source, diffable)
+    else {
         return serde_json::to_string(&output).unwrap_or(stdout);
     };
+    if let Some(previous) = previous.filter(|previous| {
+        previous.diffable
+            && previous.window_id == record.window_id
+            && previous.bundle_id == record.bundle_id
+            && previous.limit == record.limit
+    }) && let Some(snapshot) = output.get_mut("snapshot")
+    {
+        compact_observation_delta(snapshot, &previous, &record);
+    }
     if let Some(object) = output.as_object_mut() {
         object.insert("observation_id".into(), observation_id.into());
         object.insert("client_key".into(), options.client_key.clone().into());
         object.insert("pid".into(), i64::from(record.pid).into());
         object.insert("bundle_id".into(), record.bundle_id.into());
         object.insert("window_id".into(), u64::from(record.window_id).into());
-        object.insert("ax_generation".into(), record.ax_generation.into());
     }
     serde_json::to_string(&output).unwrap_or(stdout)
 }
@@ -1813,7 +1827,8 @@ fn store_observation(
     shared: &SharedState,
     options: &RunOptions,
     source: &serde_json::Value,
-) -> Option<(ObservationRecord, String)> {
+    diffable: bool,
+) -> Option<(ObservationRecord, String, Option<ObservationRecord>)> {
     let source = source.as_object()?;
     let pid = source.get("pid").and_then(serde_json::Value::as_i64)?;
     let window_id = source
@@ -1836,7 +1851,6 @@ fn store_observation(
         .and_then(serde_json::Value::as_u64)
         .and_then(|value| usize::try_from(value).ok())
         .unwrap_or(elements.len());
-    let ax_generation = observed_generation(&elements);
     let observation_id = format!(
         "observation:{}-{}-{}",
         std::process::id(),
@@ -1850,48 +1864,67 @@ fn store_observation(
         pid: pid as i32,
         bundle_id: bundle_id.clone(),
         window_id,
-        ax_generation,
         limit,
         elements,
         created_at_ms: now_ms(),
+        diffable,
     };
-    {
+    let previous = {
         let (mutex, _) = &**shared;
         let mut state = mutex
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        state.latest_observations.insert(
-            (options.client_key.clone(), resource),
-            observation_id.clone(),
-        );
+        let previous = state
+            .latest_observations
+            .insert(
+                (options.client_key.clone(), resource),
+                observation_id.clone(),
+            )
+            .and_then(|id| state.observations.get(&id).cloned());
         state
             .observations
             .insert(observation_id.clone(), record.clone());
         sweep_observations(&mut state);
-    }
-    Some((record, observation_id))
+        previous
+    };
+    Some((record, observation_id, previous))
 }
 
-fn observed_generation(elements: &[ObservedElement]) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    for element in elements {
-        element.ref_id.hash(&mut hasher);
-        element.role.hash(&mut hasher);
-        element.title.hash(&mut hasher);
-        element.value.hash(&mut hasher);
-        element.x.to_bits().hash(&mut hasher);
-        element.y.to_bits().hash(&mut hasher);
-        element.width.to_bits().hash(&mut hasher);
-        element.height.to_bits().hash(&mut hasher);
-        element.ax_path.hash(&mut hasher);
+/// Keep full observations privately; return only changed refs to the same client.
+/// Ref renumbering is itself a change, so the consumer can reconstruct the tree.
+fn compact_observation_delta(
+    snapshot: &mut serde_json::Value,
+    previous: &ObservationRecord,
+    current: &ObservationRecord,
+) {
+    let before: HashMap<usize, &ObservedElement> =
+        previous.elements.iter().map(|e| (e.ref_id, e)).collect();
+    let after: HashMap<usize, &ObservedElement> =
+        current.elements.iter().map(|e| (e.ref_id, e)).collect();
+    if let Some(elements) = snapshot
+        .get_mut("elements")
+        .and_then(serde_json::Value::as_array_mut)
+    {
+        elements.retain(|element| {
+            element
+                .get("ref")
+                .and_then(serde_json::Value::as_u64)
+                .is_some_and(|id| before.get(&(id as usize)) != after.get(&(id as usize)))
+        });
+        snapshot["base_observation_id"] = previous.id.clone().into();
+        snapshot["removed_refs"] = previous
+            .elements
+            .iter()
+            .filter(|e| !after.contains_key(&e.ref_id))
+            .map(|e| serde_json::Value::from(e.ref_id))
+            .collect::<Vec<_>>()
+            .into();
     }
-    hasher.finish()
 }
 
-fn current_elements(elements: &[crate::ax::Element]) -> Vec<ObservedElement> {
-    elements
-        .iter()
-        .map(|element| ObservedElement {
+impl From<&crate::ax::Element> for ObservedElement {
+    fn from(element: &crate::ax::Element) -> Self {
+        Self {
             ref_id: element.ref_id,
             role: element.role.clone(),
             title: element.title.clone(),
@@ -1901,8 +1934,8 @@ fn current_elements(elements: &[crate::ax::Element]) -> Vec<ObservedElement> {
             width: element.width,
             height: element.height,
             ax_path: element.ax_path.clone(),
-        })
-        .collect()
+        }
+    }
 }
 
 fn same_element(left: &ObservedElement, right: &ObservedElement) -> bool {
@@ -1959,9 +1992,8 @@ pub fn snapshot_for_ref_action(
             expected.window_id
         )));
     }
-    // One fresh tree serves both stale-ref enforcement and effect verification.
-    // Validate the original observation prefix even when the action asks for
-    // a different output limit.
+    // Only the selected target must still match. Unrelated content changes do
+    // not invalidate a ref; fresh geometry is used during actual dispatch.
     let mut snapshot = crate::ax::snapshot(pid, app_name, expected.limit.max(limit));
     if !snapshot.ok {
         return Err(stale(
@@ -1970,18 +2002,12 @@ pub fn snapshot_for_ref_action(
                 .unwrap_or_else(|| "could not refresh target UI".into()),
         ));
     }
-    let elements =
-        current_elements(&snapshot.elements[..snapshot.elements.len().min(expected.limit)]);
-    if observed_generation(&elements) != expected.ax_generation {
-        return Err(stale(
-            "UI changed after the selected Observation; the ref was not dispatched".into(),
-        ));
-    }
-    let current = elements
+    let current = snapshot
+        .elements
         .iter()
         .find(|element| element.ref_id == ref_id)
         .ok_or_else(|| stale(format!("ref [{ref_id}] no longer exists")))?;
-    if !same_element(current, &expected.target) {
+    if !same_element(&ObservedElement::from(current), &expected.target) {
         return Err(stale(format!(
             "ref [{ref_id}] now identifies a different element"
         )));
@@ -2326,9 +2352,49 @@ mod tests {
         let mut changed = base.clone();
         mutate(&mut changed);
         assert!(!same_element(base, &changed));
-        assert_ne!(
-            observed_generation(std::slice::from_ref(base)),
-            observed_generation(&[changed])
+    }
+
+    #[test]
+    fn observation_delta_reconstructs_removed_and_renumbered_refs() {
+        let shared = Arc::new((Mutex::new(BrokerState::default()), Condvar::new()));
+        let opts = options(false, Some("pid:1"), false);
+        let mut before = vec![observed(1), observed(2), observed(3)];
+        before[2].title = Some("Third row".into());
+        let source = |elements: &[ObservedElement]| {
+            serde_json::json!({
+                "pid": 1, "window_id": 10, "bundle_id": "test", "limit": 200, "elements": elements
+            })
+        };
+        let (previous, _, _) = store_observation(&shared, &opts, &source(&before), true).unwrap();
+        let mut moved = before[2].clone();
+        moved.ref_id = 2;
+        let after = vec![before[0].clone(), moved];
+        let (current, _, _) = store_observation(&shared, &opts, &source(&after), true).unwrap();
+        let mut snapshot = serde_json::json!({"elements": after});
+        compact_observation_delta(&mut snapshot, &previous, &current);
+        assert_eq!(snapshot["removed_refs"], serde_json::json!([3]));
+        assert_eq!(snapshot["elements"].as_array().unwrap().len(), 1);
+        let mut reconstructed: HashMap<usize, ObservedElement> =
+            before.into_iter().map(|e| (e.ref_id, e)).collect();
+        for id in snapshot["removed_refs"].as_array().unwrap() {
+            reconstructed.remove(&(id.as_u64().unwrap() as usize));
+        }
+        for element in
+            serde_json::from_value::<Vec<ObservedElement>>(snapshot["elements"].clone()).unwrap()
+        {
+            reconstructed.insert(element.ref_id, element);
+        }
+        assert_eq!(
+            reconstructed,
+            after.into_iter().map(|e| (e.ref_id, e)).collect()
+        );
+        let mut other_client = opts.clone();
+        other_client.client_key = "other-agent".into();
+        assert!(
+            store_observation(&shared, &other_client, &source(&[]), true)
+                .unwrap()
+                .2
+                .is_none()
         );
     }
 
@@ -2421,13 +2487,9 @@ mod tests {
     }
 
     #[test]
-    fn observed_identity_and_generation_cover_every_action_field() {
+    fn observed_target_identity_covers_every_action_field() {
         let base = observed(1);
         assert!(same_element(&base, &base));
-        assert_eq!(
-            observed_generation(std::slice::from_ref(&base)),
-            observed_generation(std::slice::from_ref(&base))
-        );
 
         assert_identity_change(&base, |element| element.ref_id = 2);
         assert_identity_change(&base, |element| element.role = "link".into());
@@ -2438,12 +2500,6 @@ mod tests {
         assert_identity_change(&base, |element| element.width = 101.0);
         assert_identity_change(&base, |element| element.height = 31.0);
         assert_identity_change(&base, |element| element.ax_path = None);
-
-        let second = observed(2);
-        assert_ne!(
-            observed_generation(&[base.clone(), second.clone()]),
-            observed_generation(&[second, base])
-        );
     }
 
     #[test]

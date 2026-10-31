@@ -208,21 +208,21 @@ pub fn type_via_paste(text: &str, target_pid: Option<i32>) -> Result<Option<Stri
 pub fn type_text(text: &str, target_pid: Option<i32>) -> Result<(), String> {
     let source = EventSource::for_target(target_pid);
 
-    // First-event wake-up for PID-targeted delivery. CEF / Electron chat apps
-    // (WeChat, Slack, …) can drop the very first CGEvent when their input
-    // listener hasn't finished registering. 15ms gives the target one
-    // run-loop tick before we start dispatching characters. Skipped for the
-    // global tap (no race — the user's own focus already woke the listener).
-    if target_pid.is_some() {
-        std::thread::sleep(std::time::Duration::from_millis(15));
-    }
-
-    for ch in text.chars() {
-        // BMP scalars encode to 1 unit; non-BMP (e.g. U+1F600) to 2 (a
-        // surrogate pair). Both forms are accepted by macOS.
-        let mut buf = [0u16; 2];
-        let units = ch.encode_utf16(&mut buf);
-        let len = units.len();
+    // A Unicode keyboard event carries up to 20 UTF-16 units. Keep surrogate
+    // pairs together and pace events, not individual characters.
+    let mut chars = text.chars().peekable();
+    while chars.peek().is_some() {
+        let mut buf = [0u16; 20];
+        let mut len = 0;
+        while let Some(&ch) = chars.peek() {
+            let units = ch.len_utf16();
+            if len + units > buf.len() {
+                break;
+            }
+            ch.encode_utf16(&mut buf[len..len + units]);
+            len += units;
+            chars.next();
+        }
 
         unsafe {
             let down = CGEventCreateKeyboardEvent(source.raw(), 0, true);

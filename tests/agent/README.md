@@ -31,3 +31,17 @@ python3 tests/agent/run.py --task tests/agent/tasks/mail_to_notes.json
 # Dry run (show tasks without executing)
 python3 tests/agent/run.py --dry-run
 ```
+
+## Latency comparisons
+
+The loop accepts a deterministic group of commands in one model response and
+stops the group on the first failed command. It does not enumerate apps every
+round, truncate command JSON, or add sleeps between commands. Use `cu wait`
+when the task requires an asynchronous condition.
+
+Results include `timings` (model calls, commands, model time, command time,
+and total agent-loop time) and a per-step `trace`. Setup, verification, and
+cleanup are outside the agent-loop timer. Compare the same task and model;
+set `AGENT_REASONING_EFFORT` when the OpenAI-compatible provider supports it.
+Leave it unset to use the provider default. This records actual latency rather
+than inferring speed from token counts or Rust microbenchmarks.
