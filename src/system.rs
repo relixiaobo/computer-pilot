@@ -783,12 +783,9 @@ pub fn launch_app(id: &str) -> Result<(), String> {
 pub fn tell_app(app: &str, expr: &str, timeout_secs: u64) -> Result<String, String> {
     let escaped_app = applescript_escape(app);
 
-    // Wrap in tell application ... end tell if not already wrapped
-    let script = if expr.trim_start().starts_with("tell ") {
-        expr.to_string()
-    } else {
-        format!("tell application \"{escaped_app}\"\n{expr}\nend tell")
-    };
+    // A nested `tell document ...` still needs the application's terminology
+    // and target. An explicit inner application tell is valid nested too.
+    let script = format!("tell application \"{escaped_app}\"\n{expr}\nend tell");
 
     // Try once; if app isn't running (-600), launch it and retry
     match run_applescript_capture(&script, timeout_secs, true) {

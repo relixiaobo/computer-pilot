@@ -55,6 +55,14 @@ try:
     ref = str(field["ref"])
     path = field["axPath"]
 
+    # No observation/effect check may be needed between grouped shortcuts,
+    # but their short-lived senders must still deliver the actual events.
+    # Count delivery in the background app, independently of menu handling.
+    for _ in range(10):
+        run("key", "cmd+a", "--app", app, "--no-snapshot", "--no-verify")
+    delivered = run("snapshot", app, "--limit", "200")
+    assert any(e.get("value") == "Key events: 10" for e in delivered["elements"]), delivered
+
     # The fixture changes its value and posts AXValueChanged during the AX
     # setter. A subscription created after dispatch misses this notification.
     # The action also requests a larger tree than its original Observation.
@@ -185,7 +193,7 @@ try:
     exact = "compact中文😀\n\"quoted\"\\path " * 40
     script = "\n".join([
         ". " + shlex.quote(str(helper)),
-        shlex.join(["cu", "set-value", ref, exact]),
+        shlex.join(["cu", "set-value", ref, exact, "--no-snapshot"]),
         shlex.join(["cu", "set-value", str(other["ref"]), "second-field"]),
         "cu snapshot",
     ])
@@ -250,6 +258,11 @@ try:
         return d
 
     full = session("--json", "snapshot", "--limit", "200")
+    windows = session("--json", "window", "list")
+    assert len(windows["windows"]) == 1, windows
+    assert windows["windows"][0]["title"] == "Computer Pilot latency fixture", windows
+    session("key", "cmd+a", "--no-snapshot", "--no-verify")
+    session("click", other["ref"], "--no-snapshot", "--no-verify")
     # Output flags must not silently switch to untargeted ordinary CLI calls.
     # Exercise real edits from independent shells, then read the assigned app.
     for shell in ("/bin/sh", "/bin/bash", "/bin/zsh"):

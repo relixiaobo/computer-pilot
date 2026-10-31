@@ -3,10 +3,38 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
+from types import SimpleNamespace
 import benchmark_real_apps as bench
 
 
 class RealAppResults(unittest.TestCase):
+    def test_save_dialog_keeps_shared_window_ownership_for_cleanup(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);trial=root/'vscode-1-cu';trial.mkdir()
+            meta=dict(pid=123,shared_app=True,mode='vscode',workspace=str(root/'CP-task'),
+                      runtime_home=str(root/'runtime'),client_key='test',files={})
+            path=trial/'meta.json';path.write_text(json.dumps(meta))
+            remaining=SimpleNamespace(returncode=0,stdout=json.dumps(dict(windows=[dict(index=2,title='file — CP-task')])))
+            closed=SimpleNamespace(returncode=0,stdout=json.dumps(dict(windows=[])))
+            dispatched=SimpleNamespace(returncode=0,stdout='{"ok":true}')
+            broker=SimpleNamespace(returncode=0,stdout='{"running":true,"pid":456}')
+            with patch.object(bench.subprocess,'run',side_effect=[remaining,dispatched,remaining,broker]), patch.object(bench.os,'kill') as kill, patch.object(bench.time,'monotonic',side_effect=[0,3]):
+                with self.assertRaisesRegex(RuntimeError,'Test window remains open'):
+                    bench.stop(root,trial.name)
+                self.assertEqual(json.loads(path.read_text())['pid'],123)
+                kill.assert_called_once_with(456,bench.signal.SIGTERM)
+            # A coordinator handles the task-only dialog, then retries cleanup.
+            with patch.object(bench.subprocess,'run',side_effect=[closed,broker]), patch.object(bench.os,'kill') as kill:
+                bench.stop(root,trial.name)
+                self.assertIsNone(json.loads(path.read_text())['pid'])
+                kill.assert_called_once_with(456,bench.signal.SIGTERM)
+            # A normal asynchronous close gets time to finish without another click.
+            path.write_text(json.dumps(meta))
+            with patch.object(bench.subprocess,'run',side_effect=[remaining,dispatched,remaining,closed,broker]), patch.object(bench.os,'kill'), patch.object(bench.time,'sleep'):
+                bench.stop(root,trial.name)
+                self.assertIsNone(json.loads(path.read_text())['pid'])
+
     def check(self, mode, result):
         with tempfile.TemporaryDirectory() as root:
             path=Path(root)/'saved.json'

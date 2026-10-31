@@ -87,12 +87,15 @@ For `verified:false`, read `verify_advice` and the attached snapshot. Prefer:
 Do not recover by dropping `--app` or using `--allow-global`.
 
 For Electron/CEF or any target under `AXWebArea`, confirm exact-PID focus and
-type the intended text once. Require `focus_verified:true` before type and
-`effect_verified:true` afterward. If either check fails, stop UI retries. Use a
-development app's explicitly provided localhost CDP/Playwright endpoint when
-available; otherwise report the unsupported delivery instead of using global
-keystrokes, System Events click/keystroke, name-based activation, or repeated
-AXValue writes.
+type the intended text once. `focus_verified:true` confirms the editor's AX
+focus, not that the application is frontmost. If foreground editing is authorized
+and needed, use `cu window focus` on the intended window before the edit group.
+Read the input effect afterward. When AX exposes no comparable value and returns
+`unknown_outcome`, inspect the attached state or a screenshot; this does not prove
+the input failed. Continue from an observed correct result, or stop if delivery
+remains uncertain. Do not repeat the full input to obtain a verification flag,
+change app settings to expose AX text, or switch to global input. A development
+app's explicitly provided CDP/Playwright endpoint is another option when available.
 
 The session helper skips effect verification for grouped native edits. For
 controlled input, use the verified binary directly with an explicit target:

@@ -47,8 +47,9 @@ identity comes from NSWorkspace and does not request Automation permission.
 
 ### `cu menu <app>`
 
-List menu bar items and enabled state. This currently uses System Events and
-may require per-target Automation access.
+List menu bar items and enabled state through native Accessibility. This is a
+read-only listing, not a source of refs or axPaths. Use an app-native scripting
+operation or its known shortcut; do not invent a menu axPath.
 
 ### `cu sdef <app>`
 

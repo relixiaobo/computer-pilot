@@ -246,10 +246,10 @@ enum Cmd {
         #[arg(long)]
         app: Option<String>,
         /// Skip auto-snapshot in JSON output
-        #[arg(long)]
+        #[arg(long, overrides_with = "no_snapshot")]
         no_snapshot: bool,
         /// Defer effect verification to the end of a deterministic action group.
-        #[arg(long)]
+        #[arg(long, overrides_with = "no_verify")]
         no_verify: bool,
         /// Use the disruptive global HID tap instead of PID-targeted delivery.
         /// Without --app, cu targets the current frontmost PID by default.
@@ -303,7 +303,7 @@ enum Cmd {
         #[arg(long)]
         observation: Option<String>,
         /// Skip auto-snapshot in JSON output
-        #[arg(long)]
+        #[arg(long, overrides_with = "no_snapshot")]
         no_snapshot: bool,
     },
 
@@ -342,7 +342,7 @@ enum Cmd {
         #[arg(long)]
         observation: Option<String>,
         /// Skip auto-snapshot in JSON output
-        #[arg(long)]
+        #[arg(long, overrides_with = "no_snapshot")]
         no_snapshot: bool,
     },
 
@@ -366,10 +366,10 @@ enum Cmd {
         #[arg(long)]
         app: Option<String>,
         /// Skip auto-snapshot in JSON output
-        #[arg(long)]
+        #[arg(long, overrides_with = "no_snapshot")]
         no_snapshot: bool,
         /// Defer effect verification to the end of a deterministic action group.
-        #[arg(long)]
+        #[arg(long, overrides_with = "no_verify")]
         no_verify: bool,
         /// Use the disruptive global HID tap instead of PID-targeted delivery.
         /// Without --app, cu targets the current frontmost PID by default.
@@ -615,13 +615,13 @@ enum Cmd {
         #[arg(long)]
         alt: bool,
         /// Skip auto-snapshot in JSON output
-        #[arg(long)]
+        #[arg(long, overrides_with = "no_snapshot")]
         no_snapshot: bool,
         /// Skip pre/post AX diff. Verify is ON by default to catch silent
         /// failures (sandboxed apps that ignore PID-targeted CGEvents).
         /// Use this when you've measured the verify cost (~50–150ms) and
         /// know the target app is reliable.
-        #[arg(long = "no-verify")]
+        #[arg(long = "no-verify", overrides_with = "no_verify")]
         no_verify: bool,
         /// Use the disruptive global HID tap instead of PID-targeted delivery.
         /// Without --app, coordinate and --text clicks target the frontmost PID.
@@ -658,7 +658,7 @@ enum Cmd {
         #[arg(long)]
         app: Option<String>,
         /// Skip auto-snapshot in JSON output
-        #[arg(long)]
+        #[arg(long, overrides_with = "no_snapshot")]
         no_snapshot: bool,
         /// Use the disruptive global HID tap instead of PID-targeted delivery.
         /// Without --app, scroll targets the current frontmost PID.
@@ -676,7 +676,7 @@ enum Cmd {
         #[arg(long)]
         app: Option<String>,
         /// Skip auto-snapshot in JSON output
-        #[arg(long)]
+        #[arg(long, overrides_with = "no_snapshot")]
         no_snapshot: bool,
         /// Use the disruptive global HID tap instead of PID-targeted delivery.
         /// Without --app, hover targets the current frontmost PID.
@@ -709,7 +709,7 @@ enum Cmd {
         #[arg(long)]
         app: Option<String>,
         /// Skip auto-snapshot in JSON output
-        #[arg(long)]
+        #[arg(long, overrides_with = "no_snapshot")]
         no_snapshot: bool,
         /// Use the disruptive global HID tap instead of PID-targeted delivery.
         /// Without --app, drag targets the current frontmost PID.
@@ -877,9 +877,9 @@ enum Cmd {
         cu menu Calculator     # see View > Scientific, View > Programmer\n  \
         cu menu Safari         # see File > New Window, View > Show Reader\n  \
         cu menu Finder         # see File > New Finder Window, Go > Home\n\n\
-        To click a menu item, use cu tell with System Events:\n  \
-        cu tell \"System Events\" 'tell process \"Calculator\" to click menu item \\\n    \
-          \"Scientific\" of menu \"View\" of menu bar 1'")]
+        This is a read-only listing, not a source of refs or axPaths.\n\
+        Use an app-native scripting operation or its known keyboard shortcut.\n\
+        Only use --ax-path with a path returned by a snapshot; do not invent menu paths.")]
     Menu {
         /// Target application name
         app: String,
@@ -3032,6 +3032,12 @@ fn cmd_key(
     } else {
         None
     };
+    if captured.is_none() {
+        // CGEvent posting is asynchronous. Without a snapshot, this short-lived
+        // worker can exit before the key pair is delivered. Keep it alive for
+        // dispatch; this is not a UI settle wait or effect verification.
+        std::thread::sleep(key::DISPATCH_GRACE);
+    }
     let effect_verified = pre_snapshot
         .as_ref()
         .zip(captured.as_ref())

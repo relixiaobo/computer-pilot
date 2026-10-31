@@ -44,7 +44,11 @@ The copied [helper](scripts/session.sh) contains the `cu` function and stops the
 shell on errors; it can be used without reading its implementation. Source only
 `./cu-env.sh` in each subsequent shell call; use its absolute path if cwd changes.
 Keep the supplied PID, binary and environment in that file throughout the task.
-Its `cu` function supplies the target; omit repeated `--app` or positional apps.
+Its `cu` function supplies the PID for UI commands (including `window`); omit
+repeated `--app` or positional apps. It also supplies `--no-snapshot` for actions
+and `--no-verify` for click/type/key. Other commands keep ordinary CLI arguments:
+`cu sdef "App Name"` and `cu tell "App Name" '<expression>'` require an explicit
+application name or bundle path; AppleScript does not accept `pid:<PID>`.
 
 ## One Call Per Decision Boundary
 
@@ -131,14 +135,20 @@ visible/disruptive and require a workflow that explicitly needs foreground
 operation. `launch` opens in the background. Do not recreate input through
 System Events or `osascript`/`pbcopy`.
 
+AX editor focus does not make an app frontmost. Some apps receive background
+shortcuts but ignore menu commands such as Select All or Save. Prefer app-native
+scripting for document operations; when foreground editing is authorized, focus
+the intended window explicitly. A changed editor buffer is not proof of saving:
+use the app's saved/modified state at the final group boundary.
+
 ## Controlled Editors And Recovery
 
 For Electron/CEF or an `AXWebArea` input, read the
 [verified-input path](references/recovery.md#verification). Use the verified
 binary directly with an explicit app: require exact editor focus before typing
-and correct final text after typing. A successful AXValue write alone does not
-prove the application handled input. Stop unconfirmed delivery; use an explicitly
-provided development CDP/Playwright endpoint when available.
+and inspect the result after typing. A successful AXValue write alone does not
+prove the application handled input. When AX lacks the text, use visual evidence
+before continuing or deciding that delivery is unsupported.
 
 Success receipts report dispatch; observations and explicit verification report
 effects. Read returned errors/advisories and false verification results. Reuse

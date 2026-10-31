@@ -17,6 +17,11 @@
 #![allow(unsafe_op_in_unsafe_fn)]
 
 use std::ffi::c_void;
+use std::time::Duration;
+
+// A short-lived sender must survive asynchronous CGEvent delivery. This is
+// pacing only; the caller still owns observation/effect verification.
+pub const DISPATCH_GRACE: Duration = Duration::from_millis(10);
 
 type CFTypeRef = *const c_void;
 
@@ -251,9 +256,13 @@ pub fn type_text(text: &str, target_pid: Option<i32>) -> Result<(), String> {
             CFRelease(down);
             CFRelease(up);
         }
-        // Inter-event gap: HID drops events that arrive faster than the tap
-        // can drain. 3ms is empirically enough (kagete uses the same value).
-        std::thread::sleep(std::time::Duration::from_micros(3000));
+        // Pace chunks, and let the final pair arrive before the caller takes
+        // its final snapshot or the no-snapshot worker exits.
+        std::thread::sleep(if chars.peek().is_none() {
+            DISPATCH_GRACE
+        } else {
+            Duration::from_millis(3)
+        });
     }
 
     Ok(())

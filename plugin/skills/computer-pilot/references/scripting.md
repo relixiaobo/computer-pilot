@@ -15,7 +15,9 @@ operation appears in `cu sdef`. Use AX when the object exists only in the UI,
 the app is not scriptable, or AppleScript fails.
 
 Scripting is usually preferable for bulk reads/writes because it expresses one
-semantic operation without UI traversal.
+semantic operation without UI traversal. The session helper leaves `sdef` and
+`tell` arguments unchanged: supply the application name or bundle path, then
+address the intended document explicitly when the app has multiple documents.
 
 ## Execute
 
@@ -38,10 +40,11 @@ set minutes of d to 0
 make new event at end of events of first calendar with properties {summary:"Review", start date:d, end date:d + (1 * hours)}'
 ```
 
-For mutations, assign a request ID and verify by reading the object back:
+For mutations that need idempotent recovery, assign a request ID and verify by
+reading the object back (use the binary directly for root options):
 
 ```bash
-cu --request-id "calendar-review-20260728" tell Calendar 'make new event at end of events of first calendar with properties {summary:"Review"}'
+"$CU_BIN" --request-id "calendar-review-20260728" tell Calendar 'make new event at end of events of first calendar with properties {summary:"Review"}'
 cu tell Calendar 'get summary of every event of first calendar'
 ```
 
@@ -68,3 +71,5 @@ coordination.
 - On `command_expired` before dispatch, retry only with a fresh request ID.
 - On `unknown_outcome` after a write, read current app data before deciding.
 - On unsupported terminology, inspect `cu sdef` and switch to AX if necessary.
+- A script error can follow successful earlier writes. Read the affected objects
+  before retrying a mutation group; a failed script is not a transaction rollback.

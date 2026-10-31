@@ -109,6 +109,39 @@ automatic close left an unsaved-changes dialog. Both shared apps were then check
 for remaining test windows. Future runs must inspect such dialogs rather than
 treat a close dispatch or cleared coordinator PID as proof of cleanup.
 
+### Fixes from the real-app pilot
+
+Direct event logging reproduced a delivery race: a shortcut worker that omitted
+its snapshot could exit before its key events reached the application. The
+same shortcut worked when the sender remained alive. Commands without a final
+capture now retain the sender for 10 ms; Unicode typing uses that interval for
+its last chunk, with its existing 3 ms pacing between chunks. Snapshot and paste
+paths do not receive an additional shortcut delay. This is dispatch pacing, not
+an assertion that a background app handled a menu shortcut. Background menu
+commands can still require explicit, authorized window focus or app scripting.
+
+The helper now binds `window` commands and documents which commands retain an
+explicit application argument. Repeated `--no-snapshot`/`--no-verify` booleans are
+idempotent; target ambiguity and identity checks remain intact. `cu tell` always
+supplies its promised application context, including expressions starting with
+`tell document ...`; the former prefix heuristic incorrectly skipped it. Recovery
+guidance accepts visual evidence when an editor exposes no AX text, without
+changing user settings or replaying uncertain input. Menu help no longer implies
+that its read-only listing supplies actionable menu paths.
+
+Cleanup now waits briefly for asynchronous window close and reports a remaining
+task window instead of clearing ownership behind an unsaved-changes dialog.
+The coordinator never quits a shared app or blindly answers a save dialog.
+
+Validation includes real key delivery without intermediate snapshots, exact
+920-scalar Unicode input, helper binding/duplicate flags, nested Finder/TextEdit
+scripting, and three rounds each of saved TextEdit and VS Code edits. Shared
+VS Code settings bytes were unchanged. These are functional diagnostics, not
+fresh-agent performance samples; VS Code exposed AX text during the diagnostic,
+unlike its initial pilot attempt. The command suite also exposed a help-test
+SIGPIPE false failure from `echo | grep -q` under `pipefail`; direct input fixes
+the harness without changing CLI behavior.
+
 ## Architecture
 
 ```

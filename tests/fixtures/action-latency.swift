@@ -51,6 +51,15 @@ final class Delegate: NSObject, NSApplicationDelegate {
         urgentLabel = NSTextField(labelWithString: "Urgent callback: untouched")
         urgentLabel.frame = NSRect(x: 120, y: 420, width: 260, height: 20)
         window.contentView!.addSubview(urgentLabel)
+        let keyEvents = NSTextField(labelWithString: "Key events: 0")
+        keyEvents.frame = NSRect(x: 20, y: 0, width: 160, height: 20)
+        window.contentView!.addSubview(keyEvents)
+        var keyCount = 0
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            keyCount += 1
+            keyEvents.stringValue = "Key events: \(keyCount)"
+            return event
+        }
         window.orderBack(nil)
         window.makeKey()
         window.makeMain()

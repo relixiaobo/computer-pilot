@@ -195,28 +195,37 @@ JSON.stringify({values:values,formulas:formulas,sheet:s.name(),row_count:t.rowCo
 def stop(root,label):
     trial=root/label;meta=json.loads((trial/'meta.json').read_text())
     if not meta['pid']:return
-    if not meta['shared_app']:
-        prefix=json.dumps(Path(meta['workspace']).name)
-        jxa("var a=Application('Numbers');a.documents().filter(d=>d.name().startsWith("+prefix+")).forEach(d=>d.close({saving:'no'}));")
-        try:os.kill(meta['pid'],signal.SIGTERM)
-        except ProcessLookupError:pass
-    else:
-        # Close only an observed exact test window, never the shared application.
-        env=dict(os.environ,COMPUTER_PILOT_HOME=meta['runtime_home'],COMPUTER_PILOT_CLIENT_KEY=meta['client_key'])
-        raw=subprocess.run([str(CU),'--json','window','list','--app',f"pid:{meta['pid']}"],env=env,capture_output=True,text=True)
-        if raw.returncode==0:
-            windows=json.loads(raw.stdout).get('windows',[])
-            needle=meta['files']['brief.txt'] if meta['mode']=='textedit' else Path(meta['workspace']).name
-            matches=[(i+1,w) for i,w in enumerate(windows) if needle in w.get('title','')]
-            if len(matches)==1:
-                subprocess.run([str(CU),'--json','window','close','--app',f"pid:{meta['pid']}",'--window',str(matches[0][1]['index'])],env=env,capture_output=True)
     env=dict(os.environ,COMPUTER_PILOT_HOME=meta['runtime_home'],COMPUTER_PILOT_CLIENT_KEY=meta['client_key'])
-    status=subprocess.run([str(CU),'--json','status'],env=env,capture_output=True,text=True)
-    if status.returncode==0:
-        value=json.loads(status.stdout)
-        if value.get('running'):
-            try:os.kill(value['pid'],signal.SIGTERM)
+    try:
+        if not meta['shared_app']:
+            prefix=json.dumps(Path(meta['workspace']).name)
+            jxa("var a=Application('Numbers');a.documents().filter(d=>d.name().startsWith("+prefix+")).forEach(d=>d.close({saving:'no'}));")
+            try:os.kill(meta['pid'],signal.SIGTERM)
             except ProcessLookupError:pass
+        else:
+            # A successful close dispatch can leave an unsaved-changes dialog.
+            # Keep ownership recorded until the dedicated window actually closes.
+            needle=meta['files']['brief.txt'] if meta['mode']=='textedit' else Path(meta['workspace']).name
+            def task_windows():
+                raw=subprocess.run([str(CU),'--json','window','list','--app',f"pid:{meta['pid']}"],env=env,capture_output=True,text=True,check=True)
+                return [w for w in json.loads(raw.stdout)['windows'] if needle in w.get('title','')]
+            matches=task_windows()
+            if len(matches)==1:
+                subprocess.run([str(CU),'--json','window','close','--app',f"pid:{meta['pid']}",'--window',str(matches[0]['index'])],env=env,capture_output=True,check=True)
+                matches=task_windows()
+                deadline=time.monotonic()+2
+                while matches and time.monotonic()<deadline:
+                    time.sleep(0.1)
+                    matches=task_windows()
+            if matches:
+                raise RuntimeError('Test window remains open; inspect its save dialog before retrying cleanup. Do not quit the shared app.')
+    finally:
+        status=subprocess.run([str(CU),'--json','status'],env=env,capture_output=True,text=True)
+        if status.returncode==0:
+            value=json.loads(status.stdout)
+            if value.get('running'):
+                try:os.kill(value['pid'],signal.SIGTERM)
+                except ProcessLookupError:pass
     meta['pid']=None;(trial/'meta.json').write_text(json.dumps(meta,indent=2))
 
 

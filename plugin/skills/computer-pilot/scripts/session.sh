@@ -25,7 +25,7 @@ cu() {
         state|ocr|menu)
             set -- "$@" "${CU_APP:?set the chosen pid selector}"
             ;;
-        wait|find|why|screenshot|nearest|observe-region)
+        wait|find|why|screenshot|nearest|observe-region|window)
             set -- "$@" --app "${CU_APP:?set the chosen pid selector}"
             ;;
     esac
