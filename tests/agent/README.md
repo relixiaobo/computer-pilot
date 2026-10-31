@@ -685,3 +685,80 @@ no exported reasoning. All owned apps and Brokers were stopped. Limits remain:
 three eligible pairs, one custom AppKit task, shared OS/caches, uncontrolled
 backend load, and differing backend instrumentation. This does not establish
 browser/Electron or commercial-app performance.
+
+## Complete concise snapshots (protocol v2 follow-up)
+
+Candidate `ba8abaf` removes the implicit delta branch from explicit compact
+snapshots. `cu snapshot` in the session helper now returns the complete concise
+state within its limit, including unchanged controls and exact text. Recovering
+full state no longer requires verbose ordinary JSON. Action/wait observations
+still use deltas. This deletes production logic and adds no AX query, effect
+check, retry, public flag or output field. Private Broker protocol 7 retires
+Brokers using the old snapshot contract. The skill and command reference now
+reserve ordinary JSON for geometry/paths and machine integration.
+
+The native regression covers two grouped edits, repeated unchanged observations,
+exact long Unicode values and acting on an unchanged ref from a complete compact
+snapshot. It compares the complete semantic state with ordinary JSON and checks
+that the compact fixture response is under 60% of its size. Checkbox action
+deltas and independent on/off callbacks remain covered. Validation passed:
+44 Rust tests, eight offline protocol tests, native action-latency behavior,
+Clippy, formatting, version synchronization, release build and candidate CI.
+
+The follow-up reused the same four datasets, fixture and protocol-v2 timing:
+eight fresh tasks/apps, alternating order, actual `gpt-6-astra / high`, no tier
+override, initialization included. Code/inputs stayed frozen, with no coaching,
+replacement attempts or overlapping trials. Collection and cleanup occurred only
+after every task explicitly completed. All eight saved fixture outcomes were
+exact, but **eligible counts are cu 3/3 plus one exclusion, native 4/4**.
+
+| Dataset | cu full task | Native full task | Eligible outcome cu / native |
+| --- | ---: | ---: | --- |
+| 1 | 99.5 s | 96.9 s | pass / pass |
+| 2 | **excluded 100.3 s** | 114.7 s | excluded / pass |
+| 3 | 111.9 s | 106.1 s | pass / pass |
+| 4 | 154.4 s | 80.6 s | pass / pass |
+
+The excluded cu task inserted a space inside its configuration-file path. The
+subsequent untargeted click used the globally installed CLI and was rejected
+with `observation_required`; the following snapshot observed a non-fixture
+foreground app. Although it recovered and filled the fixture correctly, this
+violated the assigned-app-only protocol. Its duration, final values and audit
+remain recorded, with no replacement. The mixed shell command exited zero, so
+its embedded failure is **not counted by the outer tool-error counter**. Do not
+interpret that counter as proof of zero command failures. The private trace is
+retained locally; unrelated app output is not exported in the report.
+
+The three eligible paired cu/native full-task ratios have median **1.055**
+(cu took 5.5% longer), ranging from 1.027 to 1.916. This cannot be advertised as
+an improvement from the preceding block's 1.455: the eligible datasets differ.
+On the **common datasets 3 and 4**, the median ratio was **1.215 before and
+1.486 now**, which does not demonstrate a consistent speedup.
+
+| Eligible cu dataset | Returned characters | Model calls | Output tokens | Recorded tool time |
+| --- | ---: | ---: | ---: | ---: |
+| 1 | 40,229 | 24 | 3,646 | 5.1 s |
+| 3 | 39,102 | 23 | 1,978 | 5.0 s |
+| 4 | 40,209 | 25 | 3,688 | 4.7 s |
+
+All eligible cu tasks retained compact output, removing the ordinary-JSON
+fallback seen in the previous block. Datasets 1 and 4 now returned about half
+as much text (previously 83,173 and 84,211 characters). Dataset 3 had already
+stayed compact, so its output size barely changed. The excluded task's fixture
+observations were also compact; its accidental unrelated read is not evidence
+of an intended fallback strategy.
+
+The slow fourth cu task still spent 149.6 seconds outside recorded tool
+intervals. Native dataset 4 was fastest despite reading the general skill and
+Git status metadata, then requesting full AX states with `disableDiffing`.
+Those reads were not fixture/source/result reads and their costs remain counted.
+Smaller output is established; stable wall-time improvement is not. Model
+strategy, generation and backend latency still vary, and non-tool time cannot
+be attributed to inference alone. No additional runtime validation or retry was
+added to chase this variation.
+
+[Complete follow-up records](benchmarks/triage-complete-snapshot-2026-10-31.json)
+retain all eight attempts, settings, hashes, audits and common-dataset ratios.
+All fixture apps and dedicated Brokers were stopped. Scope remains one custom
+AppKit task, three eligible pairs and shared OS/caches; these measurements do
+not establish general browser, Electron or commercial-app performance.
