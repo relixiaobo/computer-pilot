@@ -232,6 +232,77 @@ success. An interrupted turn's zero completed-turn sum is **not** its elapsed
 time: report the interruption duration separately and omit it from successful
 timing comparisons.
 
+## Shorter skill follow-up (2026-10-31)
+
+Candidate `bce1315` shortened the skill entrypoint from 289 lines / 13,744 bytes
+to 152 lines / 7,824 bytes. Everyday setup and grouped edits come first; the
+controlled-editor verification path stays in the recovery reference. The skill
+now explicitly groups known edits, navigation and the final observation in one
+shell call, skips already-correct values, resumes grouping after recovery, and
+explains departing menus and destination-specific wait conditions. The command
+reference also clarifies that ordinary actions use the latest observation;
+explicit observation IDs select an earlier one. These are general instructions,
+not fixture-specific solutions. No CLI code/binary, helper, fixed delay or
+runtime validation changed from the preceding clean block.
+
+All **12/12 attempts passed** in a new protocol-v2 block: fresh Codex profiles,
+neutral working directories and disposable app state, with no global/project
+AGENTS in any actual initial context. Model/settings, CLI version, native plugin,
+fixture and alternating order match the previous clean block. Inputs stayed
+frozen; no coaching, interruptions or replacement attempts occurred. Skill/API
+initialization remains inside the measured full task turn.
+
+| Workflow / dataset | cu full task s | Native full task s | cu / native tool calls |
+| --- | ---: | ---: | ---: |
+| Triage 1 | 91.110 | 98.705 | 21 / 20 |
+| Triage 2 | 125.998 | 99.804 | 22 / 21 |
+| Document 1 | 128.470 | 144.586 | 22 / 29 |
+| Document 2 | 127.186 | 143.389 | 22 / 29 |
+| Wizard 1 | 190.958 | 165.112 | 33 / 33 |
+| Wizard 2 | 138.150 | 221.683 | 40 / 34 |
+
+Median paired cu/native time ratios are **1.093 / 0.888 / 0.890** for triage,
+document and wizard, respectively. Wizard cu calls fell from the previous
+block's **44/62 to 33/40**; neither attempt degraded into per-field snapshots
+after recovery. Document calls were consistently 22, compared with 22/33 before.
+Triage remained 21/22. This supports the narrower finding that grouping was more
+consistent; two samples per workflow and a historical comparison do not prove
+a causal or universal speed gain. For example, the 40-call cu wizard finished
+faster than its 33-call counterpart. Native wizard timings also moved from
+179.675/150.838 to 165.112/221.683 seconds with an unchanged runtime.
+
+Remaining costs are retained in the results:
+
+- cu wizard 1 repeated an accepted menu selection and received a stale-ref error.
+  It also waited past an unhandled confirmation sheet, consuming 10.162 seconds,
+  then redundantly observed the state already attached to that timeout.
+- cu wizard 2 reselected two already-correct dropdown values and repeated two
+  accepted menu selections. Identity checks rejected the stale refs before
+  dispatch. Its profile-ID waits were not necessarily unique to the destination.
+  Shorter instructions did not reliably eliminate these strategy mistakes.
+- cu document 1 guessed nonexistent `observe` while loading the skill; the
+  parser rejected it before app access. Native documents each recovered from
+  seven AX errors. Native wizard 2 took a screenshot and recovered from a
+  non-opening label click. All these costs remain inside the timers.
+- Wizard tool intervals were cu **20.936/10.341 seconds**, native
+  **19.114/20.238**. Time outside tool intervals still dominates and includes
+  model/network/scheduling time; it is not a measurement of pure reasoning time.
+
+Separate small AppKit probes reproduced a menu remaining visible immediately
+after accepted selection. They did not establish a blanket menu-expiry problem:
+items remained actionable after 0/1/6-second gaps before selection. This supports
+observing transitions, not adding blind sleeps or removing identity checks.
+
+All profile config hashes and bundled/native-cache plugin fingerprints were
+checked, participant turns did not overlap, and all owned app/Broker processes
+were stopped. The native service/runtime assets and macOS user session,
+permissions, Launch Services and caches remain shared; this is not VM isolation.
+Skill metadata validation and changed-reference link checks passed. Existing
+code/command validation remains applicable because runtime code is unchanged.
+
+[All 12 outcomes, actual-context audits, timings and evidence hashes](benchmarks/decision-boundaries-2026-10-31.json).
+Full local traces and model reasoning are not published.
+
 ## Skill-only runtime block (2026-10-31)
 
 The post-fix candidate `4b611c6` was tested in 12 fresh CLI sessions with **no
