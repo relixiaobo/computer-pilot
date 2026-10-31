@@ -32,6 +32,37 @@ python3 tests/agent/run.py --task tests/agent/tasks/mail_to_notes.json
 python3 tests/agent/run.py --dry-run
 ```
 
+## Current snapshot contract
+
+Snapshots now have one state contract: complete elements within the requested
+limit, with full labels/values. This also applies to action and wait results.
+`--compact` only selects concise presentation; ordinary JSON retains paths,
+geometry and display metadata. Automatic deltas, their baseline checks and tree
+copies, `snapshot --diff` and its disk cache, and action-text truncation have
+been removed. `src/diff.rs` now only counts changes in memory for action-effect
+verification. Ref/client/PID/window identity checks and explicit verification
+options remain; they prevent wrong-target actions and detect dropped input.
+
+Broker and AX share one element type. Window identity is read from the same AX
+window that supplies the tree and reused for publication/freshness checks;
+there is no second window geometry query. Snapshots carry their PID even when
+an application has no window. Private Broker protocol 8 retires old response
+semantics. Skill instructions, CLI help, recipes and command tests match this
+contract. Existing benchmark sections below describe their frozen historical
+commits; their timings do not measure this cleanup.
+
+Validation: 43 Rust tests, 8 offline protocol tests, Clippy with warnings denied,
+formatting/version checks and release build passed. Eleven affected command
+suites passed 138 checks, with 4 TextEdit-dependent checks skipped to preserve an
+existing user session. The owned AppKit fixture covers complete action/wait
+state, exact long Unicode values, unchanged actionable refs, checkbox callbacks,
+client isolation and rejection of an old ref after switching to a window with
+identical title/field/value. Screenshot/state tests passed with a temporary
+Finder window and a canonical `/private/tmp` output path. Initial runs without a
+Finder window or through the `/tmp` symlink failed their environment assumptions;
+only affected suites were rerun after correcting those conditions. The removed
+`--diff` flag is rejected, and snapshots no longer create a disk cache.
+
 ## Standard protocol for new comparisons
 
 Use `benchmark_varied_workflows.py` for new **agent-level** cu versus built-in

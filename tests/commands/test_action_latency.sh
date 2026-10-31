@@ -90,20 +90,14 @@ try:
     clicked = run("click", ref, "--app", app, "--observation", snap["observation_id"])
     assert clicked["focus_verified"] is True, clicked
     assert clicked["settle_ms"] < 250, clicked
-    delta = clicked["snapshot"]
-    assert delta["base_observation_id"] == snap["observation_id"], delta
-    assert len(delta["elements"]) == 1 and delta["elements"][0]["ref"] == other["ref"], delta
-    assert delta["elements"][0]["value"] == "unrelated-change", delta
-
-    # Reconstruct a complete state from a delta, including refs beyond 50.
-    reconstructed = {e["ref"]: e for e in snap["elements"]}
-    for removed in delta["removed_refs"]:
-        reconstructed.pop(removed)
-    reconstructed.update({e["ref"]: e for e in delta["elements"]})
+    complete = clicked["snapshot"]
+    assert "base_observation_id" not in complete and "removed_refs" not in complete, complete
+    state = {e["ref"]: e for e in complete["elements"]}
+    assert state[other["ref"]]["value"] == "unrelated-change", complete
+    # Unchanged controls are included and usable without merging a baseline.
     current = run("snapshot", app, "--limit", "200")
-    assert {r: e.get("value") for r, e in reconstructed.items()} == {
-        e["ref"]: e.get("value") for e in current["elements"]}
-    # Act on an unchanged ref through the new delta observation.
+    assert complete["elements"] == current["elements"], complete
+    assert int(ref) in state and len(state) > 100, complete
     run("set-value", ref, "", "--app", app, "--limit", "200",
         "--observation", clicked["observation_id"])
 
@@ -117,6 +111,8 @@ try:
     assert typed["snapshot"]["focused"]["value"] == text, typed
     observed = run("snapshot", app, "--limit", "200")
     assert observed["focused"]["value"] == text, observed
+    assert typed["snapshot"]["elements"] == observed["elements"], typed
+    assert next(e for e in typed["snapshot"]["elements"] if e["ref"] == int(ref))["value"] == text
     print(f"Long Unicode input ({len(text)} scalars): {elapsed:.1f} ms; exact content verified")
 
     # One shell invocation, fail-fast, and only one final observation.
@@ -150,7 +146,7 @@ try:
     final = run("snapshot", app, "--limit", "200")
     assert next(e for e in final["elements"] if e.get("title") == "other-input")["value"] == "later", final
 
-    # A client without the baseline receives a full action snapshot, including
+    # A fresh client also receives a complete action snapshot, including
     # the field after ref 50. No extra full snapshot is needed to discover it.
     fresh = subprocess.run([cu, "--json", "--client-key", "latency-new-client",
                             "key", "escape", "--app", app], capture_output=True, text=True)
@@ -240,20 +236,20 @@ try:
         assert (p.returncode == 0) == ok and d["ok"] == ok, d
         return d
 
-    # Checkbox state belongs on the control, including compact deltas. The
+    # Checkbox state belongs on the control in complete compact snapshots. The
     # independent callback label proves the actual control changed on/off.
     full = session("--json", "snapshot", app, "--limit", "200")
     urgent = next(e for e in full["elements"] if e.get("title") == "Urgent")
     assert urgent["value"] == "1", urgent
-    baseline = session("snapshot")
     for value, label in (("0", "off"), ("1", "on")):
         action = compact("click", str(urgent["ref"]), "--app", app, "--limit", "200", "--no-verify")
-        delta = action["snapshot"]
-        assert delta["base_observation_id"] == baseline["observation_id"], delta
-        baseline = action
-        checkbox = next(e for e in delta["elements"] if e.get("title") == "Urgent")
-        assert checkbox["value"] == value, delta
-        assert any(e.get("value") == f"Urgent callback: {label}" for e in delta["elements"]), delta
+        complete = action["snapshot"]
+        assert "base_observation_id" not in complete, complete
+        checkbox = next(e for e in complete["elements"] if e.get("title") == "Urgent")
+        assert checkbox["value"] == value, complete
+        assert any(e.get("value") == f"Urgent callback: {label}" for e in complete["elements"]), complete
+        assert next(e for e in complete["elements"] if e["ref"] == int(ref))["value"] == exact
+        assert "displays" not in complete and all("axPath" not in e for e in complete["elements"]), complete
     # Exercise the existing single-attribute fallback as well as batch decoding.
     fallback = subprocess.run([cu, "--json", "snapshot", app, "--limit", "200"],
                               env=dict(os.environ, CU_TEST_AX_BATCH_FAIL_ROLE="AXCheckBox",
@@ -274,6 +270,9 @@ try:
     assert "available_actions" not in selected and "effect_advice" not in selected, selected
     chosen = session("wait", "--text", "Choice: Proxy", "--timeout", "3")
     assert chosen["ok"], chosen
+    assert "base_observation_id" not in chosen["snapshot"], chosen
+    assert next(e for e in chosen["snapshot"]["elements"] if e["ref"] == int(ref))["value"] == exact
+    session("set-value", ref, exact, "--observation", chosen["observation_id"])
     # Failure still exposes supported actions, without another why/snapshot.
     found = session("find", "--role", "popupbutton", "--first")
     rejected = session("perform", found["match"]["ref"], "AXBogusAction", ok=False)
@@ -304,12 +303,24 @@ try:
     full = session("--json", "snapshot", app)
     assert full["elements"][0]["value"] == event_text, full
 
+    # A different window with identical title/field/value must not accept the
+    # previous window's ref. Identity comes from the same read as the tree.
+    original = full
+    other_window = next(e for e in original["elements"] if e.get("title") == "Other window")
+    session("click", other_window["ref"])
+    rejected = session("set-value", original["elements"][0]["ref"], "must-not-run",
+                       "--observation", original["observation_id"], ok=False)
+    assert rejected["code"] == "stale_observation" and "window changed" in rejected["error"], rejected
+    switched = session("--json", "snapshot", app)
+    assert switched["window_id"] != original["window_id"], switched
+    assert switched["elements"][0]["value"] == event_text, switched
+
 finally:
     fixture.terminate()
     fixture.wait(timeout=5)
 PY
 then
-  _pass "grouping, exact Unicode input, target freshness, and complete snapshot deltas"
+  _pass "grouping, exact Unicode input, target freshness, and complete snapshots"
 else
   _fail "action latency behavior" "background fixture assertions failed"
 fi

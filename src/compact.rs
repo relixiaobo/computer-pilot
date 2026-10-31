@@ -71,13 +71,7 @@ fn compact_snapshot(value: &mut Value) {
     let Some(object) = value.as_object_mut() else {
         return;
     };
-    for key in [
-        "displays",
-        "window_frame",
-        "action_snapshot_compact",
-        "total_elements",
-        "limit",
-    ] {
+    for key in ["displays", "window_frame", "limit"] {
         object.remove(key);
     }
     for key in ["truncated", "depth_limited"] {

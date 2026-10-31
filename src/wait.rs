@@ -109,7 +109,7 @@ pub fn wait_for(
         if met || Instant::now() >= deadline {
             // Return refs from the same observation the next action will use.
             // Timeout snapshots also remain usable for recovery.
-            broker::publish_observation(pid, &snap);
+            broker::publish_observation(&snap);
             return Ok(WaitResult {
                 met,
                 elapsed_ms: elapsed,

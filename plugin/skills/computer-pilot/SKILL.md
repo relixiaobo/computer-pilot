@@ -204,15 +204,10 @@ dispatch; only observations and explicit verification report UI effects. Use ord
 metadata or machine integration are needed. Error and recovery output stays
 complete in both modes.
 
-Explicit `snapshot` returns the complete tree within its requested limit, even
-with `--compact`. It needs no prior baseline and retains full text.
-Action and wait snapshots return changed refs when a
-baseline exists. With `base_observation_id`, merge `elements` into that prior
-observation and remove `removed_refs`; unchanged refs retain their content.
-The new `observation_id` applies to the whole resulting tree. An empty delta
-is valid. If the baseline is unavailable, use `cu snapshot` in the session helper
-or `cu --compact snapshot <PID>` for a full tree. Action snapshots may cap
-long values and include `snapshot_hint` when they do.
+All snapshots, including action and wait output, contain the complete tree
+within the requested limit and full text. Use the returned `observation_id`
+and refs directly; no baseline or merge is needed. If `truncation_hint` says
+controls are missing, increase `--limit` before assuming a target is absent.
 
 Act on `_hint`, `_reason`, `_advice`, `_error`, `verified:false`, and
 `effect_verified:false`. A `snapshot_error` is missing state, not a reason to

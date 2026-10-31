@@ -52,21 +52,19 @@ else
   _fail "auto-snapshot displays" "got: $HAS_DISPLAYS"
 fi
 
-COMPACT=$(echo "$OUT" | python3 -c "
+SNAPSHOT=$(echo "$OUT" | python3 -c "
 import sys, json
 d = json.load(sys.stdin).get('snapshot', {})
 elements = d.get('elements', [])
 print('|'.join([
-    'compact=' + str(d.get('action_snapshot_compact')),
     'bounded=' + str(len(elements) <= d.get('limit', 200)),
-    'paths_omitted=' + str(all('axPath' not in e for e in elements)),
-    'delta=' + str(bool(d.get('base_observation_id')) and isinstance(d.get('removed_refs'), list)),
+    'paths=' + str(all('axPath' in e for e in elements)),
+    'complete=' + str(bool(elements) and 'base_observation_id' not in d and 'removed_refs' not in d),
 ]))
 " 2>/dev/null || echo "malformed")
-[[ "$COMPACT" == *"compact=True"* ]] && _pass "action snapshot marked compact" || _fail "action snapshot compact marker" "$COMPACT"
-[[ "$COMPACT" == *"bounded=True"* ]] && _pass "action snapshot respects requested limit" || _fail "action snapshot element cap" "$COMPACT"
-[[ "$COMPACT" == *"paths_omitted=True"* ]] && _pass "action snapshot omits axPath" || _fail "action snapshot axPath omission" "$COMPACT"
-[[ "$COMPACT" == *"delta=True"* ]] && _pass "repeated action observation returns a delta" || _fail "action snapshot delta" "$COMPACT"
+[[ "$SNAPSHOT" == *"bounded=True"* ]] && _pass "action snapshot respects requested limit" || _fail "action snapshot element cap" "$SNAPSHOT"
+[[ "$SNAPSHOT" == *"paths=True"* ]] && _pass "ordinary action snapshot includes axPath" || _fail "action snapshot paths" "$SNAPSHOT"
+[[ "$SNAPSHOT" == *"complete=True"* ]] && _pass "repeated action observation is self-contained" || _fail "action snapshot completeness" "$SNAPSHOT"
 
 section "settle_ms — absent when --no-snapshot"
 

@@ -12,7 +12,7 @@ All commands emit JSON when piped; use `--human` only for interactive reading.
 --timeout <milliseconds> Broker acceptance-to-completion deadline
 --json                   Force machine output
 --human                  Force human output
---compact                Concise JSON: complete snapshots and action deltas
+--compact                Concise JSON: complete snapshots without geometry/paths
 ```
 
 Environment equivalents:
@@ -73,7 +73,7 @@ File fields:
 - `image_scale`: legacy pixel-to-point scale.
 - `screenshot_error`: capture failed while AX state remains usable.
 
-### `cu snapshot [app] [--limit N] [--diff] [--annotated] [--with-screenshot] [--output /abs/file.png]`
+### `cu snapshot [app] [--limit N] [--annotated] [--with-screenshot] [--output /abs/file.png]`
 
 Return interactive AX elements. Each element includes an ephemeral `ref`, role,
 label/value, geometry, and often `axPath`. Top-level `observation_id` binds refs
@@ -83,9 +83,7 @@ For ordinary agent work, `cu --compact snapshot <app> --limit 200` omits
 geometry/paths and routine metadata while returning the complete tree within
 the requested limit every time. It preserves full text, advisories, errors and
 recovery output. Use `cu --json snapshot` when coordinates or axPaths are needed.
-`--diff` explicitly selects the legacy position-based diff.
 
-- `--diff`: compare with this client's private, TTL-bounded prior snapshot.
 - `--annotated`: draw ref labels over a captured image.
 - `--with-screenshot`: return tree and plain image in one call.
 - `truncation_hint`: increase `--limit` before assuming an element is absent.

@@ -78,7 +78,7 @@ src/system.rs      → NSWorkspace app identity, permissions, remaining System
                      Events bridges, tell, defaults, window mgmt, launch
 src/sdef.rs        → Scripting dictionary parser (Rust native, quick-xml)
 src/wait.rs        → UI condition polling (--text/--ref/--gone/--new-window/--modal/--focused-changed)
-src/diff.rs        → Client-isolated private snapshot diff cache
+src/diff.rs        → In-memory action-effect change counts
 src/file_result.rs → Atomic 0600 file outputs, metadata, no-overwrite safety
 src/observer.rs    → Single-shot AXObserver post-action settle wait (D7)
 src/display.rs     → CGGetActiveDisplayList + CGDisplayBounds (D1)
@@ -100,9 +100,9 @@ These rules are derived from browser-pilot lessons and project experience. Follo
 - **Every element in snapshot must have a ref.** Only interactive roles get refs. Static layout elements are skipped.
 - Always return `{"ok": false, "error": "...", "hint": "..."}` on failure. Never fail silently.
 - `--compact` is an opt-in agent presentation: retain semantic fields and
-  errors/advisories, omit geometry/paths/routine metadata. Explicit snapshots
-  return the complete tree within the requested limit in both modes; only
-  action/wait snapshots use the Broker's ref-delta baseline.
+  errors/advisories, omit geometry/paths/routine metadata. Every snapshot,
+  including action and wait output, returns the complete tree within its limit
+  and full text. No delta baselines, snapshot cache or text truncation branch.
 - Batch known local edits and authorized Save/Next, then observe once when the
   next target depends on the result. Do not add per-field or pre-save model
   rounds. Task-local shell helpers may reuse CLI arguments; they are not a new

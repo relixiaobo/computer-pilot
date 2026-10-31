@@ -8,6 +8,7 @@ final class Field: NSTextField {
 }
 final class Delegate: NSObject, NSApplicationDelegate {
     var window: NSWindow!
+    var otherWindow: NSWindow?
     var choiceLabel: NSTextField!
     var urgentLabel: NSTextField!
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -70,9 +71,28 @@ final class Delegate: NSObject, NSApplicationDelegate {
             input.setAccessibilityIdentifier("ready-input")
             input.stringValue = "Ready for input"
             window.contentView!.addSubview(input)
+            let other = NSButton(title: "Other window", target: self, action: #selector(openOtherWindow))
+            other.frame = NSRect(x: 20, y: 350, width: 150, height: 26)
+            window.contentView!.addSubview(other)
             window.makeFirstResponder(input)
             NSAccessibility.post(element: NSApp!, notification: .layoutChanged)
         }
+    }
+    @objc func openOtherWindow() {
+        // Same title, geometry, field and value: only window identity differs.
+        let original = window.contentView!.subviews.compactMap { $0 as? Field }.first!
+        let other = NSWindow(contentRect: window.contentRect(forFrameRect: window.frame),
+                             styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        other.title = window.title
+        let input = Field(frame: original.frame)
+        input.setAccessibilityIdentifier("ready-input")
+        input.stringValue = original.stringValue
+        other.contentView!.addSubview(input)
+        otherWindow = other
+        other.orderBack(nil)
+        other.makeKey()
+        other.makeMain()
+        other.makeFirstResponder(input)
     }
 }
 let app = NSApplication.shared

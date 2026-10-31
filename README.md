@@ -257,14 +257,19 @@ cu ocr "Google Chrome"
 | `cu apps` | List running apps (`S` flag = scriptable) |
 | `cu menu <app>` | Enumerate any app's menu bar (works for ALL apps) |
 | `cu sdef <app>` | Show scripting dictionary for scriptable apps |
-| `cu examples [topic]` | Built-in recipe library (12 high-frequency tasks, copy-paste ready) |
+| `cu examples [topic]` | Built-in recipe library (11 high-frequency tasks, copy-paste ready) |
 
 ### Observe
+
+Snapshots return complete state within `--limit`, including action and wait
+results. `--compact` changes presentation only; it keeps full labels and values.
+Automatic deltas and `snapshot --diff` have been removed. Callers using `--diff`
+should drop it and consume the returned tree directly; no baseline merge or
+snapshot disk cache remains.
 
 | Command | Description |
 |---------|-------------|
 | `cu snapshot [app]` | AX tree with [ref] numbers, position, size, window frame |
-| `cu snapshot [app] --diff` | Only elements that changed since last snapshot of this app |
 | `cu snapshot [app] --annotated --output p.png` | Captures window + draws each ref's box+number on it (for VLM agents) |
 | `cu state <app>` | Snapshot + windows + screenshot + frontmost in one call (saves a round-trip when starting a task) |
 | `cu find --role/--title-contains/--value-contains` | Predicate query — skip the `snapshot + grep` round-trip |
@@ -386,7 +391,7 @@ src/ocr.rs         Vision OCR via objc2
 src/system.rs      App resolution, permissions, System Events, AppleScript tell
 src/sdef.rs        Scripting dictionary extraction
 src/wait.rs        Condition polling (--text/--ref/--gone/--new-window/--modal/--focused-changed)
-src/diff.rs        Snapshot diff cache (cu snapshot --diff)
+src/diff.rs        In-memory action-effect change counts
 src/observer.rs    Single-shot AXObserver post-action settle wait
 src/display.rs     CGGetActiveDisplayList + CGDisplayBounds
 src/error.rs       Structured CuError type for actionable hints

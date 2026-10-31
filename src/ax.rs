@@ -124,8 +124,12 @@ struct CGSize {
 #[derive(Serialize)]
 pub struct SnapshotResult {
     pub ok: bool,
+    pub pid: i32,
     pub app: String,
     pub window: String,
+    /// Identity of the exact AX window walked; private Broker metadata.
+    #[serde(skip)]
+    pub window_id: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub window_frame: Option<WindowFrame>,
     /// The currently focused element (where the next keystroke would go).
@@ -220,7 +224,7 @@ pub struct MenuItem {
     pub enabled: bool,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Element {
     #[serde(rename = "ref")]
     pub ref_id: usize,
@@ -2322,8 +2326,10 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
         if app_el.is_null() {
             return SnapshotResult {
                 ok: false,
+                pid,
                 app: app_name.to_string(),
                 window: String::new(),
+                window_id: 0,
                 window_frame: None,
                 elements: vec![],
                 limit,
@@ -2351,8 +2357,10 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
             CFRelease(app_el);
             return SnapshotResult {
                 ok: false,
+                pid,
                 app: app_name.to_string(),
                 window: String::new(),
+                window_id: 0,
                 window_frame: None,
                 elements: vec![],
                 limit,
@@ -2388,6 +2396,15 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
             })
         });
 
+        let window_id = window_el.map_or(0, |window| {
+            let mut id = 0;
+            if _AXUIElementGetWindow(window, &mut id) == AX_OK {
+                id
+            } else {
+                0
+            }
+        });
+
         let walk_root = window_el.unwrap_or(app_el);
 
         // Walk the element tree with batch attribute reading
@@ -2399,8 +2416,10 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
             CFRelease(app_el);
             return SnapshotResult {
                 ok: false,
+                pid,
                 app: app_name.to_string(),
                 window: window_title,
+                window_id: 0,
                 window_frame: None,
                 elements: vec![],
                 limit,
@@ -2480,8 +2499,10 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
 
         SnapshotResult {
             ok: true,
+            pid,
             app: app_name.to_string(),
             window: window_title,
+            window_id,
             window_frame,
             focused,
             modal,
