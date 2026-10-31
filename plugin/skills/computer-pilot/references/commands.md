@@ -12,6 +12,7 @@ All commands emit JSON when piped; use `--human` only for interactive reading.
 --timeout <milliseconds> Broker acceptance-to-completion deadline
 --json                   Force machine output
 --human                  Force human output
+--compact                Concise JSON/ref deltas for agent UI work
 ```
 
 Environment equivalents:
@@ -62,7 +63,7 @@ Print built-in recipes from the installed CLI.
 
 ### `cu state <app> [--limit N] [--no-screenshot] [--output /abs/file.png]`
 
-Canonical first call. Returns app/PID, windows, displays, AX elements,
+Use when window/display metadata or an image is needed. Returns app/PID, windows, displays, AX elements,
 frontmost state, `observation_id`, and normally a screenshot.
 
 File fields:
@@ -77,6 +78,12 @@ File fields:
 Return interactive AX elements. Each element includes an ephemeral `ref`, role,
 label/value, geometry, and often `axPath`. Top-level `observation_id` binds refs
 to the current client and UI generation.
+
+For ordinary agent work, `cu --compact snapshot <app> --limit 200` omits
+geometry/paths and routine metadata. After the first full observation it returns
+ref deltas: merge `elements` and remove `removed_refs` from `base_observation_id`.
+Use `cu --json snapshot` for a full tree or coordinates. Compact mode preserves
+full explicit-snapshot text, advisories, errors and recovery output.
 
 - `--diff`: compare with this client's private, TTL-bounded prior snapshot.
 - `--annotated`: draw ref labels over a captured image.

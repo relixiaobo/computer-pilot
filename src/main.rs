@@ -1,5 +1,6 @@
 mod ax;
 mod broker;
+mod compact;
 mod diff;
 mod display;
 mod error;
@@ -132,6 +133,10 @@ pub(crate) struct Cli {
     /// Force the stable JSON machine envelope even when stdout is a TTY
     #[arg(long, conflicts_with = "human")]
     json: bool,
+
+    /// Concise JSON for agents: ref-based state deltas, without geometry or routine metadata
+    #[arg(long, conflicts_with_all = ["human", "json"])]
+    compact: bool,
 
     /// Stable namespace for this logical Agent's observations and commands
     #[arg(long, value_name = "KEY")]
@@ -1227,7 +1232,7 @@ fn main() {
         }
         Err(error) => error.exit(),
     };
-    let json = cli.json || (!cli.human && !std::io::stdout().is_terminal());
+    let json = cli.json || cli.compact || (!cli.human && !std::io::stdout().is_terminal());
     let client_key = cli
         .client_key
         .or_else(|| std::env::var("COMPUTER_PILOT_CLIENT_KEY").ok())
@@ -1286,7 +1291,7 @@ fn main() {
             test_frontmost_override: std::env::var("CU_TEST_FRONTMOST_OVERRIDE").ok(),
         };
         match broker::run(options) {
-            Ok(result) => replay_broker_result(result, json),
+            Ok(result) => replay_broker_result(result, json, cli.compact),
             Err(error) => fail_main(error.into_cu_error(), json),
         }
         return;
@@ -1299,7 +1304,7 @@ fn main() {
         std::thread::sleep(std::time::Duration::from_millis(delay));
     }
 
-    if let Err(e) = dispatch(cli.command, json) {
+    if let Err(e) = dispatch(cli.command, json, cli.compact) {
         fail_main(e, json);
     }
 }
@@ -1350,18 +1355,25 @@ fn broker_child_argv_from(raw: &[String], json: bool) -> Vec<String> {
         argv.push(arg.clone());
         index += 1;
     }
-    if !argv.iter().any(|arg| arg == "--json" || arg == "--human") {
+    if !argv
+        .iter()
+        .any(|arg| matches!(arg.as_str(), "--json" | "--human" | "--compact"))
+    {
         argv.insert(0, if json { "--json" } else { "--human" }.into());
     }
     argv
 }
 
-fn replay_broker_result(result: broker::RunResult, json: bool) {
+fn replay_broker_result(result: broker::RunResult, json: bool, compact: bool) {
     let mut stdout = result.stdout.clone();
     let mut stderr = result.stderr.clone();
     if json {
         stdout = attach_command_metadata(&stdout, &result);
         stderr = attach_command_metadata(&stderr, &result);
+    }
+    if compact {
+        stdout = compact::format(&stdout);
+        stderr = compact::format(&stderr);
     }
     if !stdout.is_empty() {
         let _ = std::io::stdout().write_all(stdout.as_bytes());
@@ -1461,7 +1473,7 @@ fn dispatch_recovery(cmd: Cmd, json: bool, client_key: String) -> Result<(), CuE
     }
 }
 
-fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
+fn dispatch(cmd: Cmd, json: bool, compact: bool) -> Result<(), CuError> {
     match cmd {
         Cmd::Status
         | Cmd::Commands { .. }
@@ -1477,7 +1489,16 @@ fn dispatch(cmd: Cmd, json: bool) -> Result<(), CuError> {
             annotated,
             with_screenshot,
             output,
-        } => cmd_snapshot(json, app, limit, diff, annotated, with_screenshot, output),
+        } => cmd_snapshot(
+            json,
+            app,
+            limit,
+            diff,
+            annotated,
+            with_screenshot,
+            output,
+            compact,
+        ),
         Cmd::ObserveRegion {
             x,
             y,
@@ -1914,6 +1935,7 @@ fn cmd_snapshot(
     annotated: bool,
     with_screenshot: bool,
     output: Option<String>,
+    compact: bool,
 ) -> Result<(), CuError> {
     let (pid, name) = system::resolve_target_app(&app)?;
     let result = ax::snapshot(pid, &name, limit);
@@ -1926,10 +1948,12 @@ fn cmd_snapshot(
     broker::publish_observation(pid, &result);
 
     // Capture the previous cache before overwriting — `--diff` reads it below.
-    // Every explicit snapshot remains the baseline for the next --diff.
-    // Stale-ref enforcement uses Broker observations, not this disk cache.
+    // Compact snapshots use the Broker baseline, not a second disk cache.
+    // Ordinary snapshots still seed the legacy --diff baseline.
     let previous = diff_mode.then(|| diff::load_previous(pid)).flatten();
-    let _ = diff::save_current(pid, &result.elements);
+    if !compact || diff_mode {
+        let _ = diff::save_current(pid, &result.elements);
+    }
 
     // --with-screenshot (skipped when --annotated is set since annotated already
     // bakes a screenshot into the response).
@@ -1972,7 +1996,9 @@ fn cmd_snapshot(
             // D1: always attach the active displays list so the agent can resolve
             // (x,y) → screen for any element in the snapshot.
             let mut full = serde_json::to_value(&result).unwrap_or_default();
-            full["displays"] = serde_json::to_value(display::list()).unwrap_or_default();
+            if !compact {
+                full["displays"] = serde_json::to_value(display::list()).unwrap_or_default();
+            }
             attach_snapshot_file(&mut full, &annotated_info, &plain_screenshot);
             emit(&full);
         } else {

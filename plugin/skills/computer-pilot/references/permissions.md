@@ -74,3 +74,27 @@ Signing tier does not by itself decide permission continuity: the grant
 follows `tcc_subject`. When macOS attributes cu's checks to a responsible
 process — the usual case in an Agent or terminal shell — the permission lives
 on that host app and is unaffected by replacing the cu binary.
+
+## Installation
+
+Install when the preflight does not print `cu <semver>`, or when that version
+is below `cli.minimum_version` in
+[compatibility.json](../compatibility.json). Read the manifest's `installation`
+object and invoke its `installer` with `sh`, resolving the path inside this
+skill directory — always `sh <installer>`, never `./<installer>`, because a
+packaged copy may arrive without the executable bit:
+
+```bash
+sh scripts/install-native.sh \
+  --version "<manifest version>" \
+  --repository "<installation.repository>" \
+  --asset-template "<installation.asset_template>" \
+  --allow-unsigned
+```
+
+Replace `--allow-unsigned` with `--requirement "<installation.signing.requirement>"`
+when that value is set; pass `--allow-unsigned` only when the manifest
+declares `required_status` `ad-hoc-unsigned`. Never install with sudo, a
+`latest` URL, or any download outside this installer. Re-run the two
+preflight lines afterwards; the installer also reports the absolute
+`command` path if you need it.

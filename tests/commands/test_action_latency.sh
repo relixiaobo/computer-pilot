@@ -167,6 +167,57 @@ try:
     assert typed["effect_verified"] is True, typed
     assert typed["snapshot"]["focused"]["value"] == "late-field", typed
 
+    # Compact observations use the same private full tree and refs. A shell
+    # group edits two fields, then returns one reconstructable state delta.
+    import os
+    env = dict(os.environ, CU_BIN=cu, CU_APP=app,
+               COMPUTER_PILOT_CLIENT_KEY="compact-latency")
+    helper = pathlib.Path(cu).resolve().parents[2] / "plugin/skills/computer-pilot/scripts/session.sh"
+
+    def compact(*args):
+        p = subprocess.run([cu, "--compact", *args], env=env,
+                           capture_output=True, text=True, timeout=15)
+        assert p.returncode == 0, p.stderr
+        return json.loads(p.stdout)
+
+    first = compact("snapshot", app, "--limit", "200")
+    state = {e["ref"]: e for e in first["elements"]}
+    exact = "compact中文😀\n\"quoted\"\\path " * 40
+    script = "\n".join([
+        ". " + shlex.quote(str(helper)),
+        shlex.join(["cu_do", "set-value", ref, exact]),
+        shlex.join(["cu_do", "set-value", str(other["ref"]), "second-field"]),
+        "cu_see",
+    ])
+    grouped = subprocess.run(["/bin/sh", "-ec", script], env=env,
+                             capture_output=True, text=True, timeout=15)
+    assert grouped.returncode == 0, grouped.stderr
+    outputs = [json.loads(line) for line in grouped.stdout.splitlines()]
+    delta = outputs[-1]
+    assert len(outputs) == 3 and delta["base_observation_id"] == first["observation_id"], outputs
+    for removed in delta["removed_refs"]:
+        state.pop(removed)
+    state.update({e["ref"]: e for e in delta["elements"]})
+    full = run("snapshot", app, "--limit", "200")
+    assert {r: e.get("value") for r, e in state.items()} == {
+        e["ref"]: e.get("value") for e in full["elements"]}, delta
+    assert state[int(ref)]["value"] == exact
+    assert state[other["ref"]]["value"] == "second-field"
+    assert compact("snapshot", app, "--limit", "200")["elements"] == []
+    # A full JSON observation remains available, including paths/geometry.
+    assert all("axPath" in e and "width" in e for e in full["elements"])
+
+    # Failing an action stops the sourced helper's group before the next edit.
+    failed = subprocess.run(["/bin/sh", "-ec", "\n".join([
+        ". " + shlex.quote(str(helper)), "cu_do click 99999",
+        shlex.join(["cu_do", "set-value", ref, "must-not-run"]), "cu_see",
+    ])], env=env, capture_output=True, text=True, timeout=15)
+    assert failed.returncode != 0 and not failed.stdout, failed
+    error = json.loads(failed.stderr)
+    assert error["ok"] is False and error["code"] == "stale_observation", error
+    final = run("snapshot", app, "--limit", "200")
+    assert next(e for e in final["elements"] if e["ref"] == int(ref))["value"] == exact
+
 finally:
     fixture.terminate()
     fixture.wait(timeout=5)

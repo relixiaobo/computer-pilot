@@ -26,27 +26,10 @@ macOS ships an unrelated `/usr/bin/cu` (the UUCP serial dialer) that answers
 `cu <semver>`. Treat any other output — and any failure — as "not
 installed"; never run desktop commands against the UUCP binary.
 
-Install when the preflight does not print `cu <semver>`, or when that version
-is below `cli.minimum_version` in
-[compatibility.json](compatibility.json). Read the manifest's `installation`
-object and invoke its `installer` with `sh`, resolving the path inside this
-skill directory — always `sh <installer>`, never `./<installer>`, because a
-packaged copy may arrive without the executable bit:
-
-```bash
-sh scripts/install-native.sh \
-  --version "<manifest version>" \
-  --repository "<installation.repository>" \
-  --asset-template "<installation.asset_template>" \
-  --allow-unsigned
-```
-
-Replace `--allow-unsigned` with `--requirement "<installation.signing.requirement>"`
-when that value is set; pass `--allow-unsigned` only when the manifest
-declares `required_status` `ad-hoc-unsigned`. Never install with sudo, a
-`latest` URL, or any download outside this installer. Re-run the two
-preflight lines afterwards; the installer also reports the absolute
-`command` path if you need it.
+If the verified binary is missing or below `cli.minimum_version` in
+[compatibility.json](compatibility.json), follow the pinned installation steps
+in [permissions.md](references/permissions.md#installation). Run `cu setup`
+only on first use or after a permission error, not before every task.
 
 Establish stable task identity:
 
@@ -57,10 +40,6 @@ export COMPUTER_PILOT_OUTPUT_DIR="/absolute/task-owned/output-dir"
 
 Keep the client key stable for one logical Agent and use another key for each
 other Agent. Set an absolute output directory before creating screenshots.
-
-Run `cu setup` only on first use or after a permission error. It checks core
-Accessibility and Screen Recording access. Automation is granted separately
-for each target app and is requested only by `cu tell`.
 
 ## Choose A Control Tier
 
@@ -76,65 +55,55 @@ For Browser UI, use Browser Pilot when available. Read
 [scripting.md](references/scripting.md) for AppleScript and
 [visual.md](references/visual.md) for screenshot/OCR workflows.
 
-## Core State-Act-Verify Loop
+## Observe And Act In Groups
 
-For ordinary UI work, start with one AX snapshot of the known app:
+Use `cu --compact snapshot "<known app>" --limit 200` to start ordinary UI
+work. Use `state` only when window/display metadata or a screenshot is needed.
+Prefer `set-value` for native fields; it avoids click/select/type.
 
-```bash
-cu snapshot "Mail" --limit 200
-```
+Group known actions in one shell call, including filling fields and an
+already-authorized Save/Next. Observe once at the boundary where a new page,
+dialog or unknown target requires another decision. Do not add a pre-save
+inspection, per-field check, or second confirmation of an observed result.
+Use `cu wait` for a specific asynchronous condition, never a fixed sleep.
+External effects still require the user's authorization; grouping adds none.
 
-Use `cu state` only when window/display metadata or a screenshot is needed.
-Reuse the returned PID selector for actions. Prefer `set-value` for native
-fields that support it, avoiding click/select/type entirely.
-
-Batch deterministic actions in one shell call. Stop the shell on errors and
-read the final result before deciding the next group:
-
-```bash
-set -e
-cu key cmd+a --app "pid:89806" --no-snapshot --no-verify
-cu type "Quarterly review" --app "pid:89806"
-```
-
-This example requires that the intended editor is already focused. When
-focus is unknown, click the observed field with default verification first;
-the shell can then continue to typing if that command succeeds. Do not add a
-model round just to repeat a check the command already performed.
-
-For intermediate `click`, `key`, and `type`, `--no-verify --no-snapshot`
-defers effect observation to the group boundary. `set-value`, `perform`,
-`scroll`, `hover`, and `drag` need only `--no-snapshot`. Keep the final action's
-snapshot, or finish with `cu snapshot`. These opt-outs acknowledge dispatch,
-not task success; verify the expected final value/state before continuing.
-
-For several independent native fields already visible in the observation,
-write them together and inspect the final snapshot once:
+For a task with multiple rounds, save its setup **once** in a task-owned shell
+file (use the verified binary and exact PID returned by the first observation):
 
 ```bash
-set -e
-cu set-value 7 "Quarterly review" --app "pid:89806" --observation "<id>" --no-snapshot
-cu set-value 12 "Draft" --app "pid:89806" --observation "<id>"
+# /absolute/task/cu-env.sh
+export CU_BIN="/verified/path/to/cu"
+export CU_APP="pid:89806"
+export COMPUTER_PILOT_CLIENT_KEY="<stable-task-key>"
+# Set COMPUTER_PILOT_OUTPUT_DIR here only if creating screenshots/files.
+. /absolute/path/to/computer-pilot/scripts/session.sh
 ```
 
-The same observation remains valid for the second field when only the first
-field's content changed. Once the final snapshot contains the requested values,
-stop; do not add another observation to reconfirm those same values.
-
-Only group actions whose targets and dependencies are already known. Stop
-and observe after navigation, a new dialog, unknown focus, or any action whose
-result determines the next target. Do not reuse pre-group refs across layout
-changes. Never include a submit/send/delete after unverified input merely to
-save a round trip. No fixed sleeps or repeated unchanged observations: use a
-condition wait when a specific asynchronous result is expected.
-
-Use waits for asynchronous transitions:
+Reuse that file in each shell invocation instead of rewriting environment,
+PID, observation IDs and action flags. The bundled helper is ordinary shell;
+`cu_do` invokes the CLI with this PID, skips intermediate snapshots/effect
+checks, and stops the group on errors. `cu_see` returns one compact observation.
+For example, when refs 7, 12 and Save button 15 are in the current observation:
 
 ```bash
-cu wait --text "Saved" --app "Mail" --timeout 10
-cu wait --new-window --app "Mail" --timeout 5
-cu wait --modal --app "Mail" --timeout 5
+. /absolute/task/cu-env.sh
+cu_do set-value 7 "Quarterly review"
+cu_do set-value 12 "Draft"
+cu_do click 15
+cu_see
 ```
+
+The latest observation for this task and PID is selected automatically; repeat
+`--observation` only when deliberately binding an older observation. Ref and
+PID freshness checks remain active. Do not reuse pre-navigation refs after
+layout changes. Intermediate dispatch is not proof of the final task outcome;
+read the boundary state and stop once the requested outcome is shown.
+
+For a short task, use the CLI directly. Intermediate actions take
+`--no-snapshot`; `click`, `type` and `key` also take `--no-verify`. Keep the
+final action's attached snapshot or issue one explicit snapshot in the same
+shell call. Do not add a model round solely to inspect an intermediate result.
 
 ## Targeting Rules
 
@@ -158,12 +127,6 @@ The overlay is presentation-only and may fail open without changing the action.
 Use a unique application name, bundle identifier, or `pid:<PID>`. `cu apps`
 returns each process's `selector`. Ambiguous names/bundles fail without acting;
 choose from `diagnostics.candidates` and reuse that PID for the whole loop:
-
-```bash
-cu state "pid:89806"
-cu click 12 --app "pid:89806" --observation "<observation_id>"
-cu wait --text "Saved" --app "pid:89806" --timeout 10
-```
 
 Never select a duplicate by whichever copy is active. After restart, resolve a
 new PID and create a fresh Observation.
@@ -211,53 +174,42 @@ Refs are ephemeral and bind to one Observation's client, PID, bundle, window,
 and target element signature. Unrelated elements may change without invalidating
 the target. A changed target, PID, or window still fails before dispatch.
 
-- Pass `--observation <id>` for explicit ref actions.
-- Without it, `cu` resolves the latest Observation for this client and target.
+- Ordinary ref actions use the latest observation for this client and target.
+- Use `--observation <id>` only to select a particular earlier observation.
 - Never reuse another Agent's Observation or ref.
 - Never treat the same integer in a later snapshot as the same element.
 - On `stale_observation`, do not retry the action. Observe again and re-plan.
 - User activity can invalidate an Observation; Computer Pilot never locks out
   the user to preserve stale state.
 
-An `axPath` avoids ref renumbering but does not make intent permanent. Verify
-the post-action snapshot.
+An `axPath` avoids ref renumbering but does not make intent permanent.
 
-## Action Results
+## Output And Errors
 
-Actions return `method`, `dispatched`, and sometimes `effect_verified`.
-`dispatched:true` proves only macOS accepted the request. Continue only after
-the expected state is visible or `effect_verified:true`; unobservable targeted
-typing returns `unknown_outcome`.
+`--compact` is concise JSON for ref-based agent work. It omits geometry,
+axPaths, routine command metadata and echoed `set-value` arguments, while
+retaining labels, values, target PID, observation IDs, effect/focus results,
+and all advisories/errors. Use ordinary `--json` when coordinates, full
+metadata or machine integration are needed. Error and recovery output stays
+complete in both modes.
 
-If a post-action AX read fails, `snapshot_error` explains the missing state.
-It does not become a new Observation or prove an effect; inspect the current
-state before retrying.
+Action snapshots and compact explicit snapshots return changed refs when a
+baseline exists. With `base_observation_id`, merge `elements` into that prior
+observation and remove `removed_refs`; unchanged refs retain their content.
+The new `observation_id` applies to the whole resulting tree. An empty delta
+is valid. If the baseline is unavailable, use `cu --json snapshot <PID>` once
+for a full tree. Explicit snapshots retain full text; action snapshots may cap
+long values and include `snapshot_hint` when they do.
 
-`cu click` verifies AX change by default. Read `verified`, `verify_diff`, and
-`verify_advice`. `verified:true` means the tree changed, not that the intended
-business outcome occurred. Confirm the attached snapshot. Use `--no-verify`
-only for a known reliable bulk workflow.
+Act on `_hint`, `_reason`, `_advice`, `_error`, `verified:false`, and
+`effect_verified:false`. A `snapshot_error` is missing state, not a reason to
+repeat a mutation blindly. Default click/type verification remains available
+for uncertain delivery (especially controlled editors). `verified:true` only
+means AX changed; assess the requested outcome at the group boundary.
 
-`--no-snapshot` only suppresses output; use `--no-verify` as well on
-intermediate click/type/key actions to defer effect verification. A generic
-shortcut or AX action has no universal success predicate: `dispatched:true`
-requires checking its intended result at the group boundary.
-
-`cu type` may route through clipboard paste for a focused `AXWebArea` input or
-a known chat app. Native inputs keep Unicode events, including CJK. Read
-`paste_reason`; do not recreate typing with `osascript` or `pbcopy`. A targeted
-type requires a focused AX text input and fails before dispatch otherwise.
-
-Action snapshots omit `axPath` and cap long text, but retain the requested
-element limit. When `snapshot.base_observation_id` is present, `elements`
-contains only new or changed refs: apply them to that prior observation and
-remove `snapshot.removed_refs`. Unchanged refs retain their previous content;
-all refs now belong to the response's new `observation_id`. Focus/window
-metadata is always current. If the baseline is unavailable, request a full
-`cu snapshot`. Do not issue a new snapshot just because a delta is empty.
-
-Always react to top-level fields ending in `_hint`, `_reason`, `_advice`, or
-`_error`. They mark degraded, partial, or automatically corrected output.
+`cu type` uses PID-targeted clipboard paste for focused `AXWebArea` inputs or
+known chat apps, and Unicode events for native inputs. It requires a focused
+AX text input. Do not recreate this with `osascript` or `pbcopy`.
 
 ## File Results
 
