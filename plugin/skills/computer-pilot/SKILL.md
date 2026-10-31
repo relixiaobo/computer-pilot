@@ -23,22 +23,28 @@ use `cu tell`; consult [scripting.md](references/scripting.md) if needed.
 Use `cu apps` once when the target or scripting support is unknown. For UI,
 start with an AX snapshot; use screenshots/OCR when AX lacks the needed content.
 
-For multiple rounds, keep a fixed task working directory and save `./cu-env.sh`:
+For multiple rounds, keep a fixed task working directory. Copy the packaged
+helper into `./cu-env.sh`, append the task values, and take the first observation
+in one shell call. Resolve the helper path relative to this SKILL.md:
 
 ```bash
+cp /absolute/skill-directory/scripts/session.sh ./cu-env.sh
+cat >> ./cu-env.sh <<'EOF'
 export CU_BIN="/verified/path/to/cu"
 export CU_APP="pid:89806"
 export COMPUTER_PILOT_CLIENT_KEY="<unique-stable-task-key>"
 export COMPUTER_PILOT_OUTPUT_DIR="/absolute/task/output"
 # Preserve any caller-supplied COMPUTER_PILOT_HOME here too.
-. /absolute/skill-directory/scripts/session.sh
+EOF
+. ./cu-env.sh
+cu snapshot
 ```
 
-Resolve [scripts/session.sh](scripts/session.sh) relative to this SKILL.md.
-Keep the same PID, client key and supplied environment throughout the task.
-Source `./cu-env.sh` in each shell call from that directory; use its absolute
-path if the working directory changes. Its `cu` function supplies the target;
-do not repeat `--app` or a positional app. Start with `cu snapshot`.
+The copied [helper](scripts/session.sh) contains the `cu` function and stops the
+shell on errors; it can be used without reading its implementation. Source only
+`./cu-env.sh` in each subsequent shell call; use its absolute path if cwd changes.
+Keep the supplied PID, binary and environment in that file throughout the task.
+Its `cu` function supplies the target; omit repeated `--app` or positional apps.
 
 ## One Call Per Decision Boundary
 
@@ -75,10 +81,23 @@ especially controlled editors, use the verified direct-CLI path below instead.
 
 ## Observe Transitions
 
-End an unfamiliar navigation with `snapshot` to discover what actually opened.
-Use `wait` when the next state is known and asynchronous, not to predict past an
-unseen dialog. Include the observation in the action group. A wait already
-returns a complete snapshot and usable refs; do not immediately snapshot it again.
+Choose the group's final observation from what is already known:
+
+- Unfamiliar navigation: `snapshot` to discover what opened, including dialogs.
+- Known asynchronous transition: the action followed directly by `wait` in the
+  same shell call. Once the flow has been observed, reuse it on subsequent items.
+  For example, when an observed confirmation returns to a list headed "All records":
+
+  ```bash
+  . ./cu-env.sh
+  cu click 15
+  cu wait --text "All records"
+  ```
+
+The wait returns the destination snapshot and usable refs; that is the group's
+observation. Omit a preliminary snapshot of the known loading state and a second
+snapshot after the wait. Use the default 10-second wait timeout unless the task
+needs another bound; `wait --timeout 20` means **20 seconds**.
 
 `wait --text` matches substrings in **any element's label or value**. Choose
 text that distinguishes the destination from the current UI. A word already in

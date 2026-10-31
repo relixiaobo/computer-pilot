@@ -1,5 +1,5 @@
-# Source from a task-owned file exporting CU_BIN, CU_APP and the task's
-# COMPUTER_PILOT_* environment. Every call uses the same binary and session.
+# Copy into a task-owned file, append CU_BIN, CU_APP and COMPUTER_PILOT_*
+# exports, then source that file in every shell call.
 set -e
 
 cu() {

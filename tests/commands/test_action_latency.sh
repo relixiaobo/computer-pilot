@@ -229,14 +229,21 @@ try:
     # Use the same task file for every kind of command and across new shells.
     # The configured binary must win even if another `cu` is on PATH.
     config = bundle.parent / "cu-env.sh"
-    config.write_text("\n".join(
+    config.write_text(helper.read_text() + "\n" + "\n".join(
         f"export {key}={shlex.quote(env[key])}" for key in
         ("CU_BIN", "CU_APP", "COMPUTER_PILOT_CLIENT_KEY")
-    ) + "\n. " + shlex.quote(str(helper)) + "\n")
+    ) + "\n")
+    shadow = bundle.parent / "shadow"
+    shadow.mkdir()
+    wrong_binary = shadow / "cu"
+    wrong_binary.write_text("#!/bin/sh\nexit 91\n")
+    wrong_binary.chmod(0o700)
+    session_env = dict(os.environ, PATH=str(shadow) + os.pathsep + os.environ["PATH"])
 
     def session(*args, shell="/bin/sh", ok=True):
         script = ". " + shlex.quote(str(config)) + "\n" + shlex.join(["cu", *map(str, args)])
-        p = subprocess.run([shell, "-ec", script], capture_output=True, text=True, timeout=15)
+        p = subprocess.run([shell, "-c", script], env=session_env,
+                           capture_output=True, text=True, timeout=15)
         d = json.loads(p.stdout or p.stderr)
         assert (p.returncode == 0) == ok and d["ok"] == ok, d
         return d
@@ -250,6 +257,17 @@ try:
         session("--compact", "set-value", other["ref"], shell, shell=shell)
         observed = session("--json", "snapshot", shell=shell)
         assert observed["pid"] == fixture.pid, observed
+        assert next(e for e in observed["elements"] if e["ref"] == other["ref"])["value"] == shell
+        # The copied config itself supplies stop-on-error in a fresh shell.
+        # A rejected action cannot be hidden by a subsequent successful edit.
+        failed = subprocess.run([shell, "-c", "\n".join([
+            ". " + shlex.quote(str(config)), "cu click 99999",
+            shlex.join(["cu", "set-value", str(other["ref"]), "must-not-run"]),
+            "cu snapshot",
+        ])], env=session_env, capture_output=True, text=True, timeout=15)
+        assert failed.returncode != 0 and not failed.stdout, failed
+        assert json.loads(failed.stderr)["code"] == "stale_observation", failed.stderr
+        observed = session("snapshot", shell=shell)
         assert next(e for e in observed["elements"] if e["ref"] == other["ref"])["value"] == shell
     session("set-value", other["ref"], "second-field")
     # Checkbox state belongs on the control in complete compact snapshots. The
