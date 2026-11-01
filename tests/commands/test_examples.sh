@@ -88,12 +88,12 @@ section "examples — human mode"
 
 cu_human examples
 assert_exit_zero "examples human exits 0"
-if echo "$OUT" | grep -q "Available recipe topics"; then
+if [[ "$OUT" == *"Available recipe topics"* ]]; then
   _pass "human mode shows 'Available recipe topics'"
 else
   _fail "human topics line" "${OUT:0:200}"
 fi
-if echo "$OUT" | grep -q "Run \`cu examples <topic>\`"; then
+if [[ "$OUT" == *'Run `cu examples <topic>`'* ]]; then
   _pass "human mode shows usage hint"
 else
   _fail "human usage hint" "${OUT:0:200}"

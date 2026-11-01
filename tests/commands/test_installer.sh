@@ -99,10 +99,13 @@ fi
 # SKILL.md must not tell the agent to execute it directly, since a repackaged
 # copy can lose the bit even though the official archive preserves it.
 SKILL_MD="$ROOT_DIR/plugin/skills/computer-pilot/SKILL.md"
-if grep -q 'sh scripts/install-native.sh' "$SKILL_MD"; then
-  _pass "SKILL.md prescribes the sh invocation form"
+PERMISSIONS_MD="$ROOT_DIR/plugin/skills/computer-pilot/references/permissions.md"
+if grep -q 'references/permissions.md#installation' "$SKILL_MD" \
+  && grep -q 'sh scripts/install-native.sh' "$PERMISSIONS_MD"; then
+  _pass "skill docs prescribe the sh invocation form"
 else
-  _fail "SKILL.md prescribes the sh invocation form" "no 'sh scripts/install-native.sh' in the preflight"
+  _fail "skill docs prescribe the sh invocation form" \
+    "installation reference or 'sh scripts/install-native.sh' is missing"
 fi
 
 # A fake next release: a shell stub that reports version 9.9.9, packaged with

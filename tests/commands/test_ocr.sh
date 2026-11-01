@@ -118,7 +118,7 @@ section "ocr — human mode"
 cu_human "ocr Finder"
 assert_exit_zero "ocr human exits 0"
 # Human format: [x,y WxH] "text" (confidence%)
-if echo "$OUT" | grep -qE '^\[' || echo "$OUT" | grep -q "No text found"; then
+if [[ "$OUT" =~ ^\[ ]] || [[ "$OUT" == *"No text found"* ]]; then
   _pass "human format correct"
 else
   _fail "human format" "${OUT:0:200}"
