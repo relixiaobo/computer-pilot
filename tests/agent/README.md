@@ -33,6 +33,19 @@ Team/Item sorting. Exact expected text (including JSON formatting/newlines) and
 spreadsheet outcomes live in `tasks/real_apps_scoped.json`, frozen by the manifest
 and never supplied to participants. Formula checks perturb reopened saved inputs.
 
+`--cu-only --dataset editor` freezes three new VS Code cases in
+`tasks/editor_completion.json`: local changes, repeated values in a limited
+section, and three related files. All preserve unrelated text and final newlines.
+For these exact-file tasks, the runner calls `record_saved_timeline(trial, stopped)`
+in a coordinator thread from launch until process exit, setting the stop event in
+`finally`. It samples only the task files every 250 ms and records hash/exactness
+transitions plus a final sample. This oracle never supplies participant feedback,
+ends a trial early, or repairs its files. Report first **observed** all-correct
+saved state, any later regression, and remaining task time/calls separately.
+Sampling is not the exact save instant, and final saved bytes alone do not prove
+the agent completed. Capture preserves CRLF/LF differences instead of normalizing
+newlines during verification. The sampler's small read cost remains in wall time.
+
 Numbers setup now refuses an existing process, requests fresh launch and verifies
 that only the supplied document is open before timing. `open -F` alone does not
 establish isolation: iWork may still restore its own documents, including items
@@ -502,6 +515,74 @@ bundle identifier, whereas `tell` additionally accepts an application path.
 Both skill references now distinguish them. These last metadata/documentation
 changes have native/parser regression evidence, not another model timing sample.
 
+
+### Editor completion and passive saved-state timing — 2026-11-01
+
+The previous timeout had UI evidence of correct checklist/release content at
+`item_48` and correct JSON apart from AX boundary representation at `item_53`.
+Historical disk reads occurred only after the turn, so these are not proven
+earlier saved-byte completion times. The new passive recorder closes that gap.
+
+An owned native fixture reproduced a key observation race: F6 updates the input
+after 100 ms, but the old automatic snapshot returned `initial` with zero settle
+time. `key` now arms the existing AX observer before dispatch when its JSON
+snapshot is requested, including selection notifications. It reuses the existing
+500 ms notification deadline and one capture, with no extra tree scan, polling,
+retry or task-specific route. Intermediate `--no-snapshot` keys keep their old
+path; generic key outcomes remain unverified. Missing notifications can consume
+the deadline; the first notification does not establish whole-UI stability.
+
+The skill consolidates group-boundary guidance, preserves unrelated document
+boundaries through local edits, distinguishes AX virtual text from file bytes,
+and ends work when requested content and saved state are established. It directs
+unresolvable uncertainty to an explicit limited report, not more mutations.
+Untimed VS Code probes confirm synthetic final newlines while disk bytes remain
+unchanged, and Home landing at the first nonblank character rather than column 1.
+Cursor status can still lag both an action and an immediate read-only snapshot.
+
+[Audited editor results](benchmarks/editor-completion-2026-11-01.json) retain
+three predeclared attempts on `a222bf0`, with new gpt-6-astra/high profiles, cwd,
+runtime homes and files, no AGENTS/memory injection, coaching or replacements.
+Native was not rerun. Every final file passed byte-exact verification and all
+three completion claims were supported. No sampled saved state regressed.
+
+| New task | Full task | Calls / errors | First observed all-correct save | Remaining turn / new calls |
+| --- | ---: | ---: | ---: | ---: |
+| Local note edits | 113.958 s | 8 / 0 | 103.592 s | 10.333 s / 0 |
+| Active section with repeated values elsewhere | 108.561 s | 9 / 1 | 72.223 s | 36.331 s / 4 |
+| Three files with preserved history/approval | 241.959 s | 24 / 3 | 223.838 s | 18.113 s / 0 |
+
+Save observations are sampled offsets from turn start, not exact save instants.
+The final column includes legitimate final reasoning/reporting and excludes
+process shutdown; it is not all waste. Local and multi-file trials stopped
+calling tools after their correct save. The scoped trial requested window/state
+help and another state after its save, including one duplicate PID-argument error.
+It also used counted-arrow navigation despite the skill caution; success on this
+unindented fixture does not establish safe selection in arbitrary editors.
+
+The multi-file trial recovered from three stale-ref rejections before dispatch,
+including two extra snapshots. An untimed full-JSON probe reproduced a related
+case: only ancestor captions in `axPath` changed as window titles caught up with
+file selection; row role/label/value/geometry stayed equal. This does not prove
+the exact differing field in all three compact model traces. Document-context
+changes still require identity protection; this block does not relax it or add
+blanket retries/waits to eliminate error counts.
+
+Recorded tool intervals were 6.903 / 4.256 / 15.818 seconds. Most elapsed time
+remains outside tools (model, network and orchestration combined). These 3/3 new
+cases show completion without the previous newline-mutation loop, not a causal
+speedup or population success rate. The historical scoped editor task took
+426.046 seconds once and timed out at 600 seconds on its next attempt, but its
+JSON task differs from these cases. Historical native VS Code changed a shared
+setting and was excluded; it supplies no valid successful speed ratio here.
+
+All dedicated windows/Brokers were closed and shared Code/TextEdit processes and
+Code settings preserved. Shared settings/extensions/caches remain a limitation.
+Validation passed: 45 Rust tests, Clippy, formatting, release build, skill/version
+checks, the native action fixture and 21 offline benchmark tests. After timing,
+the coordinator's future editor plans received distinct pairing indices so a
+two-arm report retains all three cases; its regression verifies three pairs.
+This reporting fix changes no measured candidate, attempt or artifact.
 
 ## Architecture
 

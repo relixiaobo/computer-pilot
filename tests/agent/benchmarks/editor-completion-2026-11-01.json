@@ -1,0 +1,833 @@
+{
+  "manifest": {
+    "protocol_version": 2,
+    "single_turn": true,
+    "sequence": [
+      {
+        "label": "vscode-local-1-cu",
+        "mode": "vscode",
+        "scenario": "local",
+        "repeat": 1,
+        "arm": "cu"
+      },
+      {
+        "label": "vscode-scoped-1-cu",
+        "mode": "vscode",
+        "scenario": "scoped",
+        "repeat": 1,
+        "arm": "cu"
+      },
+      {
+        "label": "vscode-multi-1-cu",
+        "mode": "vscode",
+        "scenario": "multi",
+        "repeat": 1,
+        "arm": "cu"
+      }
+    ],
+    "dataset": "editor",
+    "settings": {
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null
+    },
+    "fingerprints": {
+      "target/release/cu": "b9762d4413c0e133cacb4dfe4b02cce5b1485e7d96a6d39c58f2427793c9fa69",
+      "tests/agent/benchmark_real_apps.py": "78a820d1249c4e81693f0abed954837c9577ae518e5b4af4762a96d94967ff15",
+      "tests/agent/tasks/real_apps_scoped.json": "e58043300c6abd26fda75728fc7a599ec5ed535c6a5c121106c35e1db93b03e6",
+      "tests/agent/tasks/editor_completion.json": "2f32e8733b32e4c7b639b4fcecf02f4bc8b22b2584645c337faf2d3046007e48",
+      "tests/agent/benchmark_varied_workflows.py": "c453866d58e580710fb5c3dbc33e79aeea64144f9717dbdcb26fea1c5792a64f",
+      "tests/agent/collect_codex_benchmark.py": "a35fba949ee73222e5e83eaeb35807ce8b7bfc43727c4db9fae4fa0f692f3d79",
+      "plugin/skills/computer-pilot/SKILL.md": "23aa01a7d7f6cff0b67f8a432367db3f49566d3428a21a75fd8ff73f3576c2ba",
+      "plugin/skills/computer-pilot/scripts/session.sh": "9d086c85bd78eac91693cf678c8180dbc0fd895d5c9806fefd6852c82cd46fb2",
+      "plugin/skills/computer-pilot/references/commands.md": "809a8e54cda32fce3059b4ba13020a2645580a0eb167e1004a4ec80af05da910",
+      "plugin/skills/computer-pilot/references/embedding.md": "336642ed1e10acb21a706004753f8c95204252e185ab989d9fd0e094199386a9",
+      "plugin/skills/computer-pilot/references/permissions.md": "5b4a13b118ba37d74d50e8950bad817df080bafe8355b5db5761008a2019084d",
+      "plugin/skills/computer-pilot/references/recovery.md": "6b1d91dc9a1abcad837c16c74010cfe2ba3e3ead5650e7107a0696da2ee4e46b",
+      "plugin/skills/computer-pilot/references/scripting.md": "1013719ee23e93eccb74815631da92b44bd665dde2897071ffeef07d3668f468",
+      "plugin/skills/computer-pilot/references/visual.md": "7879ca3a1cb6b4ff6815a5b277486d31057b141e9c7ba5182efb7ea6329b6956"
+    },
+    "cu_commit": "a222bf072de82e8069e57872a05a8be49035cb53",
+    "scope": "Cu-only retest; historical native runs are not repeated. Dataset: editor; 3 planned attempts, no replacements. TextEdit/VS Code trials share user application processes with dedicated test windows; any Numbers trials start separately. Fresh model profiles/cwd and cu runtimes. Normal documented app scripting is allowed through cu tell; native uses actual App APIs. No direct file edits, terminal commands inside apps, automation scripts outside the assigned backend, or task-specific solver. Report routes separately; changed datasets are not paired speed comparisons.",
+    "wall_timeout_seconds": 600,
+    "app_versions": {
+      "vscode": "1.142.0"
+    }
+  },
+  "actual_order": [
+    "vscode-local-1-cu",
+    "vscode-scoped-1-cu",
+    "vscode-multi-1-cu"
+  ],
+  "attempts": [
+    {
+      "label": "vscode-local-1-cu",
+      "mode": "vscode",
+      "scenario": "local",
+      "repeat": 1,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 3587,
+      "app_path": "/Applications/Visual Studio Code.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-real-x5brtf9i",
+      "client_key": "vscode-local-1-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-completion-20261101/vscode-local-1-cu/output",
+      "workspace": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-completion-20261101/vscode-local-1-cu/CP-editor-completion-20261101-vscode-local-1-cu",
+      "source_sha256": "a694cf19191a6e7c2ad2d921fa2c9e1c3fa72bb96edf3d690c688bcb01da69c8",
+      "shared_app": true,
+      "files": {
+        "note.md": "note.md"
+      },
+      "output_file": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-completion-20261101/vscode-local-1-cu/CP-editor-completion-20261101-vscode-local-1-cu/CP-editor-completion-20261101-vscode-local-1-cu-budget.numbers",
+      "thread_id": "01a194d6-a5c5-77d3-b42b-dd8c5b537159",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a194d6-a5c5-77d3-b42b-dd8c5b537159",
+          "turn_id": "01a194d6-a6eb-7890-be01-6010ac3fc21a",
+          "started_at": "2026-11-01T02:00:57.880Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-11-01T02:02:51.805Z",
+          "elapsed_ms": 113958,
+          "final": "DONE. Used the assigned `cu` backend with VS Code’s focused editor, Find/Replace keyboard flow, and `⌘S`.\n\nVerified the requested values and checklist state are present, and the unsaved-file indicator cleared after saving.",
+          "model_calls": 9,
+          "tokens": {
+            "input_tokens": 298382,
+            "cached_input_tokens": 251264,
+            "output_tokens": 2698,
+            "reasoning_output_tokens": 1477,
+            "total_tokens": 301080
+          },
+          "tool_calls": 8,
+          "tool_output_chars": 102049,
+          "tool_errors": 0,
+          "tool_interval_ms": 6903,
+          "non_tool_interval_ms": 107055,
+          "label": "vscode-local-1-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "note.md_exact": true
+        },
+        "actual": {
+          "files": {
+            "note.md": "# Release note\nProject: Cedar\nBatch: CD-284\nStatus: ready\nOwner: 许\nReview date: 2026-12-21\nEndpoint: https://release.cedar.example.invalid/v4/items?team=lab-8\n\nScope: desktop editor reliability\nKeep: a+b[2].* / $HOME / C:\\records\\r4 / 中文🙂\n\n## Checklist\n[x] review release note\n[ ] obtain external approval\n\n## Archive\nStatus: archived\nOwner: 周\nBatch: CD-199\n"
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 113958,
+      "combined_turn_ms": 113958,
+      "evidence_sha256": {
+        "brief.txt": "d89866a7931306542a7a7412ba94441376c709dff6f4aa13a6056474b5923207",
+        "source.json": "a694cf19191a6e7c2ad2d921fa2c9e1c3fa72bb96edf3d690c688bcb01da69c8",
+        "saved.json": "55687106f1e43e51d329b6f2b758c0da5c23f0a86a05b757258aba18eaa57d91",
+        "trace.json": "49c7f1bf941fa1430a7b43eeb7160c7dc518aa0d83da6116e999c0b4195e63a3",
+        "runtime-context.json": "5a5557fb4cbf13c8d3a9c1462275d3b0a79b58f726587dc5de4c4ec8cee95158",
+        "launch.json": "66cb768b898b32cec34e480a542819b5a501715ee0a860bd6f5f4f381bfb748e",
+        "audit.json": "8628a89ef27ab81001f2be24a148a81b77cc1706ba29034acef30eb078f1e929",
+        "task-launcher": "27e09d76c7d8ded29b2a0e28d03791780f43b5785fc1bfc655efa960fe49fc42",
+        "saved-timeline.jsonl": "433a596a73c90a432207892aec88b8cd569be0a7404fa6c2eff5da21edb22543"
+      },
+      "audit": {
+        "compliant": true,
+        "claimed_complete": true,
+        "route": "cu UI: retained-target click, literal Find selection, typing, Save",
+        "task_launcher": "/tmp/cu-vscode-local-1-cu.sh",
+        "runtime_context": {
+          "contexts": [
+            {
+              "cwd": "/private/tmp/editor-completion-20261101/vscode-local-1-cu/work",
+              "model": "gpt-6-astra",
+              "effort": "high",
+              "service_tier": null
+            }
+          ],
+          "messages": [
+            {
+              "role": "developer",
+              "chars": 21420,
+              "sha256": "35bd51b5f577cb7b24cd5f4629e49e37cb724ab57754ce6f8f202001635bab8a",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 12744,
+              "sha256": "a0a1fbab0c11917d38756be68d84e76a1398e1b1af340f38a3d21054030a49b1",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 2400,
+              "sha256": "3edd51083129388f52e881435e93e4b981e00c5ee3d62ab5d32e22c428fd504b",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 271,
+              "sha256": "6ded806e3cdbb35599ecaf8742574bc5274908472b1729090010c404c2151e8e",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 450,
+              "sha256": "a49adf7459e7f61ed01c13bc85a4fac8b0f87312184c6f2084209850ae916443",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 2973,
+              "sha256": "d89866a7931306542a7a7412ba94441376c709dff6f4aa13a6056474b5923207",
+              "agents_injected": false
+            }
+          ],
+          "no_agents_injected": true,
+          "exit_code": 0
+        },
+        "note": "All eight tool calls reviewed. Reads only packaged skill/help and the assigned editor through its task launcher. Five localized literal-find replacements preserve archive, approval, literals and newline; final Save+snapshot shows correct text and no unsaved indicator. No filesystem document IO, external backend, settings change or solver. One extra Escape observation after first edit; no new tool call after sampled correct save. Exact saved bytes independently pass; completion claim is supported. Shared app session retained."
+      },
+      "saved_completion": {
+        "sample_interval_ms": 250,
+        "timeline": [
+          {
+            "sample_started_at": "2026-11-01T02:00:56.543875+00:00",
+            "observed_at": "2026-11-01T02:00:56.548414+00:00",
+            "final": false,
+            "files": {
+              "note.md": {
+                "sha256": "819e766bddd44ea1595aed6ec58e73990eca62350333568a561c4ecc9cfbbc0d",
+                "exact": false
+              }
+            },
+            "all_exact": false
+          },
+          {
+            "sample_started_at": "2026-11-01T02:02:41.472044+00:00",
+            "observed_at": "2026-11-01T02:02:41.472246+00:00",
+            "final": false,
+            "files": {
+              "note.md": {
+                "sha256": "52c4190eb9482b4cf82d14d89079b32fbf8e07ad4817e4f855a3d6c894fb8136",
+                "exact": true
+              }
+            },
+            "all_exact": true
+          },
+          {
+            "sample_started_at": "2026-11-01T02:02:55.189044+00:00",
+            "observed_at": "2026-11-01T02:02:55.189138+00:00",
+            "final": true,
+            "files": {
+              "note.md": {
+                "sha256": "52c4190eb9482b4cf82d14d89079b32fbf8e07ad4817e4f855a3d6c894fb8136",
+                "exact": true
+              }
+            },
+            "all_exact": true
+          }
+        ],
+        "first_all_exact_observed_at": "2026-11-01T02:02:41.472246+00:00",
+        "first_all_exact_from_turn_start_ms": 103592.246,
+        "remaining_turn_ms_after_first_all_exact": 10332.754,
+        "tool_calls_started_after_first_all_exact": 0,
+        "tool_ids_started_after_first_all_exact": [],
+        "saved_regressions_after_all_exact": 0,
+        "note": "First observed correct saved files, not an exact save instant or proof of agent completion; sampling is passive and provides no feedback. Remaining time also includes legitimate final observation/reporting."
+      }
+    },
+    {
+      "label": "vscode-scoped-1-cu",
+      "mode": "vscode",
+      "scenario": "scoped",
+      "repeat": 1,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 3587,
+      "app_path": "/Applications/Visual Studio Code.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-real-mfgiiqjx",
+      "client_key": "vscode-scoped-1-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-completion-20261101/vscode-scoped-1-cu/output",
+      "workspace": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-completion-20261101/vscode-scoped-1-cu/CP-editor-completion-20261101-vscode-scoped-1-cu",
+      "source_sha256": "e5aed4b05af6d983119708df2ede25475b1232e9d4b2fd265c8fe30298fa9a80",
+      "shared_app": true,
+      "files": {
+        "routes.ini": "routes.ini"
+      },
+      "output_file": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-completion-20261101/vscode-scoped-1-cu/CP-editor-completion-20261101-vscode-scoped-1-cu/CP-editor-completion-20261101-vscode-scoped-1-cu-budget.numbers",
+      "thread_id": "01a194d8-7df7-7600-bc3f-5e57b226ce6e",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a194d8-7df7-7600-bc3f-5e57b226ce6e",
+          "turn_id": "01a194d8-803d-73d1-b970-05d89e1f0295",
+          "started_at": "2026-11-01T02:02:59.029Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-11-01T02:04:47.583Z",
+          "elapsed_ms": 108561,
+          "final": "DONE. Used the assigned Computer Pilot `cu` PID-targeted VS Code UI route, edited only `[active]`, saved with `⌘S`, and observed the final result. `[archive]`, the comment, URL path/query, indentation, and final newline remain preserved.",
+          "model_calls": 9,
+          "tokens": {
+            "input_tokens": 254882,
+            "cached_input_tokens": 215680,
+            "output_tokens": 2678,
+            "reasoning_output_tokens": 1524,
+            "total_tokens": 257560
+          },
+          "tool_calls": 9,
+          "tool_output_chars": 50000,
+          "tool_errors": 1,
+          "tool_interval_ms": 4256,
+          "non_tool_interval_ms": 104305,
+          "label": "vscode-scoped-1-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "routes.ini_exact": true
+        },
+        "actual": {
+          "files": {
+            "routes.ini": "# Route configuration — a+b[2].* / $HOME / 中文🙂\n[active]\nregion = ap-south-1\nendpoint = https://live.delta.example.invalid/events?q=alpha+beta\nstatus = ready\nowner = Lin\nretry = 5\n\n[archive]\nregion = ap-south-1\nendpoint = https://preview.delta.example.invalid/events?q=alpha+beta\nstatus = draft\nowner = Chen\nretry = 2\n\n# Example only: status = draft; retry = 2\n"
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 108561,
+      "combined_turn_ms": 108561,
+      "evidence_sha256": {
+        "brief.txt": "fbfe831b4eaa1c2a6e45725e917e42d6b171d2b2b9cde51f3e1a20d45cdc2d6e",
+        "source.json": "e5aed4b05af6d983119708df2ede25475b1232e9d4b2fd265c8fe30298fa9a80",
+        "saved.json": "f519c6e9fa310ff3641d06d6f1b441bb76ca4e3a3a39220ef666542178562f13",
+        "trace.json": "0edaa1220efb08e929aa99e9db487bff917dbe2c214a25300e2d617abc96bc15",
+        "runtime-context.json": "e767f340375dbe922b01035360dde2e6fee82f1b5b81b41e07a19aa477b6b3a2",
+        "launch.json": "f721a772180d34684b4062e163ecbcf2f6ab9f820f4d96c20665e6c9cbeeeab4",
+        "audit.json": "63ef2ca683549302592c24d16e4b95fa7844c235100cae4fa0c512e1d8fb3fd5",
+        "task-launcher": "f34540df5e3d15b98131ba8fe84581f6da8b1c92df2a66bd5ef0f01e07880f1d",
+        "saved-timeline.jsonl": "09db40318f33708300863284a0bcf9b8e7cb2164372a89fa9213ee88a54d685b"
+      },
+      "audit": {
+        "compliant": true,
+        "claimed_complete": true,
+        "route": "cu UI: line-local selection, typing, Save",
+        "task_launcher": "/tmp/pilot-editor-cu",
+        "runtime_context": {
+          "contexts": [
+            {
+              "cwd": "/private/tmp/editor-completion-20261101/vscode-scoped-1-cu/work",
+              "model": "gpt-6-astra",
+              "effort": "high",
+              "service_tier": null
+            }
+          ],
+          "messages": [
+            {
+              "role": "developer",
+              "chars": 21420,
+              "sha256": "35bd51b5f577cb7b24cd5f4629e49e37cb724ab57754ce6f8f202001635bab8a",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 12745,
+              "sha256": "40f20c2e4436cd707e9714dcd51f1ef3ca3d93fa772ff0ed92b8b30f1f2fd97d",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 2400,
+              "sha256": "3edd51083129388f52e881435e93e4b981e00c5ee3d62ab5d32e22c428fd504b",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 271,
+              "sha256": "6ded806e3cdbb35599ecaf8742574bc5274908472b1729090010c404c2151e8e",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 452,
+              "sha256": "a239793a01491e44bfde8e25e36a7f7b61d22c753548600f59f4acc42bcdd0d9",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 2965,
+              "sha256": "fbfe831b4eaa1c2a6e45725e917e42d6b171d2b2b9cde51f3e1a20d45cdc2d6e",
+              "agents_injected": false
+            }
+          ],
+          "no_agents_injected": true,
+          "exit_code": 0
+        },
+        "note": "All nine calls reviewed. Uses only skill/help and the task-bound CLI for assigned UI; no document filesystem access, external backend, setting change or solver. A grouped line-local edit saves four active-section changes; its snapshot shows exact text and no unsaved marker. Later window/state help and state calls add four calls after first observed correct save, including one duplicate positional PID error. Navigation uses counted arrows/Home despite skill caution; this unindented fixture succeeds, not proof of general selection safety. No further mutations or boundary-newline rewrites; exact saved bytes and completion claim pass."
+      },
+      "saved_completion": {
+        "sample_interval_ms": 250,
+        "timeline": [
+          {
+            "sample_started_at": "2026-11-01T02:02:58.300696+00:00",
+            "observed_at": "2026-11-01T02:02:58.301015+00:00",
+            "final": false,
+            "files": {
+              "routes.ini": {
+                "sha256": "3ff7f5c3ddaaf64d1a75479bd0657c688296208cfe71a51bf80d056b2dff9075",
+                "exact": false
+              }
+            },
+            "all_exact": false
+          },
+          {
+            "sample_started_at": "2026-11-01T02:04:11.252158+00:00",
+            "observed_at": "2026-11-01T02:04:11.252358+00:00",
+            "final": false,
+            "files": {
+              "routes.ini": {
+                "sha256": "3769588047f0e343c1582e43d451306c71969402e2a28aad3ef547a3f2172e2d",
+                "exact": true
+              }
+            },
+            "all_exact": true
+          },
+          {
+            "sample_started_at": "2026-11-01T02:04:50.751500+00:00",
+            "observed_at": "2026-11-01T02:04:50.751995+00:00",
+            "final": true,
+            "files": {
+              "routes.ini": {
+                "sha256": "3769588047f0e343c1582e43d451306c71969402e2a28aad3ef547a3f2172e2d",
+                "exact": true
+              }
+            },
+            "all_exact": true
+          }
+        ],
+        "first_all_exact_observed_at": "2026-11-01T02:04:11.252358+00:00",
+        "first_all_exact_from_turn_start_ms": 72223.358,
+        "remaining_turn_ms_after_first_all_exact": 36330.642,
+        "tool_calls_started_after_first_all_exact": 4,
+        "tool_ids_started_after_first_all_exact": [
+          "exec-e728f0e9-8bf1-4f54-8cc6-b392903e5a21",
+          "exec-02015320-dc69-40e1-8598-bb7c4de5dc13",
+          "exec-9267b3dd-6a49-468b-aff7-11749803e687",
+          "exec-68591978-9a5f-46d2-b53a-f92682f03055"
+        ],
+        "saved_regressions_after_all_exact": 0,
+        "note": "First observed correct saved files, not an exact save instant or proof of agent completion; sampling is passive and provides no feedback. Remaining time also includes legitimate final observation/reporting."
+      }
+    },
+    {
+      "label": "vscode-multi-1-cu",
+      "mode": "vscode",
+      "scenario": "multi",
+      "repeat": 1,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 3587,
+      "app_path": "/Applications/Visual Studio Code.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-real-dyljk_au",
+      "client_key": "vscode-multi-1-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-completion-20261101/vscode-multi-1-cu/output",
+      "workspace": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-completion-20261101/vscode-multi-1-cu/CP-editor-completion-20261101-vscode-multi-1-cu",
+      "source_sha256": "296f0b7cabd1f1b269a54752f65e144b0e8b3a756353a5430deed6f99d1216b4",
+      "shared_app": true,
+      "files": {
+        "delivery.toml": "delivery.toml",
+        "handoff.md": "handoff.md",
+        "checks.txt": "checks.txt"
+      },
+      "output_file": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-completion-20261101/vscode-multi-1-cu/CP-editor-completion-20261101-vscode-multi-1-cu/CP-editor-completion-20261101-vscode-multi-1-cu-budget.numbers",
+      "thread_id": "01a194da-4498-73f3-9718-3e266670530d",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a194da-4498-73f3-9718-3e266670530d",
+          "turn_id": "01a194da-4566-7330-b89d-7175ae579f07",
+          "started_at": "2026-11-01T02:04:55.033Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-11-01T02:08:56.984Z",
+          "elapsed_ms": 241959,
+          "final": "DONE. All three files were edited and saved through the assigned VS Code `cu` backend using AX keyboard Find/Replace and `Cmd+S`.\n\n- `delivery.toml`: outbound updated; inbound preserved.\n- `handoff.md`: current handoff updated; prior handoff preserved.\n- `checks.txt`: four requested items checked; external approval and publish announcement remain unchecked.",
+          "model_calls": 25,
+          "tokens": {
+            "input_tokens": 1558630,
+            "cached_input_tokens": 1460992,
+            "output_tokens": 4816,
+            "reasoning_output_tokens": 2306,
+            "total_tokens": 1563446
+          },
+          "tool_calls": 24,
+          "tool_output_chars": 296988,
+          "tool_errors": 3,
+          "tool_interval_ms": 15818,
+          "non_tool_interval_ms": 226141,
+          "label": "vscode-multi-1-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "delivery.toml_exact": true,
+          "handoff.md_exact": true,
+          "checks.txt_exact": true
+        },
+        "actual": {
+          "files": {
+            "delivery.toml": "# Orion delivery configuration\nrelease = \"OR-318\"\n\n[outbound]\nenabled = true\nendpoint = \"https://prod.orion.example.invalid/v9/send?tenant=q-31\"\ntimeout = 40\nretries = 4\n\n[inbound]\nenabled = true\nendpoint = \"https://staging.orion.example.invalid/v9/receive?tenant=q-31\"\ntimeout = 25\nretries = 2\n\n# literal: a+b[2].* / $HOME / C:\\keep\\orion / 中文🙂\n",
+            "handoff.md": "# Current handoff\nRelease: OR-318\nEnvironment: production\nOwner: 吴\nStatus: ready\n\n# Prior handoff\nRelease: OR-302\nEnvironment: staging\nOwner: 郑\nStatus: pending\n\nDo not alter: https://archive.orion.example.invalid/OR-302?raw=1\n",
+            "checks.txt": "Release OR-318\n[x] outbound enabled\n[x] outbound endpoint verified\n[x] outbound retry policy verified\n[x] handoff reviewed\n[ ] external approval\n[ ] publish announcement\n"
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 241959,
+      "combined_turn_ms": 241959,
+      "evidence_sha256": {
+        "brief.txt": "d15f9af5796e6af253196253be5ddc6eb362e726ead0d26175e0f68c0aa78660",
+        "source.json": "296f0b7cabd1f1b269a54752f65e144b0e8b3a756353a5430deed6f99d1216b4",
+        "saved.json": "1adee30fd344dc8fb03d7f86d87c35f82664ba6288f98c5efb919ed7c23d0a01",
+        "trace.json": "a0de24c8c597edbbddef060470b4e602a8c9de610e2337ed1ab958bec184bad4",
+        "runtime-context.json": "7fc3f54b0080f030da29edbd881f2d8cc0cb85329c2fd6422011514b575394f2",
+        "launch.json": "8be11198f9d723039e382e8a7096d85fcdac91c841211bef17cb64d0af7d64a8",
+        "audit.json": "2898f43d441fa41468cfd9fbf7d3c2523639ef67c7fcda7b2df932bc356e9b4a",
+        "task-launcher": "85a9247af187004c321f7e05b01efefaf25d3d9d415983cc85da7d5c8d03ff45",
+        "saved-timeline.jsonl": "561cc246de849d501c811f30e93ed1af7c0a2b09eeb457eadd975d11986ec9e4"
+      },
+      "audit": {
+        "compliant": true,
+        "claimed_complete": true,
+        "route": "cu UI: Explorer navigation, literal Find selection, typing, Save",
+        "task_launcher": "/private/tmp/editor-completion-20261101/vscode-multi-1-cu/work/pilot",
+        "runtime_context": {
+          "contexts": [
+            {
+              "cwd": "/private/tmp/editor-completion-20261101/vscode-multi-1-cu/work",
+              "model": "gpt-6-astra",
+              "effort": "high",
+              "service_tier": null
+            }
+          ],
+          "messages": [
+            {
+              "role": "developer",
+              "chars": 21420,
+              "sha256": "35bd51b5f577cb7b24cd5f4629e49e37cb724ab57754ce6f8f202001635bab8a",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 12744,
+              "sha256": "418c98f4884a67199313fee1c9f401fc3e1ffc6c1260138ce4a075b42e8453ee",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 2400,
+              "sha256": "3edd51083129388f52e881435e93e4b981e00c5ee3d62ab5d32e22c428fd504b",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 271,
+              "sha256": "6ded806e3cdbb35599ecaf8742574bc5274908472b1729090010c404c2151e8e",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 450,
+              "sha256": "3c0f583e502cee6aee335bf9c7cde6e867820c22698f6a7490158a47850f7440",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 3211,
+              "sha256": "d15f9af5796e6af253196253be5ddc6eb362e726ead0d26175e0f68c0aa78660",
+              "agents_injected": false
+            }
+          ],
+          "no_agents_injected": true,
+          "exit_code": 0
+        },
+        "note": "All 24 calls reviewed. All document operations use the fixed task launcher and assigned VS Code UI; reads only skill/help otherwise. No filesystem document IO, external backend, user setting changes, whole-file reconstruction or solver. Three double-click attempts rejected stale observations before dispatch, even when returned row labels/ref numbers look unchanged; exact changed identity field is hidden by compact output and cannot be inferred from this trace. Agent recovers via attached state or two extra snapshots and observed editor focus. Local Find replacements preserve inbound/prior sections and unchecked approvals. Each save clears unsaved state. Three final files exactly match independently; completion claim supported. No new tool calls after first sampled all-correct save."
+      },
+      "saved_completion": {
+        "sample_interval_ms": 250,
+        "timeline": [
+          {
+            "sample_started_at": "2026-11-01T02:04:54.059486+00:00",
+            "observed_at": "2026-11-01T02:04:54.060080+00:00",
+            "final": false,
+            "files": {
+              "delivery.toml": {
+                "sha256": "6ed941d99d50a6a2cfe5b19ca8f607c9f54d9d35544ef1af8a66a992766d3cb3",
+                "exact": false
+              },
+              "handoff.md": {
+                "sha256": "e556b59de527246ab1329ddd5152176a7891b32649874046f6ee16f3f1806d0f",
+                "exact": false
+              },
+              "checks.txt": {
+                "sha256": "e5f82cc88cdbfc31c926d78473a0bc4cfd62b115abd476c76096cf3c6a445d82",
+                "exact": false
+              }
+            },
+            "all_exact": false
+          },
+          {
+            "sample_started_at": "2026-11-01T02:06:31.761161+00:00",
+            "observed_at": "2026-11-01T02:06:31.761457+00:00",
+            "final": false,
+            "files": {
+              "delivery.toml": {
+                "sha256": "6ed941d99d50a6a2cfe5b19ca8f607c9f54d9d35544ef1af8a66a992766d3cb3",
+                "exact": false
+              },
+              "handoff.md": {
+                "sha256": "c666569f6d15118bacf14f83be73d4bb878eeb8cf5472e04a54793d37311d12a",
+                "exact": true
+              },
+              "checks.txt": {
+                "sha256": "e5f82cc88cdbfc31c926d78473a0bc4cfd62b115abd476c76096cf3c6a445d82",
+                "exact": false
+              }
+            },
+            "all_exact": false
+          },
+          {
+            "sample_started_at": "2026-11-01T02:07:43.185626+00:00",
+            "observed_at": "2026-11-01T02:07:43.185976+00:00",
+            "final": false,
+            "files": {
+              "delivery.toml": {
+                "sha256": "d08a5bce38313128e26d394447b5e61e3c7710953392c8e93aab70100126511a",
+                "exact": true
+              },
+              "handoff.md": {
+                "sha256": "c666569f6d15118bacf14f83be73d4bb878eeb8cf5472e04a54793d37311d12a",
+                "exact": true
+              },
+              "checks.txt": {
+                "sha256": "e5f82cc88cdbfc31c926d78473a0bc4cfd62b115abd476c76096cf3c6a445d82",
+                "exact": false
+              }
+            },
+            "all_exact": false
+          },
+          {
+            "sample_started_at": "2026-11-01T02:08:38.870529+00:00",
+            "observed_at": "2026-11-01T02:08:38.871286+00:00",
+            "final": false,
+            "files": {
+              "delivery.toml": {
+                "sha256": "d08a5bce38313128e26d394447b5e61e3c7710953392c8e93aab70100126511a",
+                "exact": true
+              },
+              "handoff.md": {
+                "sha256": "c666569f6d15118bacf14f83be73d4bb878eeb8cf5472e04a54793d37311d12a",
+                "exact": true
+              },
+              "checks.txt": {
+                "sha256": "24d521fd12d1c2aea6f2a1498e40da6648d3dda14d0c302ed7d7849d2a32f37f",
+                "exact": true
+              }
+            },
+            "all_exact": true
+          },
+          {
+            "sample_started_at": "2026-11-01T02:09:00.404667+00:00",
+            "observed_at": "2026-11-01T02:09:00.405637+00:00",
+            "final": true,
+            "files": {
+              "delivery.toml": {
+                "sha256": "d08a5bce38313128e26d394447b5e61e3c7710953392c8e93aab70100126511a",
+                "exact": true
+              },
+              "handoff.md": {
+                "sha256": "c666569f6d15118bacf14f83be73d4bb878eeb8cf5472e04a54793d37311d12a",
+                "exact": true
+              },
+              "checks.txt": {
+                "sha256": "24d521fd12d1c2aea6f2a1498e40da6648d3dda14d0c302ed7d7849d2a32f37f",
+                "exact": true
+              }
+            },
+            "all_exact": true
+          }
+        ],
+        "first_all_exact_observed_at": "2026-11-01T02:08:38.871286+00:00",
+        "first_all_exact_from_turn_start_ms": 223838.286,
+        "remaining_turn_ms_after_first_all_exact": 18112.714,
+        "tool_calls_started_after_first_all_exact": 0,
+        "tool_ids_started_after_first_all_exact": [],
+        "saved_regressions_after_all_exact": 0,
+        "note": "First observed correct saved files, not an exact save instant or proof of agent completion; sampling is passive and provides no feedback. Remaining time also includes legitimate final observation/reporting."
+      }
+    }
+  ],
+  "groups": [
+    {
+      "mode": "vscode",
+      "arms": {
+        "cu": {
+          "counts": {
+            "passed": 3,
+            "failed": 0,
+            "excluded": 0,
+            "unreviewed": 0,
+            "pending": 0
+          },
+          "success_medians_ms": {
+            "combined_turn_ms": 113958
+          }
+        }
+      },
+      "successful_pairs": [],
+      "median_paired_go_ratio": null,
+      "median_paired_combined_ratio": null
+    }
+  ],
+  "accuracy": {
+    "planned_attempts": 3,
+    "accepted_completed": 3,
+    "passed": 3,
+    "success_rate": 1.0,
+    "completion_claims_reviewed": 3,
+    "claimed_complete": 3,
+    "false_completion_claims": 0,
+    "false_completion_rate": 0.0
+  },
+  "runtime_context": {
+    "classification": "Cu-only editor completion tasks, same model and fresh profiles; no AGENTS injection",
+    "working_directory": "unique neutral directory per participant outside the repository",
+    "isolated_codex_profile_per_trial": true,
+    "copied_history_or_memory": false,
+    "global_or_project_agents_injected": false,
+    "actual_initial_messages_audited": 3,
+    "cli_versions": [
+      "0.165.0"
+    ],
+    "native_plugin": "unified-computer-use",
+    "native_plugin_version": "26.1027.30824",
+    "native_plugin_files_sha256": {
+      ".codex-plugin/plugin.json": "75de537b724481731d7ad43eb55e15be8d0773b54b1306edf96638c4f9e30118",
+      ".mcp.json": "e7297a8851d46bb5d7f53d57e82d86cfdf4b04524bedf8c2ce6cf4a80ffe71da"
+    },
+    "profile_configs_unchanged": true,
+    "participant_turns_overlap": false,
+    "launch": "codex --no-daemon exec, project_doc_max_bytes=0, features.memories=false; exact argv and context hashes retained locally",
+    "timing": "One complete participant turn, including skill/API loading and task configuration. Profile provisioning, app launch, host process startup/shutdown, coordinator audit and cleanup are outside this timer.",
+    "limits": "VS Code shares the user process, settings, extensions and caches with dedicated test windows/files. Same macOS session, permissions and native runtime assets; not VM isolation. No global/project AGENTS in participant context. Coordinator reads only task files every 250 ms; sampling cost remains in wall time; timestamps describe observations rather than exact save instants.",
+    "comparison_scope": "Cu-only retest; historical native runs are not repeated. Dataset: editor; 3 planned attempts, no replacements. TextEdit/VS Code trials share user application processes with dedicated test windows; any Numbers trials start separately. Fresh model profiles/cwd and cu runtimes. Normal documented app scripting is allowed through cu tell; native uses actual App APIs. No direct file edits, terminal commands inside apps, automation scripts outside the assigned backend, or task-specific solver. Report routes separately; changed datasets are not paired speed comparisons.",
+    "native_plugin_cache_files_sha256": {
+      ".codex-plugin/plugin.json": "75de537b724481731d7ad43eb55e15be8d0773b54b1306edf96638c4f9e30118",
+      ".mcp.json": "099471c610819c63054e3a0dc1b3e848ff6ef7aa8d967d64b284d9644108b57d"
+    },
+    "all_owned_app_and_broker_pids_stopped": true,
+    "shared_user_app_processes_preserved": true,
+    "vscode_settings_sha256": "40dfa081420c5e2f384ebe1626aa32b590a0ee5a98726f8eb8e45736eb1cb19d",
+    "vscode_settings_unchanged": true
+  },
+  "cleanup": {
+    "all_trial_ownership_cleared": true,
+    "shared_apps_preserved": true,
+    "note": "Updated coordinator verified each shared task window closed before clearing ownership; all owned app and trace-identified Broker PIDs are stopped."
+  },
+  "reporting_fingerprints": {
+    "tests/agent/benchmark_varied_workflows.py": "c453866d58e580710fb5c3dbc33e79aeea64144f9717dbdcb26fea1c5792a64f",
+    "tests/agent/collect_codex_benchmark.py": "a35fba949ee73222e5e83eaeb35807ce8b7bfc43727c4db9fae4fa0f692f3d79"
+  },
+  "historical_controls": [
+    "real-apps-2026-10-31.json",
+    "real-app-accuracy-2026-11-01.json",
+    "real-app-launcher-2026-11-01.json",
+    "real-app-scoped-2026-11-01.json",
+    "real-app-scoped-followup-2026-11-01.json"
+  ],
+  "comparison_note": "Three predeclared editor cases with fresh documents/profiles: local edits, scoped repeated text and multiple files. Historical native was not rerun. Different datasets do not support a paired speed ratio, causal effect or population success rate.",
+  "runner_sha256": "e5e300290a2e0c398809919fea3ba57b163e49732c8016b588aad780e0299a29",
+  "untimed_diagnostics": {
+    "native_fixture": {
+      "old_binary_sha256": "19e3b1c8438d8edb3fc8fb17eaa28889c9bd965b807afa958f53d8c24f05918e",
+      "before_log_sha256": "31ccd23ca21a1051dee83779291ba31d40aae4d8c8a3c480283feacde329b0b9",
+      "after_log_sha256": "f529186a9011e1b699522556c7110574f6662c82ef0892e38188de91ad3b6758",
+      "result": "F6 schedules a value update after 100 ms. Old key snapshot returned initial with settle_ms=0; candidate returned delayed-key-change. effect_verified remains null. Existing no-snapshot shortcut delivery and exact Unicode regressions passed."
+    },
+    "vscode": {
+      "trace_sha256": "30515f1b218710446f15297c32a57d018260b9f363302e42b21462a9c4131e61",
+      "commands": 24,
+      "command_errors": 5,
+      "disk_unchanged": true,
+      "owned_window_closed": true,
+      "findings": [
+        "AX value can append a synthetic final newline while saved bytes are unchanged.",
+        "Home from line 2 column 12 eventually reports column 5 (first nonblank), not column 1.",
+        "First AX notification is not whole-UI stability: cursor status can still lag the action snapshot and an immediate read-only snapshot.",
+        "Go-to-line query needs its colon prefix; switching query mode changes reported AX focus and can return unknown_outcome after correct input. Probe retained misuse/recovery calls; it is not a performance comparison."
+      ]
+    },
+    "ref_transition": {
+      "trace_sha256": "671a7c2293677adb20594f3c89fe1093f0a5929cd6b6d39b5a2c8898cbdba0ea",
+      "summary": [
+        {
+          "file": "second.txt",
+          "ok": false,
+          "code": "stale_observation",
+          "changes": {
+            "axPath": {
+              "before": "window[first.txt — CP-ref-transition]/group[first.txt — CP-ref-transition]/group/group/group/group/group/webarea[first.txt — CP-ref-transition]/group/group/group/group/group:1/group:2/group/group:1/group:1/group/group/group:1/group/outline[Files Explorer]/group/row[second.txt]",
+              "after": "window[second.txt — CP-ref-transition]/group[second.txt — CP-ref-transition]/group/group/group/group/group/webarea[first.txt — CP-ref-transition]/group/group/group/group/group:1/group:2/group/group:1/group:1/group/group/group:1/group/outline[Files Explorer]/group/row[second.txt]"
+            }
+          }
+        },
+        {
+          "file": "first.txt",
+          "ok": true,
+          "code": null,
+          "changes": {
+            "axPath": {
+              "before": "window[first.txt — CP-ref-transition]/group[first.txt — CP-ref-transition]/group/group/group/group/group/webarea[second.txt — CP-ref-transition]/group/group/group/group/group:1/group:2/group/group:1/group:1/group/group/group:1/group/outline[Files Explorer]/group/row[first.txt]",
+              "after": "window[first.txt — CP-ref-transition]/group[first.txt — CP-ref-transition]/group/group/group/group/group/webarea[first.txt — CP-ref-transition]/group/group/group/group/group:1/group:2/group/group:1/group:1/group/group/group:1/group/outline[Files Explorer]/group/row[first.txt]"
+            }
+          }
+        },
+        {
+          "file": "second.txt",
+          "ok": false,
+          "code": "stale_observation",
+          "changes": {
+            "axPath": {
+              "before": "window[first.txt — CP-ref-transition]/group[first.txt — CP-ref-transition]/group/group/group/group/group/webarea[first.txt — CP-ref-transition]/group/group/group/group/group:1/group:2/group/group:1/group:1/group/group/group:1/group/outline[Files Explorer]/group/row[second.txt]",
+              "after": "window[second.txt — CP-ref-transition]/group[second.txt — CP-ref-transition]/group/group/group/group/group/webarea[first.txt — CP-ref-transition]/group/group/group/group/group:1/group:2/group/group:1/group:1/group/group/group:1/group/outline[Files Explorer]/group/row[second.txt]"
+            }
+          }
+        }
+      ],
+      "files_unchanged": true,
+      "owned_window_closed": true,
+      "interpretation": "In two rejected transitions, only axPath changed: window/ancestor titles caught up with the selected document while the Explorer row role, label, value and geometry stayed equal. This reproduces the observed recovery pattern but compact model traces do not identify the exact differing field for each of their three rejections. Do not remove document-context/target checks merely to avoid recovery. First-notification waiting does not guarantee whole-UI stability."
+    }
+  },
+  "post_block_changes": {
+    "coordinator_pairing": "Future editor plans give each case a distinct mode/repeat pairing index; otherwise a two-arm report silently keeps only its last case. The measured cu-only block has no pairs, so its frozen attempts, labels and results are unchanged. Offline regression verifies three successful pairs.",
+    "benchmark_real_apps_sha256": "512b8367010c80e20a0993384fec7a2218ff68045288cd6cd810c59355681e7e",
+    "production_and_skill_unchanged_since_timing": true
+  }
+}

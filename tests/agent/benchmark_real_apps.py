@@ -134,8 +134,9 @@ def prepare(root, dataset='baseline', cu_only=False):
         for arm in (('cu',) if cu_only else ('native', 'cu') if i % 2 == 0 else ('cu', 'native')):
             sequence.append(dict(label=f'{mode}-1-{arm}', mode=mode, repeat=1, arm=arm))
     if dataset == 'editor':
-        sequence = [dict(label=f'vscode-{case}-1-{arm}', mode='vscode', scenario=case, repeat=1, arm=arm)
-                    for case in ('local', 'scoped', 'multi')
+        # The shared collector pairs by mode/repeat; give each case its own index.
+        sequence = [dict(label=f'vscode-{case}-{index}-{arm}', mode='vscode', scenario=case, repeat=index, arm=arm)
+                    for index, case in enumerate(('local', 'scoped', 'multi'), 1)
                     for arm in (('cu',) if cu_only else ('cu', 'native'))]
     manifest = dict(protocol_version=2, single_turn=True, sequence=sequence, dataset=dataset,
         settings=dict(model='gpt-6-astra', reasoning_effort='high', service_tier=None),

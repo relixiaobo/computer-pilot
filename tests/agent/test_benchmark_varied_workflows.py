@@ -107,6 +107,29 @@ class ProtocolTests(unittest.TestCase):
         self.assertIn('Full task s', markdown)
         self.assertNotIn('GO s', markdown)
 
+    def test_editor_cases_retain_all_three_comparison_pairs(self):
+        import benchmark_real_apps as real
+        target = self.root / 'editors'
+        with patch.object(real, 'fingerprints', return_value={}), \
+                patch.object(real.subprocess, 'check_output', return_value='commit\n'), \
+                patch.object(Path, 'read_bytes', return_value=b''), \
+                patch.object(real.plistlib, 'loads', return_value={}), \
+                contextlib.redirect_stdout(io.StringIO()):
+            real.prepare(target, 'editor')
+        self.root = target
+        manifest = json.loads((target / 'manifest.json').read_text())
+        self.sequence, self.settings = manifest['sequence'], manifest['settings']
+        for entry in self.sequence:
+            self.sample(entry['label'], setup=[], setup_ms=0,
+                        source_sha256=entry['scenario'],
+                        evidence_sha256={'source.json': entry['scenario']},
+                        combined_turn_ms=1000 if entry['arm'] == 'cu' else 2000)
+        result = self.report()
+        self.assertTrue(all(r['status'] == 'passed' for r in result['attempts']))
+        pairs = result['groups'][0]['successful_pairs']
+        self.assertEqual(len(pairs), 3)
+        self.assertEqual([p['combined_cu_over_native'] for p in pairs], [0.5]*3)
+
     def test_cu_only_plan_retains_failures_without_fabricating_native_pairs(self):
         target = self.root / 'cu-only'
         with patch.object(bench.subprocess, 'run'), \
