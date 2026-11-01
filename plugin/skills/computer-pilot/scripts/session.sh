@@ -19,17 +19,32 @@ case "$1" in
         # so `type -- ...` fails before dispatch.
         cu_command=$1
         shift
-        set -- "$cu_command" --app "${CU_APP:?set the chosen pid selector}" "$@"
+        cu_has_app=0
+        for cu_arg do
+            [ "$cu_arg" = "--app" ] && cu_has_app=1 && break
+        done
+        if [ "$cu_has_app" -eq 1 ]; then
+            set -- "$cu_command" "$@"
+        else
+            set -- "$cu_command" --app "${CU_APP:?set the chosen pid selector}" "$@"
+        fi
         ;;
     snapshot)
         if [ "$#" -eq 1 ]; then set -- "$@" --limit 200; fi
         set -- "$@" "${CU_APP:?set the chosen pid selector}"
         ;;
-    state|ocr|menu)
-        set -- "$@" "${CU_APP:?set the chosen pid selector}"
-        ;;
-    wait|find|why|screenshot|nearest|observe-region|window)
-        set -- "$@" --app "${CU_APP:?set the chosen pid selector}"
+    state|ocr|menu|wait|find|why|screenshot|nearest|observe-region|window)
+        cu_command=$1
+        shift
+        cu_has_app=0
+        for cu_arg do
+            [ "$cu_arg" = "--app" ] && cu_has_app=1 && break
+        done
+        if [ "$cu_has_app" -eq 1 ]; then
+            set -- "$cu_command" "$@"
+        else
+            set -- "$cu_command" --app "${CU_APP:?set the chosen pid selector}" "$@"
+        fi
         ;;
 esac
 exec "${CU_BIN:?set the verified Computer Pilot binary path}" "$cu_format" "$@"

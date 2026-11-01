@@ -38,4 +38,16 @@ else
   _fail "--app is inserted before the text separator" "got: $ACTUAL"
 fi
 
+CU_BIN="$FAKE_BIN" \
+CU_APP="pid:1234" \
+CU_SESSION_ARGS_FILE="$ARGS_FILE" \
+COMPUTER_PILOT_CLIENT_KEY=session-launcher-test \
+  sh plugin/skills/computer-pilot/scripts/session.sh find --role button --app pid:1234
+APP_COUNT=$(grep -c '^--app$' "$ARGS_FILE")
+if [[ "$APP_COUNT" == "1" ]]; then
+  _pass "an explicit --app is not duplicated"
+else
+  _fail "an explicit --app is not duplicated" "count: $APP_COUNT"
+fi
+
 summary
