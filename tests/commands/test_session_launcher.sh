@@ -50,4 +50,32 @@ else
   _fail "an explicit --app is not duplicated" "count: $APP_COUNT"
 fi
 
+CU_BIN="$FAKE_BIN" \
+CU_APP="pid:1234" \
+CU_SESSION_ARGS_FILE="$ARGS_FILE" \
+COMPUTER_PILOT_CLIENT_KEY=session-launcher-test \
+  sh plugin/skills/computer-pilot/scripts/session.sh type --no-snapshot --no-verify -- --app
+
+PAYLOAD_ARGS=$(cat "$ARGS_FILE")
+if [[ "$PAYLOAD_ARGS" == *$'--app\npid:1234\n--no-snapshot\n--no-verify\n--\n--app' ]]; then
+  _pass "payload --app does not suppress the bound target"
+else
+  _fail "payload --app does not suppress the bound target" "got: $PAYLOAD_ARGS"
+fi
+
+for command in state ocr menu; do
+  CU_BIN="$FAKE_BIN" \
+  CU_APP="pid:1234" \
+  CU_SESSION_ARGS_FILE="$ARGS_FILE" \
+  COMPUTER_PILOT_CLIENT_KEY=session-launcher-test \
+    sh plugin/skills/computer-pilot/scripts/session.sh "$command"
+  EXPECTED_PREFIX=$(printf '%s\n%s\n%s\n' '--compact' "$command" 'pid:1234')
+  ACTUAL_PREFIX=$(head -n 3 "$ARGS_FILE")
+  if [[ "$ACTUAL_PREFIX" == "$EXPECTED_PREFIX" ]]; then
+    _pass "$command uses its positional app form"
+  else
+    _fail "$command uses its positional app form" "got: $ACTUAL_PREFIX"
+  fi
+done
+
 summary
