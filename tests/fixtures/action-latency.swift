@@ -87,6 +87,13 @@ final class Delegate: NSObject, NSApplicationDelegate {
                 NSAccessibility.post(element: NSApp!, notification: .valueChanged)
                 return nil
             }
+            if event.keyCode == 97 { // F6: delivery completes asynchronously.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    input.stringValue = "delayed-key-change"
+                    NSAccessibility.post(element: NSApp!, notification: .valueChanged)
+                }
+                return nil
+            }
             if event.keyCode == 36 {
                 FileHandle.standardOutput.write(Data("enter handled\n".utf8))
                 return nil // A handled shortcut need not change the AX tree.

@@ -9,6 +9,35 @@ import benchmark_real_apps as bench
 
 
 class RealAppResults(unittest.TestCase):
+    def test_editor_cases_track_correct_saved_bytes_and_later_regressions(self):
+        for case in ('local', 'scoped', 'multi'):
+            spec = bench.source('vscode', 'editor', case)
+            with tempfile.TemporaryDirectory() as folder:
+                root = Path(folder)
+                meta = dict(workspace=folder, files={name: name for name in spec['files']})
+                self.assertFalse(bench.saved_file_sample(meta, spec)['all_exact'])
+                for name, content in spec['files'].items():
+                    (root / name).write_text(content)
+                self.assertFalse(bench.saved_file_sample(meta, spec)['all_exact'])
+                for name, content in spec['expected_files'].items():
+                    (root / name).write_text(content)
+                self.assertTrue(bench.saved_file_sample(meta, spec)['all_exact'])
+                saved = root / 'saved.json'
+                saved.write_text(json.dumps(dict(files=spec['expected_files'])))
+                self.assertTrue(bench.verify(spec, saved)['passed'])
+                name = next(iter(spec['files']))
+                (root / name).write_text(spec['expected_files'][name].rstrip('\n'))
+                self.assertFalse(bench.saved_file_sample(meta, spec)['files'][name]['exact'])
+                # A visually similar CRLF rewrite is not byte-preserving.
+                (root / name).write_bytes(spec['expected_files'][name].replace('\n', '\r\n').encode())
+                self.assertFalse(bench.saved_file_sample(meta, spec)['all_exact'])
+                trial = root / 'trial'
+                trial.mkdir()
+                (trial / 'meta.json').write_text(json.dumps(dict(mode='vscode', **meta)))
+                (trial / 'source.json').write_text(json.dumps(spec))
+                bench.capture_saved(root, 'trial')
+                self.assertFalse(bench.verify(spec, trial / 'saved.json')['passed'])
+
     def test_scoped_file_tasks_reject_out_of_scope_edits_and_lost_newlines(self):
         for mode in ('textedit', 'vscode'):
             spec = bench.source(mode, 'scoped')

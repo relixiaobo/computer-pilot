@@ -2,6 +2,7 @@
 """Coordinator for real-app comparisons; participants use only their assigned app backend."""
 import argparse
 import csv
+from datetime import datetime, timezone
 import hashlib
 import json
 import os
@@ -23,7 +24,9 @@ APPS = {
 }
 
 
-def source(mode, dataset='baseline'):
+def source(mode, dataset='baseline', scenario=None):
+    if dataset == 'editor':
+        return json.loads((ROOT/'tests/agent/tasks/editor_completion.json').read_text())[scenario]
     if dataset == 'scoped':
         return json.loads((ROOT/'tests/agent/tasks/real_apps_scoped.json').read_text())[mode]
     if mode == 'textedit':
@@ -115,6 +118,7 @@ def verify(spec, saved):
 
 def fingerprints():
     paths = [CU, Path(__file__), ROOT/'tests/agent/tasks/real_apps_scoped.json',
+             ROOT/'tests/agent/tasks/editor_completion.json',
              ROOT/'tests/agent/benchmark_varied_workflows.py',
              ROOT/'tests/agent/collect_codex_benchmark.py',
              ROOT/'plugin/skills/computer-pilot/SKILL.md',
@@ -129,12 +133,16 @@ def prepare(root, dataset='baseline', cu_only=False):
     for i, mode in enumerate(APPS):
         for arm in (('cu',) if cu_only else ('native', 'cu') if i % 2 == 0 else ('cu', 'native')):
             sequence.append(dict(label=f'{mode}-1-{arm}', mode=mode, repeat=1, arm=arm))
+    if dataset == 'editor':
+        sequence = [dict(label=f'vscode-{case}-1-{arm}', mode='vscode', scenario=case, repeat=1, arm=arm)
+                    for case in ('local', 'scoped', 'multi')
+                    for arm in (('cu',) if cu_only else ('cu', 'native'))]
     manifest = dict(protocol_version=2, single_turn=True, sequence=sequence, dataset=dataset,
         settings=dict(model='gpt-6-astra', reasoning_effort='high', service_tier=None),
         fingerprints=fingerprints(), cu_commit=subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip(),
-        scope=('Cu-only retest; historical native runs are not repeated. ' if cu_only else 'Matched native/cu trials. ') + f'Dataset: {dataset}; {len(sequence)} planned attempts, no replacements. TextEdit/VS Code share the user application process with dedicated test windows. Numbers starts separately. Fresh model profiles/cwd and cu runtimes. Normal documented app scripting is allowed through cu tell; native uses actual App APIs. No direct file edits, terminal commands inside apps, automation scripts outside the assigned backend, or task-specific solver. Report routes separately; changed datasets are not paired speed comparisons.',
+        scope=('Cu-only retest; historical native runs are not repeated. ' if cu_only else 'Matched native/cu trials. ') + f'Dataset: {dataset}; {len(sequence)} planned attempts, no replacements. TextEdit/VS Code trials share user application processes with dedicated test windows; any Numbers trials start separately. Fresh model profiles/cwd and cu runtimes. Normal documented app scripting is allowed through cu tell; native uses actual App APIs. No direct file edits, terminal commands inside apps, automation scripts outside the assigned backend, or task-specific solver. Report routes separately; changed datasets are not paired speed comparisons.',
         wall_timeout_seconds=600,
-        app_versions={mode:plistlib.loads((Path(path)/'Contents/Info.plist').read_bytes()).get('CFBundleShortVersionString') for mode,(path,_) in APPS.items()})
+        app_versions={mode:plistlib.loads((Path(APPS[mode][0])/'Contents/Info.plist').read_bytes()).get('CFBundleShortVersionString') for mode in dict.fromkeys(e['mode'] for e in sequence)})
     (root/'manifest.json').write_text(json.dumps(manifest, indent=2))
     print(json.dumps(manifest))
 
@@ -166,7 +174,7 @@ def start(root, label):
     trial=root/label;trial.mkdir()
     (trial/'output').mkdir()
     work=trial/('CP-'+root.name+'-'+label);work.mkdir()
-    spec=source(mode,manifest.get('dataset','baseline'));(trial/'source.json').write_text(json.dumps(spec,ensure_ascii=False))
+    spec=source(mode,manifest.get('dataset','baseline'),entry.get('scenario'));(trial/'source.json').write_text(json.dumps(spec,ensure_ascii=False))
     files = {name: (work.name+'-'+name if mode=='textedit' else name) for name in spec.get('files', {})}
     if mode in ('textedit','vscode'):
         for name,text in spec['files'].items():(work/files[name]).write_text(text)
@@ -175,7 +183,7 @@ def start(root, label):
     path,_=APPS[mode]
     if mode=='vscode':
         env=dict(os.environ);env.pop('VSCODE_IPC_HOOK_CLI',None)
-        subprocess.run([path+'/Contents/Resources/app/bin/code','--new-window',str(work),str(work/'service.json')],env=env,check=True,timeout=30)
+        subprocess.run([path+'/Contents/Resources/app/bin/code','--new-window',str(work),str(work/next(iter(files)))],env=env,check=True,timeout=30)
     else:
         file=work/(files['brief.txt'] if mode=='textedit' else work.name+'-budget.csv')
         subprocess.run(['open','-g', *(['-F'] if mode == 'numbers' else []), '-a',path,str(file)],check=True)
@@ -224,11 +232,48 @@ Initialize and complete this workflow in ONE timed turn, including skill/API dis
     print(json.dumps(meta))
 
 
+def saved_file_sample(meta, spec):
+    """Coordinator-only byte evidence; never feed this oracle to a participant."""
+    files = {}
+    for name, expected in spec['expected_files'].items():
+        try:
+            data = (Path(meta['workspace']) / meta['files'][name]).read_bytes()
+            files[name] = dict(sha256=hashlib.sha256(data).hexdigest(),
+                               exact=data == expected.encode('utf-8'))
+        except FileNotFoundError:
+            files[name] = dict(sha256=None, exact=False)
+    return dict(files=files, all_exact=all(f['exact'] for f in files.values()))
+
+
+def record_saved_timeline(trial, stopped):
+    """Passively sample task files every 250 ms until the runner ends the turn.
+
+    Record transitions plus the last sample. Timestamps bound observations,
+    not save instants; exact files do not stop, coach or repair the participant.
+    """
+    meta = json.loads((trial / 'meta.json').read_text())
+    spec = json.loads((trial / 'source.json').read_text())
+    previous = None
+    with (trial / 'saved-timeline.jsonl').open('x') as output:
+        while True:
+            final = stopped.is_set()
+            started = datetime.now(timezone.utc).isoformat()
+            sample = saved_file_sample(meta, spec)
+            if sample != previous or final:
+                output.write(json.dumps(dict(sample_started_at=started,
+                    observed_at=datetime.now(timezone.utc).isoformat(), final=final, **sample)) + '\n')
+                output.flush()
+            if final:
+                return
+            previous = sample
+            stopped.wait(.25)
+
+
 def capture_saved(root,label):
     trial=root/label;meta=json.loads((trial/'meta.json').read_text());work=Path(meta['workspace'])
     spec=json.loads((trial/'source.json').read_text())
     if meta['mode']!='numbers':
-        result={'files':{name:(work/meta['files'][name]).read_text() if (work/meta['files'][name]).exists() else None for name in spec['files']}}
+        result={'files':{name:(work/meta['files'][name]).read_bytes().decode('utf-8') if (work/meta['files'][name]).exists() else None for name in spec['files']}}
     else:
         output=Path(meta['output_file']);result={'saved_file_exists':output.exists()}
         if output.exists():
@@ -316,7 +361,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('root',type=Path)
     p.add_argument('action',choices=['prepare','start','collect','stop','report']);p.add_argument('label',nargs='?')
     p.add_argument('--rollouts',type=Path)
-    p.add_argument('--dataset',choices=['baseline','alternate','scoped'],default='baseline')
+    p.add_argument('--dataset',choices=['baseline','alternate','scoped','editor'],default='baseline')
     p.add_argument('--cu-only',action='store_true')
     args=p.parse_args();root=args.root.resolve()
     if args.action=='prepare':prepare(root,args.dataset,args.cu_only)

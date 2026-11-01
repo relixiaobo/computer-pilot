@@ -67,9 +67,8 @@ set -e
 ./pilot click 15
 ```
 
-Do not end one tool call after Save only to request its snapshot in the next.
-Make the next model decision from the group result. Stop the group when a new
-page, dialog or unknown control needs a decision. Grouping does not authorize
+Use the last action's snapshot as the group result. Stop when a new page,
+dialog or unknown control needs a decision. Grouping does not authorize
 additional external effects.
 
 - Use `set-value` for native textfields, textareas and editable comboboxes.
@@ -80,13 +79,9 @@ additional external effects.
   observed item with `perform <ref> AXPress` (or its supported action).
   Observe the resulting controls before further edits or navigation.
   Writing the popup's AXValue may not select the item or fire its handler.
-- Skip extra model rounds between known local edits or before Save. After an error, refresh
-  the relevant state and resume grouping; do not turn the rest of the workflow
-  into one-field-at-a-time checks.
-
-The last action can supply the group's snapshot; do not request another snapshot
-when it already contains the needed result. Defer intermediate effect checks only
-when input delivery is established; controlled editors use the same launcher.
+- After an error, use attached state to recover and resume grouping. Obtain a
+  fresh observation only when the needed state is missing. Keep established
+  local edits together; do not add a check round for every field.
 
 ## Observe Transitions
 
@@ -140,18 +135,19 @@ visible/disruptive and require a workflow that explicitly needs foreground
 operation. `launch` opens in the background. Do not recreate input through
 System Events or `osascript`/`pbcopy`.
 
-AX editor focus does not make an app frontmost. Some apps receive background
-shortcuts but ignore menu commands such as Select All or Save. Prefer app-native
-scripting for document operations; when foreground editing is authorized, focus
-the intended window explicitly. A changed editor buffer is not proof of saving:
-use the app's saved/modified state at the final group boundary.
-
 ## Controlled Editors And Recovery
 
-For document revisions, use literal Find/Replace within the intended scope or
-select only the requested range. Preserve surrounding text and final newlines
-by leaving them untouched; do not reconstruct a whole document from AX text
-for local changes.
+Use literal Find/Replace within the requested scope or a known selected range.
+With repeated text, distinguish the intended occurrence/section before replacing.
+Preserve unrelated content and final newlines by leaving them untouched. Avoid
+reconstructing a whole document from AX text for local changes. Home/End can use
+smart indentation or viewport semantics; key names and counted arrow presses do
+not establish a selection across wrapped or indented text.
+
+AX editor focus does not make an app frontmost. Some apps ignore background menu
+shortcuts such as Select All or Save. Prefer native scripting for document data;
+when the workflow permits and needs foreground editing, explicitly focus the
+intended window before the edit group.
 
 For Electron/CEF or an `AXWebArea` input, use verified click/type instead of
 AXValue writes. Group the known edit in one shell call; the CLI stops on focus
@@ -167,13 +163,14 @@ The click keeps its private focus check; typing returns the group's observation.
 `value_changed:true` reports an AX value change, not exact input or saving;
 `effect_verified` remains null. A click's `verify_diff` likewise reports tree
 changes; only `focus_verified` establishes the scoped input-focus result.
-Virtual editors can expose only a document slice or add boundary newlines in AX.
-Do not rewrite or delete text solely to make an AX value match expected file
-bytes. For a boundary-newline discrepancy, inspect the visible final line/caret
-before editing again; AX text is not a saved-file byte dump.
-If AX lacks the text, inspect visible evidence before deciding input failed; do
-not replay it to obtain a verification flag. See
-[recovery.md](references/recovery.md#verification) for uncertain outcomes.
+Virtual editors can expose a slice or synthetic boundary newlines in AX.
+Treat AX text as an observation, not saved-file bytes: do not add/delete boundary
+characters or rewrite correct content merely to match that representation.
+If the intended editor is unfocused and its AX value is empty, focus the observed
+editor before concluding it lacks content. For an actual discrepancy, inspect
+visible document/selection evidence or app-native data before another edit.
+Read-only observation is the recovery for uncertain evidence, not another mutation.
+See [recovery.md](references/recovery.md#verification) for uncertain outcomes.
 
 Success receipts report dispatch. Read returned errors/advisories and scoped
 verification results. Reuse attached state for recovery. A missing/failed snapshot is not permission to
@@ -188,12 +185,17 @@ when recovery needs setup or permissions outside that scope. See
 
 ## Complete The Requested Result
 
-Before reporting completion, compare each deliverable's observed result with
-the original requirements, including unchanged content and saved state. Reuse
-the group's observations; obtain further evidence only for a missing or
-uncertain requirement, through the authorized backend. Correct observed
-discrepancies and recheck the affected result. If evidence remains unavailable,
-report what is complete and what is unverified instead of claiming full success.
+At the final group boundary, compare the requested edits with the returned
+content and the app's saved/modified state. Content change alone does not prove
+saving. Once these requirements are satisfied, finish; do not repeat Save,
+reopen correct documents or reread unchanged state merely to seek a stronger
+verification flag or an exact AX/file-byte match.
+
+Investigate only a specific unresolved requirement. Use evidence that can answer
+it; repeating the same ambiguous AX value cannot establish a file-byte property.
+Correct a demonstrated content error, then recheck that affected result. If the
+authorized interface cannot resolve the remaining uncertainty, state precisely
+what is complete and unverified and stop, without claiming unobserved success.
 
 ## Output And Further Commands
 
@@ -203,8 +205,8 @@ truncation hint says needed content is missing. `--compact`, `--json` and
 `--human` before the command retain task binding; `--json` adds geometry/axPaths,
 not a different state model.
 
-Use `state` when window/display metadata or an image is needed. File outputs need an absolute task-owned output
-directory; read returned paths through the host's normal file capability.
+Use `state` when window/display metadata or an image is needed. File outputs need
+an absolute task-owned output directory; read returned paths through the host's normal file capability.
 
 Use `./pilot <command> --help` for unfamiliar syntax when using the launcher. Read only the relevant reference:
 

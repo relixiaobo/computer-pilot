@@ -2787,7 +2787,7 @@ fn cmd_type(
         result["effect_stability_ms"] = WEB_INPUT_STABILITY_DELAY_MS.into();
     }
     if value_changed == Some(true) {
-        result["effect_advice"] = "The focused AX value changed; exact input content and saving are not verified. Compare the returned state with the requested edit. Virtual editors may expose only a slice or synthetic boundary newlines; resolve discrepancies in the document view before editing again.".into();
+        result["effect_advice"] = "The focused AX value changed; exact input and saving are not verified. Check the requested edit at the group boundary. Virtual AX text is not saved-file bytes; do not mutate document boundaries solely to match it.".into();
     }
     if let Some(reason) = paste_reason {
         result["paste_reason"] = serde_json::Value::String(reason);
@@ -2962,6 +2962,10 @@ fn cmd_key(
     // Enter can submit, commit a selection, insert a newline, or do nothing.
     // An arbitrary tree diff cannot verify its intended effect, just as for
     // other shortcuts. Observe only when the caller requests action state.
+    // Arm before dispatch so the snapshot does not race asynchronous key delivery.
+    let observer = target_pid
+        .filter(|_| json && !no_snapshot)
+        .and_then(observer::ActionObserver::new);
     key::send(&combo, target_pid)?;
     let method = if target_pid.is_some() {
         "key-pid"
@@ -2969,7 +2973,7 @@ fn cmd_key(
         "key-global"
     };
     let captured = if target_pid.is_some() && json && !no_snapshot {
-        capture_action_snapshot(&snapshot_app, 200, None)
+        capture_action_snapshot(&snapshot_app, 200, observer)
     } else {
         None
     };

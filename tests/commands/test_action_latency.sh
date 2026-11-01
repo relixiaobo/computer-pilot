@@ -72,6 +72,13 @@ try:
     assert events.read_text() == "enter handled\n", events.read_text()
     assert enter["snapshot"]["focused"]["value"] == "initial", enter
 
+    # A key's observation must wait for the dispatched event's asynchronous
+    # update. This is observation timing, not a claim that F6 achieved a task.
+    delayed = run("key", "f6", "--app", app)
+    assert delayed["snapshot"]["focused"]["value"] == "delayed-key-change", delayed
+    assert delayed["effect_verified"] is None, delayed
+    snap = run("snapshot", app, "--limit", "1")
+
     # The fixture changes its value and posts AXValueChanged during the AX
     # setter. A subscription created after dispatch misses this notification.
     # The action also requests a larger tree than its original Observation.
