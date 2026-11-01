@@ -1,0 +1,34 @@
+{
+  "organize": {
+    "mode": "finder",
+    "files": {
+      "Incoming/alpha.txt": "Alpha record\nKeep this byte sequence.\n",
+      "Incoming/archive.txt": "Archive record\nDo not rewrite this content.\n",
+      "Incoming/beta.txt": "Beta record\nLeave this file in Incoming.\n",
+      "Incoming/notes.txt": "Notes\nPreserve this unrelated file.\n"
+    },
+    "expected_files": {
+      "Incoming/beta.txt": "Beta record\nLeave this file in Incoming.\n",
+      "Incoming/notes.txt": "Notes\nPreserve this unrelated file.\n",
+      "Ready/alpha.txt": "Alpha record\nKeep this byte sequence.\n",
+      "Ready/archive-approved.txt": "Archive record\nDo not rewrite this content.\n"
+    },
+    "goal": "In the supplied Finder window for {workspace}, create a folder named Ready. Move Incoming/alpha.txt and Incoming/archive.txt into Ready, then rename Ready/archive.txt to Ready/archive-approved.txt. Leave Incoming/beta.txt and Incoming/notes.txt in Incoming. Preserve every file's contents exactly. Use only the Finder UI, observe the final Ready and Incoming contents, and report DONE after the final state is visible."
+  },
+  "rename": {
+    "mode": "finder",
+    "files": {
+      "ToReview/alpha-note.txt": "Alpha note\nKeep exact bytes.\n",
+      "ToReview/beta-note.txt": "Beta note\nKeep exact bytes.\n",
+      "ToReview/gamma.txt": "Gamma unrelated\nLeave the name unchanged.\n",
+      "ToReview/keep.txt": "Keep unrelated\nLeave this file unchanged.\n"
+    },
+    "expected_files": {
+      "ToReview/alpha-note-reviewed.txt": "Alpha note\nKeep exact bytes.\n",
+      "ToReview/beta-note-reviewed.txt": "Beta note\nKeep exact bytes.\n",
+      "ToReview/gamma.txt": "Gamma unrelated\nLeave the name unchanged.\n",
+      "ToReview/keep.txt": "Keep unrelated\nLeave this file unchanged.\n"
+    },
+    "goal": "In the supplied Finder window for {workspace}, rename only files in ToReview whose names end with -note.txt: alpha-note.txt becomes alpha-note-reviewed.txt and beta-note.txt becomes beta-note-reviewed.txt. Leave ToReview/gamma.txt and ToReview/keep.txt exactly unchanged. Preserve every file's contents exactly. Use only the Finder UI, observe the final folder contents, and report DONE after the final state is visible."
+  }
+}

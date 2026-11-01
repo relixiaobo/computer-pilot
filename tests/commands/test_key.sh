@@ -11,23 +11,22 @@ sleep 1
 
 section "key — basic keys with --app"
 
-ENTER_VERIFIED=false
+ENTER_DISPATCHED=false
 if interactive_tests_enabled; then
   for _ in 1 2; do
     cu_json window focus --app TextEdit
     [[ "$EXIT" -eq 0 ]] || continue
     cu_json "key enter --app TextEdit --no-snapshot"
-    if [[ "$EXIT" -eq 0 ]] && [[ "$(json_get '.effect_verified' 2>/dev/null || true)" == "true" ]]; then
-      ENTER_VERIFIED=true
+    if [[ "$EXIT" -eq 0 ]] && [[ "$(json_get '.dispatched' 2>/dev/null || true)" == "true" ]]; then
+      ENTER_DISPATCHED=true
       break
     fi
   done
 fi
-if [[ "$ENTER_VERIFIED" == "true" ]]; then
+if [[ "$ENTER_DISPATCHED" == "true" ]]; then
   _pass "key enter"
   assert_json_field "combo echoed" ".combo" "enter"
   assert_json_field "key dispatched" ".dispatched" "true"
-  assert_json_field "Enter effect verified" ".effect_verified" "true"
   DOC_LENGTH_AFTER_ENTER=$(_run_with_timeout 10 osascript -e 'tell application "TextEdit" to count characters of text of front document' 2>/dev/null || echo "0")
   if [[ "$DOC_LENGTH_AFTER_ENTER" -ge 1 ]]; then
     _pass "Enter changed the TextEdit document"
@@ -38,7 +37,6 @@ else
   _skip "key enter" "interactive desktop tests disabled or foreground unavailable"
   _skip "combo echoed" "interactive desktop tests disabled or foreground unavailable"
   _skip "key dispatched" "interactive desktop tests disabled or foreground unavailable"
-  _skip "Enter effect verified" "interactive desktop tests disabled or foreground unavailable"
   _skip "Enter changed the TextEdit document" "interactive desktop tests disabled or foreground unavailable"
 fi
 

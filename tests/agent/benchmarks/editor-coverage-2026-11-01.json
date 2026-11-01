@@ -1,0 +1,1233 @@
+{
+  "manifest": {
+    "protocol_version": 2,
+    "single_turn": true,
+    "sequence": [
+      {
+        "label": "vscode-local-1-cu",
+        "mode": "vscode",
+        "scenario": "local",
+        "repeat": 1,
+        "arm": "cu"
+      },
+      {
+        "label": "vscode-scoped-2-cu",
+        "mode": "vscode",
+        "scenario": "scoped",
+        "repeat": 2,
+        "arm": "cu"
+      },
+      {
+        "label": "vscode-multi-3-cu",
+        "mode": "vscode",
+        "scenario": "multi",
+        "repeat": 3,
+        "arm": "cu"
+      }
+    ],
+    "dataset": "editor",
+    "settings": {
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null
+    },
+    "fingerprints": {
+      "target/release/cu": "360af7606eda3ead5c6d7cd5e8343366f265c1faaff81d2918633dbd85888e0e",
+      "tests/agent/benchmark_real_apps.py": "512b8367010c80e20a0993384fec7a2218ff68045288cd6cd810c59355681e7e",
+      "tests/agent/tasks/real_apps_scoped.json": "e58043300c6abd26fda75728fc7a599ec5ed535c6a5c121106c35e1db93b03e6",
+      "tests/agent/tasks/editor_completion.json": "2f32e8733b32e4c7b639b4fcecf02f4bc8b22b2584645c337faf2d3046007e48",
+      "tests/agent/benchmark_varied_workflows.py": "c453866d58e580710fb5c3dbc33e79aeea64144f9717dbdcb26fea1c5792a64f",
+      "tests/agent/collect_codex_benchmark.py": "a35fba949ee73222e5e83eaeb35807ce8b7bfc43727c4db9fae4fa0f692f3d79",
+      "plugin/skills/computer-pilot/SKILL.md": "b655cfc6c82cf6114668bf46dc0456af67d2c354b9761e5a14986c9c7142469a",
+      "plugin/skills/computer-pilot/scripts/session.sh": "9d086c85bd78eac91693cf678c8180dbc0fd895d5c9806fefd6852c82cd46fb2",
+      "plugin/skills/computer-pilot/references/commands.md": "809a8e54cda32fce3059b4ba13020a2645580a0eb167e1004a4ec80af05da910",
+      "plugin/skills/computer-pilot/references/embedding.md": "336642ed1e10acb21a706004753f8c95204252e185ab989d9fd0e094199386a9",
+      "plugin/skills/computer-pilot/references/permissions.md": "5b4a13b118ba37d74d50e8950bad817df080bafe8355b5db5761008a2019084d",
+      "plugin/skills/computer-pilot/references/recovery.md": "6b1d91dc9a1abcad837c16c74010cfe2ba3e3ead5650e7107a0696da2ee4e46b",
+      "plugin/skills/computer-pilot/references/scripting.md": "1013719ee23e93eccb74815631da92b44bd665dde2897071ffeef07d3668f468",
+      "plugin/skills/computer-pilot/references/visual.md": "7879ca3a1cb6b4ff6815a5b277486d31057b141e9c7ba5182efb7ea6329b6956"
+    },
+    "cu_commit": "f5dbadf76d29b39699e5fc22597cc381a2bf48b1",
+    "scope": "Cu-only retest; historical native runs are not repeated. Dataset: editor; 3 planned attempts, no replacements. TextEdit/VS Code trials share user application processes with dedicated test windows; any Numbers trials start separately. Fresh model profiles/cwd and cu runtimes. Normal documented app scripting is allowed through cu tell; native uses actual App APIs. No direct file edits, terminal commands inside apps, automation scripts outside the assigned backend, or task-specific solver. Report routes separately; changed datasets are not paired speed comparisons.",
+    "wall_timeout_seconds": 600,
+    "app_versions": {
+      "vscode": "1.142.0"
+    }
+  },
+  "actual_order": [
+    "vscode-local-1-cu",
+    "vscode-scoped-2-cu",
+    "vscode-multi-3-cu"
+  ],
+  "attempts": [
+    {
+      "label": "vscode-local-1-cu",
+      "mode": "vscode",
+      "scenario": "local",
+      "repeat": 1,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 3587,
+      "app_path": "/Applications/Visual Studio Code.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-real-37xh3_lr",
+      "client_key": "vscode-local-1-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-coverage-20261101/vscode-local-1-cu/output",
+      "workspace": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-coverage-20261101/vscode-local-1-cu/CP-editor-coverage-20261101-vscode-local-1-cu",
+      "source_sha256": "a694cf19191a6e7c2ad2d921fa2c9e1c3fa72bb96edf3d690c688bcb01da69c8",
+      "shared_app": true,
+      "files": {
+        "note.md": "note.md"
+      },
+      "output_file": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-coverage-20261101/vscode-local-1-cu/CP-editor-coverage-20261101-vscode-local-1-cu/CP-editor-coverage-20261101-vscode-local-1-cu-budget.numbers",
+      "thread_id": "01a194fb-246e-7e70-845a-4a424719a85a",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a194fb-246e-7e70-845a-4a424719a85a",
+          "turn_id": "01a194fb-25f0-7071-8ef8-4762f7ed284f",
+          "started_at": "2026-11-01T02:40:49.668Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-11-01T02:41:32.396Z",
+          "elapsed_ms": 42731,
+          "final": "DONE — edited, saved, and observed note.md with all requested changes; unrelated content preserved. Used the assigned cu UI route in VS Code.",
+          "model_calls": 6,
+          "tokens": {
+            "input_tokens": 161670,
+            "cached_input_tokens": 129024,
+            "output_tokens": 762,
+            "total_tokens": 162432,
+            "reasoning_output_tokens": 23
+          },
+          "tool_calls": 5,
+          "tool_output_chars": 54796,
+          "tool_errors": 0,
+          "tool_interval_ms": 7506,
+          "non_tool_interval_ms": 35225,
+          "label": "vscode-local-1-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "note.md_exact": true
+        },
+        "actual": {
+          "files": {
+            "note.md": "# Release note\nProject: Cedar\nBatch: CD-284\nStatus: ready\nOwner: 许\nReview date: 2026-12-21\nEndpoint: https://release.cedar.example.invalid/v4/items?team=lab-8\n\nScope: desktop editor reliability\nKeep: a+b[2].* / $HOME / C:\\records\\r4 / 中文🙂\n\n## Checklist\n[x] review release note\n[ ] obtain external approval\n\n## Archive\nStatus: archived\nOwner: 周\nBatch: CD-199\n"
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 42731,
+      "combined_turn_ms": 42731,
+      "evidence_sha256": {
+        "brief.txt": "5e95c3a2e0241c97065644605ec09be734cba78732cf0c757318161a4441aaa7",
+        "source.json": "a694cf19191a6e7c2ad2d921fa2c9e1c3fa72bb96edf3d690c688bcb01da69c8",
+        "saved.json": "55687106f1e43e51d329b6f2b758c0da5c23f0a86a05b757258aba18eaa57d91",
+        "trace.json": "fee1101f59f327b48dc184d37dbf7dc0fb615a85c50253deed9eee3a3db0e726",
+        "runtime-context.json": "714f95d5913c4aa629df3e2e60ff3d2b7739a1e166bc5f2e1102ebfc482f5998",
+        "launch.json": "a95ab1f20c7910b11a2f79c29a9345bd388894e46295c2967da19dc08aff0ef8",
+        "audit.json": "ecfcc784960e80f4b5d560747d2df55037a287387678fec19fd57b97c2f2a5c2",
+        "task-launcher": "4755eed2d76d36dcaa9546f1b71891a42e6aafb1bfdf25f1d2eeea52fdbedb42",
+        "saved-timeline.jsonl": "02e7ec9facedd6875a7658d3a59e9f703195e6a4f61a320b054e43077ac0476a"
+      },
+      "audit": {
+        "compliant": true,
+        "claimed_complete": true,
+        "route": "cu UI",
+        "task_launcher": "test-results/editor-coverage-20261101/vscode-local-1-cu/launcher.sh",
+        "runtime_context": {
+          "contexts": [
+            {
+              "cwd": "/private/tmp/editor-coverage-20261101/vscode-local-1-cu/work",
+              "model": "gpt-6-astra",
+              "effort": "high",
+              "service_tier": null
+            }
+          ],
+          "messages": [
+            {
+              "role": "developer",
+              "chars": 21420,
+              "sha256": "35bd51b5f577cb7b24cd5f4629e49e37cb724ab57754ce6f8f202001635bab8a",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 12742,
+              "sha256": "d756a941380c64e6a9c67cc0a2946f82fe5052bfbc6e182489aeb531611c7314",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 2400,
+              "sha256": "3edd51083129388f52e881435e93e4b981e00c5ee3d62ab5d32e22c428fd504b",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 271,
+              "sha256": "6ded806e3cdbb35599ecaf8742574bc5274908472b1729090010c404c2151e8e",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 446,
+              "sha256": "3dbeb19c148cd20de12a102381fa913b60310a87ab583df0deea60520a476e39",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 2967,
+              "sha256": "5e95c3a2e0241c97065644605ec09be734cba78732cf0c757318161a4441aaa7",
+              "agents_injected": false
+            }
+          ],
+          "no_agents_injected": true,
+          "exit_code": 0
+        },
+        "note": "All five calls reviewed. Uses only packaged skill/help and task-bound UI; no direct document IO, alternate backend, settings changes or solver. Final full snapshot contains every requested field and checkbox, Save cleared unsaved state; exact bytes and claim pass. No post-save calls after first all-correct sample. The whole-request reconciliation guidance is supported by this successful completion."
+      },
+      "saved_completion": {
+        "sample_interval_ms": 250,
+        "timeline": [
+          {
+            "sample_started_at": "2026-11-01T02:40:48.122566+00:00",
+            "observed_at": "2026-11-01T02:40:48.124835+00:00",
+            "final": false,
+            "files": {
+              "note.md": {
+                "sha256": "819e766bddd44ea1595aed6ec58e73990eca62350333568a561c4ecc9cfbbc0d",
+                "exact": false
+              }
+            },
+            "all_exact": false
+          },
+          {
+            "sample_started_at": "2026-11-01T02:41:25.887898+00:00",
+            "observed_at": "2026-11-01T02:41:25.888155+00:00",
+            "final": false,
+            "files": {
+              "note.md": {
+                "sha256": "52c4190eb9482b4cf82d14d89079b32fbf8e07ad4817e4f855a3d6c894fb8136",
+                "exact": true
+              }
+            },
+            "all_exact": true
+          },
+          {
+            "sample_started_at": "2026-11-01T02:41:36.491200+00:00",
+            "observed_at": "2026-11-01T02:41:36.491713+00:00",
+            "final": true,
+            "files": {
+              "note.md": {
+                "sha256": "52c4190eb9482b4cf82d14d89079b32fbf8e07ad4817e4f855a3d6c894fb8136",
+                "exact": true
+              }
+            },
+            "all_exact": true
+          }
+        ],
+        "first_all_exact_observed_at": "2026-11-01T02:41:25.888155+00:00",
+        "first_all_exact_from_turn_start_ms": 36220.155,
+        "remaining_turn_ms_after_first_all_exact": 6507.845,
+        "tool_calls_started_after_first_all_exact": 0,
+        "tool_ids_started_after_first_all_exact": [],
+        "saved_regressions_after_all_exact": 0,
+        "note": "First observed correct saved files, not an exact save instant or proof of agent completion; sampling is passive and provides no feedback. Remaining time also includes legitimate final observation/reporting."
+      }
+    },
+    {
+      "label": "vscode-scoped-2-cu",
+      "mode": "vscode",
+      "scenario": "scoped",
+      "repeat": 2,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 3587,
+      "app_path": "/Applications/Visual Studio Code.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-real-uuakiich",
+      "client_key": "vscode-scoped-2-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-coverage-20261101/vscode-scoped-2-cu/output",
+      "workspace": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-coverage-20261101/vscode-scoped-2-cu/CP-editor-coverage-20261101-vscode-scoped-2-cu",
+      "source_sha256": "e5aed4b05af6d983119708df2ede25475b1232e9d4b2fd265c8fe30298fa9a80",
+      "shared_app": true,
+      "files": {
+        "routes.ini": "routes.ini"
+      },
+      "output_file": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-coverage-20261101/vscode-scoped-2-cu/CP-editor-coverage-20261101-vscode-scoped-2-cu/CP-editor-coverage-20261101-vscode-scoped-2-cu-budget.numbers",
+      "thread_id": "01a194fb-e9c1-7421-a86b-84142ac92444",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a194fb-e9c1-7421-a86b-84142ac92444",
+          "turn_id": "01a194fb-ea6d-7d13-a79d-98e8f5f982be",
+          "started_at": "2026-11-01T02:41:39.957Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-11-01T02:43:27.418Z",
+          "elapsed_ms": 107463,
+          "final": "DONE. Updated and saved `routes.ini` using the PID-targeted `cu` backend with VS Code editor keyboard input and `Cmd+S`. Verified the active section and preserved archive/comment content.",
+          "model_calls": 8,
+          "tokens": {
+            "input_tokens": 225343,
+            "cached_input_tokens": 173184,
+            "output_tokens": 2088,
+            "reasoning_output_tokens": 1228,
+            "total_tokens": 227431
+          },
+          "tool_calls": 7,
+          "tool_output_chars": 64940,
+          "tool_errors": 0,
+          "tool_interval_ms": 5350,
+          "non_tool_interval_ms": 102113,
+          "label": "vscode-scoped-2-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "routes.ini_exact": true
+        },
+        "actual": {
+          "files": {
+            "routes.ini": "# Route configuration — a+b[2].* / $HOME / 中文🙂\n[active]\nregion = ap-south-1\nendpoint = https://live.delta.example.invalid/events?q=alpha+beta\nstatus = ready\nowner = Lin\nretry = 5\n\n[archive]\nregion = ap-south-1\nendpoint = https://preview.delta.example.invalid/events?q=alpha+beta\nstatus = draft\nowner = Chen\nretry = 2\n\n# Example only: status = draft; retry = 2\n"
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 107463,
+      "combined_turn_ms": 107463,
+      "evidence_sha256": {
+        "brief.txt": "2c4d74cd775bba5f12a2f2080559dc0aff27a9b5b058210adc7f52325ae92677",
+        "source.json": "e5aed4b05af6d983119708df2ede25475b1232e9d4b2fd265c8fe30298fa9a80",
+        "saved.json": "f519c6e9fa310ff3641d06d6f1b441bb76ca4e3a3a39220ef666542178562f13",
+        "trace.json": "3c80fbaa06bf1da02327568589bcb711bac1ace02eaf8aa2516cac1b2718b936",
+        "runtime-context.json": "7304f35d1db8c37aeaadd04cabfca5e498fc0196a11acf7303c7539063dcb6be",
+        "launch.json": "129075d0d3b69cdbd2844cb4240b3ff3303ca9d3a41b7540822c0faee5b77b81",
+        "audit.json": "aba235d7e8adedadae1e7439df2b0bb86c6bc2b69d064703574569da2afa8a55",
+        "task-launcher": "096255808b63f7a43aebd8558feea952ce47ae9056fb22664adce09fe1ca0ecc",
+        "saved-timeline.jsonl": "033c9d15f755c08f0d80dee05db5e9fcc7be180ee0cd99875394305d806a1d9d"
+      },
+      "audit": {
+        "compliant": true,
+        "claimed_complete": true,
+        "route": "cu UI",
+        "task_launcher": "test-results/editor-coverage-20261101/vscode-scoped-2-cu/launcher.sh",
+        "runtime_context": {
+          "contexts": [
+            {
+              "cwd": "/private/tmp/editor-coverage-20261101/vscode-scoped-2-cu/work",
+              "model": "gpt-6-astra",
+              "effort": "high",
+              "service_tier": null
+            }
+          ],
+          "messages": [
+            {
+              "role": "developer",
+              "chars": 21420,
+              "sha256": "35bd51b5f577cb7b24cd5f4629e49e37cb724ab57754ce6f8f202001635bab8a",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 12743,
+              "sha256": "70b347a807e710819f74aaea35c72148a10ef3f2d0f8f2af7ac241dfefcdaeba",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 2400,
+              "sha256": "3edd51083129388f52e881435e93e4b981e00c5ee3d62ab5d32e22c428fd504b",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 271,
+              "sha256": "6ded806e3cdbb35599ecaf8742574bc5274908472b1729090010c404c2151e8e",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 448,
+              "sha256": "bc2fc2e1ddf9d727c978fd5a3e6274be4fd93cbe19cb6437104b40ed7872a6f0",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 2959,
+              "sha256": "2c4d74cd775bba5f12a2f2080559dc0aff27a9b5b058210adc7f52325ae92677",
+              "agents_injected": false
+            }
+          ],
+          "no_agents_injected": true,
+          "exit_code": 0
+        },
+        "note": "All seven calls reviewed. Literal Find edits active section and preserves archive/comment; final save snapshot and exact bytes pass. No stale refs, errors, or post-save calls. Whole-request completion claim is supported."
+      },
+      "saved_completion": {
+        "sample_interval_ms": 250,
+        "timeline": [
+          {
+            "sample_started_at": "2026-11-01T02:41:39.690735+00:00",
+            "observed_at": "2026-11-01T02:41:39.690925+00:00",
+            "final": false,
+            "files": {
+              "routes.ini": {
+                "sha256": "3ff7f5c3ddaaf64d1a75479bd0657c688296208cfe71a51bf80d056b2dff9075",
+                "exact": false
+              }
+            },
+            "all_exact": false
+          },
+          {
+            "sample_started_at": "2026-11-01T02:43:13.400040+00:00",
+            "observed_at": "2026-11-01T02:43:13.400215+00:00",
+            "final": false,
+            "files": {
+              "routes.ini": {
+                "sha256": "3769588047f0e343c1582e43d451306c71969402e2a28aad3ef547a3f2172e2d",
+                "exact": true
+              }
+            },
+            "all_exact": true
+          },
+          {
+            "sample_started_at": "2026-11-01T02:43:30.819496+00:00",
+            "observed_at": "2026-11-01T02:43:30.819964+00:00",
+            "final": true,
+            "files": {
+              "routes.ini": {
+                "sha256": "3769588047f0e343c1582e43d451306c71969402e2a28aad3ef547a3f2172e2d",
+                "exact": true
+              }
+            },
+            "all_exact": true
+          }
+        ],
+        "first_all_exact_observed_at": "2026-11-01T02:43:13.400215+00:00",
+        "first_all_exact_from_turn_start_ms": 93443.215,
+        "remaining_turn_ms_after_first_all_exact": 14017.785,
+        "tool_calls_started_after_first_all_exact": 0,
+        "tool_ids_started_after_first_all_exact": [],
+        "saved_regressions_after_all_exact": 0,
+        "note": "First observed correct saved files, not an exact save instant or proof of agent completion; sampling is passive and provides no feedback. Remaining time also includes legitimate final observation/reporting."
+      }
+    },
+    {
+      "label": "vscode-multi-3-cu",
+      "mode": "vscode",
+      "scenario": "multi",
+      "repeat": 3,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 3587,
+      "app_path": "/Applications/Visual Studio Code.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-real-u8rq1mzx",
+      "client_key": "vscode-multi-3-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-coverage-20261101/vscode-multi-3-cu/output",
+      "workspace": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-coverage-20261101/vscode-multi-3-cu/CP-editor-coverage-20261101-vscode-multi-3-cu",
+      "source_sha256": "296f0b7cabd1f1b269a54752f65e144b0e8b3a756353a5430deed6f99d1216b4",
+      "shared_app": true,
+      "files": {
+        "delivery.toml": "delivery.toml",
+        "handoff.md": "handoff.md",
+        "checks.txt": "checks.txt"
+      },
+      "output_file": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-coverage-20261101/vscode-multi-3-cu/CP-editor-coverage-20261101-vscode-multi-3-cu/CP-editor-coverage-20261101-vscode-multi-3-cu-budget.numbers",
+      "thread_id": "01a194fd-a81a-7751-a33d-28828494bbfc",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a194fd-a81a-7751-a33d-28828494bbfc",
+          "turn_id": "01a194fd-a9b9-7a80-8534-778777081dd9",
+          "started_at": "2026-11-01T02:43:34.533Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-11-01T02:44:53.550Z",
+          "elapsed_ms": 79030,
+          "final": "DONE. All three files were saved and their final contents observed. Requested changes are complete; protected sections, other content, formatting, and final newlines were preserved.\n\nRoute: computer-pilot `cu` UI commands and AX snapshots in the dedicated VS Code window. Restricted Mode remained enabled.",
+          "model_calls": 14,
+          "tokens": {
+            "input_tokens": 632894,
+            "cached_input_tokens": 564096,
+            "output_tokens": 1383,
+            "total_tokens": 634277,
+            "reasoning_output_tokens": 255
+          },
+          "tool_calls": 13,
+          "tool_output_chars": 161202,
+          "tool_errors": 0,
+          "tool_interval_ms": 6518,
+          "non_tool_interval_ms": 72512,
+          "label": "vscode-multi-3-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "delivery.toml_exact": true,
+          "handoff.md_exact": true,
+          "checks.txt_exact": true
+        },
+        "actual": {
+          "files": {
+            "delivery.toml": "# Orion delivery configuration\nrelease = \"OR-318\"\n\n[outbound]\nenabled = true\nendpoint = \"https://prod.orion.example.invalid/v9/send?tenant=q-31\"\ntimeout = 40\nretries = 4\n\n[inbound]\nenabled = true\nendpoint = \"https://staging.orion.example.invalid/v9/receive?tenant=q-31\"\ntimeout = 25\nretries = 2\n\n# literal: a+b[2].* / $HOME / C:\\keep\\orion / 中文🙂\n",
+            "handoff.md": "# Current handoff\nRelease: OR-318\nEnvironment: production\nOwner: 吴\nStatus: ready\n\n# Prior handoff\nRelease: OR-302\nEnvironment: staging\nOwner: 郑\nStatus: pending\n\nDo not alter: https://archive.orion.example.invalid/OR-302?raw=1\n",
+            "checks.txt": "Release OR-318\n[x] outbound enabled\n[x] outbound endpoint verified\n[x] outbound retry policy verified\n[x] handoff reviewed\n[ ] external approval\n[ ] publish announcement\n"
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 79030,
+      "combined_turn_ms": 79030,
+      "evidence_sha256": {
+        "brief.txt": "35b8bbb64393fe78411a26ede3041e64bdcba4b8d71f4a128c60a0e024300d1f",
+        "source.json": "296f0b7cabd1f1b269a54752f65e144b0e8b3a756353a5430deed6f99d1216b4",
+        "saved.json": "1adee30fd344dc8fb03d7f86d87c35f82664ba6288f98c5efb919ed7c23d0a01",
+        "trace.json": "d8e2beddec636d0d92c9c8a13865fa39033a20f708cfcbf9c1e15425c0b5ccc8",
+        "runtime-context.json": "f23cbc559020888dd35cb393578478e1ecc5ebaab7c9e24e29d27b70cf047c61",
+        "launch.json": "ef89280284bf8e5f8c6b6a685fdf23e8701ac232f35a6652d0ff2965563583a1",
+        "audit.json": "2c19b5bc26d7e985e5f19f65fd0f1591cdcd0745cf7c8d8635753ba8828b91d1",
+        "task-launcher": "e2b9e7af37ca9c336fd6649f729d985acefd2a66dfe6ec56829749cc9f416b6a",
+        "saved-timeline.jsonl": "637377595de3d70d7d9740158020dac418f5536d53f667ec5d3ffe120cc173e9"
+      },
+      "audit": {
+        "compliant": true,
+        "claimed_complete": true,
+        "route": "cu UI",
+        "task_launcher": "test-results/editor-coverage-20261101/vscode-multi-3-cu/launcher.sh",
+        "runtime_context": {
+          "contexts": [
+            {
+              "cwd": "/private/tmp/editor-coverage-20261101/vscode-multi-3-cu/work",
+              "model": "gpt-6-astra",
+              "effort": "high",
+              "service_tier": null
+            }
+          ],
+          "messages": [
+            {
+              "role": "developer",
+              "chars": 21420,
+              "sha256": "35bd51b5f577cb7b24cd5f4629e49e37cb724ab57754ce6f8f202001635bab8a",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 12742,
+              "sha256": "fedd07a2c5001d6cad984f3329beb0af081790a1e9f448a6c6bd874e216c8779",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 2400,
+              "sha256": "3edd51083129388f52e881435e93e4b981e00c5ee3d62ab5d32e22c428fd504b",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 271,
+              "sha256": "6ded806e3cdbb35599ecaf8742574bc5274908472b1729090010c404c2151e8e",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 446,
+              "sha256": "0052a1bacdd149f9f7b2e42914673a37905ba1363d3c1262f0a04798a50d83d8",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 3205,
+              "sha256": "35b8bbb64393fe78411a26ede3041e64bdcba4b8d71f4a128c60a0e024300d1f",
+              "agents_injected": false
+            }
+          ],
+          "no_agents_injected": true,
+          "exit_code": 0
+        },
+        "note": "All 13 calls reviewed. Explorer navigation and grouped Find edits use only task-bound UI; no direct document IO, alternate backend, settings changes or solver. All three files exact, saved markers clear, no errors or post-save calls. Whole-request completion claim is supported."
+      },
+      "saved_completion": {
+        "sample_interval_ms": 250,
+        "timeline": [
+          {
+            "sample_started_at": "2026-11-01T02:43:33.917909+00:00",
+            "observed_at": "2026-11-01T02:43:33.924745+00:00",
+            "final": false,
+            "files": {
+              "delivery.toml": {
+                "sha256": "6ed941d99d50a6a2cfe5b19ca8f607c9f54d9d35544ef1af8a66a992766d3cb3",
+                "exact": false
+              },
+              "handoff.md": {
+                "sha256": "e556b59de527246ab1329ddd5152176a7891b32649874046f6ee16f3f1806d0f",
+                "exact": false
+              },
+              "checks.txt": {
+                "sha256": "e5f82cc88cdbfc31c926d78473a0bc4cfd62b115abd476c76096cf3c6a445d82",
+                "exact": false
+              }
+            },
+            "all_exact": false
+          },
+          {
+            "sample_started_at": "2026-11-01T02:44:08.306500+00:00",
+            "observed_at": "2026-11-01T02:44:08.306843+00:00",
+            "final": false,
+            "files": {
+              "delivery.toml": {
+                "sha256": "d08a5bce38313128e26d394447b5e61e3c7710953392c8e93aab70100126511a",
+                "exact": true
+              },
+              "handoff.md": {
+                "sha256": "e556b59de527246ab1329ddd5152176a7891b32649874046f6ee16f3f1806d0f",
+                "exact": false
+              },
+              "checks.txt": {
+                "sha256": "e5f82cc88cdbfc31c926d78473a0bc4cfd62b115abd476c76096cf3c6a445d82",
+                "exact": false
+              }
+            },
+            "all_exact": false
+          },
+          {
+            "sample_started_at": "2026-11-01T02:44:28.148676+00:00",
+            "observed_at": "2026-11-01T02:44:28.149159+00:00",
+            "final": false,
+            "files": {
+              "delivery.toml": {
+                "sha256": "d08a5bce38313128e26d394447b5e61e3c7710953392c8e93aab70100126511a",
+                "exact": true
+              },
+              "handoff.md": {
+                "sha256": "c666569f6d15118bacf14f83be73d4bb878eeb8cf5472e04a54793d37311d12a",
+                "exact": true
+              },
+              "checks.txt": {
+                "sha256": "e5f82cc88cdbfc31c926d78473a0bc4cfd62b115abd476c76096cf3c6a445d82",
+                "exact": false
+              }
+            },
+            "all_exact": false
+          },
+          {
+            "sample_started_at": "2026-11-01T02:44:49.248966+00:00",
+            "observed_at": "2026-11-01T02:44:49.249334+00:00",
+            "final": false,
+            "files": {
+              "delivery.toml": {
+                "sha256": "d08a5bce38313128e26d394447b5e61e3c7710953392c8e93aab70100126511a",
+                "exact": true
+              },
+              "handoff.md": {
+                "sha256": "c666569f6d15118bacf14f83be73d4bb878eeb8cf5472e04a54793d37311d12a",
+                "exact": true
+              },
+              "checks.txt": {
+                "sha256": "24d521fd12d1c2aea6f2a1498e40da6648d3dda14d0c302ed7d7849d2a32f37f",
+                "exact": true
+              }
+            },
+            "all_exact": true
+          },
+          {
+            "sample_started_at": "2026-11-01T02:44:59.411935+00:00",
+            "observed_at": "2026-11-01T02:44:59.412698+00:00",
+            "final": true,
+            "files": {
+              "delivery.toml": {
+                "sha256": "d08a5bce38313128e26d394447b5e61e3c7710953392c8e93aab70100126511a",
+                "exact": true
+              },
+              "handoff.md": {
+                "sha256": "c666569f6d15118bacf14f83be73d4bb878eeb8cf5472e04a54793d37311d12a",
+                "exact": true
+              },
+              "checks.txt": {
+                "sha256": "24d521fd12d1c2aea6f2a1498e40da6648d3dda14d0c302ed7d7849d2a32f37f",
+                "exact": true
+              }
+            },
+            "all_exact": true
+          }
+        ],
+        "first_all_exact_observed_at": "2026-11-01T02:44:49.249334+00:00",
+        "first_all_exact_from_turn_start_ms": 74716.334,
+        "remaining_turn_ms_after_first_all_exact": 4300.666,
+        "tool_calls_started_after_first_all_exact": 0,
+        "tool_ids_started_after_first_all_exact": [],
+        "saved_regressions_after_all_exact": 0,
+        "note": "First observed correct saved files, not an exact save instant or proof of agent completion; sampling is passive and provides no feedback. Remaining time also includes legitimate final observation/reporting."
+      }
+    }
+  ],
+  "groups": [
+    {
+      "mode": "vscode",
+      "arms": {
+        "cu": {
+          "counts": {
+            "passed": 3,
+            "failed": 0,
+            "excluded": 0,
+            "unreviewed": 0,
+            "pending": 0
+          },
+          "success_medians_ms": {
+            "combined_turn_ms": 79030
+          }
+        }
+      },
+      "successful_pairs": [],
+      "median_paired_go_ratio": null,
+      "median_paired_combined_ratio": null
+    }
+  ],
+  "accuracy": {
+    "planned_attempts": 3,
+    "accepted_completed": 3,
+    "passed": 3,
+    "success_rate": 1.0,
+    "completion_claims_reviewed": 3,
+    "claimed_complete": 3,
+    "false_completion_claims": 0,
+    "false_completion_rate": 0.0
+  },
+  "runtime_context": {
+    "classification": "Cu-only editor recovery tasks, same model and fresh profiles; no AGENTS injection",
+    "working_directory": "unique neutral directory per participant outside the repository",
+    "isolated_codex_profile_per_trial": true,
+    "copied_history_or_memory": false,
+    "global_or_project_agents_injected": false,
+    "actual_initial_messages_audited": 3,
+    "cli_versions": [
+      "0.165.0"
+    ],
+    "native_plugin": "unified-computer-use",
+    "native_plugin_version": "26.1027.30824",
+    "native_plugin_files_sha256": {
+      ".codex-plugin/plugin.json": "75de537b724481731d7ad43eb55e15be8d0773b54b1306edf96638c4f9e30118",
+      ".mcp.json": "e7297a8851d46bb5d7f53d57e82d86cfdf4b04524bedf8c2ce6cf4a80ffe71da"
+    },
+    "profile_configs_unchanged": true,
+    "participant_turns_overlap": false,
+    "launch": "codex --no-daemon exec, project_doc_max_bytes=0, features.memories=false; exact argv and context hashes retained locally",
+    "timing": "One complete participant turn, including skill/API loading and task configuration. Profile provisioning, app launch, host process startup/shutdown, coordinator audit and cleanup are outside this timer.",
+    "limits": "VS Code shares the user process, settings, extensions and caches with dedicated test windows/files. Same macOS session, permissions and native runtime assets; not VM isolation. No global/project AGENTS in participant context. Coordinator reads only task files every 250 ms; sampling cost remains in wall time; timestamps describe observations rather than exact save instants.",
+    "comparison_scope": "Cu-only retest; historical native runs are not repeated. Dataset: editor; 3 planned attempts, no replacements. TextEdit/VS Code trials share user application processes with dedicated test windows; any Numbers trials start separately. Fresh model profiles/cwd and cu runtimes. Normal documented app scripting is allowed through cu tell; native uses actual App APIs. No direct file edits, terminal commands inside apps, automation scripts outside the assigned backend, or task-specific solver. Report routes separately; changed datasets are not paired speed comparisons.",
+    "native_plugin_cache_files_sha256": {
+      ".codex-plugin/plugin.json": "75de537b724481731d7ad43eb55e15be8d0773b54b1306edf96638c4f9e30118",
+      ".mcp.json": "099471c610819c63054e3a0dc1b3e848ff6ef7aa8d967d64b284d9644108b57d"
+    },
+    "all_owned_app_and_broker_pids_stopped": true,
+    "shared_user_app_processes_preserved": true,
+    "vscode_settings_sha256": "40dfa081420c5e2f384ebe1626aa32b590a0ee5a98726f8eb8e45736eb1cb19d",
+    "vscode_settings_unchanged": true
+  },
+  "cleanup": {
+    "all_trial_ownership_cleared": true,
+    "shared_apps_preserved": true,
+    "note": "Updated coordinator verified each shared task window closed before clearing ownership; all owned app and trace-identified Broker PIDs are stopped."
+  },
+  "reporting_fingerprints": {
+    "tests/agent/benchmark_varied_workflows.py": "c453866d58e580710fb5c3dbc33e79aeea64144f9717dbdcb26fea1c5792a64f",
+    "tests/agent/collect_codex_benchmark.py": "a35fba949ee73222e5e83eaeb35807ce8b7bfc43727c4db9fae4fa0f692f3d79"
+  },
+  "historical_controls": [
+    "real-apps-2026-10-31.json",
+    "real-app-accuracy-2026-11-01.json",
+    "real-app-launcher-2026-11-01.json",
+    "real-app-scoped-2026-11-01.json",
+    "real-app-scoped-followup-2026-11-01.json",
+    "editor-completion-2026-11-01.json"
+  ],
+  "comparison_note": "Three predeclared repeats of the same editor datasets in fresh documents/profiles after receipt/skill simplification. Historical native was not rerun. Shared application sessions and one sample per case do not establish a causal speedup or population success rate.",
+  "runner_sha256": "e06f40b0d7daff9d5f1e8586de59933c25b12dad92bca62fc24bd72cf086ab24",
+  "untimed_diagnostics": {
+    "native_transition": {
+      "samples": {
+        "native-second.json": {
+          "actionCode": 0,
+          "afterEditor": "second.txt, preview",
+          "before": {
+            "document": "file:///var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-native-transition-w8d43rq0/CP-native-transition/first.txt",
+            "editor": "first.txt",
+            "editorValue": "first.txt\n",
+            "ms": 0.6741250399500132,
+            "webarea": "first.txt — CP-native-transition",
+            "window": "first.txt — CP-native-transition"
+          },
+          "events": [
+            {
+              "event": "AXSelectedTextChanged",
+              "ms": 22.926750010810792,
+              "role": "AXRow",
+              "title": "second.txt"
+            },
+            {
+              "event": "AXSelectedTextChanged",
+              "ms": 24.92520830128342,
+              "role": "AXWebArea",
+              "title": "first.txt — CP-native-transition"
+            },
+            {
+              "event": "AXSelectedTextChanged",
+              "ms": 25.835166568867862,
+              "role": "AXWebArea",
+              "title": "first.txt — CP-native-transition"
+            },
+            {
+              "event": "AXSelectedChildrenChanged",
+              "ms": 26.253624935634434,
+              "role": "AXOutline",
+              "title": "Files Explorer"
+            },
+            {
+              "event": "AXFocusedUIElementChanged",
+              "ms": 26.616958319209516,
+              "role": "AXRow",
+              "title": "second.txt"
+            },
+            {
+              "event": "AXSelectedChildrenChanged",
+              "ms": 27.52424997743219,
+              "role": "AXTabGroup",
+              "title": ""
+            },
+            {
+              "event": "AXTitleChanged",
+              "ms": 27.953458251431584,
+              "role": "AXGroup",
+              "title": "second.txt, preview"
+            },
+            {
+              "event": "AXValueChanged",
+              "ms": 43.23874996043742,
+              "role": "AXStaticText",
+              "title": ""
+            },
+            {
+              "event": "AXTitleChanged",
+              "ms": 52.29329166468233,
+              "role": "AXWindow",
+              "title": "second.txt — CP-native-transition"
+            },
+            {
+              "event": "AXTitleChanged",
+              "ms": 52.66508331988007,
+              "role": "AXWindow",
+              "title": "second.txt — CP-native-transition"
+            }
+          ],
+          "sameEditor": false,
+          "sameRow": true,
+          "samples": [
+            {
+              "document": "file:///var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-native-transition-w8d43rq0/CP-native-transition/first.txt",
+              "editor": "first.txt",
+              "editorValue": "first.txt\n",
+              "ms": 0.06070826202630997,
+              "webarea": "first.txt — CP-native-transition",
+              "window": "first.txt — CP-native-transition"
+            },
+            {
+              "document": "file:///var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-native-transition-w8d43rq0/CP-native-transition/first.txt",
+              "editor": "",
+              "editorValue": "",
+              "ms": 24.423583294264972,
+              "webarea": "first.txt — CP-native-transition",
+              "window": "first.txt — CP-native-transition"
+            },
+            {
+              "document": "file:///var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-native-transition-w8d43rq0/CP-native-transition/second.txt",
+              "editor": "",
+              "editorValue": "",
+              "ms": 51.89920833799988,
+              "webarea": "first.txt — CP-native-transition",
+              "window": "second.txt — CP-native-transition"
+            },
+            {
+              "document": "file:///var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-native-transition-w8d43rq0/CP-native-transition/second.txt",
+              "editor": "",
+              "editorValue": "",
+              "ms": 203.1846249010414,
+              "webarea": "second.txt — CP-native-transition",
+              "window": "second.txt — CP-native-transition"
+            }
+          ],
+          "subscriptions": [
+            {
+              "code": 0,
+              "name": "AXValueChanged",
+              "scope": "app"
+            },
+            {
+              "code": 0,
+              "name": "AXSelectedTextChanged",
+              "scope": "app"
+            },
+            {
+              "code": 0,
+              "name": "AXFocusedUIElementChanged",
+              "scope": "app"
+            },
+            {
+              "code": 0,
+              "name": "AXMainWindowChanged",
+              "scope": "app"
+            },
+            {
+              "code": 0,
+              "name": "AXSelectedChildrenChanged",
+              "scope": "app"
+            },
+            {
+              "code": 0,
+              "name": "AXTitleChanged",
+              "scope": "app"
+            },
+            {
+              "code": 0,
+              "name": "AXLayoutChanged",
+              "scope": "app"
+            },
+            {
+              "code": 0,
+              "name": "AXValueChanged",
+              "scope": "window"
+            },
+            {
+              "code": 0,
+              "name": "AXSelectedTextChanged",
+              "scope": "window"
+            },
+            {
+              "code": 0,
+              "name": "AXFocusedUIElementChanged",
+              "scope": "window"
+            },
+            {
+              "code": 0,
+              "name": "AXMainWindowChanged",
+              "scope": "window"
+            },
+            {
+              "code": 0,
+              "name": "AXSelectedChildrenChanged",
+              "scope": "window"
+            },
+            {
+              "code": 0,
+              "name": "AXTitleChanged",
+              "scope": "window"
+            },
+            {
+              "code": 0,
+              "name": "AXLayoutChanged",
+              "scope": "window"
+            },
+            {
+              "code": 0,
+              "name": "AXValueChanged",
+              "scope": "webarea"
+            },
+            {
+              "code": 0,
+              "name": "AXSelectedTextChanged",
+              "scope": "webarea"
+            },
+            {
+              "code": 0,
+              "name": "AXFocusedUIElementChanged",
+              "scope": "webarea"
+            },
+            {
+              "code": 0,
+              "name": "AXMainWindowChanged",
+              "scope": "webarea"
+            },
+            {
+              "code": 0,
+              "name": "AXSelectedChildrenChanged",
+              "scope": "webarea"
+            },
+            {
+              "code": 0,
+              "name": "AXTitleChanged",
+              "scope": "webarea"
+            },
+            {
+              "code": 0,
+              "name": "AXLayoutChanged",
+              "scope": "webarea"
+            }
+          ]
+        },
+        "native-first.json": {
+          "actionCode": 0,
+          "afterEditor": "first.txt",
+          "before": {
+            "document": "file:///var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-native-transition-w8d43rq0/CP-native-transition/second.txt",
+            "editor": "second.txt, preview",
+            "editorValue": "",
+            "ms": 0.4188750172033906,
+            "webarea": "second.txt — CP-native-transition",
+            "window": "second.txt — CP-native-transition"
+          },
+          "events": [
+            {
+              "event": "AXSelectedChildrenChanged",
+              "ms": 72.0967500237748,
+              "role": "AXOutline",
+              "title": "Files Explorer"
+            },
+            {
+              "event": "AXFocusedUIElementChanged",
+              "ms": 103.38600003160536,
+              "role": "AXRow",
+              "title": "first.txt"
+            },
+            {
+              "event": "AXSelectedChildrenChanged",
+              "ms": 105.85841676220298,
+              "role": "AXTabGroup",
+              "title": ""
+            },
+            {
+              "event": "AXTitleChanged",
+              "ms": 117.45087511371821,
+              "role": "AXGroup",
+              "title": "first.txt"
+            },
+            {
+              "event": "AXValueChanged",
+              "ms": 118.01541678141803,
+              "role": "AXStaticText",
+              "title": ""
+            },
+            {
+              "event": "AXTitleChanged",
+              "ms": 118.30920842476189,
+              "role": "AXWindow",
+              "title": "first.txt — CP-native-transition"
+            },
+            {
+              "event": "AXTitleChanged",
+              "ms": 118.52037510834634,
+              "role": "AXWindow",
+              "title": "first.txt — CP-native-transition"
+            }
+          ],
+          "sameEditor": false,
+          "sameRow": true,
+          "samples": [
+            {
+              "document": "file:///var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-native-transition-w8d43rq0/CP-native-transition/second.txt",
+              "editor": "second.txt, preview",
+              "editorValue": "",
+              "ms": 0.11083343997597694,
+              "webarea": "second.txt — CP-native-transition",
+              "window": "second.txt — CP-native-transition"
+            },
+            {
+              "document": "file:///var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-native-transition-w8d43rq0/CP-native-transition/first.txt",
+              "editor": "second.txt, preview",
+              "editorValue": "",
+              "ms": 50.0509167322889,
+              "webarea": "second.txt — CP-native-transition",
+              "window": "second.txt — CP-native-transition"
+            },
+            {
+              "document": "file:///var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-native-transition-w8d43rq0/CP-native-transition/first.txt",
+              "editor": "",
+              "editorValue": "",
+              "ms": 99.54487509094179,
+              "webarea": "second.txt — CP-native-transition",
+              "window": "first.txt — CP-native-transition"
+            },
+            {
+              "document": "file:///var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-native-transition-w8d43rq0/CP-native-transition/first.txt",
+              "editor": "",
+              "editorValue": "",
+              "ms": 241.66362511459738,
+              "webarea": "first.txt — CP-native-transition",
+              "window": "first.txt — CP-native-transition"
+            }
+          ],
+          "subscriptions": [
+            {
+              "code": 0,
+              "name": "AXValueChanged",
+              "scope": "app"
+            },
+            {
+              "code": 0,
+              "name": "AXSelectedTextChanged",
+              "scope": "app"
+            },
+            {
+              "code": 0,
+              "name": "AXFocusedUIElementChanged",
+              "scope": "app"
+            },
+            {
+              "code": 0,
+              "name": "AXMainWindowChanged",
+              "scope": "app"
+            },
+            {
+              "code": 0,
+              "name": "AXSelectedChildrenChanged",
+              "scope": "app"
+            },
+            {
+              "code": 0,
+              "name": "AXTitleChanged",
+              "scope": "app"
+            },
+            {
+              "code": 0,
+              "name": "AXLayoutChanged",
+              "scope": "app"
+            },
+            {
+              "code": 0,
+              "name": "AXValueChanged",
+              "scope": "window"
+            },
+            {
+              "code": 0,
+              "name": "AXSelectedTextChanged",
+              "scope": "window"
+            },
+            {
+              "code": 0,
+              "name": "AXFocusedUIElementChanged",
+              "scope": "window"
+            },
+            {
+              "code": 0,
+              "name": "AXMainWindowChanged",
+              "scope": "window"
+            },
+            {
+              "code": 0,
+              "name": "AXSelectedChildrenChanged",
+              "scope": "window"
+            },
+            {
+              "code": 0,
+              "name": "AXTitleChanged",
+              "scope": "window"
+            },
+            {
+              "code": 0,
+              "name": "AXLayoutChanged",
+              "scope": "window"
+            },
+            {
+              "code": 0,
+              "name": "AXValueChanged",
+              "scope": "webarea"
+            },
+            {
+              "code": 0,
+              "name": "AXSelectedTextChanged",
+              "scope": "webarea"
+            },
+            {
+              "code": 0,
+              "name": "AXFocusedUIElementChanged",
+              "scope": "webarea"
+            },
+            {
+              "code": 0,
+              "name": "AXMainWindowChanged",
+              "scope": "webarea"
+            },
+            {
+              "code": 0,
+              "name": "AXSelectedChildrenChanged",
+              "scope": "webarea"
+            },
+            {
+              "code": 0,
+              "name": "AXTitleChanged",
+              "scope": "webarea"
+            },
+            {
+              "code": 0,
+              "name": "AXLayoutChanged",
+              "scope": "webarea"
+            }
+          ]
+        }
+      },
+      "evidence_sha256": {
+        "native-second.json": "9d9cb84cbe7a447054c2f09c7f4246e0830a4277465a5b40d2d06a495ed345c1",
+        "native-first.json": "9e7a1a279d39f13eeed2b2e2f06ed333b33dbb7a2a7885def79a5a4c8f5bc58d"
+      },
+      "compiled_source_sha256": "d252bdebee86493e9bd615b9fe76826424ec925511c942a785eb64a1e0512f99",
+      "fixture_source_sha256": "b08cdd41110e90ee5bb081f482b75bcd604cb8fc944973d0b5a4d9bc3457487c",
+      "note": "One native AXPress per navigation in a disposable window. Observed Explorer row remains CFEqual; editor is replaced. Native window/document and WebArea captions update at different times. Polling/notification instrumentation affects timing; this is not a performance comparison. Native identity alone does not make a prior document context valid."
+    },
+    "native_regression": {
+      "log_sha256": "b90b04d7969af634f238ae28ace964d1910a103cc8c36b3e03ca864c7869e75c",
+      "result": "Existing delayed key/update and exact-input tests pass. Same-window reused input with a changed document caption rejects the prior observation before a write; different-window rejection and focus/drop detection remain covered."
+    }
+  },
+  "same_dataset_historical_comparison": [
+    {
+      "scenario": "local",
+      "source_sha256": "a694cf19191a6e7c2ad2d921fa2c9e1c3fa72bb96edf3d690c688bcb01da69c8",
+      "before_status": "passed",
+      "after_status": "passed",
+      "before_elapsed_ms": 113958,
+      "after_elapsed_ms": 42731,
+      "before_calls": 8,
+      "after_calls": 5,
+      "before_post_save_calls": 0,
+      "after_post_save_calls": 0
+    },
+    {
+      "scenario": "scoped",
+      "source_sha256": "e5aed4b05af6d983119708df2ede25475b1232e9d4b2fd265c8fe30298fa9a80",
+      "before_status": "passed",
+      "after_status": "passed",
+      "before_elapsed_ms": 108561,
+      "after_elapsed_ms": 107463,
+      "before_calls": 9,
+      "after_calls": 7,
+      "before_post_save_calls": 4,
+      "after_post_save_calls": 0
+    },
+    {
+      "scenario": "multi",
+      "source_sha256": "296f0b7cabd1f1b269a54752f65e144b0e8b3a756353a5430deed6f99d1216b4",
+      "before_status": "passed",
+      "after_status": "passed",
+      "before_elapsed_ms": 241959,
+      "after_elapsed_ms": 79030,
+      "before_calls": 24,
+      "after_calls": 13,
+      "before_post_save_calls": 0,
+      "after_post_save_calls": 0
+    }
+  ]
+}

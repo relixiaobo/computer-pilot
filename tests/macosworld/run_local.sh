@@ -5,6 +5,9 @@ set -euo pipefail
 
 CU="${CU:-./target/release/cu}"
 RESULTS_DIR="${RESULTS_DIR:-./test-results/macosworld-local}"
+LOCAL_TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/cu-macosworld-local.XXXXXX")
+LOCAL_TMP_DIR=$(cd "$LOCAL_TMP_DIR" && pwd -P)
+trap 'rm -rf "$LOCAL_TMP_DIR"' EXIT
 PASS=0
 FAIL=0
 SKIP=0
@@ -52,7 +55,7 @@ run_test "snapshot" "AX tree returns elements" \
   "$CU snapshot Finder --limit 5 | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d[\"ok\"] and len(d[\"elements\"])>0'"
 
 run_test "screenshot" "Window capture without activation" \
-  "$CU screenshot Finder --path /tmp/cu-test-cap.png | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d[\"ok\"]' && test -f /tmp/cu-test-cap.png && rm /tmp/cu-test-cap.png"
+  "$CU screenshot Finder --path \"$LOCAL_TMP_DIR/cu-test-cap.png\" | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d[\"ok\"]' && test -f \"$LOCAL_TMP_DIR/cu-test-cap.png\""
 
 run_test "ocr" "Vision OCR returns text" \
   "$CU ocr Finder | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d[\"ok\"] and len(d[\"texts\"])>0'"
@@ -104,7 +107,7 @@ run_test "snapshot-speed" "Snapshot 200 elements completes" \
   "$CU snapshot Finder --limit 200 > /dev/null"
 
 run_test "screenshot-speed" "Screenshot completes" \
-  "$CU screenshot Finder --path /tmp/cu-perf.png > /dev/null && rm -f /tmp/cu-perf.png"
+  "$CU screenshot Finder --path \"$LOCAL_TMP_DIR/cu-perf.png\" > /dev/null"
 
 # ── Auto-snapshot contract ───────────────────────────────────────────────────
 

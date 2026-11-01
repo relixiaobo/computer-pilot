@@ -1,9 +1,27 @@
 import AppKit
 
+final class Group: NSView {
+    override func isAccessibilityElement() -> Bool { true }
+    override func accessibilityRole() -> NSAccessibility.Role? { .group }
+    override func accessibilityChildren() -> [Any]? { subviews }
+}
 final class Field: NSTextField {
     override func setAccessibilityValue(_ value: Any?) {
         stringValue = value as? String ?? ""
         NSAccessibility.post(element: NSApp!, notification: .valueChanged)
+    }
+}
+final class ReorderingWindow: NSWindow {
+    var armed = false
+    var reordered = false
+    override func accessibilityChildren() -> [Any]? {
+        guard var children = super.accessibilityChildren() else { return nil }
+        let fields = children.indices.filter { (children[$0] as? NSCell)?.controlView is Field }
+        if reordered && fields.count == 2 { children.swapAt(fields[0], fields[1]) }
+        // The returned array represents the current read. A later traversal
+        // sees the reorder; retaining an AX object must still address it.
+        if armed { armed = false; reordered.toggle() }
+        return children
     }
 }
 final class Delegate: NSObject, NSApplicationDelegate {
@@ -11,8 +29,9 @@ final class Delegate: NSObject, NSApplicationDelegate {
     var otherWindow: NSWindow?
     var choiceLabel: NSTextField!
     var urgentLabel: NSTextField!
+    var transformInput = false
     func applicationDidFinishLaunching(_ notification: Notification) {
-        window = NSWindow(contentRect: NSRect(x: 50, y: 360, width: 400, height: 440),
+        window = ReorderingWindow(contentRect: NSRect(x: 50, y: 360, width: 400, height: 440),
                           styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = "Computer Pilot latency fixture"
         let input = Field(frame: NSRect(x: 20, y: 395, width: 350, height: 26))
@@ -51,11 +70,60 @@ final class Delegate: NSObject, NSApplicationDelegate {
         urgentLabel = NSTextField(labelWithString: "Urgent callback: untouched")
         urgentLabel.frame = NSRect(x: 120, y: 420, width: 260, height: 20)
         window.contentView!.addSubview(urgentLabel)
+        let keyEvents = NSTextField(labelWithString: "Key events: 0")
+        keyEvents.frame = NSRect(x: 20, y: 0, width: 160, height: 20)
+        window.contentView!.addSubview(keyEvents)
+        let arm = NSButton(title: "Reorder on read", target: self, action: #selector(armReorder))
+        arm.frame = NSRect(x: 200, y: 0, width: 180, height: 20)
+        window.contentView!.addSubview(arm)
+        let transform = NSButton(title: "Transform next input", target: self, action: #selector(armTransform))
+        transform.frame = NSRect(x: 200, y: 30, width: 180, height: 20)
+        window.contentView!.addSubview(transform)
+        var keyCount = 0
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if self.transformInput {
+                self.transformInput = false
+                input.stringValue = "changed-by-application"
+                NSAccessibility.post(element: NSApp!, notification: .valueChanged)
+                return nil
+            }
+            if event.keyCode == 97 { // F6: delivery completes asynchronously.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    input.stringValue = "delayed-key-change"
+                    NSAccessibility.post(element: NSApp!, notification: .valueChanged)
+                }
+                return nil
+            }
+            if event.characters == "X" { // Type can also complete asynchronously.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    input.stringValue = "delayed-type-change"
+                    NSAccessibility.post(element: NSApp!, notification: .valueChanged)
+                }
+                return nil
+            }
+            if event.keyCode == 98 { // F7: reuse controls for another document.
+                self.window.title = "Second document"
+                self.window.representedURL = URL(fileURLWithPath: "/tmp/cu-fixture-second-document.txt")
+                NSAccessibility.post(element: self.window!, notification: .titleChanged)
+                return nil
+            }
+            if event.keyCode == 36 {
+                FileHandle.standardOutput.write(Data("enter handled\n".utf8))
+                return nil // A handled shortcut need not change the AX tree.
+            }
+            keyCount += 1
+            keyEvents.stringValue = "Key events: \(keyCount)"
+            return event
+        }
         window.orderBack(nil)
         window.makeKey()
         window.makeMain()
         window.makeFirstResponder(input)
     }
+    @objc func armReorder() {
+        (window as? ReorderingWindow)?.armed = true
+    }
+    @objc func armTransform() { transformInput = true }
     @objc func selectRoute(_ sender: NSPopUpButton) {
         choiceLabel.stringValue = "Choice: \(sender.titleOfSelectedItem!)"
         NSAccessibility.post(element: NSApp!, notification: .valueChanged)
@@ -74,9 +142,39 @@ final class Delegate: NSObject, NSApplicationDelegate {
             let other = NSButton(title: "Other window", target: self, action: #selector(openOtherWindow))
             other.frame = NSRect(x: 20, y: 350, width: 150, height: 26)
             window.contentView!.addSubview(other)
+            let deep = NSButton(title: "Deep input", target: self, action: #selector(deepPage))
+            deep.frame = NSRect(x: 20, y: 300, width: 150, height: 26)
+            window.contentView!.addSubview(deep)
             window.makeFirstResponder(input)
             NSAccessibility.post(element: NSApp!, notification: .layoutChanged)
         }
+    }
+    @objc func deepPage() {
+        window.contentView = NSView(frame: NSRect(x: 0, y: 0, width: 400, height: 440))
+        var parent = window.contentView!
+        // Deliberately beyond the AX traversal limit; focus remains readable.
+        for _ in 0..<36 {
+            let group = Group(frame: parent.bounds)
+            parent.addSubview(group)
+            parent = group
+        }
+        let input = Field(frame: NSRect(x: 20, y: 360, width: 350, height: 26))
+        input.stringValue = "deep initial"
+        parent.addSubview(input)
+        let other = Field(frame: NSRect(x: 20, y: 300, width: 350, height: 26))
+        other.stringValue = "deep other"
+        parent.addSubview(other)
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if event.characters == "?" { return nil } // Deliberately drop input.
+            if event.characters == "!" {
+                self.window.makeFirstResponder(other)
+                other.stringValue = "focus moved"
+                NSAccessibility.post(element: NSApp!, notification: .valueChanged)
+                return nil
+            }
+            return event
+        }
+        window.makeFirstResponder(input)
     }
     @objc func openOtherWindow() {
         // Same title, geometry, field and value: only window identity differs.

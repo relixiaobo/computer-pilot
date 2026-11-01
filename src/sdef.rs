@@ -1,8 +1,10 @@
 //! Sdef (Scripting Definition) parser — pure Rust, no osascript.
-//! Reads .sdef XML files from app bundles and returns structured JSON.
+//! Reads .sdef XML and converts legacy Cocoa dictionaries through macOS OSA.
 
 use quick_xml::events::Event;
 use quick_xml::reader::Reader;
+use std::collections::BTreeMap;
+use std::ffi::c_void;
 use std::path::{Path, PathBuf};
 
 #[derive(serde::Serialize)]
@@ -35,6 +37,8 @@ pub struct Class {
 pub struct Property {
     pub name: String,
     pub access: String,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub description: String,
 }
 
 #[derive(serde::Serialize)]
@@ -42,70 +46,143 @@ pub struct SdefCommand {
     pub name: String,
     pub description: String,
     pub parameters: Vec<String>,
+    /// Additive metadata; keep the existing parameter-name list compatible.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub parameter_types: BTreeMap<String, String>,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub direct_parameter: String,
 }
 
-/// Locate the .sdef file for an app given its bundle path.
-fn find_sdef(bundle_path: &str) -> Option<PathBuf> {
-    let resources = Path::new(bundle_path).join("Contents/Resources");
-    let entries = std::fs::read_dir(&resources).ok()?;
-    for entry in entries.flatten() {
-        let name = entry.file_name();
-        if name.to_string_lossy().ends_with(".sdef") {
-            return Some(entry.path());
+// Cocoa apps can ship .scriptSuite instead of .sdef. Ask the OS to convert
+// that legacy format, then feed the same XML parser used for modern bundles.
+#[link(name = "Carbon", kind = "framework")]
+unsafe extern "C" {
+    fn OSACopyScriptingDefinitionFromURL(
+        url: *const c_void,
+        flags: i32,
+        data: *mut *const c_void,
+    ) -> i32;
+}
+
+#[link(name = "CoreFoundation", kind = "framework")]
+unsafe extern "C" {
+    fn CFURLCreateFromFileSystemRepresentation(
+        allocator: *const c_void,
+        bytes: *const u8,
+        length: isize,
+        directory: u8,
+    ) -> *const c_void;
+    fn CFDataGetLength(data: *const c_void) -> isize;
+    fn CFDataGetBytePtr(data: *const c_void) -> *const u8;
+    fn CFRelease(value: *const c_void);
+}
+
+fn definition_path(bundle_path: &str) -> Option<PathBuf> {
+    let mut legacy = None;
+    for entry in std::fs::read_dir(Path::new(bundle_path).join("Contents/Resources"))
+        .ok()?
+        .flatten()
+    {
+        let path = entry.path();
+        match path.extension().and_then(|value| value.to_str()) {
+            Some("sdef") => return Some(path),
+            Some("scriptSuite") => legacy = Some(path),
+            _ => {}
         }
     }
-    None
+    legacy
 }
 
-/// Count classes in sdef without full parse (for cu apps).
-pub fn count_classes(bundle_path: &str) -> Option<usize> {
-    let sdef_path = find_sdef(bundle_path)?;
-    let xml = std::fs::read_to_string(&sdef_path).ok()?;
+fn read_definition(bundle_path: &str) -> Result<String, String> {
+    let path = definition_path(bundle_path).ok_or("not scriptable (no scripting dictionary)")?;
+    if path.extension().is_some_and(|ext| ext == "sdef") {
+        return std::fs::read_to_string(path).map_err(|e| format!("failed to read sdef: {e}"));
+    }
+    // OSA may request dynamic terminology from the app. Only explicit sdef
+    // discovery uses it; listing apps must remain a local metadata read.
+    unsafe {
+        let url = CFURLCreateFromFileSystemRepresentation(
+            std::ptr::null(),
+            bundle_path.as_ptr(),
+            bundle_path.len() as isize,
+            1,
+        );
+        if url.is_null() {
+            return Err("failed to create scripting dictionary URL".into());
+        }
+        let mut data = std::ptr::null();
+        let status = OSACopyScriptingDefinitionFromURL(url, 0, &mut data);
+        CFRelease(url);
+        if status != 0 || data.is_null() {
+            if !data.is_null() {
+                CFRelease(data);
+            }
+            return Err(format!(
+                "failed to load scripting dictionary (OSA error {status})"
+            ));
+        }
+        let length = CFDataGetLength(data) as usize;
+        let xml = if length == 0 {
+            Err("empty scripting dictionary".into())
+        } else {
+            let bytes = std::slice::from_raw_parts(CFDataGetBytePtr(data), length);
+            String::from_utf8(bytes.to_vec())
+                .map_err(|e| format!("invalid scripting dictionary UTF-8: {e}"))
+        };
+        CFRelease(data);
+        xml
+    }
+}
+
+/// Detect scripting support without launching or sending events to an app.
+/// A legacy dictionary has no XML class count until explicitly converted.
+pub fn dictionary_info(bundle_path: &str) -> (bool, Option<usize>) {
+    let Some(path) = definition_path(bundle_path) else {
+        return (false, None);
+    };
+    if path.extension().is_some_and(|ext| ext == "scriptSuite") {
+        return (true, None);
+    }
+    let Ok(xml) = std::fs::read_to_string(path) else {
+        return (false, None);
+    };
     let mut reader = Reader::from_str(&xml);
     let mut count = 0usize;
     loop {
         match reader.read_event() {
             Ok(Event::Empty(ref e) | Event::Start(ref e)) => {
-                let name = e.name();
-                if name.as_ref() == b"class" || name.as_ref() == b"class-extension" {
+                if matches!(e.name().as_ref(), b"class" | b"class-extension") {
                     count += 1;
                 }
             }
             Ok(Event::Eof) => break,
-            Err(_) => return None,
+            Err(_) => return (false, None),
             _ => {}
         }
     }
-    Some(count)
+    (true, Some(count))
 }
 
 /// Parse the full sdef and return structured result.
 pub fn parse(app: &str, bundle_path: &str) -> SdefResult {
-    let sdef_path = match find_sdef(bundle_path) {
-        Some(p) => p,
-        None => {
+    let xml = match read_definition(bundle_path) {
+        Ok(xml) => xml,
+        Err(error) => {
             return SdefResult {
                 ok: false,
                 app: app.to_string(),
                 suites: None,
-                error: Some(format!("{app} is not scriptable (no sdef file)")),
+                error: Some(format!("{app}: {error}")),
             };
         }
     };
 
-    let xml = match std::fs::read_to_string(&sdef_path) {
-        Ok(x) => x,
-        Err(e) => {
-            return SdefResult {
-                ok: false,
-                app: app.to_string(),
-                suites: None,
-                error: Some(format!("failed to read sdef: {e}")),
-            };
-        }
-    };
+    parse_xml(app, &xml)
+}
 
-    let mut reader = Reader::from_str(&xml);
+fn parse_xml(app: &str, xml: &str) -> SdefResult {
+    let mut reader = Reader::from_str(xml);
+    reader.config_mut().expand_empty_elements = true;
     let mut suites = Vec::new();
 
     // State machine
@@ -125,7 +202,7 @@ pub fn parse(app: &str, bundle_path: &str) -> SdefResult {
         e.attributes()
             .flatten()
             .find(|a| a.key.as_ref() == key)
-            .map(|a| String::from_utf8_lossy(&a.value).to_string())
+            .and_then(|a| a.unescape_value().ok().map(|value| value.into_owned()))
             .unwrap_or_default()
     }
 
@@ -170,6 +247,8 @@ pub fn parse(app: &str, bundle_path: &str) -> SdefResult {
                             name: attr_val(e, b"name"),
                             description: attr_val(e, b"description"),
                             parameters: Vec::new(),
+                            parameter_types: BTreeMap::new(),
+                            direct_parameter: String::new(),
                         });
                         state = State::Command;
                     }
@@ -178,6 +257,7 @@ pub fn parse(app: &str, bundle_path: &str) -> SdefResult {
                             let access = attr_val(e, b"access");
                             cls.properties.push(Property {
                                 name: attr_val(e, b"name"),
+                                description: attr_val(e, b"description"),
                                 access: if access.is_empty() {
                                     "rw".to_string()
                                 } else {
@@ -196,64 +276,19 @@ pub fn parse(app: &str, bundle_path: &str) -> SdefResult {
                             cls.responds_to.push(attr_val(e, b"command"));
                         }
                     }
-                    b"parameter" if matches!(state, State::Command) => {
+                    b"direct-parameter" if matches!(state, State::Command) => {
                         if let Some(ref mut cmd) = current_cmd {
-                            cmd.parameters.push(attr_val(e, b"name"));
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            Ok(Event::Empty(ref e)) => {
-                let tag = e.name();
-                match tag.as_ref() {
-                    b"property" if matches!(state, State::Class | State::ClassExt) => {
-                        if let Some(ref mut cls) = current_class {
-                            let access = attr_val(e, b"access");
-                            cls.properties.push(Property {
-                                name: attr_val(e, b"name"),
-                                access: if access.is_empty() {
-                                    "rw".to_string()
-                                } else {
-                                    access
-                                },
-                            });
-                        }
-                    }
-                    b"element" if matches!(state, State::Class | State::ClassExt) => {
-                        if let Some(ref mut cls) = current_class {
-                            cls.elements.push(attr_val(e, b"type"));
-                        }
-                    }
-                    b"responds-to" if matches!(state, State::ClassExt) => {
-                        if let Some(ref mut cls) = current_class {
-                            cls.responds_to.push(attr_val(e, b"command"));
+                            cmd.direct_parameter = attr_val(e, b"type");
                         }
                     }
                     b"parameter" if matches!(state, State::Command) => {
                         if let Some(ref mut cmd) = current_cmd {
-                            cmd.parameters.push(attr_val(e, b"name"));
-                        }
-                    }
-                    // Self-closing class/class-extension/command in suite context
-                    b"class" if matches!(state, State::Suite) => {
-                        if let Some(ref mut suite) = current_suite {
-                            suite.classes.push(Class {
-                                name: attr_val(e, b"name"),
-                                properties: Vec::new(),
-                                elements: Vec::new(),
-                                responds_to: Vec::new(),
-                            });
-                        }
-                    }
-                    b"class-extension" if matches!(state, State::Suite) => {
-                        if let Some(ref mut suite) = current_suite {
-                            suite.classes.push(Class {
-                                name: attr_val(e, b"extends"),
-                                properties: Vec::new(),
-                                elements: Vec::new(),
-                                responds_to: Vec::new(),
-                            });
+                            let name = attr_val(e, b"name");
+                            let kind = attr_val(e, b"type");
+                            if !kind.is_empty() {
+                                cmd.parameter_types.insert(name.clone(), kind);
+                            }
+                            cmd.parameters.push(name);
                         }
                     }
                     _ => {}
@@ -313,5 +348,61 @@ pub fn parse(app: &str, bundle_path: &str) -> SdefResult {
         app: app.to_string(),
         suites: Some(suites),
         error: None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dictionary_keeps_operation_operand_and_property_guidance() {
+        let body = r#"<suite name="Fixture">
+          <class name="cell"><property name="formula" access="r"
+            description="Use &quot;value&quot; to write a formula &amp; preserve calculation."/></class>
+          <class-extension extends="cell"><responds-to command="clear"/></class-extension>
+          <class name="empty"/>
+          <command name="sort"><direct-parameter type="table"/>
+            <parameter name="by" type="column"/><parameter name="in rows" type="range"/></command>
+          <command name="empty"/>
+        </suite>"#;
+        // Explicit and self-closing leaves must produce identical output.
+        let explicit = body
+            .replace(
+                "preserve calculation.\"/>",
+                "preserve calculation.\"></property>",
+            )
+            .replace("type=\"table\"/>", "type=\"table\"></direct-parameter>");
+        let result = parse_xml("Fixture", body);
+        assert_eq!(
+            serde_json::to_value(&result).unwrap(),
+            serde_json::to_value(parse_xml("Fixture", &explicit)).unwrap()
+        );
+        let suites = result.suites.unwrap();
+        let suite = &suites[0];
+        assert_eq!(suite.classes.len(), 3);
+        assert_eq!(suite.classes[0].properties[0].access, "r");
+        assert_eq!(
+            suite.classes[0].properties[0].description,
+            "Use \"value\" to write a formula & preserve calculation."
+        );
+        assert_eq!(suite.classes[1].responds_to, ["clear"]);
+        assert_eq!(suite.commands[0].direct_parameter, "table");
+        assert_eq!(suite.commands[0].parameters, ["by", "in rows"]);
+        assert_eq!(suite.commands[0].parameter_types["by"], "column");
+        assert_eq!(suite.commands[0].parameter_types["in rows"], "range");
+        assert_eq!(suite.commands.len(), 2);
+    }
+
+    #[test]
+    fn legacy_discovery_does_not_request_dynamic_app_terminology() {
+        // This app has only Cocoa metadata; scanning it must not invoke OSA.
+        assert_eq!(
+            dictionary_info("/System/Applications/TextEdit.app"),
+            (true, None)
+        );
+        let (scriptable, classes) = dictionary_info("/System/Library/CoreServices/Finder.app");
+        assert!(scriptable && classes.is_some_and(|count| count > 0));
+        assert_eq!(dictionary_info("/nonexistent.app"), (false, None));
     }
 }

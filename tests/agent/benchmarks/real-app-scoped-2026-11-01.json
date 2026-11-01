@@ -1,0 +1,659 @@
+{
+  "manifest": {
+    "protocol_version": 2,
+    "single_turn": true,
+    "sequence": [
+      {
+        "label": "textedit-1-cu",
+        "mode": "textedit",
+        "repeat": 1,
+        "arm": "cu"
+      },
+      {
+        "label": "vscode-1-cu",
+        "mode": "vscode",
+        "repeat": 1,
+        "arm": "cu"
+      },
+      {
+        "label": "numbers-1-cu",
+        "mode": "numbers",
+        "repeat": 1,
+        "arm": "cu"
+      }
+    ],
+    "dataset": "scoped",
+    "settings": {
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null
+    },
+    "fingerprints": {
+      "target/release/cu": "791cca25c805c56d9a8d6e38b97461b930b470212f826069a2918af88a87348d",
+      "tests/agent/benchmark_real_apps.py": "4ef0bee2e3cffdeef291b573bf5a572c270ce1ee72f437d85eef6988fb23e662",
+      "tests/agent/tasks/real_apps_scoped.json": "e58043300c6abd26fda75728fc7a599ec5ed535c6a5c121106c35e1db93b03e6",
+      "tests/agent/benchmark_varied_workflows.py": "c453866d58e580710fb5c3dbc33e79aeea64144f9717dbdcb26fea1c5792a64f",
+      "tests/agent/collect_codex_benchmark.py": "a35fba949ee73222e5e83eaeb35807ce8b7bfc43727c4db9fae4fa0f692f3d79",
+      "plugin/skills/computer-pilot/SKILL.md": "26b8c4eadf1b57da767facdbd172ff0ff2831a9820591a65bcc264b635c5ad75",
+      "plugin/skills/computer-pilot/scripts/session.sh": "9d086c85bd78eac91693cf678c8180dbc0fd895d5c9806fefd6852c82cd46fb2",
+      "plugin/skills/computer-pilot/references/commands.md": "809a8e54cda32fce3059b4ba13020a2645580a0eb167e1004a4ec80af05da910",
+      "plugin/skills/computer-pilot/references/embedding.md": "336642ed1e10acb21a706004753f8c95204252e185ab989d9fd0e094199386a9",
+      "plugin/skills/computer-pilot/references/permissions.md": "5b4a13b118ba37d74d50e8950bad817df080bafe8355b5db5761008a2019084d",
+      "plugin/skills/computer-pilot/references/recovery.md": "6b1d91dc9a1abcad837c16c74010cfe2ba3e3ead5650e7107a0696da2ee4e46b",
+      "plugin/skills/computer-pilot/references/scripting.md": "5d3e20b75b59d0b3fd29293061d885242857e8c82dab348185150378f0ce1eba",
+      "plugin/skills/computer-pilot/references/visual.md": "7879ca3a1cb6b4ff6815a5b277486d31057b141e9c7ba5182efb7ea6329b6956"
+    },
+    "cu_commit": "0c635f8300d0029a1100c9b8059c7a69e187df2f",
+    "scope": "Cu-only retest; historical native runs are not repeated. Dataset: scoped; 3 planned attempts, no replacements. TextEdit/VS Code share the user application process with dedicated test windows. Numbers starts separately. Fresh model profiles/cwd and cu runtimes. Normal documented app scripting is allowed through cu tell; native uses actual App APIs. No direct file edits, terminal commands inside apps, automation scripts outside the assigned backend, or task-specific solver. Report routes separately; changed datasets are not paired speed comparisons.",
+    "wall_timeout_seconds": 600,
+    "app_versions": {
+      "textedit": "1.20",
+      "vscode": "1.142.0",
+      "numbers": "15.1"
+    }
+  },
+  "actual_order": [
+    "textedit-1-cu",
+    "vscode-1-cu",
+    "numbers-1-cu"
+  ],
+  "attempts": [
+    {
+      "label": "textedit-1-cu",
+      "mode": "textedit",
+      "repeat": 1,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 38733,
+      "app_path": "/System/Applications/TextEdit.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-real-gvqrpr4y",
+      "client_key": "textedit-1-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/real-app-scoped-20261101/textedit-1-cu/output",
+      "workspace": "/Users/lixiaobo/Coding/computer-pilot/test-results/real-app-scoped-20261101/textedit-1-cu/CP-real-app-scoped-20261101-textedit-1-cu",
+      "source_sha256": "f881c7e644ba9c15940808ec181220901c3e8bc0aa5bd2d0006f262244e4c2e3",
+      "shared_app": true,
+      "files": {
+        "brief.txt": "CP-real-app-scoped-20261101-textedit-1-cu-brief.txt"
+      },
+      "output_file": "/Users/lixiaobo/Coding/computer-pilot/test-results/real-app-scoped-20261101/textedit-1-cu/CP-real-app-scoped-20261101-textedit-1-cu/CP-real-app-scoped-20261101-textedit-1-cu-budget.numbers",
+      "thread_id": "01a19493-eecc-74f1-950c-899c1728ccc4",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a19493-eecc-74f1-950c-899c1728ccc4",
+          "turn_id": "01a19493-ef63-70f3-a325-9f4c48d44c85",
+          "started_at": "2026-11-01T00:48:05.493Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-11-01T00:50:12.261Z",
+          "elapsed_ms": 126773,
+          "final": "DONE. Used the TextEdit backend route: `cu set-value` for the document text, then `cu tell TextEdit` to save and verify. Final observation confirms the requested order, values, checklist state, unchanged history, final newline, and `modified: false`.\n\n[brief.txt](/Users/lixiaobo/Coding/computer-pilot/test-results/real-app-scoped-20261101/textedit-1-cu/CP-real-app-scoped-20261101-textedit-1-cu/CP-real-app-scoped-20261101-textedit-1-cu-brief.txt)",
+          "model_calls": 12,
+          "tokens": {
+            "input_tokens": 311620,
+            "cached_input_tokens": 294144,
+            "output_tokens": 4591,
+            "reasoning_output_tokens": 3052,
+            "total_tokens": 316211
+          },
+          "tool_calls": 11,
+          "tool_output_chars": 25806,
+          "tool_errors": 2,
+          "tool_interval_ms": 1202,
+          "non_tool_interval_ms": 125571,
+          "label": "textedit-1-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "brief.txt_exact": true
+        },
+        "actual": {
+          "files": {
+            "brief.txt": "当前发布\n状态：待验收\n日期：2026-12-10\n负责人：许\n入口：https://preview.north.example.invalid/r7?mode=literal\n\n校验说明\n原样保留：a+b[2].*、$HOME、C:\\docs\\v7、中文🙂。\n\n历史记录\n状态：草案\n日期：2026-12-03\n负责人：周\n入口：https://preview.north.example.invalid/r7?mode=literal\n\n行动清单\n[x] 检查当前发布\n[ ] 等待外部批准\n"
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 126773,
+      "combined_turn_ms": 126773,
+      "evidence_sha256": {
+        "brief.txt": "94bb703ebb98d997aea0ea850a1e863ce88635d4c61926df38607694b51e646f",
+        "source.json": "f881c7e644ba9c15940808ec181220901c3e8bc0aa5bd2d0006f262244e4c2e3",
+        "saved.json": "3a83febd1e5832e21ad9dcd65a190d7508ddc98910728ba7fce29902930cad29",
+        "trace.json": "a890a52d70cec2caff53fdc41da0afa23d4a54980318cb1c63560f319cfc5497",
+        "runtime-context.json": "aadf7bbda55f1f63f97b66172ea08797b43438d4ea53f08d410690b0b2f5eb79",
+        "launch.json": "e35262697e7cbba4d6afd7b1eab664cba496df3675277faadfcf16ad88d60649",
+        "audit.json": "f624fe2ad7dc342308a571077d940c571812b73bb0d9484cea7607107a065641",
+        "task-launcher": "92dccb6d37668af24270cf8d09ff704ec60265250dae48cd672210aa28df22d1"
+      },
+      "audit": {
+        "compliant": true,
+        "claimed_complete": true,
+        "note": "Reviewed all 11 calls, final DONE, initial context and saved artifact. Fresh profile/cwd without AGENTS/memory injection; fixed task launcher and supplied TextEdit document only. One unsupported no-verify flag rejected the first write before dispatch; another unsupported no-snapshot flag on tell stopped saving after an AX write. Participant read current state, restored the newline stripped by shell command substitution, then saved and checked text, modified=false and the expected document path via cu tell. Exact saved text passed: requested section edits/movement/checklist only, history preserved, literal dollar/backslashes/regex-like characters/Unicode and final newline intact. No direct document filesystem IO, settings changes, other backend or global input; dedicated window closed and task Broker stopped. Whole-text AX replacement was used for the section move despite local-edit guidance; no claim that this demonstrates a general preference for localized editing.",
+        "runtime_context": {
+          "contexts": [
+            {
+              "cwd": "/private/tmp/real-app-scoped-20261101/textedit-1-cu/work",
+              "model": "gpt-6-astra",
+              "effort": "high",
+              "service_tier": null
+            }
+          ],
+          "messages": [
+            {
+              "role": "developer",
+              "chars": 21420,
+              "sha256": "35bd51b5f577cb7b24cd5f4629e49e37cb724ab57754ce6f8f202001635bab8a",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 12738,
+              "sha256": "c7a16fc1a7cea58e5b0d62d5df8000dd7004d414f867a0762ef8dba7002bbbcf",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 2400,
+              "sha256": "3edd51083129388f52e881435e93e4b981e00c5ee3d62ab5d32e22c428fd504b",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 271,
+              "sha256": "6ded806e3cdbb35599ecaf8742574bc5274908472b1729090010c404c2151e8e",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 438,
+              "sha256": "f907a1f1b821175328cb8dfaaffd55f9db8fdf552cafa72ebe9a8cea876e28b9",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 3038,
+              "sha256": "94bb703ebb98d997aea0ea850a1e863ce88635d4c61926df38607694b51e646f",
+              "agents_injected": false
+            }
+          ],
+          "no_agents_injected": true,
+          "exit_code": 0
+        }
+      }
+    },
+    {
+      "label": "vscode-1-cu",
+      "mode": "vscode",
+      "repeat": 1,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 3587,
+      "app_path": "/Applications/Visual Studio Code.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-real-bsxyo9r8",
+      "client_key": "vscode-1-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/real-app-scoped-20261101/vscode-1-cu/output",
+      "workspace": "/Users/lixiaobo/Coding/computer-pilot/test-results/real-app-scoped-20261101/vscode-1-cu/CP-real-app-scoped-20261101-vscode-1-cu",
+      "source_sha256": "49471a2cfaa8ecea2cf4713e62af031ae77553d41d0ad9199f66495a8a1a5a70",
+      "shared_app": true,
+      "files": {
+        "service.json": "service.json",
+        "release.md": "release.md",
+        "checklist.txt": "checklist.txt"
+      },
+      "output_file": "/Users/lixiaobo/Coding/computer-pilot/test-results/real-app-scoped-20261101/vscode-1-cu/CP-real-app-scoped-20261101-vscode-1-cu/CP-real-app-scoped-20261101-vscode-1-cu-budget.numbers",
+      "thread_id": "01a19495-f613-7453-a37d-3fde246ea377",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a19495-f613-7453-a37d-3fde246ea377",
+          "turn_id": "01a19495-f7fd-7d82-be67-e289521d2eb1",
+          "started_at": "2026-11-01T00:50:18.771Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-11-01T00:57:24.623Z",
+          "elapsed_ms": 426046,
+          "final": "DONE. Used the assigned `cu` VS Code UI route with AX snapshots, click/type/key actions, window focus, and Save. All three files were saved and the final contents were observed.",
+          "model_calls": 58,
+          "tokens": {
+            "input_tokens": 6689496,
+            "cached_input_tokens": 6455680,
+            "output_tokens": 12764,
+            "reasoning_output_tokens": 7180,
+            "total_tokens": 6702260
+          },
+          "tool_calls": 57,
+          "tool_output_chars": 628273,
+          "tool_errors": 13,
+          "tool_interval_ms": 34118,
+          "non_tool_interval_ms": 391928,
+          "label": "vscode-1-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "service.json_exact": true,
+          "release.md_exact": true,
+          "checklist.txt_exact": true
+        },
+        "actual": {
+          "files": {
+            "service.json": "{\n  \"primary\": {\n    \"environment\": \"live\",\n    \"endpoint\": \"https://live.north.example.invalid/r7?mode=literal\",\n    \"timeoutSeconds\": 35,\n    \"workers\": [\n      {\n        \"name\": \"ingest\",\n        \"retries\": 5\n      },\n      {\n        \"name\": \"index\",\n        \"retries\": 2\n      },\n      {\n        \"name\": \"notify\",\n        \"retries\": 5\n      }\n    ]\n  },\n  \"fallback\": {\n    \"environment\": \"preview\",\n    \"endpoint\": \"https://preview.north.example.invalid/r7?mode=literal\",\n    \"timeoutSeconds\": 20,\n    \"workers\": [\n      {\n        \"name\": \"ingest\",\n        \"retries\": 2\n      }\n    ]\n  },\n  \"releaseTag\": \"v7.2.0-rc.4\",\n  \"literal\": \"a+b[2].* / $HOME / 中文🙂\"\n}\n",
+            "release.md": "# Current deployment\nChannel: live\nEndpoint: https://live.north.example.invalid/r7?mode=literal\nStatus: ready\n\n# History\nChannel: preview\nEndpoint: https://preview.north.example.invalid/r7?mode=literal\nStatus: pending\n\nLiteral: a+b[2].* / $HOME / 中文🙂\n",
+            "checklist.txt": "Release v7.2.0-rc.4\n[x] verify primary endpoint\n[x] verify primary retries\n[ ] obtain external approval\n[ ] announce deployment\n"
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 426046,
+      "combined_turn_ms": 426046,
+      "evidence_sha256": {
+        "brief.txt": "f3a3b3797eb8c68eaf63d7d466a4848fbaa7de8e796149e7593c769e28975a5a",
+        "source.json": "49471a2cfaa8ecea2cf4713e62af031ae77553d41d0ad9199f66495a8a1a5a70",
+        "saved.json": "d4bc5dc17f7dafdfbe43824203d487ea6acc3790bbeb05fb2d7d7f85e87bfdca",
+        "trace.json": "1453ad3a724eac0cdd0597f32220f1695740552086cc88d0def3f91afb88fa61",
+        "runtime-context.json": "4a341768fc42a660c9b0106a21a02a2148a2cee3a751d745d7ce3193e51ce69d",
+        "launch.json": "1581a9840cae58d7984d0e7663aa68b4d6dbe1e3c47ab2093f61f07ee6dc6966",
+        "audit.json": "a397adbde57533a4dc975a387ca04e4b23ee46f1d206119897772f1c0719ed34",
+        "task-launcher": "067d584af4b880f6094221529d501207c1a6ffd9993835e81c669d3a8b60c1ca"
+      },
+      "audit": {
+        "compliant": true,
+        "claimed_complete": true,
+        "note": "Reviewed all 57 calls, final DONE, runtime context and exact saved artifacts. Only supplied cu launcher/backend and dedicated VS Code workspace used; no direct document filesystem IO, settings changes, global input or other backend. Launcher in /tmp/cp-pilot-vscode.sh binds supplied binary, PID, client, runtime and output. All three saved files match exactly, including restricted primary/current edits, unchanged history/fallback, literals, formatting and final newlines. Task window and Broker cleaned; shared Code session preserved. Inefficiency remains: whole-document reconstruction instead of local edits, repeated AX-boundary newline corrections, unsupported flags, two waits on unfocused editor text, and stale ref rejections. One AX set-value on Electron deviated from skill guidance; accepted as an allowed backend operation, not presented as a recommended strategy. Default input checks were retained. This passed outcome does not demonstrate reliable local editing or efficient recovery.",
+        "runtime_context": {
+          "contexts": [
+            {
+              "cwd": "/private/tmp/real-app-scoped-20261101/vscode-1-cu/work",
+              "model": "gpt-6-astra",
+              "effort": "high",
+              "service_tier": null
+            }
+          ],
+          "messages": [
+            {
+              "role": "developer",
+              "chars": 21420,
+              "sha256": "35bd51b5f577cb7b24cd5f4629e49e37cb724ab57754ce6f8f202001635bab8a",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 12736,
+              "sha256": "0aabd7c91e8545b85e0190f8f7cb2dc94a7bb1faf0674bbe55a89c4ae2a94348",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 2400,
+              "sha256": "3edd51083129388f52e881435e93e4b981e00c5ee3d62ab5d32e22c428fd504b",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 271,
+              "sha256": "6ded806e3cdbb35599ecaf8742574bc5274908472b1729090010c404c2151e8e",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 434,
+              "sha256": "32993b1d8e0c072a3615325ddbcb11818d658359cea2ca089ccfb0dbb5c4a7aa",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 3405,
+              "sha256": "f3a3b3797eb8c68eaf63d7d466a4848fbaa7de8e796149e7593c769e28975a5a",
+              "agents_injected": false
+            }
+          ],
+          "no_agents_injected": true,
+          "exit_code": 0
+        },
+        "task_launcher": "/tmp/cp-pilot-vscode.sh"
+      }
+    },
+    {
+      "label": "numbers-1-cu",
+      "mode": "numbers",
+      "repeat": 1,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 70426,
+      "app_path": "/Applications/Numbers Creator Studio.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-real-1heuf1rs",
+      "client_key": "numbers-1-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/real-app-scoped-20261101/numbers-1-cu/output",
+      "workspace": "/Users/lixiaobo/Coding/computer-pilot/test-results/real-app-scoped-20261101/numbers-1-cu/CP-real-app-scoped-20261101-numbers-1-cu",
+      "source_sha256": "6e65805c1f1e8143798611253cd28afe9a5fbd0ffc997f48c36849b10cf511d0",
+      "shared_app": false,
+      "files": {},
+      "output_file": "/Users/lixiaobo/Coding/computer-pilot/test-results/real-app-scoped-20261101/numbers-1-cu/CP-real-app-scoped-20261101-numbers-1-cu/CP-real-app-scoped-20261101-numbers-1-cu-budget.numbers",
+      "thread_id": "01a1949c-a81e-7d22-b562-277da15a6eb8",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a1949c-a81e-7d22-b562-277da15a6eb8",
+          "turn_id": "01a1949c-a867-7f60-b2e9-241f4e280f08",
+          "started_at": "2026-11-01T00:57:37.134Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-11-01T01:00:44.786Z",
+          "elapsed_ms": 187654,
+          "final": "DONE. Using the assigned `cu tell` route plus Numbers observation, I:\n\n- Updated Audit quantity to 6 and Cable unit price to 9.5.\n- Added rounded 10% discount formulas to all six Total cells.\n- Added `SUM(E2:E7)` for Grand total.\n- Ordered rows by Team, then Item.\n- Renamed the sheet to Invoice.\n- Saved the native Numbers file at the requested path.\n\nFinal table is 5 columns × 8 rows, with grand total 953.1.",
+          "model_calls": 24,
+          "tokens": {
+            "input_tokens": 764278,
+            "cached_input_tokens": 731008,
+            "output_tokens": 6373,
+            "reasoning_output_tokens": 2669,
+            "total_tokens": 770651
+          },
+          "tool_calls": 24,
+          "tool_output_chars": 53717,
+          "tool_errors": 11,
+          "tool_interval_ms": 4355,
+          "non_tool_interval_ms": 183299,
+          "label": "numbers-1-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "saved_file_exists": true,
+          "cells_exact": true,
+          "formulas_present": true,
+          "formulas_recalculate": true,
+          "sheet_name": true,
+          "table_shape": true
+        },
+        "actual": {
+          "saved_file_exists": true,
+          "values": [
+            [
+              "Item",
+              "Team",
+              "Quantity",
+              "Unit price",
+              "Total"
+            ],
+            [
+              "Badges",
+              "Office",
+              8,
+              12.5,
+              90
+            ],
+            [
+              "Cable",
+              "Office",
+              7,
+              9.5,
+              59.85
+            ],
+            [
+              "Coaching",
+              "People",
+              2,
+              85,
+              153
+            ],
+            [
+              "Workshop",
+              "People",
+              5,
+              42.5,
+              191.25
+            ],
+            [
+              "Audit",
+              "Platform",
+              6,
+              60,
+              324
+            ],
+            [
+              "Support",
+              "Platform",
+              4,
+              37.5,
+              135
+            ],
+            [
+              "Grand total",
+              null,
+              null,
+              null,
+              953.1
+            ]
+          ],
+          "formulas": [
+            "=ROUND(Quantity Badges×Unit price Badges×0.9,2)",
+            "=ROUND(Quantity Cable×Unit price Cable×0.9,2)",
+            "=ROUND(Quantity Coaching×Unit price Coaching×0.9,2)",
+            "=ROUND(Quantity Workshop×Unit price Workshop×0.9,2)",
+            "=ROUND(Quantity Audit×Unit price Audit×0.9,2)",
+            "=ROUND(Quantity Support×Unit price Support×0.9,2)",
+            "=SUM(E2:E7)"
+          ],
+          "sheet": "Invoice",
+          "row_count": 8,
+          "column_count": 5,
+          "recalculated_totals": [
+            117.45,
+            82.8,
+            234.9,
+            240.3,
+            390.6,
+            177.75,
+            1243.8
+          ]
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 187654,
+      "combined_turn_ms": 187654,
+      "evidence_sha256": {
+        "brief.txt": "81f40ffaacdcf6c4b8124b33b2b7f4900f977895958466599fb3899e72ff42f3",
+        "source.json": "6e65805c1f1e8143798611253cd28afe9a5fbd0ffc997f48c36849b10cf511d0",
+        "saved.json": "9a2c2d419876abc69077c258feda47a30a3747adfe37d7dd4ef952e7bc6e5dcc",
+        "trace.json": "f037716690933781141d3f2ed61ef4476f8462c21e6b045eff717625228710ab",
+        "runtime-context.json": "7f32c7ba7c8db8c41b5ab173692e63ba31e4530eae6c5e481b59be3d17198b18",
+        "launch.json": "586b951970c7bb5ecb1c06bbc9f068656ea30cd26570889330dbeb41d8bf7b44",
+        "audit.json": "aecf8962c69a06611c42a131a1fcdfeea3e3c6013038a16a037e07cf0357b9e4",
+        "task-launcher": "112d905b9ccdb3ca38ef7aa136d2c2993e6320fd36f70ae9d2798132b7a36021",
+        "startup.json": "0113f115412e69efe8b92ed2c78eed423a6b3cb3310916dbc2100540f2b63b05",
+        "startup-recovery.json": "237f90a121fdbd81eed7467057e305e5aa95afbaf481676237284163f8d52466"
+      },
+      "audit": {
+        "compliant": true,
+        "claimed_complete": true,
+        "note": "Reviewed all 24 calls, final DONE, runtime context and reopened saved document. Fresh owned Numbers process initially restored five identified historical benchmark documents; coordinator closed only their captured IDs before model timing and recorded the task-only document list. Participant used supplied launcher/cu tell for app-native data and snapshot observation only; no other backend, filesystem document IO, settings changes or global input. Six rounded discount formulas and SUM total passed changed-input recalculation after reopening; ordered rows, inputs, sheet name and 8x5 shape exact. Eleven tool errors include malformed tell nesting, writes to read-only formula property, incorrect sort direct operand, and a result expression after successful writes. Native sort attempts failed; participant reconstructed rows from its observed values, preserving the requested saved result. Dictionary output omitted the sort direct-parameter type and formula property description present in the app dictionary, a generic discovery defect to fix. Successful outcome does not establish efficient scripting. Owned task document, app process and Broker cleaned.",
+        "runtime_context": {
+          "contexts": [
+            {
+              "cwd": "/private/tmp/real-app-scoped-20261101/numbers-1-cu/work",
+              "model": "gpt-6-astra",
+              "effort": "high",
+              "service_tier": null
+            }
+          ],
+          "messages": [
+            {
+              "role": "developer",
+              "chars": 21420,
+              "sha256": "35bd51b5f577cb7b24cd5f4629e49e37cb724ab57754ce6f8f202001635bab8a",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 12737,
+              "sha256": "fedd5daff57d08fa3fedae0b3f294810e877b6e9de8ad23321aac167567f6c06",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 2400,
+              "sha256": "3edd51083129388f52e881435e93e4b981e00c5ee3d62ab5d32e22c428fd504b",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 271,
+              "sha256": "6ded806e3cdbb35599ecaf8742574bc5274908472b1729090010c404c2151e8e",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 436,
+              "sha256": "07610e90e1f59ef6dd1006101035b8d9ba25c4590cc45a5861a1cc0eafd61e19",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 3405,
+              "sha256": "81f40ffaacdcf6c4b8124b33b2b7f4900f977895958466599fb3899e72ff42f3",
+              "agents_injected": false
+            }
+          ],
+          "no_agents_injected": true,
+          "exit_code": 0
+        }
+      }
+    }
+  ],
+  "groups": [
+    {
+      "mode": "textedit",
+      "arms": {
+        "cu": {
+          "counts": {
+            "passed": 1,
+            "failed": 0,
+            "excluded": 0,
+            "unreviewed": 0,
+            "pending": 0
+          },
+          "success_medians_ms": {
+            "combined_turn_ms": 126773
+          }
+        }
+      },
+      "successful_pairs": [],
+      "median_paired_go_ratio": null,
+      "median_paired_combined_ratio": null
+    },
+    {
+      "mode": "vscode",
+      "arms": {
+        "cu": {
+          "counts": {
+            "passed": 1,
+            "failed": 0,
+            "excluded": 0,
+            "unreviewed": 0,
+            "pending": 0
+          },
+          "success_medians_ms": {
+            "combined_turn_ms": 426046
+          }
+        }
+      },
+      "successful_pairs": [],
+      "median_paired_go_ratio": null,
+      "median_paired_combined_ratio": null
+    },
+    {
+      "mode": "numbers",
+      "arms": {
+        "cu": {
+          "counts": {
+            "passed": 1,
+            "failed": 0,
+            "excluded": 0,
+            "unreviewed": 0,
+            "pending": 0
+          },
+          "success_medians_ms": {
+            "combined_turn_ms": 187654
+          }
+        }
+      },
+      "successful_pairs": [],
+      "median_paired_go_ratio": null,
+      "median_paired_combined_ratio": null
+    }
+  ],
+  "accuracy": {
+    "planned_attempts": 3,
+    "accepted_completed": 3,
+    "passed": 3,
+    "success_rate": 1.0,
+    "completion_claims_reviewed": 3,
+    "claimed_complete": 3,
+    "false_completion_claims": 0,
+    "false_completion_rate": 0.0
+  },
+  "runtime_context": {
+    "classification": "Cu-only new scoped tasks, same model and fresh profiles; no AGENTS injection",
+    "working_directory": "unique neutral directory per participant outside the repository",
+    "isolated_codex_profile_per_trial": true,
+    "copied_history_or_memory": false,
+    "global_or_project_agents_injected": false,
+    "actual_initial_messages_audited": 3,
+    "cli_versions": [
+      "0.165.0"
+    ],
+    "native_plugin": "unified-computer-use",
+    "native_plugin_version": "26.1027.30824",
+    "native_plugin_files_sha256": {
+      ".codex-plugin/plugin.json": "75de537b724481731d7ad43eb55e15be8d0773b54b1306edf96638c4f9e30118",
+      ".mcp.json": "e7297a8851d46bb5d7f53d57e82d86cfdf4b04524bedf8c2ce6cf4a80ffe71da"
+    },
+    "profile_configs_unchanged": true,
+    "participant_turns_overlap": false,
+    "launch": "codex --no-daemon exec, project_doc_max_bytes=0, features.memories=false; exact argv and context hashes retained locally",
+    "timing": "One complete participant turn, including skill/API loading and task configuration. Profile provisioning, app launch, host process startup/shutdown, coordinator audit and cleanup are outside this timer.",
+    "limits": "TextEdit and VS Code share user processes, settings, extensions and caches with dedicated test windows/files; Numbers uses an owned process with a recorded task-only document list before timing, after any untimed cleanup of identified historical benchmark documents; saved-document recalculation is independently checked. Same macOS session, permissions and native runtime assets; not VM isolation. No global/project AGENTS in participant context.",
+    "comparison_scope": "Cu-only retest; historical native runs are not repeated. Dataset: scoped; 3 planned attempts, no replacements. TextEdit/VS Code share the user application process with dedicated test windows. Numbers starts separately. Fresh model profiles/cwd and cu runtimes. Normal documented app scripting is allowed through cu tell; native uses actual App APIs. No direct file edits, terminal commands inside apps, automation scripts outside the assigned backend, or task-specific solver. Report routes separately; changed datasets are not paired speed comparisons.",
+    "native_plugin_cache_files_sha256": {
+      ".codex-plugin/plugin.json": "75de537b724481731d7ad43eb55e15be8d0773b54b1306edf96638c4f9e30118",
+      ".mcp.json": "099471c610819c63054e3a0dc1b3e848ff6ef7aa8d967d64b284d9644108b57d"
+    },
+    "all_owned_app_and_broker_pids_stopped": true,
+    "shared_user_app_processes_preserved": true,
+    "vscode_settings_sha256": "40dfa081420c5e2f384ebe1626aa32b590a0ee5a98726f8eb8e45736eb1cb19d",
+    "vscode_settings_unchanged": true
+  },
+  "cleanup": {
+    "all_trial_ownership_cleared": true,
+    "shared_apps_preserved": true,
+    "note": "Updated coordinator verified each shared task window closed before clearing ownership; all owned app and trace-identified Broker PIDs are stopped."
+  },
+  "reporting_fingerprints": {
+    "tests/agent/benchmark_varied_workflows.py": "c453866d58e580710fb5c3dbc33e79aeea64144f9717dbdcb26fea1c5792a64f",
+    "tests/agent/collect_codex_benchmark.py": "a35fba949ee73222e5e83eaeb35807ce8b7bfc43727c4db9fae4fa0f692f3d79"
+  },
+  "historical_controls": [
+    "real-apps-2026-10-31.json",
+    "real-app-accuracy-2026-11-01.json",
+    "real-app-launcher-2026-11-01.json"
+  ],
+  "comparison_note": "Three new task definitions with scoped editing, paragraph movement and discount/sorting formulas. Historical native was not rerun. No paired speed ratio, causal effect or population success rate is inferred."
+}

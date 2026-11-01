@@ -90,7 +90,7 @@ cu_human "apps"
 assert_exit_zero "apps human exits 0"
 assert_contains "Finder in human output" "Finder"
 # Human format: "* Finder (pid NNN)" or " S Finder (pid NNN)"
-if echo "$OUT" | grep -qE 'Finder \(pid [0-9]+\)'; then
+if grep -qE 'Finder \(pid [0-9]+\)' <<< "$OUT"; then
   _pass "human format: name (pid N)"
 else
   _fail "human format: name (pid N)" "${OUT:0:200}"

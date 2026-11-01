@@ -37,8 +37,10 @@ def run(*args, ok=True):
         assert p.returncode != 0 and d.get("ok") is False, d
     return d
 
-fixture = subprocess.Popen([str(bundle / "MacOS/LatencyFixture")],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+events = bundle.parent / "events.log"
+with events.open("w") as output:
+    fixture = subprocess.Popen([str(bundle / "MacOS/LatencyFixture")],
+                               stdout=output, stderr=subprocess.DEVNULL)
 try:
     app = f"pid:{fixture.pid}"
     for attempt in range(40):
@@ -54,6 +56,41 @@ try:
     field = next(e for e in snap["elements"] if e["role"] == "textfield")
     ref = str(field["ref"])
     path = field["axPath"]
+
+    # No observation/effect check may be needed between grouped shortcuts,
+    # but their short-lived senders must still deliver the actual events.
+    # Count delivery in the background app, independently of menu handling.
+    for _ in range(10):
+        run("key", "cmd+a", "--app", app, "--no-snapshot", "--no-verify")
+    delivered = run("snapshot", app, "--limit", "200")
+    assert any(e.get("value") == "Key events: 10" for e in delivered["elements"]), delivered
+
+    # Enter is handled without a visible change. A tree-diff heuristic must
+    # neither reject it nor report an unrelated AX change as successful submit.
+    enter = run("key", "enter", "--app", app)
+    assert enter["dispatched"] and enter["effect_verified"] is None, enter
+    assert events.read_text() == "enter handled\n", events.read_text()
+    assert enter["snapshot"]["focused"]["value"] == "initial", enter
+
+    # A key's observation must wait for the dispatched event's asynchronous
+    # update. This is observation timing, not a claim that F6 achieved a task.
+    delayed = run("key", "f6", "--app", app)
+    assert delayed["snapshot"]["focused"]["value"] == "delayed-key-change", delayed
+    assert delayed["effect_verified"] is None, delayed
+    assert delayed["dispatched"] and delayed["confidence"] == "medium", delayed
+    assert delayed["advice"].startswith("the event was dispatched"), delayed
+    assert "effect_advice" not in delayed, delayed
+
+    # --no-verify defers effect interpretation, not the settle needed by an
+    # emitted JSON snapshot. The fixture applies X after 100 ms; a snapshot
+    # taken immediately would still report the previous value.
+    run("set-value", ref, "initial", "--app", app, "--no-snapshot")
+    delayed_type = run("type", "X", "--app", app, "--no-verify")
+    assert delayed_type["verification_skipped"].startswith("--no-verify"), delayed_type
+    assert delayed_type["snapshot"]["focused"]["value"] == "delayed-type-change", delayed_type
+    assert delayed_type.get("settle_ms", 0) >= 50, delayed_type
+    run("set-value", ref, "initial", "--app", app, "--no-snapshot")
+    snap = run("snapshot", app, "--limit", "1")
 
     # The fixture changes its value and posts AXValueChanged during the AX
     # setter. A subscription created after dispatch misses this notification.
@@ -106,13 +143,17 @@ try:
     run("set-value", ref, "", "--app", app, "--limit", "200",
         "--observation", clicked["observation_id"])
 
+    empty = run("snapshot", app, "--limit", "200")
+    assert empty["focused"]["value"] == "", empty
+    assert next(e for e in empty["elements"] if e["ref"] == int(ref))["value"] == "", empty
+
     # Long Unicode text crosses event boundaries and surrogate pairs. Require
     # exact final content, not merely a changed value or an output field.
     text = "x" * 19 + "😀" + "native中文😀" * 100
     started = time.perf_counter()
     typed = run("type", text, "--app", app, "--no-paste")
     elapsed = (time.perf_counter() - started) * 1000
-    assert typed["effect_verified"] is True, typed
+    assert typed["effect_verified"] is None and typed["value_changed"] is True, typed
     assert typed["snapshot"]["focused"]["value"] == text, typed
     observed = run("snapshot", app, "--limit", "200")
     assert observed["focused"]["value"] == text, observed
@@ -165,7 +206,7 @@ try:
     run("set-value", "", "--ax-path", other["axPath"], "--app", app, "--no-snapshot")
     run("click", "--ax-path", other["axPath"], "--app", app)
     typed = run("type", "late-field", "--app", app, "--no-paste")
-    assert typed["effect_verified"] is True, typed
+    assert typed["effect_verified"] is None and typed["value_changed"] is True, typed
     assert typed["snapshot"]["focused"]["value"] == "late-field", typed
 
     # Compact observations use the same private full tree and refs. A shell
@@ -174,6 +215,12 @@ try:
     env = dict(os.environ, CU_BIN=cu, CU_APP=app,
                COMPUTER_PILOT_CLIENT_KEY="compact-latency")
     helper = pathlib.Path(cu).resolve().parents[2] / "plugin/skills/computer-pilot/scripts/session.sh"
+    config = bundle.parent / "pilot"
+    config.write_text("#!/bin/sh\n" + "\n".join(
+        f"export {key}={shlex.quote(env[key])}" for key in
+        ("CU_BIN", "CU_APP", "COMPUTER_PILOT_CLIENT_KEY")
+    ) + "\nexec /bin/sh " + shlex.quote(str(helper)) + ' "$@"\n')
+    config.chmod(0o700)
 
     def compact(*args):
         p = subprocess.run([cu, "--compact", *args], env=env,
@@ -184,10 +231,10 @@ try:
     compact("snapshot", app, "--limit", "200")
     exact = "compact中文😀\n\"quoted\"\\path " * 40
     script = "\n".join([
-        ". " + shlex.quote(str(helper)),
-        shlex.join(["cu", "set-value", ref, exact]),
-        shlex.join(["cu", "set-value", str(other["ref"]), "second-field"]),
-        "cu snapshot",
+        "set -e",
+        shlex.join([str(config), "set-value", ref, exact, "--no-snapshot"]),
+        shlex.join([str(config), "set-value", str(other["ref"]), "second-field", "--no-snapshot"]),
+        shlex.quote(str(config)) + " snapshot",
     ])
     grouped = subprocess.run(["/bin/sh", "-ec", script], env=env,
                              capture_output=True, text=True, timeout=15)
@@ -216,10 +263,10 @@ try:
     # A full JSON observation remains available, including paths/geometry.
     assert all("axPath" in e and "width" in e for e in full["elements"])
 
-    # Failing an action stops the sourced helper's group before the next edit.
+    # Failing an action stops an explicit shell group before the next edit.
     failed = subprocess.run(["/bin/sh", "-ec", "\n".join([
-        ". " + shlex.quote(str(helper)), "cu click 99999",
-        shlex.join(["cu", "set-value", ref, "must-not-run"]), "cu snapshot",
+        "set -e", shlex.quote(str(config)) + " click 99999",
+        shlex.join([str(config), "set-value", ref, "must-not-run"]), shlex.quote(str(config)) + " snapshot",
     ])], env=env, capture_output=True, text=True, timeout=15)
     assert failed.returncode != 0 and not failed.stdout, failed
     error = json.loads(failed.stderr)
@@ -229,11 +276,6 @@ try:
 
     # Use the same task file for every kind of command and across new shells.
     # The configured binary must win even if another `cu` is on PATH.
-    config = bundle.parent / "cu-env.sh"
-    config.write_text(helper.read_text() + "\n" + "\n".join(
-        f"export {key}={shlex.quote(env[key])}" for key in
-        ("CU_BIN", "CU_APP", "COMPUTER_PILOT_CLIENT_KEY")
-    ) + "\n")
     shadow = bundle.parent / "shadow"
     shadow.mkdir()
     wrong_binary = shadow / "cu"
@@ -242,7 +284,7 @@ try:
     session_env = dict(os.environ, PATH=str(shadow) + os.pathsep + os.environ["PATH"])
 
     def session(*args, shell="/bin/sh", ok=True):
-        script = ". " + shlex.quote(str(config)) + "\n" + shlex.join(["cu", *map(str, args)])
+        script = shlex.join([str(config), *map(str, args)])
         p = subprocess.run([shell, "-c", script], env=session_env,
                            capture_output=True, text=True, timeout=15)
         d = json.loads(p.stdout or p.stderr)
@@ -250,6 +292,12 @@ try:
         return d
 
     full = session("--json", "snapshot", "--limit", "200")
+    windows = session("--json", "window", "list")
+    assert len(windows["windows"]) == 1, windows
+    assert windows["windows"][0]["title"] == "Computer Pilot latency fixture", windows
+    session("key", "cmd+a", "--no-snapshot", "--no-verify")
+    focused = session("click", other["ref"], "--no-snapshot")
+    assert focused["focus_verified"] is True and "snapshot" not in focused, focused
     # Output flags must not silently switch to untargeted ordinary CLI calls.
     # Exercise real edits from independent shells, then read the assigned app.
     for shell in ("/bin/sh", "/bin/bash", "/bin/zsh"):
@@ -259,12 +307,12 @@ try:
         observed = session("--json", "snapshot", shell=shell)
         assert observed["pid"] == fixture.pid, observed
         assert next(e for e in observed["elements"] if e["ref"] == other["ref"])["value"] == shell
-        # The copied config itself supplies stop-on-error in a fresh shell.
+        # A shell group stops on the launcher's real nonzero exit status.
         # A rejected action cannot be hidden by a subsequent successful edit.
         failed = subprocess.run([shell, "-c", "\n".join([
-            ". " + shlex.quote(str(config)), "cu click 99999",
-            shlex.join(["cu", "set-value", str(other["ref"]), "must-not-run"]),
-            "cu snapshot",
+            "set -e", shlex.quote(str(config)) + " click 99999",
+            shlex.join([str(config), "set-value", str(other["ref"]), "must-not-run"]),
+            shlex.quote(str(config)) + " snapshot",
         ])], env=session_env, capture_output=True, text=True, timeout=15)
         assert failed.returncode != 0 and not failed.stdout, failed
         assert json.loads(failed.stderr)["code"] == "stale_observation", failed.stderr
@@ -327,6 +375,74 @@ try:
     rejected = session("perform", found["match"]["ref"], "AXBogusAction", ok=False)
     assert "AXPress" in rejected["diagnostics"]["available_actions"], rejected
 
+    # A control can move to another DFS number after the freshness read.
+    # Dispatch must use the retained object, never resolve that number again.
+    current = session("--json", "snapshot")
+    arm = next(e for e in current["elements"] if e.get("title") == "Reorder on read")
+    for action in ("set-value", "click"):
+        current = session("--json", "snapshot")
+        first = next(e for e in current["elements"] if e.get("title") == "latency-input")
+        second = next(e for e in current["elements"] if e.get("title") == "other-input")
+        session("perform", "AXPress", "--ax-path", arm["axPath"], "--no-snapshot")
+        if action == "set-value":
+            session("set-value", first["ref"], "retained-target")
+        else:
+            clicked = session("click", first["ref"])
+            assert clicked["focus_verified"] is True, clicked
+        reordered = session("--json", "snapshot")
+        intended = next(e for e in reordered["elements"] if e.get("title") == "latency-input")
+        untouched = next(e for e in reordered["elements"] if e.get("title") == "other-input")
+        assert intended["ref"] != first["ref"], (first, intended)
+        assert intended["value"] == "retained-target", intended
+        assert untouched["value"] == second["value"], (second, untouched)
+        if action == "click":
+            assert reordered["focused"]["ref"] == intended["ref"], reordered
+
+    # Observation changes are not claims that the requested content landed.
+    current = run("snapshot", app, "--limit", "200")
+    first = next(e for e in current["elements"] if e.get("title") == "latency-input")
+    transform = next(e for e in current["elements"] if e.get("title") == "Transform next input")
+    run("click", "--ax-path", first["axPath"], "--app", app)
+    run("perform", "AXPress", "--ax-path", transform["axPath"], "--app", app)
+    typed = session("type", "X", "--no-paste")
+    assert typed["snapshot"]["focused"]["value"] == "changed-by-application", typed
+    assert typed["value_changed"] is True and typed["effect_verified"] is None, typed
+    assert typed["confidence"] == "medium" and typed["effect_advice"], typed
+    # Replacing the same text is not a proven delivery failure. No automatic
+    # retry may duplicate it, and the attached state remains available.
+    session("key", "cmd+a")
+    unchanged = session("type", "changed-by-application", "--no-paste", ok=False)
+    assert unchanged["code"] == "unknown_outcome", unchanged
+    assert unchanged["diagnostics"]["value_changed"] is False, unchanged
+    assert unchanged["diagnostics"]["snapshot"]["focused"]["value"] == "changed-by-application", unchanged
+
+    # Default click reports actual checkbox state and diff, without equating
+    # a changed tree to completion. This also covers legacy --verify and
+    # private observation with --no-snapshot on an owned app, not user Finder.
+    for flags in ([], ["--verify", "--no-snapshot"]):
+        current = run("snapshot", app, "--limit", "200")
+        checkbox = next(e for e in current["elements"] if e.get("title") == "Urgent")
+        clicked = run("click", str(checkbox["ref"]), "--app", app, *flags)
+        assert clicked["verified"] is None and sum(clicked["verify_diff"].values()) > 0, clicked
+        assert clicked["verify_advice"], clicked
+        current = clicked.get("snapshot") or run("snapshot", app, "--limit", "200")
+        assert next(e for e in current["elements"] if e.get("title") == "Urgent")["value"] != checkbox["value"]
+        assert ("snapshot" in clicked) == ("--no-snapshot" not in flags), clicked
+    idle = next(e for e in current["elements"] if e.get("title") == "Item 0")
+    clicked = run("click", str(idle["ref"]), "--app", app)
+    assert clicked["verified"] is None and sum(clicked["verify_diff"].values()) == 0, clicked
+    assert "Do not repeat" in clicked["verify_advice"], clicked
+    assert "--allow-global" not in clicked["verify_advice"], clicked
+    skipped = run("click", str(idle["ref"]), "--app", app, "--no-verify")
+    assert "verified" not in skipped and "verify_diff" not in skipped, skipped
+
+    # Root help/version use the bound binary without a separate setup path.
+    for option, expected in (("--help", "Usage:"), ("--version", "cu ")):
+        script = shlex.join([str(config), option])
+        p = subprocess.run(["/bin/sh", "-c", script], env=session_env,
+                           capture_output=True, text=True, timeout=15)
+        assert p.returncode == 0 and expected in p.stdout, (p.stdout, p.stderr)
+
     # Replace the entire view asynchronously. Refs returned by wait must be
     # usable directly, without a redundant snapshot to register them first.
     found = session("find", "--role", "button", "--title-equals", "Next page", "--first")
@@ -356,6 +472,8 @@ try:
     event_text = exact.replace("\n", " ")
     typed = session("type", event_text, "--no-paste")
     assert "combo" not in selected and "text" not in typed, (selected, typed)
+    assert typed["value_changed"] is True and typed["effect_verified"] is None, typed
+    assert typed["snapshot"]["focused"]["value"] == event_text, typed
     full = session("--json", "snapshot")
     assert full["elements"][0]["value"] == event_text, full
 
@@ -388,6 +506,38 @@ try:
     remaining = run("window", "list", "--app", app)
     assert len(remaining["windows"]) == 1, remaining
     assert session("snapshot")["elements"][0]["value"] == event_text
+
+    # Reusing the native control in the same window does not authorize an old
+    # document's write. Caption/path changes preserve this context boundary.
+    original = session("--json", "snapshot")
+    field = original["elements"][0]
+    session("key", "f7")
+    rejected = session("set-value", field["ref"], "wrong-document-write",
+                       "--observation", original["observation_id"], ok=False)
+    assert rejected["code"] == "stale_observation", rejected
+    assert rejected["window_id"] == original["window_id"], rejected
+    assert rejected["diagnostics"]["dispatched"] is False, rejected
+    current = rejected["diagnostics"]["snapshot"]["elements"][0]
+    assert all(current.get(k) == field.get(k) for k in ("ref", "role", "title", "value")), current
+    assert current["value"] == event_text, current
+
+    # Native focus identity works even when no ref/path is in the truncated
+    # tree. A value on a different focused object must not count as delivery.
+    current = session("snapshot")
+    deep = next(e for e in current["elements"] if e.get("title") == "Deep input")
+    session("click", deep["ref"])
+    current = session("snapshot")
+    assert current["depth_limited"] and "ref" not in current["focused"], current
+    assert current["focused"]["value"] == "deep initial", current
+    typed = session("type", "deep exact", "--no-paste")
+    assert typed["value_changed"] is True and typed["effect_verified"] is None, typed
+    assert typed["snapshot"]["focused"]["value"] == "deep exact", typed
+    unchanged = session("type", "?", "--no-paste", ok=False)
+    assert unchanged["diagnostics"]["value_changed"] is False, unchanged
+    moved = session("type", "!", "--no-paste", ok=False)
+    assert moved["code"] == "unknown_outcome", moved
+    assert moved["diagnostics"]["value_changed"] is None, moved
+    assert moved["diagnostics"]["snapshot"]["focused"]["value"] == "focus moved", moved
 
 finally:
     fixture.terminate()

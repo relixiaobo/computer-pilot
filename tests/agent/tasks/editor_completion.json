@@ -1,0 +1,36 @@
+{
+  "local": {
+    "mode": "vscode",
+    "files": {
+      "note.md": "# Release note\nProject: Cedar\nBatch: CD-284\nStatus: draft\nOwner: 林\nReview date: 2026-12-14\nEndpoint: https://preview.cedar.example.invalid/v4/items?team=lab-8\n\nScope: desktop editor reliability\nKeep: a+b[2].* / $HOME / C:\\records\\r4 / 中文🙂\n\n## Checklist\n[ ] review release note\n[ ] obtain external approval\n\n## Archive\nStatus: archived\nOwner: 周\nBatch: CD-199\n"
+    },
+    "expected_files": {
+      "note.md": "# Release note\nProject: Cedar\nBatch: CD-284\nStatus: ready\nOwner: 许\nReview date: 2026-12-21\nEndpoint: https://release.cedar.example.invalid/v4/items?team=lab-8\n\nScope: desktop editor reliability\nKeep: a+b[2].* / $HOME / C:\\records\\r4 / 中文🙂\n\n## Checklist\n[x] review release note\n[ ] obtain external approval\n\n## Archive\nStatus: archived\nOwner: 周\nBatch: CD-199\n"
+    },
+    "goal": "In the supplied VS Code workspace {workspace}, edit note.md: set release Status to ready, Owner to 许, Review date to 2026-12-21, and change the Endpoint host from preview.cedar.example.invalid to release.cedar.example.invalid while preserving path/query. Check only review release note. Keep the archive, external approval, other values, literals, formatting, blank lines and final newline unchanged. Save and observe the result."
+  },
+  "scoped": {
+    "mode": "vscode",
+    "files": {
+      "routes.ini": "# Route configuration — a+b[2].* / $HOME / 中文🙂\n[active]\nregion = ap-south-1\nendpoint = https://preview.delta.example.invalid/events?q=alpha+beta\nstatus = draft\nowner = Chen\nretry = 2\n\n[archive]\nregion = ap-south-1\nendpoint = https://preview.delta.example.invalid/events?q=alpha+beta\nstatus = draft\nowner = Chen\nretry = 2\n\n# Example only: status = draft; retry = 2\n"
+    },
+    "expected_files": {
+      "routes.ini": "# Route configuration — a+b[2].* / $HOME / 中文🙂\n[active]\nregion = ap-south-1\nendpoint = https://live.delta.example.invalid/events?q=alpha+beta\nstatus = ready\nowner = Lin\nretry = 5\n\n[archive]\nregion = ap-south-1\nendpoint = https://preview.delta.example.invalid/events?q=alpha+beta\nstatus = draft\nowner = Chen\nretry = 2\n\n# Example only: status = draft; retry = 2\n"
+    },
+    "goal": "In the supplied VS Code workspace {workspace}, edit only the [active] section of routes.ini: change the endpoint host preview.delta.example.invalid to live.delta.example.invalid, status to ready, owner to Lin, retry to 5. Preserve [archive] and the example comment despite their identical values. Keep all unrelated text, URL path/query, indentation, literals and final newline unchanged. Save and observe the result."
+  },
+  "multi": {
+    "mode": "vscode",
+    "files": {
+      "delivery.toml": "# Orion delivery configuration\nrelease = \"OR-318\"\n\n[outbound]\nenabled = false\nendpoint = \"https://staging.orion.example.invalid/v9/send?tenant=q-31\"\ntimeout = 25\nretries = 2\n\n[inbound]\nenabled = true\nendpoint = \"https://staging.orion.example.invalid/v9/receive?tenant=q-31\"\ntimeout = 25\nretries = 2\n\n# literal: a+b[2].* / $HOME / C:\\keep\\orion / 中文🙂\n",
+      "handoff.md": "# Current handoff\nRelease: OR-318\nEnvironment: staging\nOwner: 郑\nStatus: pending\n\n# Prior handoff\nRelease: OR-302\nEnvironment: staging\nOwner: 郑\nStatus: pending\n\nDo not alter: https://archive.orion.example.invalid/OR-302?raw=1\n",
+      "checks.txt": "Release OR-318\n[ ] outbound enabled\n[ ] outbound endpoint verified\n[ ] outbound retry policy verified\n[ ] handoff reviewed\n[ ] external approval\n[ ] publish announcement\n"
+    },
+    "expected_files": {
+      "delivery.toml": "# Orion delivery configuration\nrelease = \"OR-318\"\n\n[outbound]\nenabled = true\nendpoint = \"https://prod.orion.example.invalid/v9/send?tenant=q-31\"\ntimeout = 40\nretries = 4\n\n[inbound]\nenabled = true\nendpoint = \"https://staging.orion.example.invalid/v9/receive?tenant=q-31\"\ntimeout = 25\nretries = 2\n\n# literal: a+b[2].* / $HOME / C:\\keep\\orion / 中文🙂\n",
+      "handoff.md": "# Current handoff\nRelease: OR-318\nEnvironment: production\nOwner: 吴\nStatus: ready\n\n# Prior handoff\nRelease: OR-302\nEnvironment: staging\nOwner: 郑\nStatus: pending\n\nDo not alter: https://archive.orion.example.invalid/OR-302?raw=1\n",
+      "checks.txt": "Release OR-318\n[x] outbound enabled\n[x] outbound endpoint verified\n[x] outbound retry policy verified\n[x] handoff reviewed\n[ ] external approval\n[ ] publish announcement\n"
+    },
+    "goal": "In the supplied VS Code workspace {workspace}, inspect all three files. In delivery.toml change only [outbound]: enabled=true, endpoint host staging.orion.example.invalid to prod.orion.example.invalid (preserve path/query), timeout=40, retries=4. Preserve [inbound] entirely. In handoff.md change only Current handoff: Environment to production, Owner to 吴, Status to ready. Preserve Prior handoff. In checks.txt mark the three outbound items and handoff reviewed [x], keeping external approval and publish announcement unchecked. Preserve all other content, formatting, literals, blank lines and final newlines. Save all three files and observe their final contents."
+  }
+}

@@ -3,6 +3,695 @@
 Real LLM agent tests for `cu`. Unlike `tests/commands/` (which test "does the command work"),
 these tests verify "can an agent complete a real task correctly".
 
+## Real application comparisons
+
+`benchmark_real_apps.py` reuses the rollout collector and status/pair reporting
+from the varied-workflow benchmark, with real applications and saved-artifact
+verification. This is an application-efficiency pilot, not an AX microbenchmark.
+
+```bash
+python3 tests/agent/benchmark_real_apps.py test-results/real-apps-NEW prepare
+python3 tests/agent/benchmark_real_apps.py test-results/real-apps-NEW start LABEL
+# Run the generated brief in a fresh model profile and neutral cwd, save thread.txt.
+python3 tests/agent/benchmark_real_apps.py test-results/real-apps-NEW collect LABEL --rollouts PROFILE/sessions
+python3 tests/agent/benchmark_real_apps.py test-results/real-apps-NEW stop LABEL
+# Audit each complete trace/context, then:
+python3 tests/agent/benchmark_real_apps.py test-results/real-apps-NEW report
+```
+
+For a fresh cu-only accuracy check with different source content, prepare with
+`--cu-only --dataset alternate`. It freezes one attempt each for TextEdit, VS Code
+and Numbers; it does not rerun native or replace a failed attempt. The alternate
+dataset changes source literals, preserved config fields and spreadsheet inputs,
+while keeping the same task types. Historical timings on different data are
+context, not paired speed ratios. Referenced skill files are frozen too.
+
+`--cu-only --dataset scoped` adds three distinct tasks: section-scoped TextEdit
+edits plus paragraph movement, VS Code primary/history edits with repeated values
+that must remain unchanged elsewhere, and Numbers discounted formulas with
+Team/Item sorting. Exact expected text (including JSON formatting/newlines) and
+spreadsheet outcomes live in `tasks/real_apps_scoped.json`, frozen by the manifest
+and never supplied to participants. Formula checks perturb reopened saved inputs.
+
+`--cu-only --dataset editor` freezes three new VS Code cases in
+`tasks/editor_completion.json`: local changes, repeated values in a limited
+section, and three related files. All preserve unrelated text and final newlines.
+For these exact-file tasks, the runner calls `record_saved_timeline(trial, stopped)`
+in a coordinator thread from launch until process exit, setting the stop event in
+`finally`. It samples only the task files every 250 ms and records hash/exactness
+transitions plus a final sample. This oracle never supplies participant feedback,
+ends a trial early, or repairs its files. Report first **observed** all-correct
+saved state, any later regression, and remaining task time/calls separately.
+Sampling is not the exact save instant, and final saved bytes alone do not prove
+the agent completed. Capture preserves CRLF/LF differences instead of normalizing
+newlines during verification. The sampler's small read cost remains in wall time.
+
+Numbers setup now refuses an existing process, requests fresh launch and verifies
+that only the supplied document is open before timing. `open -F` alone does not
+establish isolation: iWork may still restore its own documents, including items
+temporarily named Untitled. A rejected untimed setup needs ownership-based cleanup
+and a recorded clean document list before a participant runs. Cleanup closes task
+documents by captured document IDs, recognizes task filenames when titles differ,
+and quits normally only when no non-task documents remain. It does not force-kill
+an app containing unexpected documents or modify global restoration preferences.
+
+Audit `claimed_complete` as a boolean alongside `compliant` after reading each
+final response and trace. The report counts saved-artifact successes over all
+planned attempts, and false completion claims over audited, compliant completed
+attempts that claimed success; it reports claim-audit coverage separately.
+Missing claim audits never count as honest reports. Per-app timing medians still
+include successful attempts only. Numbers evaluation also changes quantity and
+price in the reopened document, checks recalculated totals, then closes without
+saving; constant formulas cannot satisfy the calculation requirement.
+
+The manifest freezes six attempts, one matching dataset per application, with
+alternating arm order, gpt-6-astra/high, no tier override, application versions
+and binary/skill/coordinator hashes. The same fresh-profile procedure used below
+removes global/project AGENTS and previous model history. Each full task turn
+includes skill/API discovery and setup. App launch, coordinator checks and cleanup
+are outside the timer; the runner enforces the predeclared 600-second wall limit.
+All failures, interruptions, protocol deviations and recovery costs are retained;
+no individual attempt is replaced.
+
+- TextEdit: revise six Chinese sections, preserving unrelated text and newlines,
+  then save the original plain-text file. Verification reads disk bytes as text.
+- VS Code: inspect and update a JSON service config, Markdown release note and
+  text checklist; save all three. Verification checks every requested field and
+  unchanged content, rather than the visible editor buffer alone.
+- Numbers: update two inputs, calculate six row formulas and a total, sort the
+  data rows, rename the sheet and save a native document. Verification closes the
+  task document without saving, reopens its saved file, and independently reads
+  cell values, formulas, order and dimensions through application scripting.
+
+The user explicitly chose shared TextEdit/VS Code processes with dedicated test
+windows and independent file copies. Existing settings, extensions and caches
+therefore remain shared; this must not be described as complete app isolation.
+Numbers starts separately. Shared apps are not quit during cleanup; only the
+observed matching task window is closed. Participants must not change user settings
+or act on other windows, and may foreground their test window when input needs it.
+
+cu may use either its UI commands or app-native document scripting through
+`cu tell`, following the packaged skill. Native uses the actual Computer Use App
+API. Direct document filesystem edits, integrated terminal/script execution,
+external backends and prepared solvers are forbidden. Report the route used:
+a scripting win is product-level task efficiency, not faster AX clicking.
+Only compliant successful pairs receive a timing ratio. A correct file produced
+after changing shared user settings is still a protocol deviation.
+
+### Real-app pilot — 2026-10-31
+
+[Audited results](benchmarks/real-apps-2026-10-31.json) retain all six attempts
+against frozen candidate `75967e0`. TextEdit 1.20, VS Code 1.142.0 and Numbers
+15.1 ran with gpt-6-astra/high and Codex CLI 0.165.0. Actual initial contexts
+confirmed six distinct profiles/cwds with no AGENTS injection. Production code,
+skill and helper were unchanged throughout; only this report was added afterward.
+
+| Application | Built-in Computer Use | cu | Tool calls / errors: native; cu |
+| --- | --- | --- | --- |
+| TextEdit | **Passed, 53.219 s** | Failed, 88.689 s: visible text correct, saved file original | 3 / 0; 6 / 1 |
+| VS Code | Excluded, 79.638 s: correct files, changed user setting | Failed, 110.599 s: Select All ineffective, insertion stopped unsaved | 16 / 1; 15 / 3 |
+| Numbers | Interrupted at 599.748 s by 600 s wall cap; no saved output | **Passed, 125.107 s**, app-native scripting | 39 / 2; 14 / 6 |
+
+There are two accepted successes, two completed failures, one settings deviation
+and one timeout. **No application has two compliant successes, so there is no
+paired speed ratio or overall speed ranking.** Failed/excluded durations describe
+time spent, not successful completion speed. Numbers native counts cover completed
+calls before interruption; its zero complete-turn accumulator is not a duration.
+
+The traces identify follow-up work without establishing every root cause:
+
+- TextEdit cu grouped an AX value write, PID-targeted Save and final snapshot.
+  The snapshot looked correct while disk content was untouched. Diagnose document
+  edit notification and shortcut delivery before changing generic verification;
+  the observation alone cannot distinguish these causes.
+- VS Code cu's Select All left the old content in place. Verified typing detected
+  an unknown outcome and the agent stopped. Native completed the files after
+  enabling screen-reader accessibility with `shift+alt+F1`, which changed the
+  shared user setting `editor.accessibilitySupport`. That violates this block's
+  rules. Only the added setting was removed, restoring bytes identical to the
+  pre-task local-history baseline. Future editor trials need an explicit common
+  accessibility baseline before timing; this attempt is not replaced.
+- The helper's argument contract caused duplicate `--no-snapshot` and missing
+  application arguments for commands outside its targeted-action cases. Clarify
+  that general contract before adding per-application recovery instructions.
+- Numbers cu recovered from six discovery/script errors, including a sort error
+  after two writes had already applied. It read current values before continuing.
+  Native spent repeated rounds on cell selection/input and never completed sort
+  and save. This supports testing script discovery and input semantics separately;
+  it does not establish that cu's AX operations are faster.
+
+Tool interval totals were 2.191/0.181 s for TextEdit native/cu, 13.344/2.774 s
+for VS Code, and 38.573/3.092 s for Numbers (native partial). The remainder includes
+model, network and orchestration time, not just model reasoning. Fewer recovery
+rounds and correct command discovery may matter more than shaving dispatch time.
+
+This is one dataset per application, with shared TextEdit/VS Code settings,
+extensions and caches. LibreOffice failed startup during untimed preflight and
+was replaced with Numbers before freezing the block; it is not a timed failure.
+All owned app/Broker processes stopped and the shared user apps remained alive.
+Cleanup needed an explicit Don't Save on the failed VS Code task window after
+automatic close left an unsaved-changes dialog. Both shared apps were then checked
+for remaining test windows. Future runs must inspect such dialogs rather than
+treat a close dispatch or cleared coordinator PID as proof of cleanup.
+
+### Fixes from the real-app pilot
+
+Direct event logging reproduced a delivery race: a shortcut worker that omitted
+its snapshot could exit before its key events reached the application. The
+same shortcut worked when the sender remained alive. Commands without a final
+capture now retain the sender for 10 ms; Unicode typing uses that interval for
+its last chunk, with its existing 3 ms pacing between chunks. Snapshot and paste
+paths do not receive an additional shortcut delay. This is dispatch pacing, not
+an assertion that a background app handled a menu shortcut. Background menu
+commands can still require explicit, authorized window focus or app scripting.
+
+The helper now binds `window` commands and documents which commands retain an
+explicit application argument. Repeated `--no-snapshot`/`--no-verify` booleans are
+idempotent; target ambiguity and identity checks remain intact. `cu tell` always
+supplies its promised application context, including expressions starting with
+`tell document ...`; the former prefix heuristic incorrectly skipped it. Recovery
+guidance accepts visual evidence when an editor exposes no AX text, without
+changing user settings or replaying uncertain input. Menu help no longer implies
+that its read-only listing supplies actionable menu paths.
+
+Cleanup now waits briefly for asynchronous window close and reports a remaining
+task window instead of clearing ownership behind an unsaved-changes dialog.
+The coordinator never quits a shared app or blindly answers a save dialog.
+
+Validation includes real key delivery without intermediate snapshots, exact
+920-scalar Unicode input, helper binding/duplicate flags, nested Finder/TextEdit
+scripting, and three rounds each of saved TextEdit and VS Code edits. Shared
+VS Code settings bytes were unchanged. These are functional diagnostics, not
+fresh-agent performance samples; VS Code exposed AX text during the diagnostic,
+unlike its initial pilot attempt. The command suite also exposed a help-test
+SIGPIPE false failure from `echo | grep -q` under `pipefail`; direct input fixes
+the harness without changing CLI behavior.
+
+### Fresh cu-only retest — 2026-10-31
+
+[Audited results](benchmarks/real-app-fixes-2026-10-31.json) retain three
+predeclared attempts on frozen candidate `2e3eb7b`, using the same model, tasks
+and 600-second wall cap. All three had fresh model profiles/cwds without AGENTS.
+The native pilot above was not rerun. Shared TextEdit/VS Code application state
+remains a limitation; these are historical comparisons, not simultaneous pairs.
+
+| Application | Earlier cu | Fresh cu | Fresh calls / errors |
+| --- | --- | --- | --- |
+| TextEdit | Failed, 88.689 s | Passed, 167.348 s; AX edit and Save | 9 / 0 |
+| VS Code | Failed, 110.599 s | Interrupted at 599.303 s; incomplete files, excluded | 48 / 8 completed |
+| Numbers | Passed, 125.107 s | Passed, 246.572 s; scripting and save-dialog recovery | 40 / 8 |
+
+TextEdit now saved exact contents but remained slower than the historical native
+53.219-second success. Numbers passed all independently reopened values/formulas,
+but took more recovery rounds than its earlier cu attempt. VS Code saved correct
+JSON; the other two files had newline/content mismatches. Its trace also contains
+read-only calls outside the task runtime and a snapshot redirected outside the
+brief's permitted configuration writes. It is retained as interrupted/excluded,
+never as a zero-second result. Seven recorded errors were stale-ref rejections;
+the eighth was the coordinator's missing screenshot output directory. Two more
+CLI misuse errors were hidden by shell pipelines and are documented in its audit.
+
+Tool intervals totalled 0.433 s (TextEdit), 6.558 s (VS Code partial) and 15.732 s
+(Numbers). Most elapsed time was outside recorded tool intervals; these results
+do not establish an overall speed improvement. Dynamic editor recovery, late
+foregrounding and script construction remain agent-level completion problems.
+Shared VS Code settings were unchanged and all task windows/owned processes were
+cleaned up; shared user applications remained running.
+
+Post-block fixes are deliberately separate from the timed candidate: legacy
+`.scriptSuite` dictionaries now use macOS OSA conversion with the existing XML
+parser, so `apps` and `sdef` no longer misclassify TextEdit. The coordinator creates
+its screenshot output directory before launch. Skill guidance distinguishes native
+AX writes from controlled-editor input and explains scripting timeout units/context;
+shortcut advice identifies background menu handling. These changes have functional
+verification, not a replacement performance sample. CI moves from retired/brownout
+macOS 14 hosting to macOS 15; the desktop permission tests remain local.
+
+### Execution-path cleanup after the retest
+
+Ref actions and `why` now retain the exact AX object during their state scan,
+instead of traversing DFS refs again. An owned AppKit fixture changes its child
+order after the scan: the archived binary wrote the other field; the corrected
+binary writes the intended field and leaves its neighbor unchanged. Handles live
+only for one command. Client/PID/window/signature checks remain; there is no
+cross-command cache or automatic ref rebinding. The unused single-node reader
+and generic traversal modes were deleted with the second resolver.
+
+Enter no longer runs a special pre/post tree-diff check: a handled Enter can have
+no visible effect, and an unrelated change cannot prove submission. It uses the
+same dispatch/snapshot contract as other keys. The fixture consumes Enter without
+changing AX state and independently records delivery. Click recovery now reuses
+attached state rather than recommending another snapshot; unreachable typing
+advice was removed. The skill groups verified editor click/type in one shell call,
+and the helper accepts ordinary root help/version flags.
+
+A repeat unit run exposed OSA's dynamic terminology AppleEvent waiting in legacy
+script discovery. `apps` now detects legacy dictionaries from local metadata,
+without conversion or a guessed class count; only explicit `sdef` calls convert
+them. App listing also returns structured data directly instead of serializing,
+reparsing and silently falling back to an empty list. The discovery test now
+checks metadata without issuing AppleEvents from a test thread.
+
+### Frozen cleanup retest — 2026-10-31
+
+[Audited results](benchmarks/real-app-cleanup-2026-10-31.json) contain two
+predeclared cu-only attempts on `67942c9`, same datasets/model, fresh profiles and
+neutral cwds with no AGENTS. Native results were not rerun; shared app sessions
+and historical comparisons retain the limitations above.
+
+| Application | Previous cu retest | Cleanup cu retest | Calls / errors |
+| --- | --- | --- | --- |
+| TextEdit | Passed, 167.348 s | Passed, 161.806 s | 12 / 0 failed tool calls |
+| VS Code | Interrupted, 599.303 s | Failed, 269.576 s | 29 / 7 |
+
+TextEdit used AX edits and app-native save/readback; exact saved bytes passed.
+It still made multiple discovery calls and corrected a newline stripped by shell
+command substitution. Two attempts to execute its non-executable configuration
+file were masked by shell flow, so zero failed tool calls is not zero shell errors.
+VS Code completed and reported DONE, but independently saved artifacts contained
+`production.example.com` instead of `production.example.test` and unchanged
+`sandbox` headings in two files. All three retained their final newline. Its seven
+stale-ref failures were preserved; it used deferred helper typing despite the
+skill's verified-input recipe. This is time to a failed result, not faster success.
+Tool intervals totalled 0.864 s and 4.635 s; most task time remained outside tools.
+
+The installed editor's `getScreenReaderContentState` implementation appends a
+newline when the selection reaches the empty final line. Earlier cu traces show
+that exposed value prompting destructive newline correction; cu's scalar decoder
+returns the app's raw text. Post-block guidance now explains virtual-editor slices
+and boundary characters, without trimming AX values or adding an application-name
+special case. The helper setup example is scoped to repeated UI actions instead
+of implying every scripting workflow must first snapshot. These final wording
+changes were not part of the timed candidate and have no claimed timing benefit.
+
+All dedicated test windows and owned Brokers closed; shared user apps remained
+alive and VS Code settings retained SHA-256
+`40dfa081420c5e2f384ebe1626aa32b590a0ee5a98726f8eb8e45736eb1cb19d`.
+
+### Target-bound evidence and completion accuracy — 2026-11-01
+
+Candidate `03f0fc2` removes cross-snapshot ref-number matching from input/focus
+verification. Comparisons require the same PID, nonzero window ID and matching
+control role/path; each focused value is resolved in its own snapshot. A window
+title change is allowed only after window identity matches. Empty AX strings
+remain `value:""`, distinct from unreadable values. These changes reuse existing
+observations and add no AX query or persistent element cache.
+
+Typing reports `value_changed` separately from `effect_verified:null`. Generic
+click diffs similarly leave `verified:null`; a specific input-focus check can
+still verify that focus. A changed value/tree does not prove exact input, saving
+or task completion. Unchanged/incomparable input remains an unknown outcome,
+not an instruction to replay it. The packaged skill adds generic literal
+preservation and requirement-by-requirement completion checks using available
+evidence. It contains no task-specific solver or application-name text fix.
+
+Regression coverage includes reused refs selecting a neighbor, window/control
+changes, failed observations, same-text replacement and an app that transforms
+requested input into different text. The latter changes its value but cannot
+claim exact-effect verification. Two duplicate Finder-based verification suites
+were removed in favor of owned-fixture behavior checks. Validation passed:
+44 Rust tests, 16 offline benchmark tests, the native action fixture, ref
+projection (15 passed, one skipped to preserve the shared TextEdit session),
+Clippy, release build, formatting, version/skill checks and candidate CI.
+
+The [alternate-data retest](benchmarks/real-app-accuracy-2026-11-01.json) retains
+all three predeclared attempts on that candidate, with fresh profiles/cwds,
+gpt-6-astra/high, no AGENTS or memory injection, and no replacements or coaching.
+Historical native attempts were not rerun. Source literals, preserved fields and
+Numbers inputs differ, so the timings below are context, not paired speed ratios.
+
+| Application | Historical native | Latest cu outcome | Calls / errors |
+| --- | --- | --- | --- |
+| TextEdit | Passed, 53.219 s | Passed, 94.676 s | 12 / 1 |
+| VS Code | Excluded setting change, 79.638 s | Excluded global input; 600 s cap, 598.634 s recorded | 88 / 15, partial |
+| Numbers | 600 s cap, 599.748 s recorded | Excluded different binary; artifact passed, 296.540 s | 30 / 4 |
+
+TextEdit preserved the alternate archive URL, batch literal and trailing newline
+in the saved file. Background Save left `modified:true`; the participant checked
+document identity, saved through `cu tell` and observed `modified:false`.
+
+VS Code preserved the alternate JSON values but left both text headings as
+`sandbox`; release.md and service.json lost their final newline. The frozen JSON
+oracle checks parsed values, not formatting/newline preservation, so its passing
+JSON subcheck is narrower than exact file equality. Repeated stale-ref, deferred
+typing and newline/undo recovery did not complete the task. Call 87 explicitly
+sent `X` with `--allow-global` and returned `unicode-global`. Its actual recipient
+is not recorded; surrounding targeted Code snapshots cannot establish where it
+landed. No blind undo was attempted. The attempt has no final completion claim.
+
+Numbers' requested output passed independent reopen, cell/order/shape and formula
+recalculation checks: changing quantities and prices changed the grand total
+from 1959 to 2521. However, call 20 omitted the helper and queried `sdef` through
+the globally installed, different binary, violating the frozen-backend contract.
+That read-only deviation is retained and excludes the whole attempt. Recovery
+also included a save timeout, unsupported export guesses and duplicate documents.
+The active document continued pointing to iCloud after saving a local copy, which
+prompted further recovery even though the requested local artifact existed.
+
+**Compliant success is 1/3 planned attempts; two are excluded.** Artifact checks
+alone pass 2/3, which is not the compliant success rate. All final claims were
+audited: TextEdit and Numbers claimed DONE, VS Code timed out without a claim.
+The accepted-completed claim denominator is only one, with **0/1 false claims**;
+excluded Numbers must not inflate that denominator or support a broad accuracy
+claim. Recorded tool intervals were 0.907 s, 11.265 s (partial) and 38.461 s.
+These measurements do not establish a general speedup or solve editor recovery.
+
+Fresh model profiles are not full application isolation: TextEdit/VS Code share
+user sessions as authorized, and the owned Numbers process restored three old
+benchmark windows. Their titles appeared in window metadata; their contents were
+not selected/read. A future clean application block needs to prevent restored
+windows before timing. All task windows and owned processes/Brokers, including
+the accidentally started default Broker, were stopped. Shared user processes and
+VS Code settings were preserved. The uniquely named extra iCloud test copy was
+archived locally after evaluation, without repairing the requested output.
+
+
+### Executable task entrypoint and retained-target focus
+
+The packaged helper now runs through a task-owned executable launcher (`./pilot`)
+that exports its fixed binary, PID and runtime before each invocation. It no
+longer requires sourcing a shell function, silently disables verification, or
+suppresses action snapshots. Known intermediate actions can still explicitly
+use `--no-snapshot` / `--no-verify`, and shell groups use `set -e`. Controlled
+editors, help and scripting use the same entrypoint. The skill favors localized
+literal edits and requires visible evidence before correcting virtual AX boundary
+newlines. These are generic operations, not a task-specific solver.
+
+Enabling the existing default verification exposed a reproducible false failure:
+the owned fixture reordered siblings after the ref freshness read; dispatch
+focused the retained intended control, but its old path no longer matched the
+post-click path. Ref clicks now read `AXFocused` on the retained object, while
+keeping the same-PID/window check. An unreadable property is an unknown outcome.
+This is one scalar AX read, not another tree scan or a persistent handle cache.
+The fixture covers this reordered click with default verification, launcher
+binding in sh/bash/zsh despite a shadow `cu` on PATH, explicit batching, and
+unchanged-input errors with attached evidence.
+
+The [frozen launcher follow-up](benchmarks/real-app-launcher-2026-11-01.json)
+contains one predeclared VS Code attempt on `446199b`, with the same alternate
+source as the preceding accuracy block. A fresh gpt-6-astra/high profile and
+neutral cwd contained no AGENTS/memory injection. No coaching, replacement or
+native rerun occurred; the shared user app session limitation still applies.
+
+| VS Code attempt | Outcome | Recorded task time | Tool calls / errors |
+| --- | --- | ---: | ---: |
+| Previous accuracy block | Excluded global input; incomplete artifacts, 600 s cap | 598.634 s, interrupted | 88 / 15, partial |
+| Launcher follow-up | Compliant pass, all saved files correct | 90.948 s | 14 / 2 |
+
+All application commands used `./pilot`; the participant explicitly focused the
+dedicated window and used local find/select-occurrences edits. Both text files
+passed exact saved-content checks. The JSON passed the frozen structural check
+and an additional source-based exact-text audit, including unchanged fields,
+formatting and its final newline. Settings were unchanged; no global input,
+other backend or direct document filesystem access occurred. The task window
+and Broker closed while the shared Code process remained alive.
+
+This was not error-free execution. An initial Find input had no mapped AX path,
+so its changed focused value remained `unknown_outcome`; the participant used
+the attached evidence. One stale ref was rejected before dispatch. Two checklist
+selection mistakes produced visibly wrong text; group-end observations exposed
+them, and the participant corrected them before DONE. Most intermediate typing
+explicitly opted out of effect checks, so this pass cannot be attributed to
+default verification alone. Key selection semantics and unmapped focused-control
+identity remain investigation targets, not solved issues.
+
+Recorded tool time was 11.548 s; the remainder was 79.400 s. Returned text was
+190,004 characters and model output was 1,804 tokens. This establishes one
+compliant completion (1/1 planned, 0/1 false completion claims), not a population
+success rate or causal improvement. The previous task did not complete and the
+historical native attempt violated protocol, so neither supplies a valid
+successful-completion speed ratio. Validation also passed: 44 Rust tests,
+Clippy, release build, the owned native fixture, skill/version/format checks and
+candidate CI.
+
+### New scoped real-app tasks and generic follow-up fixes
+
+The [scoped block](benchmarks/real-app-scoped-2026-11-01.json) froze `0c635f8`
+and ran three new tasks, each in a new gpt-6-astra/high profile and neutral cwd,
+without AGENTS/memory injection or coaching. No native rerun or replacement.
+
+| Task | Saved-artifact result | Full task time | Calls / errors |
+| --- | --- | ---: | ---: |
+| TextEdit scoped changes + section move | Exact text passed | 126.773 s | 11 / 2 |
+| VS Code primary/current-only edits | Three exact files passed | 426.046 s | 57 / 13 |
+| Numbers discount formulas + two-key ordering | Reopened values and recalculation passed | 187.654 s | 24 / 11 |
+
+All three completion claims were correct. This is 3/3 planned tasks, not a
+population accuracy estimate. TextEdit and VS Code used shared app processes
+with dedicated files/windows. Numbers restored five identified historical test
+documents despite `open -F`; the coordinator closed only those captured IDs and
+recorded the single current document before starting the model timer. Shared
+processes/settings were preserved; task windows and owned processes were cleaned.
+
+Correct results still required substantial recovery. VS Code reconstructed
+whole files, repeatedly adjusted AX boundary newlines and hit stale-ref guards;
+one Electron AXValue write also deviated from skill guidance. Numbers tried to
+write a read-only formula property and repeatedly sent sort to a row range,
+then reconstructed the observed rows. These strategies remain findings despite
+the accepted saved outcomes. Recorded tool intervals were only 1.202 / 34.118 /
+4.355 seconds; total duration is dominated by the rest of the model/tool loop.
+Changed task definitions do not supply a paired native speed ratio.
+
+Two concrete general defects were fixed after sealing this block:
+
+- A deeply nested input can be readable through AXFocusedUIElement while absent
+  from the bounded tree. An owned 36-level fixture reproduced a real value
+  change returning `unknown_outcome` on the old binary. Input comparison now
+  retains the already-read focus object and uses native equality plus existing
+  PID/window identity; it compares the existing focused values directly. No
+  extra query, deeper traversal, persistent cache or numeric-ref fallback.
+  The fixture checks exact input, dropped input and a different focused object.
+- Scripting discovery omitted property descriptions and direct operand types.
+  The Numbers dictionary explains writing formulas through `value` and declares
+  `sort`'s operand as `table`; these were lost before the model saw them. `sdef`
+  now preserves those fields, decodes XML entities and shares one parser branch
+  for empty/nonempty XML elements. Existing parameter names remain compatible.
+
+The skill clarifies which commands accept snapshot/verification opt-outs and
+moves localized editing guidance next to controlled editor actions, removing
+duplicate text. It adds no application/task-specific solver or extra check round.
+
+
+The [frozen follow-up](benchmarks/real-app-scoped-followup-2026-11-01.json)
+ran exactly two predeclared attempts on `c4655c7`, with fresh profiles, runtime
+homes, task documents and no AGENTS/memory injection or coaching:
+
+| Task | Outcome | Recorded time | Calls / errors |
+| --- | --- | ---: | ---: |
+| VS Code | 600 s cap, no completion claim; all three saved files exact | 598.614 s interrupted | 62 / 8, partial |
+| Numbers | Completed; reopened cells and formula recalculation passed | 75.910 s | 10 / 3 |
+
+VS Code remains an efficiency failure. Local checklist/release edits worked,
+but JSON line navigation/indentation mistakes led to undo, whole-document
+reconstruction and repeated AX-boundary newline corrections. It also attempted
+an Electron AXValue write and omitted fail-fast in several recovery groups;
+one internal stale-ref error was masked by the following successful find. Exact
+saved artifacts do not turn this interrupted task into a successful completion.
+The saved result passed independently; the agent did not claim DONE. The default
+input checks produced no unmapped-focus error, which alone does not imply a
+speed benefit. Recorded tool intervals were 25.363 s; the rest was 573.251 s.
+
+Numbers used native sorting and wrote formulas through `value`, without row
+reconstruction or read-only formula writes. Its one completed claim was correct.
+Two errors passed row lists instead of a range to sorting; another read failed
+after saving, then recovered by the saved name; an ID change was not established.
+All owned windows/processes were cleaned; shared VS Code and settings preserved.
+Only 1/2 planned tasks completed: do not present correct timeout artifacts as a
+100% success rate or compare partial timing with successful completion timing.
+The Numbers reduction from 187.654 to 75.910 seconds is a single observed sample,
+not a causal or stable improvement. Native was not rerun.
+
+After this frozen block, `sdef` also gained an additive `parameter_types` map:
+`in rows` requires `range`, information the old parameter-name list omitted.
+The names remain compatible. The [untimed native regression](benchmarks/sdef-parameters-2026-11-01.json)
+uses [check_numbers_dictionary.py](check_numbers_dictionary.py) on a fresh owned
+trial prepared by the existing coordinator. It constructs sort syntax from the
+returned types, verifies actual ordered rows and a formula through independent
+app reads, and changes Quantity to verify recalculation (162 to 216). Run this
+only on a disposable trial before any model attempt, then use coordinator
+`stop`; it is a mutation test, not a benchmark participant or production solver.
+The probe also exposed an incorrect skill claim: `sdef` takes an app name or
+bundle identifier, whereas `tell` additionally accepts an application path.
+Both skill references now distinguish them. These last metadata/documentation
+changes have native/parser regression evidence, not another model timing sample.
+
+
+### Editor completion and passive saved-state timing — 2026-11-01
+
+The previous timeout had UI evidence of correct checklist/release content at
+`item_48` and correct JSON apart from AX boundary representation at `item_53`.
+Historical disk reads occurred only after the turn, so these are not proven
+earlier saved-byte completion times. The new passive recorder closes that gap.
+
+An owned native fixture reproduced a key observation race: F6 updates the input
+after 100 ms, but the old automatic snapshot returned `initial` with zero settle
+time. `key` now arms the existing AX observer before dispatch when its JSON
+snapshot is requested, including selection notifications. It reuses the existing
+500 ms notification deadline and one capture, with no extra tree scan, polling,
+retry or task-specific route. Intermediate `--no-snapshot` keys keep their old
+path; generic key outcomes remain unverified. Missing notifications can consume
+the deadline; the first notification does not establish whole-UI stability.
+
+The skill consolidates group-boundary guidance, preserves unrelated document
+boundaries through local edits, distinguishes AX virtual text from file bytes,
+and ends work when requested content and saved state are established. It directs
+unresolvable uncertainty to an explicit limited report, not more mutations.
+Untimed VS Code probes confirm synthetic final newlines while disk bytes remain
+unchanged, and Home landing at the first nonblank character rather than column 1.
+Cursor status can still lag both an action and an immediate read-only snapshot.
+
+[Audited editor results](benchmarks/editor-completion-2026-11-01.json) retain
+three predeclared attempts on `a222bf0`, with new gpt-6-astra/high profiles, cwd,
+runtime homes and files, no AGENTS/memory injection, coaching or replacements.
+Native was not rerun. Every final file passed byte-exact verification and all
+three completion claims were supported. No sampled saved state regressed.
+
+| New task | Full task | Calls / errors | First observed all-correct save | Remaining turn / new calls |
+| --- | ---: | ---: | ---: | ---: |
+| Local note edits | 113.958 s | 8 / 0 | 103.592 s | 10.333 s / 0 |
+| Active section with repeated values elsewhere | 108.561 s | 9 / 1 | 72.223 s | 36.331 s / 4 |
+| Three files with preserved history/approval | 241.959 s | 24 / 3 | 223.838 s | 18.113 s / 0 |
+
+Save observations are sampled offsets from turn start, not exact save instants.
+The final column includes legitimate final reasoning/reporting and excludes
+process shutdown; it is not all waste. Local and multi-file trials stopped
+calling tools after their correct save. The scoped trial requested window/state
+help and another state after its save, including one duplicate PID-argument error.
+It also used counted-arrow navigation despite the skill caution; success on this
+unindented fixture does not establish safe selection in arbitrary editors.
+
+The multi-file trial recovered from three stale-ref rejections before dispatch,
+including two extra snapshots. An untimed full-JSON probe reproduced a related
+case: only ancestor captions in `axPath` changed as window titles caught up with
+file selection; row role/label/value/geometry stayed equal. This does not prove
+the exact differing field in all three compact model traces. Document-context
+changes still require identity protection; this block does not relax it or add
+blanket retries/waits to eliminate error counts.
+
+Recorded tool intervals were 6.903 / 4.256 / 15.818 seconds. Most elapsed time
+remains outside tools (model, network and orchestration combined). These 3/3 new
+cases show completion without the previous newline-mutation loop, not a causal
+speedup or population success rate. The historical scoped editor task took
+426.046 seconds once and timed out at 600 seconds on its next attempt, but its
+JSON task differs from these cases. Historical native VS Code changed a shared
+setting and was excluded; it supplies no valid successful speed ratio here.
+
+All dedicated windows/Brokers were closed and shared Code/TextEdit processes and
+Code settings preserved. Shared settings/extensions/caches remain a limitation.
+Validation passed: 45 Rust tests, Clippy, formatting, release build, skill/version
+checks, the native action fixture and 21 offline benchmark tests. After timing,
+the coordinator's future editor plans received distinct pairing indices so a
+two-arm report retains all three cases; its regression verifies three pairs.
+This reporting fix changes no measured candidate, attempt or artifact.
+
+### General completion and receipt cleanup retest — 2026-11-01
+
+The next clean cu-only block used the same three source hashes and distinct
+fresh profiles, workspaces, runtime homes and VS Code windows. It followed the
+receipt cleanup and whole-request reconciliation guidance from `a222bf0` plus
+the native key observation fix; no native participant was rerun. The prior
+block's first local task is retained as a failure: four text fields were right,
+but the requested checklist item was still unchecked while the agent reported
+DONE. The prior scoped and multi-file attempts are also retained, including
+their stale-ref/navigation recovery.
+
+| Case | Prior same-data task | Retest | Calls / errors | Calls after first all-correct save |
+| --- | ---: | ---: | ---: | ---: |
+| Local note edits | 113.958 s | 42.731 s | 5 / 0 | 0 |
+| Scoped repeated values | 108.561 s | 107.463 s | 7 / 0 | 0 |
+| Three related files | 241.959 s | 79.030 s | 13 / 0 | 0 |
+
+All three retest artifacts and completion claims passed. The first sampled
+all-correct save occurred at 36.220 s, 93.443 s and 74.496 s respectively; no
+sample regressed. Calls and elapsed time are lower in this block, but one sample
+per case cannot establish a causal speedup. Model generation, cached context,
+shared VS Code state and application scheduling remain mixed into wall time.
+
+The previous false completion is a real accuracy finding. The new skill wording
+requires reconciling every requested edit, preservation constraint and save/export
+requirement with existing observations. It adds no per-field observation round.
+Normal PID dispatch receipts also omit the repeated generic advice string; the
+skill still explains that dispatch is not task completion. The five stale-ref
+rejections in the previous multi-file attempt remain correct protections: an
+untimed AX probe showed that the Explorer row object survived while the editor
+object and window/WebArea captions changed during file selection. No identity
+check was relaxed.
+
+This block's coordinator report is [frozen here](benchmarks/editor-coverage-2026-11-01.json).
+It includes the earlier failed retest, same-data comparisons, passive saved-file
+timeline, clean-context audits, settings/process cleanup and all input hashes.
+
+### Varied editor workflows — 2026-11-01
+
+To test generality beyond the earlier completion fixtures, a cu-only block ran
+two fresh rounds of three VS Code tasks: a scoped JSON object edit, a Markdown
+release edit with preserved history and checklist state, and a two-file TOML/text
+handoff edit. Each attempt used a fresh Codex profile, neutral cwd, private cu
+runtime and dedicated window while sharing the existing Code process. The
+packaged Computer Pilot skill was the only computer-use guidance; no AGENTS or
+CLAUDE instructions were injected. Native Computer Use was not rerun, so this
+block is an accuracy and repeatability sample rather than a contemporaneous
+cu/native speed comparison.
+
+All six artifacts passed independent byte-exact verification and all six
+completion claims were supported. The median full-task time was **152.9 s**;
+the individual times were 48.9 / 473.1 / 167.5 s in round 1 and 85.4 / 138.3 /
+550.5 s in round 2 for JSON / Markdown / multi-file respectively. Tool errors
+were 0 / 10 / 3 and 0 / 3 / 4. The Markdown first round and multi-file second
+round are accurate but slow long-tail samples; they remain included. The second
+round Markdown result shows recovery variability on the same task (138.3 s vs
+473.1 s), so the block does not establish a stable speed improvement.
+
+Passive saved-file sampling found the first exact artifact before the final
+turn sample in every attempt. Five attempts had one tool call after the first
+exact observation; the second multi-file attempt had five. These are diagnostic
+post-save calls, not removed from timing or treated as failures. The complete
+audited report is [editor-varied-2026-11-01.json](benchmarks/editor-varied-2026-11-01.json);
+the local `test-results/editor-varied-20261101/evidence.md` table records the
+same call/error and save-boundary metrics. Shared application scheduling,
+model generation, caches and the absence of a contemporaneous native arm remain
+limits on any speed conclusion.
+
+### Finder file workflows — 2026-11-01
+
+A new clean block compared the native Computer Use API and cu on Finder, using
+a private temporary workspace and a dedicated window on the shared Finder
+process. It contained two fresh tasks with the same `gpt-6-astra / high`
+settings: organize files into a new folder and rename only files matching a
+suffix. Each arm used a new profile, neutral cwd and task state; no
+AGENTS/CLAUDE instructions were injected. The cu arm was allowed to use
+Finder-native `cu tell`, as the skill recommends for scriptable apps, while
+native used Finder App APIs.
+
+| Task | cu | Native | Independent result |
+| --- | ---: | ---: | --- |
+| Organize and rename | 230.4 s, 20 calls / 4 errors | **timeout at 600 s** | cu exact; native partial, `archive-approved.txt.txt` |
+| Rename matching files | 294.1 s, 25 calls / 2 errors | 86.6 s, 6 calls / 0 errors | cu exact; native reported DONE but both target renames were missing |
+
+The native organize timeout is retained as an incomplete attempt, and the
+native rename is a false completion claim. This block has **2/2 cu exact
+outcomes and 0/2 native exact outcomes**; it provides no valid paired speed
+ratio. The failures expose Finder-specific UI state and filename-extension
+handling issues in the model workflow, while the cu results show that the
+script-first route can complete the same app-native operations. This is an
+accuracy finding for a small sample, not evidence that cu is generally faster
+or more accurate across desktop applications.
+
+The frozen records and independent path/content checks are in
+[finder-varied-2026-11-01.json](benchmarks/finder-varied-2026-11-01.json).
+Shared Finder/Code/TextEdit processes remained alive and dedicated Finder
+windows were closed after each task. The coordinator now handles moved Finder
+paths and incomplete attempts without crashing its evidence export.
+
+The review retest after the delayed `type --no-verify` snapshot fix repeated
+the same clean Finder block. cu completed organize in 124.5 s (15 calls, 1
+error) and rename in 307.3 s (27 calls, 5 errors), both exactly. Native rename
+completed in 32.9 s (5 calls, 0 errors); native organize again timed out at 600
+s. The only accepted pair was rename, with a cu/native full-task ratio of
+9.325. This one pair is diagnostic and does not establish a general speed
+result. The new frozen report is
+[finder-review-2026-11-01.json](benchmarks/finder-review-2026-11-01.json).
+
 ## Architecture
 
 ```

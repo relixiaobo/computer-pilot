@@ -16,7 +16,7 @@ cu_json "type hello --app TextEdit --no-snapshot"
 assert_ok "type 'hello'"
 assert_json_field "text echoed" ".text" "hello"
 assert_json_field "type dispatched" ".dispatched" "true"
-assert_json_field "type effect verified" ".effect_verified" "true"
+assert_json_field "type value changed" ".value_changed" "true"
 
 section "type — with auto-snapshot"
 

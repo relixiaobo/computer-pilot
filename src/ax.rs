@@ -22,6 +22,8 @@ const CF_NUMBER_FLOAT64: isize = 6;
 #[link(name = "CoreFoundation", kind = "framework")]
 unsafe extern "C" {
     fn CFRelease(cf: CFTypeRef);
+    fn CFRetain(cf: CFTypeRef) -> CFTypeRef;
+    fn CFEqual(left: CFTypeRef, right: CFTypeRef) -> Boolean;
     fn CFGetTypeID(cf: CFTypeRef) -> CFTypeID;
     fn CFStringGetTypeID() -> CFTypeID;
     fn CFArrayGetTypeID() -> CFTypeID;
@@ -138,6 +140,9 @@ pub struct SnapshotResult {
     /// the snapshot's `--limit` window.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub focused: Option<FocusedSummary>,
+    /// Retained from the existing focus read, only for this command.
+    #[serde(skip)]
+    pub focused_target: Option<RefTarget>,
     /// A modal (AXSheet / AXSystemDialog) is currently blocking the window.
     /// Agent should dismiss it before doing anything else.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -998,9 +1003,8 @@ const MAX_DEPTH: usize = 30;
 ///
 /// A node consumes a ref exactly when its AX role is in `INCLUDED_ROLES` and
 /// at least one dimension of its AX bounding box is positive.  Keeping this
-/// decision pure makes it usable by both the batch snapshot reader and the
-/// single-element action reader; neither reader may invent its own counting
-/// rule.
+/// decision pure keeps snapshot numbering and the object retained for a ref
+/// action on the same inclusion rule.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct RefProjection {
     emits_ref: bool,
@@ -1222,30 +1226,6 @@ unsafe fn retained_children(element: CFTypeRef) -> (Option<CFArrayRef>, Vec<CFTy
     }
 }
 
-/// Read the fields that action and inspection consumers need. All of those
-/// consumers now use this same reader and traversal, so unreadable/static
-/// nodes are treated identically for click, find, set-value, perform, and why.
-unsafe fn read_single_ref_node(element: CFTypeRef) -> RefNodeRead {
-    let role = ax_string(element, "AXRole");
-    let projected = role.as_deref().is_some_and(is_included);
-    let size = if projected {
-        ax_size(element).unwrap_or_default()
-    } else {
-        CGSize::default()
-    };
-    let (children, owned) = retained_children(element);
-    RefNodeRead {
-        role,
-        path_segment: String::new(),
-        title: None,
-        value: None,
-        position: None,
-        size,
-        children,
-        owned,
-    }
-}
-
 /// Read a batch field, retrying the individual attribute when the batch slot
 /// is absent or contains an AX error marker. This keeps a partial batch read
 /// from changing the ref projection or dropping a whole child subtree.
@@ -1300,11 +1280,7 @@ unsafe fn read_batch_ref_node(element: CFTypeRef, batch_keys: CFArrayRef) -> Ref
         } else {
             None
         };
-        let value = if projected {
-            ax_value(element).filter(|s| !s.is_empty())
-        } else {
-            None
-        };
+        let value = if projected { ax_value(element) } else { None };
         let position = if projected {
             ax_position(element)
         } else {
@@ -1359,9 +1335,7 @@ unsafe fn read_batch_ref_node(element: CFTypeRef, batch_keys: CFArrayRef) -> Ref
         None
     };
     let value = if projected {
-        batch_value(values)
-            .or_else(|| ax_value(element))
-            .filter(|s| !s.is_empty())
+        batch_value(values).or_else(|| ax_value(element))
     } else {
         None
     };
@@ -1398,91 +1372,71 @@ unsafe fn read_batch_ref_node(element: CFTypeRef, batch_keys: CFArrayRef) -> Ref
     }
 }
 
-/// Visit control for the canonical DFS. `Break` returns the consumer's result
-/// and stops traversal immediately (used by both limits and ref lookups).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum RefVisit<T> {
-    Continue,
-    Break(T),
-}
-
-/// One preorder traversal for every numeric-ref producer and consumer.
-/// `track_paths` is false for action-only consumers to avoid path-label IPC;
-/// it does not affect inclusion or ref numbering.
+/// One preorder walk produces refs and optionally retains the selected object.
+/// Returning true from the visitor stops at the requested snapshot limit.
 #[allow(clippy::too_many_arguments)]
-unsafe fn traverse_ref_tree<T, Reader, Visitor>(
+unsafe fn traverse_ref_tree<Visitor>(
     element: CFTypeRef,
     counter: &mut usize,
     depth: usize,
-    track_paths: bool,
     siblings: &mut std::collections::HashMap<String, usize>,
     parent_path: &str,
     depth_limited: &mut bool,
-    reader: &mut Reader,
+    batch_keys: CFArrayRef,
     visitor: &mut Visitor,
-) -> Option<T>
+) -> bool
 where
-    Reader: FnMut(CFTypeRef) -> RefNodeRead,
-    Visitor: FnMut(CFTypeRef, &RefNodeRead, Option<usize>, &str) -> RefVisit<T>,
+    Visitor: FnMut(CFTypeRef, &RefNodeRead, Option<usize>, &str) -> bool,
 {
     if depth > MAX_DEPTH {
         *depth_limited = true;
-        return None;
+        return false;
     }
 
-    let node = reader(element);
+    let node = read_batch_ref_node(element, batch_keys);
     let ref_id = RefProjection::from_parts(node.role.as_deref(), node.size).assign(counter);
-    let self_path = if track_paths {
-        // Role/title were already fetched by the reader. Do not issue a
-        // second set of AX IPCs just to build the path for this same node.
-        let index = siblings.entry(node.path_segment.clone()).or_default();
-        let segment = if *index == 0 {
-            node.path_segment.clone()
-        } else {
-            format!("{}:{index}", node.path_segment)
-        };
-        *index += 1;
-        if parent_path.is_empty() {
-            segment
-        } else {
-            format!("{parent_path}/{segment}")
-        }
+    let index = siblings.entry(node.path_segment.clone()).or_default();
+    let segment = if *index == 0 {
+        node.path_segment.clone()
     } else {
-        String::new()
+        format!("{}:{index}", node.path_segment)
+    };
+    *index += 1;
+    let self_path = if parent_path.is_empty() {
+        segment
+    } else {
+        format!("{parent_path}/{segment}")
     };
 
-    if let RefVisit::Break(result) = visitor(element, &node, ref_id, &self_path) {
+    if visitor(element, &node, ref_id, &self_path) {
         node.release();
-        return Some(result);
+        return true;
     }
 
     if let Some(children) = node.children {
-        let count = CFArrayGetCount(children);
-        let mut seen: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
-        for i in 0..count {
+        let mut seen = std::collections::HashMap::new();
+        for i in 0..CFArrayGetCount(children) {
             let child = CFArrayGetValueAtIndex(children, i);
-            if child.is_null() {
-                continue;
-            }
-            if let Some(result) = traverse_ref_tree(
-                child,
-                counter,
-                depth + 1,
-                track_paths,
-                &mut seen,
-                &self_path,
-                depth_limited,
-                reader,
-                visitor,
-            ) {
+            if !child.is_null()
+                && traverse_ref_tree(
+                    child,
+                    counter,
+                    depth + 1,
+                    &mut seen,
+                    &self_path,
+                    depth_limited,
+                    batch_keys,
+                    visitor,
+                )
+            {
                 node.release();
-                return Some(result);
+                return true;
             }
         }
     }
 
     node.release();
-    None
+    false
 }
 
 // ── AX action helpers ───────────────────────────────────────────────────────
@@ -1503,8 +1457,7 @@ unsafe fn try_ax_actions(pid: i32, element: CFTypeRef) -> Option<&'static str> {
     // Text inputs are focus targets, not buttons. Chromium exposes AXPress on
     // contenteditable elements and returns AX_OK even when that action does
     // not move AXFocusedUIElement. Prefer the semantic AXFocused write and
-    // stop once it succeeds; typing is only allowed after a fresh snapshot
-    // confirms the same element is focused.
+    // stop once it succeeds; the command's verification checks target focus.
     let role = ax_string(element, "AXRole").unwrap_or_default();
     if matches!(role.as_str(), "AXTextField" | "AXTextArea" | "AXComboBox")
         && try_set_bool(element, "AXFocused", true)
@@ -1688,95 +1641,97 @@ unsafe fn copy_action_names(element: CFTypeRef) -> Vec<String> {
     out
 }
 
-/// Resolve a numeric ref through the canonical traversal and run a callback
-/// when that ref is reached. The callback owns only the duration of the call;
-/// AX children remain alive until the traversal unwinds.
-unsafe fn resolve_ref_with<T, F>(root: CFTypeRef, ref_id: usize, perform: F) -> (Option<T>, usize)
-where
-    F: FnOnce(CFTypeRef, &RefNodeRead, usize) -> T,
-{
-    let mut counter = 0usize;
-    let mut depth_limited = false;
-    let mut perform = Some(perform);
-    let mut reader = |element| read_single_ref_node(element);
-    let mut visitor = |element: CFTypeRef,
-                       node: &RefNodeRead,
-                       candidate: Option<usize>,
-                       _path: &str|
-     -> RefVisit<T> {
-        if candidate == Some(ref_id) {
-            let callback = perform
-                .take()
-                .expect("canonical ref callback invoked more than once");
-            RefVisit::Break(callback(element, node, ref_id))
-        } else {
-            RefVisit::Continue
-        }
-    };
-    let result = traverse_ref_tree(
-        root,
-        &mut counter,
-        0,
-        false,
-        &mut std::collections::HashMap::new(),
-        "",
-        &mut depth_limited,
-        &mut reader,
-        &mut visitor,
-    );
-    (result, counter)
+/// A single command retains the exact AX object read during its freshness scan.
+/// Never persist this handle or resolve its numeric ref again before dispatch.
+pub struct RefTarget {
+    element: CFTypeRef,
+    pid: i32,
+    ref_id: usize,
 }
 
-// ── Public API ──────────────────────────────────────────────────────────────
-
-fn resolve_ref(pid: i32, ref_id: usize, perform_actions: bool) -> Result<(bool, f64, f64), String> {
-    unsafe {
-        let app_el = create_app_element(pid);
-        if app_el.is_null() {
-            return Err("failed to create AX element for application".into());
-        }
-
-        let window_el =
-            ax_attr(app_el, "AXFocusedWindow").or_else(|| ax_attr(app_el, "AXMainWindow"));
-        if let Some(w) = window_el {
-            set_element_timeout(w);
-        }
-
-        let walk_root = window_el.unwrap_or(app_el);
-
-        let (result, counter) = resolve_ref_with(walk_root, ref_id, |element, node, _| {
-            let pos = node
-                .position
-                .or_else(|| ax_position(element))
-                .unwrap_or_default();
-            let cx = pos.x + node.size.width / 2.0;
-            let cy = pos.y + node.size.height / 2.0;
-            let acted = if perform_actions {
-                try_ax_actions(pid, element).is_some()
-            } else {
-                false
-            };
-            (acted, cx, cy)
-        });
-
-        if let Some(w) = window_el {
-            CFRelease(w);
-        }
-        CFRelease(app_el);
-
-        match result {
-            Some((acted, cx, cy)) => Ok((acted, cx, cy)),
-            None => Err(format!(
-                "element [{}] not found in AX tree (scanned {} elements)",
-                ref_id, counter
-            )),
-        }
+impl Drop for RefTarget {
+    fn drop(&mut self) {
+        unsafe { CFRelease(self.element) }
     }
 }
 
-/// Find element by ref and try AX actions. Returns (ax_acted, center_x, center_y).
-pub fn ax_click(pid: i32, ref_id: usize, _limit: usize) -> Result<(bool, f64, f64), String> {
-    resolve_ref(pid, ref_id, true)
+impl RefTarget {
+    pub fn same_element(&self, other: &Self) -> bool {
+        self.pid == other.pid && unsafe { CFEqual(self.element, other.element) != 0 }
+    }
+
+    /// Read focus on the object actually dispatched to, not its old tree path.
+    pub fn is_focused(&self) -> Option<bool> {
+        unsafe { ax_bool(self.element, "AXFocused") }
+    }
+
+    pub fn click(&self, perform_actions: bool) -> Result<(bool, f64, f64), CuError> {
+        unsafe {
+            let pos = ax_position(self.element).ok_or("target position is unavailable")?;
+            let size = ax_size(self.element).ok_or("target size is unavailable")?;
+            let acted = perform_actions && try_ax_actions(self.pid, self.element).is_some();
+            Ok((acted, pos.x + size.width / 2.0, pos.y + size.height / 2.0))
+        }
+    }
+
+    pub fn set_value(&self, value: &str) -> Result<(), CuError> {
+        unsafe {
+            let value_cf = cfstr(value).ok_or("failed to create CFString for value")?;
+            let written = try_set_value(self.element, "AXValue", value_cf);
+            CFRelease(value_cf);
+            if written {
+                Ok(())
+            } else {
+                Err(CuError::msg(format!("element [{}] rejected AXValue write", self.ref_id))
+                    .with_hint("The control may be disabled, read-only, or require keyboard input. Inspect the returned state before using click/type."))
+            }
+        }
+    }
+
+    pub fn perform(&self, action: &str) -> Result<(), CuError> {
+        unsafe {
+            let role = (action == "AXPress")
+                .then(|| ax_string(self.element, "AXRole"))
+                .flatten();
+            if try_action_with_menu_wait(self.pid, self.element, role.as_deref(), action) {
+                return Ok(());
+            }
+            let available = copy_action_names(self.element);
+            let mut error = CuError::msg(format!(
+                "element [{}] does not support {action}",
+                self.ref_id
+            ));
+            if available.is_empty() {
+                error = error.with_hint(
+                    "Element exposes no AX actions. Inspect its children or use a coordinate click.",
+                );
+            } else {
+                error = error
+                    .with_hint(format!("Available actions: {}", available.join(", ")))
+                    .with_diagnostics(serde_json::json!({
+                        "available_actions": available.clone()
+                    }));
+                for supported_action in &available {
+                    error = error.with_next(format!(
+                        "cu perform {} {} --app <name>",
+                        self.ref_id, supported_action
+                    ));
+                }
+            }
+            Err(error)
+        }
+    }
+
+    pub fn inspect(&self) -> RefInspection {
+        unsafe {
+            RefInspection {
+                actions: copy_action_names(self.element),
+                enabled: ax_bool(self.element, "AXEnabled"),
+                focused: ax_bool(self.element, "AXFocused"),
+                subrole: ax_string(self.element, "AXSubrole").filter(|s| !s.is_empty()),
+            }
+        }
+    }
 }
 
 // ── axPath resolution (A2) ──────────────────────────────────────────────────
@@ -2063,125 +2018,6 @@ pub fn ax_set_value_by_path(pid: i32, ax_path: &str, value: &str) -> Result<(), 
     }
 }
 
-/// Find element by ref — coordinate lookup only, no AX actions triggered.
-pub fn ax_find_element(pid: i32, ref_id: usize, _limit: usize) -> Result<(bool, f64, f64), String> {
-    resolve_ref(pid, ref_id, false)
-}
-
-/// Find element by ref and write `value` to its AXValue attribute.
-/// This is the fastest path to populate text fields — no focus, no IME,
-/// no clipboard. Returns Ok(()) when the write succeeded; Err with a hint
-/// when the element is missing or refused the write.
-pub fn ax_set_value(pid: i32, ref_id: usize, _limit: usize, value: &str) -> Result<(), CuError> {
-    unsafe {
-        let value_cf =
-            cfstr(value).ok_or_else(|| CuError::msg("failed to create CFString for value"))?;
-
-        let app_el = create_app_element(pid);
-        if app_el.is_null() {
-            CFRelease(value_cf);
-            return Err(CuError::msg("failed to create AX element for application"));
-        }
-
-        let window_el =
-            ax_attr(app_el, "AXFocusedWindow").or_else(|| ax_attr(app_el, "AXMainWindow"));
-        if let Some(w) = window_el {
-            set_element_timeout(w);
-        }
-        let walk_root = window_el.unwrap_or(app_el);
-
-        let (result, counter) = resolve_ref_with(walk_root, ref_id, |element, _, _| {
-            try_set_value(element, "AXValue", value_cf)
-        });
-
-        if let Some(w) = window_el {
-            CFRelease(w);
-        }
-        CFRelease(app_el);
-        CFRelease(value_cf);
-
-        match result {
-            Some(true) => Ok(()),
-            Some(false) => Err(CuError::msg(format!(
-                "element [{ref_id}] rejected AXValue write"
-            ))
-            .with_hint("Element exists but is not settable. Common reasons: the control is disabled, the value is computed, or the field requires keyboard input.")
-            .with_next(format!("cu click {ref_id} --app <name>"))
-            .with_next(format!("cu type \"{value}\" --app <name>"))),
-            None => Err(CuError::msg(format!(
-                "element [{ref_id}] not found in AX tree (scanned {counter} elements)"
-            ))
-            .with_hint(
-                "Refs are ephemeral and refresh on every action. Re-snapshot to find the current ref.",
-            )
-            .with_next("cu snapshot <app>")),
-        }
-    }
-}
-
-/// Find element by ref and perform a named AX action (e.g. AXShowMenu,
-/// AXIncrement, AXScrollToVisible). On failure, the hint includes the list
-/// of actions the element actually supports — feed that back to the agent.
-pub fn ax_perform(pid: i32, ref_id: usize, _limit: usize, action: &str) -> Result<(), CuError> {
-    unsafe {
-        let app_el = create_app_element(pid);
-        if app_el.is_null() {
-            return Err(CuError::msg("failed to create AX element for application"));
-        }
-
-        let window_el =
-            ax_attr(app_el, "AXFocusedWindow").or_else(|| ax_attr(app_el, "AXMainWindow"));
-        if let Some(w) = window_el {
-            set_element_timeout(w);
-        }
-        let walk_root = window_el.unwrap_or(app_el);
-
-        let (result, counter) = resolve_ref_with(walk_root, ref_id, |element, node, _| {
-            if try_action_with_menu_wait(pid, element, node.role.as_deref(), action) {
-                Ok(())
-            } else {
-                Err(copy_action_names(element))
-            }
-        });
-
-        if let Some(w) = window_el {
-            CFRelease(w);
-        }
-        CFRelease(app_el);
-
-        match result {
-            Some(Ok(())) => Ok(()),
-            Some(Err(available)) => {
-                let mut err = CuError::msg(format!(
-                    "element [{ref_id}] does not support {action}"
-                ));
-                if available.is_empty() {
-                    err = err.with_hint(
-                        "Element exposes no AX actions. It may be a static container — try clicking a child instead.",
-                    );
-                } else {
-                    err = err
-                        .with_hint(format!("Available actions: {}", available.join(", ")))
-                        .with_diagnostics(serde_json::json!({
-                            "available_actions": available,
-                        }));
-                    for a in &available {
-                        err = err.with_next(format!("cu perform {ref_id} {a} --app <name>"));
-                    }
-                }
-                Err(err)
-            }
-            None => Err(CuError::msg(format!(
-                "element [{ref_id}] not found in AX tree (scanned {counter} elements)"
-            ))
-            .with_hint(
-                "Refs are ephemeral and refresh on every action. Re-snapshot to find the current ref.",
-            )
-            .with_next("cu snapshot <app>")),
-        }
-    }
-}
-
 /// Diagnostic info for a single ref — used by `cu why` (B7) to explain
 /// why a click might have failed. Walks the tree to find the element,
 /// then returns its supported AX actions + AXEnabled flag.
@@ -2192,45 +2028,15 @@ pub struct RefInspection {
     pub subrole: Option<String>,
 }
 
-/// Walk the tree to find a ref and return its supported actions + enabled state.
-/// Returns None if the ref is out of range. Used by `cu why`.
-pub fn inspect_ref(pid: i32, ref_id: usize) -> Option<RefInspection> {
-    unsafe {
-        let app_el = create_app_element(pid);
-        if app_el.is_null() {
-            return None;
-        }
-        let window_el =
-            ax_attr(app_el, "AXFocusedWindow").or_else(|| ax_attr(app_el, "AXMainWindow"));
-        if let Some(w) = window_el {
-            set_element_timeout(w);
-        }
-        let walk_root = window_el.unwrap_or(app_el);
-        let (result, _) = resolve_ref_with(walk_root, ref_id, |element, _, _| {
-            let actions = copy_action_names(element);
-            let enabled = ax_bool(element, "AXEnabled");
-            let focused = ax_bool(element, "AXFocused");
-            let subrole = ax_string(element, "AXSubrole").filter(|s| !s.is_empty());
-            RefInspection {
-                actions,
-                enabled,
-                focused,
-                subrole,
-            }
-        });
-        if let Some(w) = window_el {
-            CFRelease(w);
-        }
-        CFRelease(app_el);
-        result
-    }
-}
-
 /// Resolve the currently focused UI element of the app and summarize it.
 /// `elements` is the snapshot's element list — used to look up the matching
 /// ref by (role, x, y). Match on (x,y) is enough in practice — two elements
 /// with the same role and identical screen position would be a UI bug.
-unsafe fn detect_focused(app_el: CFTypeRef, elements: &[Element]) -> Option<FocusedSummary> {
+unsafe fn detect_focused(
+    app_el: CFTypeRef,
+    pid: i32,
+    elements: &[Element],
+) -> Option<(FocusedSummary, RefTarget)> {
     let fel = ax_attr(app_el, "AXFocusedUIElement")?;
     let role = ax_string(fel, "AXRole").unwrap_or_default();
     if role.is_empty() {
@@ -2240,9 +2046,8 @@ unsafe fn detect_focused(app_el: CFTypeRef, elements: &[Element]) -> Option<Focu
     let title = ax_string(fel, "AXTitle")
         .or_else(|| ax_string(fel, "AXDescription"))
         .filter(|s| !s.is_empty());
-    let value = ax_value(fel).filter(|s| !s.is_empty());
+    let value = ax_value(fel);
     let pos = ax_position(fel);
-    CFRelease(fel);
 
     let normalized = normalize_role(&role);
     let matched = pos.and_then(|p| {
@@ -2252,13 +2057,20 @@ unsafe fn detect_focused(app_el: CFTypeRef, elements: &[Element]) -> Option<Focu
             .find(|e| e.role == normalized && (e.x - px).abs() < 1.0 && (e.y - py).abs() < 1.0)
     });
 
-    Some(FocusedSummary {
-        ref_id: matched.map(|element| element.ref_id),
-        role: normalized,
-        title,
-        value,
-        ax_path: matched.and_then(|element| element.ax_path.clone()),
-    })
+    Some((
+        FocusedSummary {
+            ref_id: matched.map(|element| element.ref_id),
+            role: normalized,
+            title,
+            value,
+            ax_path: matched.and_then(|element| element.ax_path.clone()),
+        },
+        RefTarget {
+            element: fel,
+            pid,
+            ref_id: matched.map_or(0, |e| e.ref_id),
+        },
+    ))
 }
 
 /// Detect whether a modal (AXSheet) or system dialog is blocking the window.
@@ -2359,6 +2171,28 @@ pub fn window_bounds(pid: i32) -> Option<(f64, f64, f64, f64)> {
 
 /// Take an accessibility snapshot of the app identified by `pid`.
 pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
+    snapshot_read(pid, app_name, limit, None, &mut None)
+}
+
+/// Read state and retain its selected object in the same traversal.
+pub fn snapshot_with_ref(
+    pid: i32,
+    app_name: &str,
+    limit: usize,
+    ref_id: usize,
+) -> (SnapshotResult, Option<RefTarget>) {
+    let mut target = None;
+    let snapshot = snapshot_read(pid, app_name, limit, Some(ref_id), &mut target);
+    (snapshot, target)
+}
+
+fn snapshot_read(
+    pid: i32,
+    app_name: &str,
+    limit: usize,
+    target_ref: Option<usize>,
+    target: &mut Option<RefTarget>,
+) -> SnapshotResult {
     unsafe {
         let app_el = create_app_element(pid);
         if app_el.is_null() {
@@ -2375,6 +2209,7 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
                 truncation_hint: None,
                 depth_limited: false,
                 focused: None,
+                focused_target: None,
                 modal: None,
                 error: Some("failed to create AX element for application".into()),
             };
@@ -2406,6 +2241,7 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
                 truncation_hint: None,
                 depth_limited: false,
                 focused: None,
+                focused_target: None,
                 modal: None,
                 error: Some(msg),
             };
@@ -2465,6 +2301,7 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
                 truncation_hint: None,
                 depth_limited: false,
                 focused: None,
+                focused_target: None,
                 modal: None,
                 error: Some("failed to create AX batch attribute keys".into()),
             };
@@ -2472,16 +2309,22 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
         let mut elements = Vec::new();
         let mut counter = 0usize;
         let mut depth_limited = false;
-        let mut reader = |element| read_batch_ref_node(element, batch_keys);
         let mut visitor = |element: CFTypeRef,
                            node: &RefNodeRead,
                            ref_id: Option<usize>,
                            self_path: &str|
-         -> RefVisit<()> {
+         -> bool {
             if elements.len() >= limit {
-                return RefVisit::Break(());
+                return true;
             }
             if let Some(ref_id) = ref_id {
+                if target_ref == Some(ref_id) {
+                    *target = Some(RefTarget {
+                        element: CFRetain(element),
+                        pid,
+                        ref_id,
+                    });
+                }
                 let pos = node.position.unwrap_or_default();
                 elements.push(Element {
                     ref_id,
@@ -2495,25 +2338,16 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
                     ax_path: Some(self_path.to_string()),
                 });
             }
-            if elements.len() >= limit {
-                RefVisit::Break(())
-            } else {
-                // `element` is intentionally consumed by the visitor type so
-                // the callback remains compatible with action consumers; the
-                // snapshot projection itself only needs the decoded fields.
-                let _ = element;
-                RefVisit::Continue
-            }
+            elements.len() >= limit
         };
         let _ = traverse_ref_tree(
             walk_root,
             &mut counter,
             0,
-            true,
             &mut std::collections::HashMap::new(),
             "",
             &mut depth_limited,
-            &mut reader,
+            batch_keys,
             &mut visitor,
         );
         CFRelease(batch_keys);
@@ -2523,7 +2357,9 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
 
         // A4: surface the currently focused UI element so the agent can skip
         //     a redundant click on a field that's already focused.
-        let focused = detect_focused(app_el, &elements);
+        let (focused, focused_target) = detect_focused(app_el, pid, &elements)
+            .map(|(summary, target)| (Some(summary), Some(target)))
+            .unwrap_or_default();
 
         // A6: surface a modal/sheet warning so the agent dismisses it first
         //     instead of fruitlessly clicking on the (now-blocked) main window.
@@ -2543,6 +2379,7 @@ pub fn snapshot(pid: i32, app_name: &str, limit: usize) -> SnapshotResult {
             window_id,
             window_frame,
             focused,
+            focused_target,
             modal,
             elements,
             limit,

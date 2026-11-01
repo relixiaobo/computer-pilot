@@ -1,0 +1,669 @@
+{
+  "manifest": {
+    "protocol_version": 2,
+    "single_turn": true,
+    "sequence": [
+      {
+        "label": "textedit-1-cu",
+        "mode": "textedit",
+        "repeat": 1,
+        "arm": "cu"
+      },
+      {
+        "label": "vscode-1-cu",
+        "mode": "vscode",
+        "repeat": 1,
+        "arm": "cu"
+      },
+      {
+        "label": "numbers-1-cu",
+        "mode": "numbers",
+        "repeat": 1,
+        "arm": "cu"
+      }
+    ],
+    "dataset": "alternate",
+    "settings": {
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null
+    },
+    "fingerprints": {
+      "target/release/cu": "f7f6f64e0dd27c25e2d113bb2da3a91800efc25858af29018f96ad980afb88d0",
+      "tests/agent/benchmark_real_apps.py": "534a7d07c0dfa1a0505baa8f5351d63b1a85bec852ce78adbeb8e58a21f38212",
+      "tests/agent/benchmark_varied_workflows.py": "c453866d58e580710fb5c3dbc33e79aeea64144f9717dbdcb26fea1c5792a64f",
+      "tests/agent/collect_codex_benchmark.py": "a35fba949ee73222e5e83eaeb35807ce8b7bfc43727c4db9fae4fa0f692f3d79",
+      "plugin/skills/computer-pilot/SKILL.md": "9fadb30f801c5bfde6099084144fb7735633c4e51b1d1f2f6c700719eb2d96f8",
+      "plugin/skills/computer-pilot/scripts/session.sh": "bf5f26af7f55239a87f7aa1a9cce733b91677ffb7814ba0b3468606d9962b056",
+      "plugin/skills/computer-pilot/references/commands.md": "809a8e54cda32fce3059b4ba13020a2645580a0eb167e1004a4ec80af05da910",
+      "plugin/skills/computer-pilot/references/embedding.md": "336642ed1e10acb21a706004753f8c95204252e185ab989d9fd0e094199386a9",
+      "plugin/skills/computer-pilot/references/permissions.md": "5b4a13b118ba37d74d50e8950bad817df080bafe8355b5db5761008a2019084d",
+      "plugin/skills/computer-pilot/references/recovery.md": "0e259f7411e30fa9508a5239bf0b9efc7c1cce909f760d8d35de7ae84c552417",
+      "plugin/skills/computer-pilot/references/scripting.md": "5d3e20b75b59d0b3fd29293061d885242857e8c82dab348185150378f0ce1eba",
+      "plugin/skills/computer-pilot/references/visual.md": "7879ca3a1cb6b4ff6815a5b277486d31057b141e9c7ba5182efb7ea6329b6956"
+    },
+    "cu_commit": "03f0fc20d45d41bd4c714ec8fd5c685c2b0ca6b7",
+    "scope": "Cu-only retest; historical native runs are not repeated. Dataset: alternate; 3 planned attempts, no replacements. TextEdit/VS Code share the user application process with dedicated test windows. Numbers starts separately. Fresh model profiles/cwd and cu runtimes. Normal documented app scripting is allowed through cu tell; native uses actual App APIs. No direct file edits, terminal commands inside apps, automation scripts outside the assigned backend, or task-specific solver. Report routes separately; changed datasets are not paired speed comparisons.",
+    "wall_timeout_seconds": 600,
+    "app_versions": {
+      "textedit": "1.20",
+      "vscode": "1.142.0",
+      "numbers": "15.1"
+    }
+  },
+  "actual_order": [
+    "textedit-1-cu",
+    "vscode-1-cu",
+    "numbers-1-cu"
+  ],
+  "attempts": [
+    {
+      "label": "textedit-1-cu",
+      "mode": "textedit",
+      "repeat": 1,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 38733,
+      "app_path": "/System/Applications/TextEdit.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-real-obh3wr5x",
+      "client_key": "textedit-1-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/real-app-accuracy-20261101/textedit-1-cu/output",
+      "workspace": "/Users/lixiaobo/Coding/computer-pilot/test-results/real-app-accuracy-20261101/textedit-1-cu/CP-real-app-accuracy-20261101-textedit-1-cu",
+      "source_sha256": "9bd7e477090b61fee9058864ba40f2207b32269264dd498b2ebebfac6c35a05b",
+      "shared_app": true,
+      "files": {
+        "brief.txt": "CP-real-app-accuracy-20261101-textedit-1-cu-brief.txt"
+      },
+      "output_file": "/Users/lixiaobo/Coding/computer-pilot/test-results/real-app-accuracy-20261101/textedit-1-cu/CP-real-app-accuracy-20261101-textedit-1-cu/CP-real-app-accuracy-20261101-textedit-1-cu-budget.numbers",
+      "thread_id": "01a19459-853c-7dd3-bb16-770f4a18385e",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a19459-853c-7dd3-bb16-770f4a18385e",
+          "turn_id": "01a19459-85ea-74c1-9671-965d65029840",
+          "started_at": "2026-10-31T23:44:17.407Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-10-31T23:45:52.076Z",
+          "elapsed_ms": 94676,
+          "final": "DONE. Used the native AX text-area route via `cu set-value`, then TextEdit’s native `cu tell` save route. Final observation matches the requested content, and TextEdit reports the document saved (`modified: false`).",
+          "model_calls": 11,
+          "tokens": {
+            "input_tokens": 319767,
+            "cached_input_tokens": 285568,
+            "output_tokens": 4083,
+            "reasoning_output_tokens": 2256,
+            "total_tokens": 323850
+          },
+          "tool_calls": 12,
+          "tool_output_chars": 47146,
+          "tool_errors": 1,
+          "tool_interval_ms": 907,
+          "non_tool_interval_ms": 93769,
+          "label": "textedit-1-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "saved_text_exact": true
+        },
+        "actual": {
+          "files": {
+            "brief.txt": "章节 1 · 摘要\n定稿：目标将于 2026-11-22 交付。负责人：林。\n验收：保留中文、标点“样本 1”和本段换行。\n\n章节 2 · 指标\n定稿：范围将于 2026-11-22 交付。负责人：陈。\n验收：保留中文、标点“样本 2”和本段换行。\n\n章节 3 · 部署\n定稿：交付将于 2026-11-22 交付。负责人：赵。\n验收：保留中文、标点“样本 3”和本段换行。\n\n章节 4 · 审计\n定稿：质量将于 2026-11-22 交付。负责人：吴。\n验收：保留中文、标点“样本 4”和本段换行。\n\n章节 5 · 依赖\n定稿：风险将于 2026-11-22 交付。负责人：郑。\n验收：保留中文、标点“样本 5”和本段换行。\n\n章节 6 · 回滚\n定稿：结论将于 2026-11-22 交付。负责人：王。\n验收：保留中文、标点“样本 6”和本段换行。\n备注：批次 ZX-042；存档 https://archive.example.invalid/v2。\n\n复核完成：6 个章节，保留原始顺序。\n"
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 94676,
+      "combined_turn_ms": 94676,
+      "evidence_sha256": {
+        "brief.txt": "8482b8bcbeb183a8d3cf1fddf54a5099e8486bac25663bf150f38d9b1cc4e766",
+        "source.json": "9bd7e477090b61fee9058864ba40f2207b32269264dd498b2ebebfac6c35a05b",
+        "saved.json": "5569ef9609c44d5a67d1d7a04f4a7d41cfddf00edb8d0917f0ceed9355c5f94f",
+        "trace.json": "cdfb4ecf36ce2a5606deeb70d3eecc184a789f59173bf94931a234280852fe54",
+        "runtime-context.json": "752e02fbe2ffba5e61dce3ce7ddc41e3d4a6ad87f0d45a611bd0c515da695883",
+        "launch.json": "087f24cb0b87bf61bd38cdeb9303b45b573d97b13d42533eecc2d52a68cec8d5",
+        "audit.json": "d9fcaae764d9f9d0db892d5d78d5774a9adbf556c42d903ff3e569b4647e64c8"
+      },
+      "audit": {
+        "compliant": true,
+        "claimed_complete": true,
+        "note": "Reviewed all 12 calls, final response and initial context. Fresh profile/cwd with no AGENTS injection; frozen public cu backend and dedicated document only. AX edit followed by background Save left modified=true; the participant checked that state, confirmed document identity, then saved through cu tell and observed modified=false plus final content. Independent saved-text equality passed including new archive URL, batch literal and trailing newline. One duplicate --app CLI rejection was retained and dispatched no edit. No direct document file IO, settings changes, coaching or replacement. Dedicated window closed and owned Broker stopped.",
+        "runtime_context": {
+          "contexts": [
+            {
+              "cwd": "/private/tmp/real-app-accuracy-20261101/textedit-1-cu/work",
+              "model": "gpt-6-astra",
+              "effort": "high",
+              "service_tier": null
+            }
+          ],
+          "messages": [
+            {
+              "role": "developer",
+              "chars": 21420,
+              "sha256": "35bd51b5f577cb7b24cd5f4629e49e37cb724ab57754ce6f8f202001635bab8a",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 12740,
+              "sha256": "e385a305c56ef3c480a16985372bb95fb2a1c922e63d12d44f6aebbd0370b844",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 2400,
+              "sha256": "3edd51083129388f52e881435e93e4b981e00c5ee3d62ab5d32e22c428fd504b",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 271,
+              "sha256": "6ded806e3cdbb35599ecaf8742574bc5274908472b1729090010c404c2151e8e",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 442,
+              "sha256": "4352b976e4893e02e5663bac7fb9e00751658760cca2456c94625bac49e6dc5b",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 2959,
+              "sha256": "8482b8bcbeb183a8d3cf1fddf54a5099e8486bac25663bf150f38d9b1cc4e766",
+              "agents_injected": false
+            }
+          ],
+          "no_agents_injected": true,
+          "exit_code": 0
+        }
+      }
+    },
+    {
+      "label": "vscode-1-cu",
+      "mode": "vscode",
+      "repeat": 1,
+      "arm": "cu",
+      "status": "excluded",
+      "reasons": [
+        "Expected exactly one complete task turn",
+        "Interrupted turns have no complete timing; tool evidence retained",
+        "Interrupted after 598.634s",
+        "Reviewed all 88 recorded completed calls and initial context; fresh profile/cwd without AGENTS injection. Timed out at the predeclared 600-second cap with no final completion claim. EXCLUDED for call 87: explicit type X --allow-global without --app returned method unicode-global, dispatched=true. The surrounding snapshots targeted Code and did not establish the foreground recipient; out-of-target effects are unknown. No blind undo attempted. Repeated stale-ref recovery, deferred input checks, WebArea AXValue writes and --no-paste attempts did not complete the task. Saved JSON fields and preserved alternate literals passed the structural JSON oracle, but both text headings remained sandbox; release.md and service.json lost their trailing newline. The frozen JSON oracle does not check formatting/newline preservation. Saved artifacts were captured before discarding only the dedicated window unsaved buffer. Shared Code process preserved; no replacement attempt. Initial runtime has two identical turn_context records after compaction, with unchanged model/cwd/effort."
+      ],
+      "pid": 3587,
+      "app_path": "/Applications/Visual Studio Code.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-real-nt2uh6jf",
+      "client_key": "vscode-1-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/real-app-accuracy-20261101/vscode-1-cu/output",
+      "workspace": "/Users/lixiaobo/Coding/computer-pilot/test-results/real-app-accuracy-20261101/vscode-1-cu/CP-real-app-accuracy-20261101-vscode-1-cu",
+      "source_sha256": "6cd8325fcfc523ea5a52e54778b8f078421cd4a9a07696b4fd2c850368f648a1",
+      "shared_app": true,
+      "files": {
+        "service.json": "service.json",
+        "release.md": "release.md",
+        "checklist.txt": "checklist.txt"
+      },
+      "output_file": "/Users/lixiaobo/Coding/computer-pilot/test-results/real-app-accuracy-20261101/vscode-1-cu/CP-real-app-accuracy-20261101-vscode-1-cu/CP-real-app-accuracy-20261101-vscode-1-cu-budget.numbers",
+      "thread_id": "01a1945b-155e-77a1-8804-517065ecd264",
+      "setup": [],
+      "runs": [],
+      "incomplete_turns": [
+        "01a1945b-1629-7022-b408-c9e8117e22fd"
+      ],
+      "interruptions": [
+        {
+          "turn_id": "01a1945b-1629-7022-b408-c9e8117e22fd",
+          "started_at": "2026-10-31T23:45:59.888Z",
+          "aborted_at": "2026-10-31T23:55:58.528Z",
+          "interrupted_elapsed_ms": 598634
+        }
+      ],
+      "verification": {
+        "passed": false,
+        "checks": {
+          "config_exact": true,
+          "release.md_exact": false,
+          "checklist.txt_exact": false
+        },
+        "actual": {
+          "files": {
+            "service.json": "{\n  \"environment\": \"production\",\n  \"endpoint\": \"https://production.services.example.invalid/v3/events?tenant=atlas-29\",\n  \"timeoutSeconds\": 45,\n  \"debug\": false,\n  \"workers\": [\n    {\n      \"name\": \"ingest\",\n      \"retries\": 4\n    },\n    {\n      \"name\": \"index\",\n      \"retries\": 4\n    },\n    {\n      \"name\": \"notify\",\n      \"retries\": 4\n    }\n  ],\n  \"region\": \"ap-southeast-2\",\n  \"releaseTag\": \"v8.4.13-rc.2\"\n}",
+            "release.md": "# sandbox release\n\nDeploy to https://production.services.example.invalid/v3/events?tenant=atlas-29.\nTimeout: 45 seconds.\nStatus: ready\n\nKeep this note: “中文验收” — build 29 / ZX-042.",
+            "checklist.txt": "sandbox deployment\n[x] verify endpoint\n[x] verify timeout\n[x] disable debug\n[x] confirm workers\n"
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 0,
+      "combined_turn_ms": 0,
+      "evidence_sha256": {
+        "brief.txt": "84ef2b58bc02eeca294bea1fb8e7b799577bc4d94e37c66862fefc384df89098",
+        "source.json": "6cd8325fcfc523ea5a52e54778b8f078421cd4a9a07696b4fd2c850368f648a1",
+        "saved.json": "ced5b14a83e4b64d7a3234955137bb866d10d593b05e783628e6a1d1e461bc19",
+        "trace.json": "bb74e8490f1e9c05bd110f953436b550ad2f9e4214cbb4cf68af92fee01c6cfa",
+        "runtime-context.json": "be72f4d79a0bf833a00fb5e812eeaee0f0ee5c4cc210932bdfac652d3e95f73f",
+        "launch.json": "858a1a147ab8ed3b0a2b77bd42fa1fb28c9d564f0cbc38782a6d3e9de416fcf3",
+        "audit.json": "0d55ecf145cbc6cd8174c67897da29d3d28e0253f64e8e58ed3e5d037c074673"
+      },
+      "audit": {
+        "compliant": false,
+        "claimed_complete": false,
+        "note": "Reviewed all 88 recorded completed calls and initial context; fresh profile/cwd without AGENTS injection. Timed out at the predeclared 600-second cap with no final completion claim. EXCLUDED for call 87: explicit type X --allow-global without --app returned method unicode-global, dispatched=true. The surrounding snapshots targeted Code and did not establish the foreground recipient; out-of-target effects are unknown. No blind undo attempted. Repeated stale-ref recovery, deferred input checks, WebArea AXValue writes and --no-paste attempts did not complete the task. Saved JSON fields and preserved alternate literals passed the structural JSON oracle, but both text headings remained sandbox; release.md and service.json lost their trailing newline. The frozen JSON oracle does not check formatting/newline preservation. Saved artifacts were captured before discarding only the dedicated window unsaved buffer. Shared Code process preserved; no replacement attempt. Initial runtime has two identical turn_context records after compaction, with unchanged model/cwd/effort.",
+        "runtime_context": {
+          "contexts": [
+            {
+              "cwd": "/private/tmp/real-app-accuracy-20261101/vscode-1-cu/work",
+              "model": "gpt-6-astra",
+              "effort": "high",
+              "service_tier": null
+            },
+            {
+              "cwd": "/private/tmp/real-app-accuracy-20261101/vscode-1-cu/work",
+              "model": "gpt-6-astra",
+              "effort": "high",
+              "service_tier": null
+            }
+          ],
+          "messages": [
+            {
+              "role": "developer",
+              "chars": 21420,
+              "sha256": "35bd51b5f577cb7b24cd5f4629e49e37cb724ab57754ce6f8f202001635bab8a",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 12738,
+              "sha256": "3815de4b352921ea132fc8bd20562c4a8a74080603382fbd52467dfc185fb83e",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 2400,
+              "sha256": "3edd51083129388f52e881435e93e4b981e00c5ee3d62ab5d32e22c428fd504b",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 271,
+              "sha256": "6ded806e3cdbb35599ecaf8742574bc5274908472b1729090010c404c2151e8e",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 438,
+              "sha256": "d4c5e8abb82af022c7cc50122e46fb1baced30a77d276747313a260849d57533",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 3108,
+              "sha256": "84ef2b58bc02eeca294bea1fb8e7b799577bc4d94e37c66862fefc384df89098",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 221,
+              "sha256": "4ac6d3cda6f591f7a5b94073772f8a7c9db9c41bf6c54f1a369a7591ec53cb12",
+              "agents_injected": false
+            }
+          ],
+          "no_agents_injected": true,
+          "exit_code": 1
+        }
+      },
+      "partial_metrics": [
+        {
+          "turn_id": "01a1945b-1629-7022-b408-c9e8117e22fd",
+          "started_at": "2026-10-31T23:45:59.888Z",
+          "aborted_at": "2026-10-31T23:55:58.528Z",
+          "interrupted_elapsed_ms": 598634,
+          "tool_calls": 88,
+          "tool_errors": 15,
+          "tool_interval_ms": 11265,
+          "non_tool_interval_ms": 587369
+        }
+      ],
+      "partial_metrics_note": "Interrupted task, not a successful or complete duration. Tool counts/intervals cover recorded completed calls only; no token total inferred."
+    },
+    {
+      "label": "numbers-1-cu",
+      "mode": "numbers",
+      "repeat": 1,
+      "arm": "cu",
+      "status": "excluded",
+      "reasons": [
+        "Reviewed all 30 recorded calls, final DONE and initial context; fresh profile/cwd with no AGENTS injection. EXCLUDED because call 20 omitted the supplied helper and used globally installed cu for sdef Numbers. That binary SHA-256 49ca2e3d9bf1b9dc7a3ae66e140b38d25154911beef480c763951d729616fbcc differs from frozen candidate f7f6f64e0dd27c25e2d113bb2da3a91800efc25858af29018f96ad980afb88d0; it started default Broker 44797. The deviation was read-only dictionary discovery, not a document edit; all other cu commands used the assigned runtime. Saved artifact at the requested path independently passed all checks, including reopen and quantity/price changes recalculating every formula. Script-scope error occurred after edits; participant read back before continuing. Recovery made redundant saves/observations, one save timeout, invalid export attempts and duplicate task documents. Document properties continued to point to an iCloud copy even though save-in created the requested local file; this is a confusing save-copy identity distinction, not evidence the requested file was absent. No direct document file IO or settings change occurred. Owned Numbers process and task Broker stopped; accidental default Broker was also stopped after the run. This artifact success and DONE are retained, but excluded from compliant success and completion-claim rate calculations. Although Numbers started in an owned process, macOS restored three prior benchmark document windows. State output exposed their window titles; the participant did not select or read their contents. This is an additional application-state isolation limitation, not a fully fresh app session."
+      ],
+      "pid": 43159,
+      "app_path": "/Applications/Numbers Creator Studio.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-real-rl76bq8v",
+      "client_key": "numbers-1-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/real-app-accuracy-20261101/numbers-1-cu/output",
+      "workspace": "/Users/lixiaobo/Coding/computer-pilot/test-results/real-app-accuracy-20261101/numbers-1-cu/CP-real-app-accuracy-20261101-numbers-1-cu",
+      "source_sha256": "71fe2141aea4b80ca77132ec9af837b6d00f33688c0b007bcfabc030657b226b",
+      "shared_app": false,
+      "files": {},
+      "output_file": "/Users/lixiaobo/Coding/computer-pilot/test-results/real-app-accuracy-20261101/numbers-1-cu/CP-real-app-accuracy-20261101-numbers-1-cu/CP-real-app-accuracy-20261101-numbers-1-cu-budget.numbers",
+      "thread_id": "01a19465-6860-7520-96c7-cd1e15232bf3",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a19465-6860-7520-96c7-cd1e15232bf3",
+          "turn_id": "01a19465-68af-70f1-a7e3-7ef3a92ee554",
+          "started_at": "2026-10-31T23:57:16.344Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-11-01T00:02:12.890Z",
+          "elapsed_ms": 296540,
+          "final": "DONE — used the Numbers scripting route via `cu tell`, then `cu snapshot/state` to observe the final table.\n\nSaved the native document at the requested path. The table has 5 columns and 8 rows, sorted alphabetically, with formulas in all Total cells and `SUM(E2:E7)` for Grand total.",
+          "model_calls": 34,
+          "tokens": {
+            "input_tokens": 1284680,
+            "cached_input_tokens": 1201792,
+            "output_tokens": 9562,
+            "reasoning_output_tokens": 5873,
+            "total_tokens": 1294242
+          },
+          "tool_calls": 30,
+          "tool_output_chars": 76067,
+          "tool_errors": 4,
+          "tool_interval_ms": 38461,
+          "non_tool_interval_ms": 258079,
+          "label": "numbers-1-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "saved_file_exists": true,
+          "cells_exact": true,
+          "formulas_present": true,
+          "formulas_recalculate": true,
+          "sheet_name": true,
+          "table_shape": true
+        },
+        "actual": {
+          "saved_file_exists": true,
+          "values": [
+            [
+              "Item",
+              "Team",
+              "Quantity",
+              "Unit price",
+              "Total"
+            ],
+            [
+              "Adapter",
+              "Office",
+              8,
+              19,
+              152
+            ],
+            [
+              "Hosting",
+              "Platform",
+              10,
+              31,
+              310
+            ],
+            [
+              "Keyboard",
+              "Office",
+              7,
+              58,
+              406
+            ],
+            [
+              "Monitor",
+              "Office",
+              3,
+              195,
+              585
+            ],
+            [
+              "Storage",
+              "Platform",
+              9,
+              24,
+              216
+            ],
+            [
+              "Training",
+              "People",
+              2,
+              145,
+              290
+            ],
+            [
+              "Grand total",
+              null,
+              null,
+              null,
+              1959
+            ]
+          ],
+          "formulas": [
+            "=Quantity Adapter×Unit price Adapter",
+            "=Quantity Hosting×Unit price Hosting",
+            "=Quantity Keyboard×Unit price Keyboard",
+            "=Quantity Monitor×Unit price Monitor",
+            "=Quantity Storage×Unit price Storage",
+            "=Quantity Training×Unit price Training",
+            "=SUM(E2:E7)"
+          ],
+          "sheet": "Budget",
+          "row_count": 8,
+          "column_count": 5,
+          "recalculated_totals": [
+            189,
+            363,
+            480,
+            788,
+            260,
+            441,
+            2521
+          ]
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 296540,
+      "combined_turn_ms": 296540,
+      "evidence_sha256": {
+        "brief.txt": "e7cface4f582f45d33405d6eceedefc45aee2b6bd0f4393e517b1eb1bbbcacc1",
+        "source.json": "71fe2141aea4b80ca77132ec9af837b6d00f33688c0b007bcfabc030657b226b",
+        "saved.json": "8075ad21030d5c688cc5b37972fc6d71b5e904a71b4139dbfb3e0d3c2a84dae4",
+        "trace.json": "f940a920514b881f3c7fe0488bff72462b7e2e5d95701f459f28ef045e117ab8",
+        "runtime-context.json": "fbe5727cc4d1fc60adb90f099e53cfa9d2f31d399047d22c2c6090c0baa6f160",
+        "launch.json": "651bdf6857129ef5c17cda1f44beadf69e2f9e9a483c597283c6044494620473",
+        "audit.json": "dc9579fd2ca7d10f66e4ef7508ca3a0cb260eb7cc3a81adcf93ffaf27208d962"
+      },
+      "audit": {
+        "compliant": false,
+        "claimed_complete": true,
+        "note": "Reviewed all 30 recorded calls, final DONE and initial context; fresh profile/cwd with no AGENTS injection. EXCLUDED because call 20 omitted the supplied helper and used globally installed cu for sdef Numbers. That binary SHA-256 49ca2e3d9bf1b9dc7a3ae66e140b38d25154911beef480c763951d729616fbcc differs from frozen candidate f7f6f64e0dd27c25e2d113bb2da3a91800efc25858af29018f96ad980afb88d0; it started default Broker 44797. The deviation was read-only dictionary discovery, not a document edit; all other cu commands used the assigned runtime. Saved artifact at the requested path independently passed all checks, including reopen and quantity/price changes recalculating every formula. Script-scope error occurred after edits; participant read back before continuing. Recovery made redundant saves/observations, one save timeout, invalid export attempts and duplicate task documents. Document properties continued to point to an iCloud copy even though save-in created the requested local file; this is a confusing save-copy identity distinction, not evidence the requested file was absent. No direct document file IO or settings change occurred. Owned Numbers process and task Broker stopped; accidental default Broker was also stopped after the run. This artifact success and DONE are retained, but excluded from compliant success and completion-claim rate calculations. Although Numbers started in an owned process, macOS restored three prior benchmark document windows. State output exposed their window titles; the participant did not select or read their contents. This is an additional application-state isolation limitation, not a fully fresh app session.",
+        "runtime_context": {
+          "contexts": [
+            {
+              "cwd": "/private/tmp/real-app-accuracy-20261101/numbers-1-cu/work",
+              "model": "gpt-6-astra",
+              "effort": "high",
+              "service_tier": null
+            }
+          ],
+          "messages": [
+            {
+              "role": "developer",
+              "chars": 21420,
+              "sha256": "35bd51b5f577cb7b24cd5f4629e49e37cb724ab57754ce6f8f202001635bab8a",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 12739,
+              "sha256": "88b6955e1e2ae90305329584af4c530134c40caab98c82d3c58a4f301ba2e235",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 2400,
+              "sha256": "3edd51083129388f52e881435e93e4b981e00c5ee3d62ab5d32e22c428fd504b",
+              "agents_injected": false
+            },
+            {
+              "role": "developer",
+              "chars": 271,
+              "sha256": "6ded806e3cdbb35599ecaf8742574bc5274908472b1729090010c404c2151e8e",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 440,
+              "sha256": "eda7c6a21798f1849186a4412aa59fa89798fc4cf714f77a3dabd93d17ab0365",
+              "agents_injected": false
+            },
+            {
+              "role": "user",
+              "chars": 3320,
+              "sha256": "e7cface4f582f45d33405d6eceedefc45aee2b6bd0f4393e517b1eb1bbbcacc1",
+              "agents_injected": false
+            }
+          ],
+          "no_agents_injected": true,
+          "exit_code": 0
+        }
+      }
+    }
+  ],
+  "groups": [
+    {
+      "mode": "textedit",
+      "arms": {
+        "cu": {
+          "counts": {
+            "passed": 1,
+            "failed": 0,
+            "excluded": 0,
+            "unreviewed": 0,
+            "pending": 0
+          },
+          "success_medians_ms": {
+            "combined_turn_ms": 94676
+          }
+        }
+      },
+      "successful_pairs": [],
+      "median_paired_go_ratio": null,
+      "median_paired_combined_ratio": null
+    },
+    {
+      "mode": "vscode",
+      "arms": {
+        "cu": {
+          "counts": {
+            "passed": 0,
+            "failed": 0,
+            "excluded": 1,
+            "unreviewed": 0,
+            "pending": 0
+          },
+          "success_medians_ms": {
+            "combined_turn_ms": null
+          }
+        }
+      },
+      "successful_pairs": [],
+      "median_paired_go_ratio": null,
+      "median_paired_combined_ratio": null
+    },
+    {
+      "mode": "numbers",
+      "arms": {
+        "cu": {
+          "counts": {
+            "passed": 0,
+            "failed": 0,
+            "excluded": 1,
+            "unreviewed": 0,
+            "pending": 0
+          },
+          "success_medians_ms": {
+            "combined_turn_ms": null
+          }
+        }
+      },
+      "successful_pairs": [],
+      "median_paired_go_ratio": null,
+      "median_paired_combined_ratio": null
+    }
+  ],
+  "accuracy": {
+    "planned_attempts": 3,
+    "accepted_completed": 1,
+    "passed": 1,
+    "success_rate": 0.3333333333333333,
+    "completion_claims_reviewed": 1,
+    "claimed_complete": 1,
+    "false_completion_claims": 0,
+    "false_completion_rate": 0.0
+  },
+  "runtime_context": {
+    "classification": "Cu-only accuracy retest with alternate data, same model and fresh profiles; no AGENTS injection",
+    "working_directory": "unique neutral directory per participant outside the repository",
+    "isolated_codex_profile_per_trial": true,
+    "copied_history_or_memory": false,
+    "global_or_project_agents_injected": false,
+    "actual_initial_messages_audited": 3,
+    "cli_versions": [
+      "0.165.0"
+    ],
+    "native_plugin": "unified-computer-use",
+    "native_plugin_version": "26.1027.30824",
+    "native_plugin_files_sha256": {
+      ".codex-plugin/plugin.json": "75de537b724481731d7ad43eb55e15be8d0773b54b1306edf96638c4f9e30118",
+      ".mcp.json": "e7297a8851d46bb5d7f53d57e82d86cfdf4b04524bedf8c2ce6cf4a80ffe71da"
+    },
+    "profile_configs_unchanged": true,
+    "participant_turns_overlap": false,
+    "launch": "codex --no-daemon exec, project_doc_max_bytes=0, features.memories=false; exact argv and context hashes retained locally",
+    "timing": "One complete participant turn, including skill/API loading and task configuration. Profile provisioning, app launch, host process startup/shutdown, coordinator audit and cleanup are outside this timer.",
+    "limits": "TextEdit and VS Code share user processes, settings, extensions and caches with dedicated test windows/files; Numbers uses an owned process but restored three prior benchmark windows (titles exposed, no content selected); saved-document recalculation is independently checked. Same macOS session, permissions and native runtime assets; not VM isolation. No global/project AGENTS in participant context.",
+    "comparison_scope": "Cu-only retest; historical native runs are not repeated. Dataset: alternate; 3 planned attempts, no replacements. TextEdit/VS Code share the user application process with dedicated test windows. Numbers starts separately. Fresh model profiles/cwd and cu runtimes. Normal documented app scripting is allowed through cu tell; native uses actual App APIs. No direct file edits, terminal commands inside apps, automation scripts outside the assigned backend, or task-specific solver. Report routes separately; changed datasets are not paired speed comparisons.",
+    "native_plugin_cache_files_sha256": {
+      ".codex-plugin/plugin.json": "75de537b724481731d7ad43eb55e15be8d0773b54b1306edf96638c4f9e30118",
+      ".mcp.json": "099471c610819c63054e3a0dc1b3e848ff6ef7aa8d967d64b284d9644108b57d"
+    },
+    "all_owned_app_and_broker_pids_stopped": true,
+    "shared_user_app_processes_preserved": true,
+    "vscode_settings_sha256": "40dfa081420c5e2f384ebe1626aa32b590a0ee5a98726f8eb8e45736eb1cb19d",
+    "vscode_settings_unchanged": true
+  },
+  "cleanup": {
+    "additional_broker_pid_stopped": 44797,
+    "extra_numbers_icloud_copy_archived_after_evaluation": true,
+    "all_trial_ownership_cleared": true,
+    "shared_apps_preserved": true,
+    "note": "Updated coordinator verified each shared task window closed before clearing ownership; all owned app and trace-identified Broker PIDs are stopped."
+  },
+  "reporting_fingerprints": {
+    "tests/agent/benchmark_varied_workflows.py": "c453866d58e580710fb5c3dbc33e79aeea64144f9717dbdcb26fea1c5792a64f",
+    "tests/agent/collect_codex_benchmark.py": "a35fba949ee73222e5e83eaeb35807ce8b7bfc43727c4db9fae4fa0f692f3d79"
+  },
+  "historical_controls": [
+    "real-apps-2026-10-31.json",
+    "real-app-fixes-2026-10-31.json",
+    "real-app-cleanup-2026-10-31.json"
+  ],
+  "comparison_note": "Alternate source literals and numbers; historical native runs were not repeated. No matched speed ratio, causal improvement or population success rate is inferred from three attempts."
+}

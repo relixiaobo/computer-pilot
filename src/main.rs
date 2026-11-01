@@ -29,8 +29,7 @@ const WEB_INPUT_STABILITY_DELAY_MS: u64 = 300;
 
 /// Maps an action `method` string to a (confidence, advice) pair.
 ///
-/// `confidence` is one of "high" / "medium" / "low" — agents can use it to
-/// decide whether to verify with a fresh snapshot.
+/// `confidence` describes the delivery method, never task completion.
 /// `advice` is empty when the method is best-case; otherwise a one-line hint
 /// with the next-best action.
 fn method_meta(method: &str) -> (&'static str, &'static str) {
@@ -48,7 +47,7 @@ fn method_meta(method: &str) -> (&'static str, &'static str) {
         // OCR text click — visual coords; element may have moved/re-laid-out.
         "ocr-text-pid" => (
             "medium",
-            "OCR-located coordinates — verify outcome with a fresh snapshot",
+            "OCR-located coordinates — inspect the returned state for the intended effect",
         ),
         // Global HID tap — disruptive (cursor warps, focus may steal).
         "cgevent-global" | "key-global" | "unicode-global" | "paste-global" => (
@@ -246,10 +245,10 @@ enum Cmd {
         #[arg(long)]
         app: Option<String>,
         /// Skip auto-snapshot in JSON output
-        #[arg(long)]
+        #[arg(long, overrides_with = "no_snapshot")]
         no_snapshot: bool,
         /// Defer effect verification to the end of a deterministic action group.
-        #[arg(long)]
+        #[arg(long, overrides_with = "no_verify")]
         no_verify: bool,
         /// Use the disruptive global HID tap instead of PID-targeted delivery.
         /// Without --app, cu targets the current frontmost PID by default.
@@ -303,7 +302,7 @@ enum Cmd {
         #[arg(long)]
         observation: Option<String>,
         /// Skip auto-snapshot in JSON output
-        #[arg(long)]
+        #[arg(long, overrides_with = "no_snapshot")]
         no_snapshot: bool,
     },
 
@@ -342,7 +341,7 @@ enum Cmd {
         #[arg(long)]
         observation: Option<String>,
         /// Skip auto-snapshot in JSON output
-        #[arg(long)]
+        #[arg(long, overrides_with = "no_snapshot")]
         no_snapshot: bool,
     },
 
@@ -366,10 +365,10 @@ enum Cmd {
         #[arg(long)]
         app: Option<String>,
         /// Skip auto-snapshot in JSON output
-        #[arg(long)]
+        #[arg(long, overrides_with = "no_snapshot")]
         no_snapshot: bool,
         /// Defer effect verification to the end of a deterministic action group.
-        #[arg(long)]
+        #[arg(long, overrides_with = "no_verify")]
         no_verify: bool,
         /// Use the disruptive global HID tap instead of PID-targeted delivery.
         /// Without --app, cu targets the current frontmost PID by default.
@@ -557,7 +556,7 @@ enum Cmd {
         cu click 500 300                       # by coordinates\n  \
         cu click --text 'Submit' --app Safari  # by OCR text (finds text on screen)\n  \
         cu click 3 --app WeChat                # verify is on by default (~50-150ms)\n\
-        cu click 3 --app Finder --no-verify    # opt out of verify when speed matters\n\n\
+        cu click 3 --app Finder --no-verify    # observe at the action-group boundary\n\n\
         Text mode (--text) uses OCR to find the text, then clicks its center.\n\
         Works for UI elements not in the AX tree (Notification Center, system panels).\n\
         Use --index N to click the Nth match (default: first).\n\
@@ -569,9 +568,9 @@ enum Cmd {
         PID, so the real cursor stays put. Terminal/IDE targets still require\n\
         an explicit --app; --allow-global opts into the global HID tap.\n\n\
         Verify (default ON): takes a pre-action AX snapshot and diffs after the click.\n\
-        Returns `verified: bool` + `verify_diff` + remediation `verify_advice`.\n\
-        Catches sandboxed apps that silently swallow PID-targeted CGEvents — the\n\
-        #1 cause of \"ok=true but the UI didn't change\" agent confusion.")]
+        Returns `verify_diff` and `verify_advice`; a generic tree change leaves `verified:null`.\n\
+        For text inputs, `focus_verified` checks the target in the same window. The\n\
+        caller checks the intended content and saved result at the group boundary.")]
     Click {
         /// Element ref number, or x coordinate
         target: Option<String>,
@@ -615,13 +614,11 @@ enum Cmd {
         #[arg(long)]
         alt: bool,
         /// Skip auto-snapshot in JSON output
-        #[arg(long)]
+        #[arg(long, overrides_with = "no_snapshot")]
         no_snapshot: bool,
-        /// Skip pre/post AX diff. Verify is ON by default to catch silent
-        /// failures (sandboxed apps that ignore PID-targeted CGEvents).
-        /// Use this when you've measured the verify cost (~50–150ms) and
-        /// know the target app is reliable.
-        #[arg(long = "no-verify")]
+        /// Defer the AX diff and input-focus check to the action-group boundary.
+        /// Target identity checks still run.
+        #[arg(long = "no-verify", overrides_with = "no_verify")]
         no_verify: bool,
         /// Use the disruptive global HID tap instead of PID-targeted delivery.
         /// Without --app, coordinate and --text clicks target the frontmost PID.
@@ -658,7 +655,7 @@ enum Cmd {
         #[arg(long)]
         app: Option<String>,
         /// Skip auto-snapshot in JSON output
-        #[arg(long)]
+        #[arg(long, overrides_with = "no_snapshot")]
         no_snapshot: bool,
         /// Use the disruptive global HID tap instead of PID-targeted delivery.
         /// Without --app, scroll targets the current frontmost PID.
@@ -676,7 +673,7 @@ enum Cmd {
         #[arg(long)]
         app: Option<String>,
         /// Skip auto-snapshot in JSON output
-        #[arg(long)]
+        #[arg(long, overrides_with = "no_snapshot")]
         no_snapshot: bool,
         /// Use the disruptive global HID tap instead of PID-targeted delivery.
         /// Without --app, hover targets the current frontmost PID.
@@ -709,7 +706,7 @@ enum Cmd {
         #[arg(long)]
         app: Option<String>,
         /// Skip auto-snapshot in JSON output
-        #[arg(long)]
+        #[arg(long, overrides_with = "no_snapshot")]
         no_snapshot: bool,
         /// Use the disruptive global HID tap instead of PID-targeted delivery.
         /// Without --app, drag targets the current frontmost PID.
@@ -877,9 +874,9 @@ enum Cmd {
         cu menu Calculator     # see View > Scientific, View > Programmer\n  \
         cu menu Safari         # see File > New Window, View > Show Reader\n  \
         cu menu Finder         # see File > New Finder Window, Go > Home\n\n\
-        To click a menu item, use cu tell with System Events:\n  \
-        cu tell \"System Events\" 'tell process \"Calculator\" to click menu item \\\n    \
-          \"Scientific\" of menu \"View\" of menu bar 1'")]
+        This is a read-only listing, not a source of refs or axPaths.\n\
+        Use an app-native scripting operation or its known keyboard shortcut.\n\
+        Only use --ax-path with a path returned by a snapshot; do not invent menu paths.")]
     Menu {
         /// Target application name
         app: String,
@@ -1883,16 +1880,12 @@ fn cmd_setup(json: bool) -> Result<(), CuError> {
 }
 
 fn cmd_apps(json: bool) -> Result<(), CuError> {
-    let payload = system::list_apps()?;
+    let parsed = system::list_apps();
     if json {
-        let value: serde_json::Value =
-            serde_json::from_str(&payload).map_err(|e| format!("failed to parse apps: {e}"))?;
-        emit(&value);
+        emit(&parsed);
         return Ok(());
     }
 
-    let parsed: serde_json::Value =
-        serde_json::from_str(&payload).map_err(|e| format!("failed to parse apps: {e}"))?;
     if let Some(apps) = parsed["apps"].as_array() {
         for app in apps {
             let active = if app["active"].as_bool() == Some(true) {
@@ -2474,24 +2467,27 @@ fn prepare_ref_action(
     app: &Option<String>,
     ref_id: Option<usize>,
     limit: usize,
-) -> Result<(i32, String, ax::SnapshotResult), CuError> {
+) -> Result<(i32, String, ax::SnapshotResult, ax::RefTarget), CuError> {
     let ref_id = ref_id.ok_or("provide either <ref> or --ax-path")?;
     if ref_id == 0 {
         return Err("ref must be >= 1".into());
     }
 
     let (pid, name) = system::resolve_target_app(app)?;
-    let pre_snapshot = broker::snapshot_for_ref_action(pid, &name, ref_id, limit)?;
-    Ok((pid, name, pre_snapshot))
+    let (pre_snapshot, target) = broker::snapshot_for_ref_action(pid, &name, ref_id, limit)?;
+    Ok((pid, name, pre_snapshot, target))
 }
 
-fn tree_changed(before: &[ax::Element], after: &[ax::Element]) -> bool {
-    let changes = diff::diff(before, after);
-    changes.added != 0 || changes.changed != 0 || changes.removed != 0
-}
-
-fn same_focused_element(before: &ax::FocusedSummary, after: &ax::FocusedSummary) -> bool {
-    if let (Some(before_path), Some(after_path)) = (&before.ax_path, &after.ax_path) {
+fn same_control_path(
+    before_role: &str,
+    before_path: Option<&str>,
+    after_role: &str,
+    after_path: Option<&str>,
+) -> bool {
+    if before_role != after_role {
+        return false;
+    }
+    if let (Some(before_path), Some(after_path)) = (before_path, after_path) {
         if before_path == after_path {
             return true;
         }
@@ -2504,7 +2500,15 @@ fn same_focused_element(before: &ax::FocusedSummary, after: &ax::FocusedSummary)
             return true;
         }
     }
-    before.role == after.role && before.ref_id.is_some() && before.ref_id == after.ref_id
+    false
+}
+
+fn same_observed_window(before: &ax::SnapshotResult, after: &ax::SnapshotResult) -> bool {
+    before.ok
+        && after.ok
+        && before.pid == after.pid
+        && before.window_id != 0
+        && before.window_id == after.window_id
 }
 
 fn focused_inside_webarea(focused: &ax::FocusedSummary) -> bool {
@@ -2514,21 +2518,16 @@ fn focused_inside_webarea(focused: &ax::FocusedSummary) -> bool {
         .is_some_and(|path| path.to_ascii_lowercase().contains("webarea"))
 }
 
-fn focused_tree_value<'a>(
-    focused: &ax::FocusedSummary,
-    elements: &'a [ax::Element],
-) -> Option<&'a str> {
-    elements
-        .iter()
-        .find(|element| {
-            focused
-                .ax_path
-                .as_ref()
-                .zip(element.ax_path.as_ref())
-                .is_some_and(|(focused_path, element_path)| focused_path == element_path)
-                || (focused.ref_id == Some(element.ref_id) && focused.role == element.role)
-        })
-        .and_then(|element| element.value.as_deref())
+fn observed_input_change(before: &ax::SnapshotResult, after: &ax::SnapshotResult) -> Option<bool> {
+    if !same_observed_window(before, after)
+        || !before
+            .focused_target
+            .as_ref()?
+            .same_element(after.focused_target.as_ref()?)
+    {
+        return None;
+    }
+    Some(before.focused.as_ref()?.value.as_ref()? != after.focused.as_ref()?.value.as_ref()?)
 }
 
 /// Keep post-action observations on the PID that was bound before dispatch.
@@ -2571,12 +2570,33 @@ fn input_is_focused(target: Option<&ax::Element>, snapshot: Option<&ax::Snapshot
 fn enforce_text_input_focus(
     result: &mut serde_json::Value,
     target: Option<&ax::Element>,
+    pre: Option<&ax::SnapshotResult>,
     post: Option<&ax::SnapshotResult>,
+    native_target: Option<&ax::RefTarget>,
 ) -> Result<(), CuError> {
     let Some(target) = target.filter(|element| is_text_input_role(&element.role)) else {
         return Ok(());
     };
-    let Some(post) = post.filter(|snapshot| snapshot.ok) else {
+    let focus_verified = post.filter(|snapshot| snapshot.ok).and_then(|post| {
+        if !pre.is_some_and(|pre| same_observed_window(pre, post)) {
+            return Some(false);
+        }
+        if let Some(native_target) = native_target {
+            // Sibling reorder can change a path while the retained object is
+            // still the intended focused input. No second tree walk is needed.
+            native_target.is_focused()
+        } else {
+            Some(post.focused.as_ref().is_some_and(|focused| {
+                same_control_path(
+                    &target.role,
+                    target.ax_path.as_deref(),
+                    &focused.role,
+                    focused.ax_path.as_deref(),
+                )
+            }))
+        }
+    });
+    let Some(focus_verified) = focus_verified else {
         return Err(CuError::msg(
             "unknown outcome: click was dispatched, but target focus could not be observed",
         )
@@ -2588,14 +2608,6 @@ fn enforce_text_input_focus(
             "action_result": result,
         })));
     };
-    let focus_verified = post.focused.as_ref().is_some_and(|focused| {
-        target
-            .ax_path
-            .as_ref()
-            .zip(focused.ax_path.as_ref())
-            .is_some_and(|(target_path, focused_path)| target_path == focused_path)
-            || (focused.ref_id == Some(target.ref_id) && focused.role == target.role)
-    });
     if let Some(obj) = result.as_object_mut() {
         obj.insert("focus_verified".into(), focus_verified.into());
         if focus_verified {
@@ -2619,17 +2631,14 @@ fn enforce_text_input_focus(
     .with_diagnostics(serde_json::json!({
         "dispatched": true,
         "target": target,
-        "focused": post.focused,
+        "focused": post.and_then(|snapshot| snapshot.focused.as_ref()),
         "action_result": result,
     })))
 }
 
-fn focused_input_before_type(
-    pid: i32,
-    name: &str,
-) -> Result<(ax::FocusedSummary, Vec<ax::Element>), CuError> {
+fn focused_input_before_type(pid: i32, name: &str) -> Result<ax::SnapshotResult, CuError> {
     let snapshot = ax::snapshot(pid, name, 200);
-    let focused = snapshot.focused.clone();
+    let focused = &snapshot.focused;
     let valid = focused
         .as_ref()
         .is_some_and(|element| is_text_input_role(&element.role));
@@ -2647,7 +2656,7 @@ fn focused_input_before_type(
             "snapshot": snapshot_value(&snapshot),
         })));
     }
-    Ok((focused.unwrap(), snapshot.elements))
+    Ok(snapshot)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -2674,7 +2683,8 @@ fn cmd_type(
     };
     let webarea_input = pre_input
         .as_ref()
-        .is_some_and(|(focused, _)| focused_inside_webarea(focused));
+        .and_then(|snapshot| snapshot.focused.as_ref())
+        .is_some_and(focused_inside_webarea);
 
     // Auto-route through paste for Chromium inputs and known chat apps that
     // drop PID unicode events. Native controls keep unicode events, including
@@ -2695,8 +2705,12 @@ fn cmd_type(
         (auto_reason.is_some(), auto_reason)
     };
 
+    // `--no-verify` defers effect interpretation, but an emitted JSON snapshot
+    // still needs the same post-dispatch settle observation as a verified one.
+    // `--no-snapshot` is the only input flag that suppresses that capture.
+    let capture_requested = !no_verify || (json && !no_snapshot);
     let observer = target_pid
-        .filter(|_| !no_verify)
+        .filter(|_| capture_requested)
         .and_then(observer::ActionObserver::new);
     let mut clipboard_hint: Option<String> = None;
     let method = if use_paste {
@@ -2716,11 +2730,11 @@ fn cmd_type(
     };
     // Native input needs no additional fixed stability delay. Chromium can
     // roll back AXValue before its controlled editor accepts the input.
-    let captured = if (!no_verify || (json && !no_snapshot))
+    let captured = if capture_requested
         && let (Some(pid), Some(name)) = (target_pid, resolved_app.as_deref())
     {
         let waited = observer::wait_for_settle(observer, POST_ACTION_DELAY_MS);
-        let stability_delay = if webarea_input && !no_verify {
+        let stability_delay = if webarea_input {
             WEB_INPUT_STABILITY_DELAY_MS
         } else {
             0
@@ -2733,73 +2747,28 @@ fn cmd_type(
     let post_input = captured
         .as_ref()
         .and_then(|(_, snapshot)| snapshot.focused.as_ref());
-    let effect_verified =
-        pre_input
-            .as_ref()
-            .filter(|_| !no_verify)
-            .and_then(|(before, before_elements)| {
-                let values = if webarea_input {
-                    let after_elements = &captured.as_ref()?.1.elements;
-                    (
-                        focused_tree_value(before, before_elements),
-                        focused_tree_value(before, after_elements),
-                    )
-                } else {
-                    let after = post_input?;
-                    if !same_focused_element(before, after) {
-                        return Some(false);
-                    }
-                    (before.value.as_deref(), after.value.as_deref())
-                };
-                match values {
-                    (Some(before_value), Some(after_value)) => {
-                        Some(text.is_empty() || before_value != after_value)
-                    }
-                    (None, Some(after_value)) => Some(text.is_empty() || !after_value.is_empty()),
-                    _ => None,
-                }
-            });
+    let value_changed = pre_input
+        .as_ref()
+        .filter(|_| !no_verify)
+        .and_then(|before| observed_input_change(before, &captured.as_ref()?.1));
 
-    if effect_verified == Some(false) {
-        let snapshot = captured
-            .as_ref()
-            .map(|(_, snapshot)| snapshot_value(snapshot));
+    if !no_verify && !text.is_empty() && target_pid.is_some() && value_changed != Some(true) {
         return Err(CuError::msg(
-            "verification failed: text was dispatched, but the focused target did not change",
-        )
-        .with_code(ErrorCode::VerificationFailed)
-        .with_hint(
-            "do not repeat the full input; for Electron/CEF, perform at most one exact-PID focus plus a short probe, then use the app's development automation surface or stop with unknown outcome",
-        )
-        .with_diagnostics(serde_json::json!({
-            "dispatched": true,
-            "method": method,
-            "effect_verified": false,
-            "webarea_input": webarea_input,
-            "effect_stability_ms": webarea_input.then_some(WEB_INPUT_STABILITY_DELAY_MS),
-            "clipboard_hint": clipboard_hint,
-            "focused_before": pre_input.as_ref().map(|(focused, _)| focused),
-            "focused_after": post_input,
-            "snapshot": snapshot,
-        })));
-    }
-
-    if !no_verify && target_pid.is_some() && effect_verified.is_none() {
-        return Err(CuError::msg(
-            "unknown outcome: text was dispatched, but the target exposes no comparable effect",
+            "unknown outcome: text was dispatched, but no value change on the same focused target was established",
         )
         .with_code(ErrorCode::UnknownOutcome)
         .with_hint(
-            "inspect the current target state before any retry; never replay the full text merely because dispatch succeeded",
+            "inspect the attached state against the intended edit before any retry; an unchanged value may already be correct, and missing evidence does not prove input failed",
         )
         .with_diagnostics(serde_json::json!({
             "dispatched": true,
             "method": method,
             "effect_verified": serde_json::Value::Null,
+            "value_changed": value_changed,
             "webarea_input": webarea_input,
             "paste_reason": paste_reason,
             "clipboard_hint": clipboard_hint,
-            "focused_before": pre_input.as_ref().map(|(focused, _)| focused),
+            "focused_before": pre_input.as_ref().and_then(|snapshot| snapshot.focused.as_ref()),
             "focused_after": post_input,
             "snapshot": captured.as_ref().map(|(_, snapshot)| snapshot_value(snapshot)),
         })));
@@ -2810,7 +2779,8 @@ fn cmd_type(
         "text": text,
         "method": method,
         "dispatched": true,
-        "effect_verified": effect_verified,
+        "effect_verified": serde_json::Value::Null,
+        "value_changed": value_changed,
         "webarea_input": webarea_input,
     });
     if no_verify {
@@ -2819,7 +2789,9 @@ fn cmd_type(
     }
     if webarea_input && !no_verify {
         result["effect_stability_ms"] = WEB_INPUT_STABILITY_DELAY_MS.into();
-        result["effect_advice"] = "The focused AXValue was changed after the Chromium stability delay. This verifies stable text input, but not every controlled-editor side effect; inspect the app's visible submit/search state before invoking it.".into();
+    }
+    if value_changed == Some(true) {
+        result["effect_advice"] = "The focused AX value changed; exact input and saving are not verified. Check the requested edit at the group boundary. Virtual AX text is not saved-file bytes; do not mutate document boundaries solely to match it.".into();
     }
     if let Some(reason) = paste_reason {
         result["paste_reason"] = serde_json::Value::String(reason);
@@ -2828,12 +2800,6 @@ fn cmd_type(
         result["clipboard_hint"] = serde_json::Value::String(hint);
     }
     annotate_method(&mut result);
-    if effect_verified == Some(true) && !webarea_input {
-        result["confidence"] = "high".into();
-        if let Some(object) = result.as_object_mut() {
-            object.remove("advice");
-        }
-    }
     if let Some(captured) = captured.as_ref() {
         attach_captured_snapshot(&mut result, json, no_snapshot, captured);
     }
@@ -2857,12 +2823,12 @@ fn cmd_set_value(
 ) -> Result<(), CuError> {
     // A path write has no ref freshness check or pre/post diff. Its path
     // already identifies web inputs, so a pre-action tree would be unused.
-    let (pid, name, pre_snapshot) = if ax_path.is_some() {
+    let (pid, name, pre_snapshot, ref_target) = if ax_path.is_some() {
         let (pid, name) = system::resolve_target_app(&app)?;
-        (pid, name, None)
+        (pid, name, None, None)
     } else {
-        let (pid, name, snapshot) = prepare_ref_action(&app, ref_id, limit)?;
-        (pid, name, Some(snapshot))
+        let (pid, name, snapshot, target) = prepare_ref_action(&app, ref_id, limit)?;
+        (pid, name, Some(snapshot), Some(target))
     };
     let snapshot_app = fixed_target_selector(Some(pid), &app);
 
@@ -2871,7 +2837,10 @@ fn cmd_set_value(
         ("ax-path", serde_json::Value::String(p.to_string()))
     } else {
         let r = ref_id.unwrap();
-        ax::ax_set_value(pid, r, limit, &value)?;
+        ref_target
+            .as_ref()
+            .expect("ref target was prepared")
+            .set_value(&value)?;
         ("ref", serde_json::Value::Number(r.into()))
     };
 
@@ -2930,11 +2899,12 @@ fn cmd_perform(
     ax_path: Option<String>,
     no_snapshot: bool,
 ) -> Result<(), CuError> {
-    let (pid, name) = if ax_path.is_some() {
-        system::resolve_target_app(&app)?
+    let (pid, name, ref_target) = if ax_path.is_some() {
+        let (pid, name) = system::resolve_target_app(&app)?;
+        (pid, name, None)
     } else {
-        let (pid, name, _) = prepare_ref_action(&app, ref_id, limit)?;
-        (pid, name)
+        let (pid, name, _, target) = prepare_ref_action(&app, ref_id, limit)?;
+        (pid, name, Some(target))
     };
     let snapshot_app = fixed_target_selector(Some(pid), &app);
 
@@ -2943,7 +2913,10 @@ fn cmd_perform(
         ("ax-path", serde_json::Value::String(p.to_string()))
     } else {
         let r = ref_id.unwrap();
-        ax::ax_perform(pid, r, limit, &action)?;
+        ref_target
+            .as_ref()
+            .expect("ref target was prepared")
+            .perform(&action)?;
         ("ref", serde_json::Value::Number(r.into()))
     };
 
@@ -2977,28 +2950,6 @@ fn cmd_perform(
     }
 }
 
-fn enter_effect_verified(before: &ax::SnapshotResult, after: &ax::SnapshotResult) -> Option<bool> {
-    if !before.ok || !after.ok {
-        return None;
-    }
-    let focus_changed = match (&before.focused, &after.focused) {
-        (Some(before), Some(after)) => !same_focused_element(before, after),
-        (None, Some(_)) | (Some(_), None) => true,
-        (None, None) => false,
-    };
-    if tree_changed(&before.elements, &after.elements) || focus_changed {
-        Some(true)
-    } else if before
-        .focused
-        .as_ref()
-        .is_some_and(|focused| is_text_input_role(&focused.role))
-    {
-        Some(false)
-    } else {
-        None
-    }
-}
-
 fn cmd_key(
     json: bool,
     combo: String,
@@ -3012,14 +2963,12 @@ fn cmd_key(
     let target = system::resolve_input_target(&app, allow_global, "send keys")?;
     let target_pid = target.as_ref().map(|(pid, _)| *pid);
     let snapshot_app = fixed_target_selector(target_pid, &app);
-    // Selection/copy/navigation shortcuts have no generic AX effect to verify.
-    let verify_enter = !no_verify && combo.eq_ignore_ascii_case("enter");
-    let pre_snapshot = target
-        .as_ref()
-        .filter(|_| verify_enter)
-        .map(|(pid, name)| ax::snapshot(*pid, name, 200));
+    // Enter can submit, commit a selection, insert a newline, or do nothing.
+    // An arbitrary tree diff cannot verify its intended effect, just as for
+    // other shortcuts. Observe only when the caller requests action state.
+    // Arm before dispatch so the snapshot does not race asynchronous key delivery.
     let observer = target_pid
-        .filter(|_| verify_enter)
+        .filter(|_| json && !no_snapshot)
         .and_then(observer::ActionObserver::new);
     key::send(&combo, target_pid)?;
     let method = if target_pid.is_some() {
@@ -3027,48 +2976,29 @@ fn cmd_key(
     } else {
         "key-global"
     };
-    let captured = if target_pid.is_some() && (verify_enter || (json && !no_snapshot)) {
+    let captured = if target_pid.is_some() && json && !no_snapshot {
         capture_action_snapshot(&snapshot_app, 200, observer)
     } else {
         None
     };
-    let effect_verified = pre_snapshot
-        .as_ref()
-        .zip(captured.as_ref())
-        .and_then(|(before, (_, after))| enter_effect_verified(before, after));
-    if effect_verified == Some(false) {
-        return Err(CuError::msg(
-            "verification failed: Enter was dispatched, but the focused input and target UI did not change",
-        )
-        .with_code(ErrorCode::VerificationFailed)
-        .with_hint(
-            "do not submit again blindly; inspect whether the editor is controlled/disabled, then use a semantic app-native action or development automation surface",
-        )
-        .with_diagnostics(serde_json::json!({
-            "dispatched": true,
-            "method": method,
-            "combo": combo,
-            "effect_verified": false,
-            "snapshot": captured.as_ref().map(|(_, snapshot)| snapshot_value(snapshot)),
-        })));
+    if captured.is_none() {
+        // CGEvent posting is asynchronous. Without a snapshot, this short-lived
+        // worker can exit before the key pair is delivered. Keep it alive for
+        // dispatch; this is not a UI settle wait or effect verification.
+        std::thread::sleep(key::DISPATCH_GRACE);
     }
     let mut result = serde_json::json!({
         "ok": true,
         "combo": combo,
         "method": method,
         "dispatched": true,
-        "effect_verified": effect_verified,
+        "effect_verified": serde_json::Value::Null,
     });
-    if effect_verified.is_none() {
-        result["effect_advice"] = "The key event was dispatched, but this shortcut has no reliably observable generic AX effect. Verify the intended application state before any retry.".into();
+    if no_verify {
+        result["verification_skipped"] =
+            "--no-verify: inspect the final group state before assuming success".into();
     }
     annotate_method(&mut result);
-    if effect_verified == Some(true) {
-        result["confidence"] = "high".into();
-        if let Some(object) = result.as_object_mut() {
-            object.remove("advice");
-        }
-    }
     if let Some(captured) = captured.as_ref() {
         attach_captured_snapshot(&mut result, json, no_snapshot, captured);
     }
@@ -3146,14 +3076,13 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
     } else {
         None
     };
-    // Stale-ref enforcement and effect verification share one pre-action tree.
+    // Retain the checked AX object; do not resolve its DFS number a second time.
+    let mut ref_target = None;
     let pre_state = if let Some((pid, name)) = resolved_target.as_ref() {
         if let Some(ref_id) = ref_id {
-            Some((
-                *pid,
-                name.clone(),
-                broker::snapshot_for_ref_action(*pid, name, ref_id, limit)?,
-            ))
+            let (snapshot, target) = broker::snapshot_for_ref_action(*pid, name, ref_id, limit)?;
+            ref_target = Some(target);
+            Some((*pid, name.clone(), snapshot))
         } else if verify {
             let snap = ax::snapshot(*pid, name, limit);
             snap.ok.then(|| (*pid, name.clone(), snap))
@@ -3229,7 +3158,13 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
             post.as_ref(),
             method,
         );
-        enforce_text_input_focus(&mut result, focus_target.as_ref(), post.as_ref())?;
+        enforce_text_input_focus(
+            &mut result,
+            focus_target.as_ref(),
+            pre_state.as_ref().map(|(_, _, snapshot)| snapshot),
+            post.as_ref(),
+            None,
+        )?;
         return if json {
             ok(result)
         } else {
@@ -3352,7 +3287,13 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
             post.as_ref(),
             method,
         );
-        enforce_text_input_focus(&mut result, focus_target.as_ref(), post.as_ref())?;
+        enforce_text_input_focus(
+            &mut result,
+            focus_target.as_ref(),
+            pre_state.as_ref().map(|(_, _, snapshot)| snapshot),
+            post.as_ref(),
+            None,
+        )?;
         return if json {
             ok(result)
         } else {
@@ -3420,7 +3361,13 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
             post.as_ref(),
             method,
         );
-        enforce_text_input_focus(&mut result, focus_target.as_ref(), post.as_ref())?;
+        enforce_text_input_focus(
+            &mut result,
+            focus_target.as_ref(),
+            pre_state.as_ref().map(|(_, _, snapshot)| snapshot),
+            post.as_ref(),
+            None,
+        )?;
         return if json {
             ok(result)
         } else {
@@ -3459,7 +3406,10 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
         })
         .and_then(observer::ActionObserver::new);
     let (method, cx, cy) = if right || double {
-        let (_, cx, cy) = ax::ax_find_element(pid, ref_id, limit)?;
+        let (_, cx, cy) = ref_target
+            .as_ref()
+            .expect("ref target was prepared")
+            .click(false)?;
         if double {
             mouse::double_click(cx, cy, mods, target_pid)?;
             ("double-click-pid", cx, cy)
@@ -3468,7 +3418,10 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
             ("cgevent-right-pid", cx, cy)
         }
     } else {
-        let (ax_acted, cx, cy) = ax::ax_click(pid, ref_id, limit)?;
+        let (ax_acted, cx, cy) = ref_target
+            .as_ref()
+            .expect("ref target was prepared")
+            .click(true)?;
         if !ax_acted {
             mouse::click(cx, cy, false, mods, target_pid)?;
             ("cgevent-pid", cx, cy)
@@ -3496,7 +3449,13 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
         post.as_ref(),
         method,
     );
-    enforce_text_input_focus(&mut result, focus_target.as_ref(), post.as_ref())?;
+    enforce_text_input_focus(
+        &mut result,
+        focus_target.as_ref(),
+        pre_state.as_ref().map(|(_, _, snapshot)| snapshot),
+        post.as_ref(),
+        ref_target.as_ref(),
+    )?;
     if json {
         ok(result)
     } else {
@@ -3850,7 +3809,7 @@ fn cmd_launch(json: bool, id: String, no_wait: bool, timeout: u64) -> Result<(),
 
 fn cmd_why(json: bool, ref_id: usize, app: Option<String>, limit: usize) -> Result<(), CuError> {
     let (pid, name) = system::resolve_target_app(&app)?;
-    let snap = ax::snapshot(pid, &name, limit);
+    let (snap, target) = ax::snapshot_with_ref(pid, &name, limit, ref_id);
     if !snap.ok {
         return Err(snap
             .error
@@ -3894,7 +3853,7 @@ fn cmd_why(json: bool, ref_id: usize, app: Option<String>, limit: usize) -> Resu
             )
         }
         Some(el) => {
-            let inspection = ax::inspect_ref(pid, ref_id);
+            let inspection = target.as_ref().map(ax::RefTarget::inspect);
             let cx = el.x + el.width / 2.0;
             let cy = el.y + el.height / 2.0;
             let in_window_bounds = window_frame
@@ -4582,11 +4541,8 @@ fn print_snapshot_human(snap: &ax::SnapshotResult) {
 /// `result` by the post-action snapshot helper, then enriches the response with a
 /// `verified` flag and per-action diff stats. Used by default click verification.
 ///
-/// `verified=false` means the AX tree did not change after the action — most
-/// often a sandboxed/Electron app silently ignored a PID-targeted CGEvent.
-/// We don't auto-retry: focus stealing is disruptive and AX-empty diffs have
-/// false positives (network roundtrips, animations not yet started). The
-/// agent reads the advice and chooses whether to recover.
+/// A tree diff is observation evidence, not proof of a click's intended effect.
+/// Only the separate text-input focus check can set a scoped `verified` result.
 fn mark_verification_skipped(result: &mut serde_json::Value, reason: &str) {
     if let Some(obj) = result.as_object_mut() {
         obj.insert("verified".into(), serde_json::Value::Null);
@@ -4647,10 +4603,10 @@ fn attach_verification(
     };
 
     let d = diff::diff(pre, post);
-    let verified = d.added != 0 || d.changed != 0 || d.removed != 0;
+    let changed = d.added != 0 || d.changed != 0 || d.removed != 0;
 
     if let Some(obj) = result.as_object_mut() {
-        obj.insert("verified".to_string(), serde_json::Value::Bool(verified));
+        obj.insert("verified".to_string(), serde_json::Value::Null);
         obj.insert(
             "verify_diff".to_string(),
             serde_json::json!({
@@ -4659,28 +4615,13 @@ fn attach_verification(
                 "removed": d.removed,
             }),
         );
-        if !verified {
-            // Recovery advice — purposefully avoids `--allow-global`. The
-            // global HID tap path is brittle: between the cu window focus
-            // call and the next bash invocation, focus can drift back to
-            // the terminal, and the fallback click lands on the wrong app.
-            // Stay on `--app`-targeted cu primitives. Name-based activation is
-            // unsafe when multiple Electron instances share an application name.
-            let advice = if method.starts_with("cgevent-pid")
-                || method == "double-click-pid"
-                || method == "cgevent-right-pid"
-            {
-                "AX tree unchanged after PID-targeted CGEvent click — the target app may be sandboxed/CEF and dropped the event, or the click coordinates missed the intended element. Try, in order: \
-                 (1) re-snapshot to confirm the UI state — the auto-attached snapshot already shows the post-action tree; \
-                 (2) if the element has a ref, switch to ref-based click (`cu click <ref> --app <Name>`) which uses the AX action chain (AXPress/AXConfirm) — these aren't dropped by sandboxes the way coord-clicks are; \
-                 (3) if no usable ref exists, use `cu perform <ref|--ax-path> AXPress --app <Name>` against a parent element. \
-                 Do not activate by application name or fall back to the global-tap path; both can target the wrong process when duplicate app instances are running."
-            } else if method == "ax-action" {
-                "AX action returned ok but the tree didn't change. The action may have triggered an async operation (network, navigation, animation) whose result hasn't landed yet. Either read `cu snapshot <Name>` at the next decision boundary, or use `cu wait --text <expected> --app <Name>` / `cu wait --gone <ref> --app <Name>` to block until the transition lands."
-            } else if method.starts_with("unicode-pid") || method.starts_with("paste-pid") {
-                "AX tree unchanged after `cu type`. Possibilities: (1) no input field was focused — click the input first (`cu click <ref> --app <Name>`); (2) the app's text widget doesn't update AX on every keystroke — wait briefly and re-snapshot; (3) IME swallowed the input — switch to `--paste` (or rely on auto-paste for CJK / chat-app targets, which is on by default)."
+        if changed {
+            obj.insert("verify_advice".into(), "The AX tree changed; this does not verify the intended click result. Inspect the returned state against the requested action.".into());
+        } else {
+            let advice = if method == "ax-action" {
+                "AX accepted the click but the tree is unchanged. Inspect the attached state; use cu wait for a known asynchronous result. Do not repeat the action merely to obtain a changed tree."
             } else {
-                "AX tree unchanged after the action. Either the action missed the target, the app handled it silently, or the resulting UI change hasn't landed yet. Re-snapshot to confirm; if you used coordinates, switch to a ref-based action (`cu click <ref> --app <Name>` or `cu perform <ref> AXPress --app <Name>`)."
+                "The tree is unchanged after the click. Inspect the attached state before retrying; if the intended effect is absent, prefer an observed AX target/action over coordinates. Keep the same --app PID; do not switch to global input."
             };
             obj.insert(
                 "verify_advice".to_string(),
@@ -4843,6 +4784,7 @@ mod tests {
             window_id: 10,
             window_frame: None,
             focused: ok.then(|| focused(Some(1), "textfield", Some("window/textfield"))),
+            focused_target: None,
             modal: None,
             elements: if ok {
                 vec![
@@ -4884,25 +4826,19 @@ mod tests {
     }
 
     #[test]
-    fn enter_effect_requires_readable_observations() {
-        let good = verification_snapshot(true);
-        let failed = verification_snapshot(false);
-        assert_eq!(enter_effect_verified(&good, &failed), None);
-        assert_eq!(enter_effect_verified(&failed, &good), None);
-        assert_eq!(enter_effect_verified(&good, &good), Some(false));
-        let mut changed = verification_snapshot(true);
-        changed.elements[0].value = Some("submitted".into());
-        assert_eq!(enter_effect_verified(&good, &changed), Some(true));
-    }
-
-    #[test]
     fn unreadable_focus_is_unknown_not_a_failed_click() {
         let good = verification_snapshot(true);
         let failed = verification_snapshot(false);
         for post in [None, Some(&failed)] {
             let mut result = serde_json::json!({"ok": true});
-            let error =
-                enforce_text_input_focus(&mut result, good.elements.first(), post).unwrap_err();
+            let error = enforce_text_input_focus(
+                &mut result,
+                good.elements.first(),
+                Some(&good),
+                post,
+                None,
+            )
+            .unwrap_err();
             assert!(error.error.starts_with("unknown outcome:"));
             assert!(result.get("focus_verified").is_none());
         }
@@ -4998,35 +4934,78 @@ mod tests {
     }
 
     #[test]
-    fn focused_identity_prefers_structural_path_then_ref() {
-        let original = focused(Some(3), "textfield", Some("window[A]/group/textfield"));
-        assert!(same_focused_element(&original, &original));
-        assert!(same_focused_element(
-            &original,
-            &focused(Some(9), "textfield", Some("window[B]/group/textfield"))
-        ));
-        assert!(same_focused_element(
-            &focused(Some(3), "textfield", None),
-            &focused(Some(3), "textfield", None)
-        ));
-        assert!(!same_focused_element(
-            &focused(None, "textfield", None),
-            &focused(None, "textfield", None)
-        ));
-        assert!(!same_focused_element(
-            &focused(Some(3), "textfield", None),
-            &focused(Some(3), "textarea", None)
-        ));
-        assert!(focused_inside_webarea(&focused(
+    fn input_observations_never_rebind_an_old_ref() {
+        let mut before = verification_snapshot(true);
+        before.elements[0].ax_path = Some("window[A]/webarea/textarea[editor]".into());
+        before.elements[0].role = "textarea".into();
+        before.focused = Some(focused(
             Some(1),
-            "textfield",
-            Some("window/AXWebArea/textfield")
-        )));
-        assert!(!focused_inside_webarea(&focused(
+            "textarea",
+            before.elements[0].ax_path.as_deref(),
+        ));
+        let mut after = verification_snapshot(true);
+        let mut neighbor = before.elements[0].clone();
+        neighbor.ax_path = Some("window[A]/webarea/textarea[neighbor]".into());
+        neighbor.value = Some("neighbor changed".into());
+        let mut intended = before.elements[0].clone();
+        intended.ref_id = 2;
+        after.elements = vec![neighbor, intended];
+        after.focused = Some(focused(
+            Some(2),
+            "textarea",
+            before.elements[0].ax_path.as_deref(),
+        ));
+        // Matching paths or refs alone cannot establish native input identity.
+        // Real same-object and focus-switch cases are covered by the owned fixture.
+        assert_eq!(observed_input_change(&before, &after), None);
+
+        // Reused ref/role cannot establish focus when its path changed.
+        after.focused = Some(focused(
             Some(1),
-            "textfield",
-            Some("window/group/textfield")
-        )));
+            "textarea",
+            after.elements[0].ax_path.as_deref(),
+        ));
+        let mut result = serde_json::json!({"ok":true});
+        assert!(
+            enforce_text_input_focus(
+                &mut result,
+                before.elements.first(),
+                Some(&before),
+                Some(&after),
+                None
+            )
+            .is_err()
+        );
+        assert_eq!(result["focus_verified"], false);
+        // A title rename in the same window is allowed; another window with
+        // identical paths, values and refs never supplies verification evidence.
+        after.focused = Some(focused(
+            Some(2),
+            "textarea",
+            Some("window[B]/webarea/textarea[editor]"),
+        ));
+        after.elements[1].ax_path = after.focused.as_ref().unwrap().ax_path.clone();
+        assert!(
+            enforce_text_input_focus(
+                &mut result,
+                before.elements.first(),
+                Some(&before),
+                Some(&after),
+                None
+            )
+            .is_ok()
+        );
+        after.window_id += 1;
+        assert!(
+            enforce_text_input_focus(
+                &mut result,
+                before.elements.first(),
+                Some(&before),
+                Some(&after),
+                None
+            )
+            .is_err()
+        );
     }
 
     #[test]

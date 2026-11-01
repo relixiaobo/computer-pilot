@@ -1,0 +1,637 @@
+{
+  "manifest": {
+    "protocol_version": 2,
+    "single_turn": true,
+    "sequence": [
+      {
+        "label": "vscode-json-r1-cu",
+        "mode": "vscode",
+        "scenario": "json",
+        "repeat": 1,
+        "round": 1,
+        "arm": "cu"
+      },
+      {
+        "label": "vscode-markdown-r1-cu",
+        "mode": "vscode",
+        "scenario": "markdown",
+        "repeat": 2,
+        "round": 1,
+        "arm": "cu"
+      },
+      {
+        "label": "vscode-multi-r1-cu",
+        "mode": "vscode",
+        "scenario": "multi",
+        "repeat": 3,
+        "round": 1,
+        "arm": "cu"
+      },
+      {
+        "label": "vscode-json-r2-cu",
+        "mode": "vscode",
+        "scenario": "json",
+        "repeat": 4,
+        "round": 2,
+        "arm": "cu"
+      },
+      {
+        "label": "vscode-markdown-r2-cu",
+        "mode": "vscode",
+        "scenario": "markdown",
+        "repeat": 5,
+        "round": 2,
+        "arm": "cu"
+      },
+      {
+        "label": "vscode-multi-r2-cu",
+        "mode": "vscode",
+        "scenario": "multi",
+        "repeat": 6,
+        "round": 2,
+        "arm": "cu"
+      }
+    ],
+    "dataset": "varied",
+    "settings": {
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null
+    },
+    "fingerprints": {
+      "target/release/cu": "360af7606eda3ead5c6d7cd5e8343366f265c1faaff81d2918633dbd85888e0e",
+      "tests/agent/benchmark_real_apps.py": "78bb70c315bd6b35be8e62acda2f721d3248ea7527d9069f2a875b549defae02",
+      "tests/agent/tasks/real_apps_scoped.json": "e58043300c6abd26fda75728fc7a599ec5ed535c6a5c121106c35e1db93b03e6",
+      "tests/agent/tasks/editor_completion.json": "2f32e8733b32e4c7b639b4fcecf02f4bc8b22b2584645c337faf2d3046007e48",
+      "tests/agent/tasks/editor_varied.json": "f22f494cf2a43e61f1ad93f62fda738bff1109a307daa4c33e71f706ddd6493e",
+      "tests/agent/benchmark_varied_workflows.py": "c453866d58e580710fb5c3dbc33e79aeea64144f9717dbdcb26fea1c5792a64f",
+      "tests/agent/collect_codex_benchmark.py": "a35fba949ee73222e5e83eaeb35807ce8b7bfc43727c4db9fae4fa0f692f3d79",
+      "plugin/skills/computer-pilot/SKILL.md": "b655cfc6c82cf6114668bf46dc0456af67d2c354b9761e5a14986c9c7142469a",
+      "plugin/skills/computer-pilot/scripts/session.sh": "9d086c85bd78eac91693cf678c8180dbc0fd895d5c9806fefd6852c82cd46fb2",
+      "plugin/skills/computer-pilot/references/commands.md": "809a8e54cda32fce3059b4ba13020a2645580a0eb167e1004a4ec80af05da910",
+      "plugin/skills/computer-pilot/references/embedding.md": "336642ed1e10acb21a706004753f8c95204252e185ab989d9fd0e094199386a9",
+      "plugin/skills/computer-pilot/references/permissions.md": "5b4a13b118ba37d74d50e8950bad817df080bafe8355b5db5761008a2019084d",
+      "plugin/skills/computer-pilot/references/recovery.md": "6b1d91dc9a1abcad837c16c74010cfe2ba3e3ead5650e7107a0696da2ee4e46b",
+      "plugin/skills/computer-pilot/references/scripting.md": "1013719ee23e93eccb74815631da92b44bd665dde2897071ffeef07d3668f468",
+      "plugin/skills/computer-pilot/references/visual.md": "7879ca3a1cb6b4ff6815a5b277486d31057b141e9c7ba5182efb7ea6329b6956"
+    },
+    "cu_commit": "83f541505d379cb362dcdbd19210ecbad5c71d71",
+    "scope": "Cu-only retest; historical native runs are not repeated. Dataset: varied; 6 planned attempts, no replacements. TextEdit/VS Code trials share user application processes with dedicated test windows; any Numbers trials start separately. Fresh model profiles/cwd and cu runtimes. Normal documented app scripting is allowed through cu tell; native uses actual App APIs. No direct file edits, terminal commands inside apps, automation scripts outside the assigned backend, or task-specific solver. Report routes separately; changed datasets are not paired speed comparisons.",
+    "wall_timeout_seconds": 600,
+    "app_versions": {
+      "vscode": "1.142.0"
+    }
+  },
+  "actual_order": [
+    "vscode-json-r1-cu",
+    "vscode-markdown-r1-cu",
+    "vscode-multi-r1-cu",
+    "vscode-json-r2-cu",
+    "vscode-markdown-r2-cu",
+    "vscode-multi-r2-cu"
+  ],
+  "attempts": [
+    {
+      "label": "vscode-json-r1-cu",
+      "mode": "vscode",
+      "scenario": "json",
+      "repeat": 1,
+      "round": 1,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 3587,
+      "app_path": "/Applications/Visual Studio Code.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-real-49gjtmks",
+      "client_key": "vscode-json-r1-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-varied-20261101/vscode-json-r1-cu/output",
+      "workspace": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-varied-20261101/vscode-json-r1-cu/CP-editor-varied-20261101-vscode-json-r1-cu",
+      "source_sha256": "6e3fdf9e9abb50843139326f0694a0a58ad1ed4949d7b955ea5057450fd8df08",
+      "shared_app": true,
+      "files": {
+        "settings.json": "settings.json"
+      },
+      "output_file": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-varied-20261101/vscode-json-r1-cu/CP-editor-varied-20261101-vscode-json-r1-cu/CP-editor-varied-20261101-vscode-json-r1-cu-budget.numbers",
+      "thread_id": "01a19523-c806-7573-a871-d2016df47b27",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a19523-c806-7573-a871-d2016df47b27",
+          "turn_id": "01a19523-c9de-7030-8376-3ea3cd45e7de",
+          "started_at": "2026-11-01T03:25:13.122Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-11-01T03:26:02.018Z",
+          "elapsed_ms": 48922,
+          "final": "DONE — saved and observed the requested active-object edits. Legacy object, path/query, formatting, literals, and final newline remained unchanged.\n\nRoute: assigned `cu` backend using VS Code UI Find, typing, and Save.",
+          "model_calls": 8,
+          "tokens": {
+            "input_tokens": 247421,
+            "cached_input_tokens": 205824,
+            "output_tokens": 823,
+            "total_tokens": 248244,
+            "reasoning_output_tokens": 72
+          },
+          "tool_calls": 7,
+          "tool_output_chars": 78293,
+          "tool_errors": 0,
+          "tool_interval_ms": 5800,
+          "non_tool_interval_ms": 43122,
+          "label": "vscode-json-r1-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "settings.json_exact": true
+        },
+        "actual": {
+          "files": {
+            "settings.json": "{\n  \"active\": {\n    \"name\": \"Cedar API\",\n    \"endpoint\": \"https://release.cedar.example.invalid/v2/items?team=lab-8\",\n    \"timeout\": 45,\n    \"enabled\": true,\n    \"owners\": [\"林\", \"许\"]\n  },\n  \"legacy\": {\n    \"name\": \"Cedar API\",\n    \"endpoint\": \"https://preview.cedar.example.invalid/v2/items?team=lab-8\",\n    \"timeout\": 20,\n    \"enabled\": false\n  },\n  \"literal\": \"a+b[2].* / $HOME / 中文🙂\"\n}\n"
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 48922,
+      "combined_turn_ms": 48922,
+      "evidence_sha256": {
+        "brief.txt": "3d674834b839999f19f843982399fa5fc204df20b06cf90cc579c2cb09352138",
+        "source.json": "6e3fdf9e9abb50843139326f0694a0a58ad1ed4949d7b955ea5057450fd8df08",
+        "saved.json": "be9e749e3567400eb58635a83ab852ee8994f8b686ab992349940d3123d0df06",
+        "trace.json": "1e5b80d33b30baa06b586087eb08c1ff0bb107dccf054b5b34cd06d5ff206834"
+      },
+      "audit": {
+        "compliant": true,
+        "claimed_complete": true,
+        "note": "Reviewed the complete single-turn trace and runtime-context for this fresh cu attempt: no AGENTS/CLAUDE instructions were injected; the assigned packaged Computer Pilot skill was used; all app reads and actions used the task launcher/cu with the assigned PID and client runtime; only the dedicated VS Code workspace/window and task-owned output paths were used; no direct document filesystem edits, native backend, integrated terminal, scripts, browser/DOM, other model, or task overlap; skill/help/reference reads and recovery errors were retained. Final artifact verification is independent."
+      },
+      "timeline": {
+        "save_observation_count": 3,
+        "first_exact_index": 1,
+        "post_save_tool_calls": 1,
+        "post_save_tool_errors": 0
+      }
+    },
+    {
+      "label": "vscode-markdown-r1-cu",
+      "mode": "vscode",
+      "scenario": "markdown",
+      "repeat": 2,
+      "round": 1,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 3587,
+      "app_path": "/Applications/Visual Studio Code.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-real-4b_4tozt",
+      "client_key": "vscode-markdown-r1-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-varied-20261101/vscode-markdown-r1-cu/output",
+      "workspace": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-varied-20261101/vscode-markdown-r1-cu/CP-editor-varied-20261101-vscode-markdown-r1-cu",
+      "source_sha256": "2ba226040f901bcf56d0913922d2cb8cc56e7b3912432a32f67c88c9dbe1bbdf",
+      "shared_app": true,
+      "files": {
+        "runbook.md": "runbook.md"
+      },
+      "output_file": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-varied-20261101/vscode-markdown-r1-cu/CP-editor-varied-20261101-vscode-markdown-r1-cu/CP-editor-varied-20261101-vscode-markdown-r1-cu-budget.numbers",
+      "thread_id": "01a19524-a3ac-7491-8850-9aaf86c82b84",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a19524-a3ac-7491-8850-9aaf86c82b84",
+          "turn_id": "01a19524-a488-7fa1-bf0d-e64ae411f4a8",
+          "started_at": "2026-11-01T03:26:10.126Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-11-01T03:34:02.222Z",
+          "elapsed_ms": 473123,
+          "final": "DONE — used the supplied `cu` computer-pilot backend and VS Code editor UI. Saved and observed the requested final content, with only “verify endpoint” and “verify rollback” checked.",
+          "model_calls": 40,
+          "tokens": {
+            "input_tokens": 3173707,
+            "cached_input_tokens": 2862848,
+            "output_tokens": 12932,
+            "reasoning_output_tokens": 8655,
+            "total_tokens": 3186639
+          },
+          "tool_calls": 38,
+          "tool_output_chars": 404476,
+          "tool_errors": 10,
+          "tool_interval_ms": 19456,
+          "non_tool_interval_ms": 453667,
+          "label": "vscode-markdown-r1-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "runbook.md_exact": true
+        },
+        "actual": {
+          "files": {
+            "runbook.md": "# Production runbook\nService: Nimbus\nStatus: ready\nOwner: 吴\nReview: 2026-12-07\n\n## Current release\n- endpoint: https://prod.nimbus.example.invalid/v1/deploy?region=cn\n- rollback: enabled\n- status: ready\n\n## Checklist\n- [x] verify endpoint\n- [x] verify rollback\n- [ ] notify owner\n- [ ] external approval\n\n## Previous release\nService: Nimbus\nStatus: archived\nOwner: 郑\nEndpoint: https://archive.nimbus.example.invalid/v0/deploy?region=cn\n\nKeep literal: a+b[2].* / $HOME / 中文🙂\n"
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 473123,
+      "combined_turn_ms": 473123,
+      "evidence_sha256": {
+        "brief.txt": "a7fcbd392f99d7315d41192d6a7f80c08148a2af3caca062285a71388d0a6c23",
+        "source.json": "2ba226040f901bcf56d0913922d2cb8cc56e7b3912432a32f67c88c9dbe1bbdf",
+        "saved.json": "97504181e3684a4948dfb520f74095944f1965d51d09d15b937dd660d095ea32",
+        "trace.json": "dcb27b03f9258b5822e67e9480782f9855d2034a60439ffda51b31ce12736ee2"
+      },
+      "audit": {
+        "compliant": true,
+        "claimed_complete": true,
+        "note": "Reviewed the complete single-turn trace and runtime-context for this fresh cu attempt: no AGENTS/CLAUDE instructions were injected; the assigned packaged Computer Pilot skill was used; all app reads and actions used the task launcher/cu with the assigned PID and client runtime; only the dedicated VS Code workspace/window and task-owned output paths were used; no direct document filesystem edits, native backend, integrated terminal, scripts, browser/DOM, other model, or task overlap; skill/help/reference reads and recovery errors were retained. Final artifact verification is independent."
+      },
+      "timeline": {
+        "save_observation_count": 3,
+        "first_exact_index": 1,
+        "post_save_tool_calls": 1,
+        "post_save_tool_errors": 0
+      }
+    },
+    {
+      "label": "vscode-multi-r1-cu",
+      "mode": "vscode",
+      "scenario": "multi",
+      "repeat": 3,
+      "round": 1,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 3587,
+      "app_path": "/Applications/Visual Studio Code.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-real-dcks6rs_",
+      "client_key": "vscode-multi-r1-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-varied-20261101/vscode-multi-r1-cu/output",
+      "workspace": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-varied-20261101/vscode-multi-r1-cu/CP-editor-varied-20261101-vscode-multi-r1-cu",
+      "source_sha256": "829d12b615c16d0cc05b655adc5deef6b0ac59e7ceda78815b7367fa4c177a80",
+      "shared_app": true,
+      "files": {
+        "service.toml": "service.toml",
+        "handoff.txt": "handoff.txt"
+      },
+      "output_file": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-varied-20261101/vscode-multi-r1-cu/CP-editor-varied-20261101-vscode-multi-r1-cu/CP-editor-varied-20261101-vscode-multi-r1-cu-budget.numbers",
+      "thread_id": "01a1952b-f580-7cc0-93b9-84abf911d417",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a1952b-f580-7cc0-93b9-84abf911d417",
+          "turn_id": "01a1952b-f7aa-7d62-a34d-573301712599",
+          "started_at": "2026-11-01T03:34:09.133Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-11-01T03:36:56.655Z",
+          "elapsed_ms": 167525,
+          "final": "DONE. Used the supplied `cu` CLI backend via the task launcher, with VS Code UI find/replace and `Cmd+S`.\n\nVerified saved results:\n\n- `service.toml`: primary region `us-west`, retries `4`, endpoint host `prod.nimbus.example.invalid`; secondary unchanged.\n- `handoff.txt`: Release NB-44 environment `production`, owner `吴`, status `ready`; Archive NB-31 and URL preserved.",
+          "model_calls": 21,
+          "tokens": {
+            "input_tokens": 1127090,
+            "cached_input_tokens": 979072,
+            "output_tokens": 4041,
+            "reasoning_output_tokens": 2041,
+            "total_tokens": 1131131
+          },
+          "tool_calls": 20,
+          "tool_output_chars": 227507,
+          "tool_errors": 3,
+          "tool_interval_ms": 9208,
+          "non_tool_interval_ms": 158317,
+          "label": "vscode-multi-r1-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "service.toml_exact": true,
+          "handoff.txt_exact": true
+        },
+        "actual": {
+          "files": {
+            "service.toml": "# Nimbus service\nrelease = \"NB-44\"\n\n[primary]\nregion = \"us-west\"\nretries = 4\nendpoint = \"https://prod.nimbus.example.invalid/v3/send?tenant=nb44\"\n\n[secondary]\nregion = \"eu-west\"\nretries = 2\nendpoint = \"https://staging.nimbus.example.invalid/v3/send?tenant=nb44\"\n\n# preserve: a+b[2].* / $HOME / 中文🙂\n",
+            "handoff.txt": "Release NB-44\nEnvironment: production\nOwner: 吴\nStatus: ready\n\nArchive NB-31\nEnvironment: staging\nOwner: 陈\nStatus: archived\n\nDo not alter: https://archive.nimbus.example.invalid/NB-31\n"
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 167525,
+      "combined_turn_ms": 167525,
+      "evidence_sha256": {
+        "brief.txt": "8a103988cbda67a0bce3aa3a11c912fdabfcbfe86fb66bc65900b2b7b2beb131",
+        "source.json": "829d12b615c16d0cc05b655adc5deef6b0ac59e7ceda78815b7367fa4c177a80",
+        "saved.json": "5e7748a6dd470e0189de3477ee8542ff412c38baed5b82f6e3daed790bd66e4f",
+        "trace.json": "898174b9a7c020be7ad8c3ad5503fad78c4869894db136644f0a5eebf7c55f6a"
+      },
+      "audit": {
+        "compliant": true,
+        "claimed_complete": true,
+        "note": "Reviewed the complete single-turn trace and runtime-context for this fresh cu attempt: no AGENTS/CLAUDE instructions were injected; the assigned packaged Computer Pilot skill was used; all app reads and actions used the task launcher/cu with the assigned PID and client runtime; only the dedicated VS Code workspace/window and task-owned output paths were used; no direct document filesystem edits, native backend, integrated terminal, scripts, browser/DOM, other model, or task overlap; skill/help/reference reads and recovery errors were retained. Final artifact verification is independent."
+      },
+      "timeline": {
+        "save_observation_count": 4,
+        "first_exact_index": 2,
+        "post_save_tool_calls": 1,
+        "post_save_tool_errors": 0
+      }
+    },
+    {
+      "label": "vscode-json-r2-cu",
+      "mode": "vscode",
+      "scenario": "json",
+      "repeat": 4,
+      "round": 2,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 3587,
+      "app_path": "/Applications/Visual Studio Code.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-real-nljeef_6",
+      "client_key": "vscode-json-r2-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-varied-20261101/vscode-json-r2-cu/output",
+      "workspace": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-varied-20261101/vscode-json-r2-cu/CP-editor-varied-20261101-vscode-json-r2-cu",
+      "source_sha256": "6e3fdf9e9abb50843139326f0694a0a58ad1ed4949d7b955ea5057450fd8df08",
+      "shared_app": true,
+      "files": {
+        "settings.json": "settings.json"
+      },
+      "output_file": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-varied-20261101/vscode-json-r2-cu/CP-editor-varied-20261101-vscode-json-r2-cu/CP-editor-varied-20261101-vscode-json-r2-cu-budget.numbers",
+      "thread_id": "01a1952e-a25e-7892-b0be-dbba712a87fc",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a1952e-a25e-7892-b0be-dbba712a87fc",
+          "turn_id": "01a1952e-a3dc-7e72-a18e-e97f5d7d6cbd",
+          "started_at": "2026-11-01T03:37:04.250Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-11-01T03:38:29.638Z",
+          "elapsed_ms": 85399,
+          "final": "DONE — used the `cu` computer-pilot CLI through the assigned VS Code window. Saved and observed:\n\n- Active endpoint: `https://release.cedar.example.invalid/v2/items?team=lab-8`\n- Timeout: `45`\n- Enabled: `true`\n- Owners: `[\"林\", \"许\"]`\n- Legacy object and literal preserved\n- Final newline preserved",
+          "model_calls": 9,
+          "tokens": {
+            "input_tokens": 271394,
+            "cached_input_tokens": 229120,
+            "output_tokens": 2743,
+            "reasoning_output_tokens": 1636,
+            "total_tokens": 274137
+          },
+          "tool_calls": 8,
+          "tool_output_chars": 78463,
+          "tool_errors": 0,
+          "tool_interval_ms": 5361,
+          "non_tool_interval_ms": 80038,
+          "label": "vscode-json-r2-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "settings.json_exact": true
+        },
+        "actual": {
+          "files": {
+            "settings.json": "{\n  \"active\": {\n    \"name\": \"Cedar API\",\n    \"endpoint\": \"https://release.cedar.example.invalid/v2/items?team=lab-8\",\n    \"timeout\": 45,\n    \"enabled\": true,\n    \"owners\": [\"林\", \"许\"]\n  },\n  \"legacy\": {\n    \"name\": \"Cedar API\",\n    \"endpoint\": \"https://preview.cedar.example.invalid/v2/items?team=lab-8\",\n    \"timeout\": 20,\n    \"enabled\": false\n  },\n  \"literal\": \"a+b[2].* / $HOME / 中文🙂\"\n}\n"
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 85399,
+      "combined_turn_ms": 85399,
+      "evidence_sha256": {
+        "brief.txt": "40a99b10779e46ba08335c879bbfa2878acc7a335690e9203dc96c6e373fdf06",
+        "source.json": "6e3fdf9e9abb50843139326f0694a0a58ad1ed4949d7b955ea5057450fd8df08",
+        "saved.json": "be9e749e3567400eb58635a83ab852ee8994f8b686ab992349940d3123d0df06",
+        "trace.json": "70f4f569c244c93bc19ae0828ae578d6f410290073b7816ca0187bb611b8dad1"
+      },
+      "audit": {
+        "compliant": true,
+        "claimed_complete": true,
+        "note": "Reviewed the complete single-turn trace and runtime-context for this fresh cu attempt: no AGENTS/CLAUDE instructions were injected; the assigned packaged Computer Pilot skill was used; all app reads and actions used the task launcher/cu with the assigned PID and client runtime; only the dedicated VS Code workspace/window and task-owned output paths were used; no direct document filesystem edits, native backend, integrated terminal, scripts, browser/DOM, other model, or task overlap; skill/help/reference reads and recovery errors were retained. Final artifact verification is independent."
+      },
+      "timeline": {
+        "save_observation_count": 3,
+        "first_exact_index": 1,
+        "post_save_tool_calls": 1,
+        "post_save_tool_errors": 0
+      }
+    },
+    {
+      "label": "vscode-markdown-r2-cu",
+      "mode": "vscode",
+      "scenario": "markdown",
+      "repeat": 5,
+      "round": 2,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 3587,
+      "app_path": "/Applications/Visual Studio Code.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-real-0d6d0kj_",
+      "client_key": "vscode-markdown-r2-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-varied-20261101/vscode-markdown-r2-cu/output",
+      "workspace": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-varied-20261101/vscode-markdown-r2-cu/CP-editor-varied-20261101-vscode-markdown-r2-cu",
+      "source_sha256": "2ba226040f901bcf56d0913922d2cb8cc56e7b3912432a32f67c88c9dbe1bbdf",
+      "shared_app": true,
+      "files": {
+        "runbook.md": "runbook.md"
+      },
+      "output_file": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-varied-20261101/vscode-markdown-r2-cu/CP-editor-varied-20261101-vscode-markdown-r2-cu/CP-editor-varied-20261101-vscode-markdown-r2-cu-budget.numbers",
+      "thread_id": "01a19530-0eab-71c3-b5d3-1cc81baae760",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a19530-0eab-71c3-b5d3-1cc81baae760",
+          "turn_id": "01a19530-0f4a-79f0-a336-352be559745a",
+          "started_at": "2026-11-01T03:38:37.282Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-11-01T03:40:55.527Z",
+          "elapsed_ms": 138259,
+          "final": "DONE — edited and saved `runbook.md` in VS Code using the PID-targeted `cu` UI route with Find/Replace and `Cmd+S`. Observed the final requested values and preserved content, formatting, unchecked items, and final newline.",
+          "model_calls": 13,
+          "tokens": {
+            "input_tokens": 432957,
+            "cached_input_tokens": 398208,
+            "output_tokens": 3950,
+            "reasoning_output_tokens": 2303,
+            "total_tokens": 436907
+          },
+          "tool_calls": 12,
+          "tool_output_chars": 87851,
+          "tool_errors": 3,
+          "tool_interval_ms": 8482,
+          "non_tool_interval_ms": 129777,
+          "label": "vscode-markdown-r2-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "runbook.md_exact": true
+        },
+        "actual": {
+          "files": {
+            "runbook.md": "# Production runbook\nService: Nimbus\nStatus: ready\nOwner: 吴\nReview: 2026-12-07\n\n## Current release\n- endpoint: https://prod.nimbus.example.invalid/v1/deploy?region=cn\n- rollback: enabled\n- status: ready\n\n## Checklist\n- [x] verify endpoint\n- [x] verify rollback\n- [ ] notify owner\n- [ ] external approval\n\n## Previous release\nService: Nimbus\nStatus: archived\nOwner: 郑\nEndpoint: https://archive.nimbus.example.invalid/v0/deploy?region=cn\n\nKeep literal: a+b[2].* / $HOME / 中文🙂\n"
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 138259,
+      "combined_turn_ms": 138259,
+      "evidence_sha256": {
+        "brief.txt": "36673a722ab6f76c6066a0567455ef133bbedbfcdb6615c637ed19f0df092498",
+        "source.json": "2ba226040f901bcf56d0913922d2cb8cc56e7b3912432a32f67c88c9dbe1bbdf",
+        "saved.json": "97504181e3684a4948dfb520f74095944f1965d51d09d15b937dd660d095ea32",
+        "trace.json": "bf3338f852f831eb582c76d540a64672a8d4edc4683b9d98daa8b33ee7f977db"
+      },
+      "audit": {
+        "compliant": true,
+        "claimed_complete": true,
+        "note": "Reviewed the complete single-turn trace and runtime-context for this fresh cu attempt: no AGENTS/CLAUDE instructions were injected; the assigned packaged Computer Pilot skill was used; all app reads and actions used the task launcher/cu with the assigned PID and client runtime; only the dedicated VS Code workspace/window and task-owned output paths were used; no direct document filesystem edits, native backend, integrated terminal, scripts, browser/DOM, other model, or task overlap; skill/help/reference reads and recovery errors were retained. Final artifact verification is independent."
+      },
+      "timeline": {
+        "save_observation_count": 3,
+        "first_exact_index": 1,
+        "post_save_tool_calls": 1,
+        "post_save_tool_errors": 0
+      }
+    },
+    {
+      "label": "vscode-multi-r2-cu",
+      "mode": "vscode",
+      "scenario": "multi",
+      "repeat": 6,
+      "round": 2,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 3587,
+      "app_path": "/Applications/Visual Studio Code.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-real-6j7in86c",
+      "client_key": "vscode-multi-r2-cu",
+      "output_dir": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-varied-20261101/vscode-multi-r2-cu/output",
+      "workspace": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-varied-20261101/vscode-multi-r2-cu/CP-editor-varied-20261101-vscode-multi-r2-cu",
+      "source_sha256": "829d12b615c16d0cc05b655adc5deef6b0ac59e7ceda78815b7367fa4c177a80",
+      "shared_app": true,
+      "files": {
+        "service.toml": "service.toml",
+        "handoff.txt": "handoff.txt"
+      },
+      "output_file": "/Users/lixiaobo/Coding/computer-pilot/test-results/editor-varied-20261101/vscode-multi-r2-cu/CP-editor-varied-20261101-vscode-multi-r2-cu/CP-editor-varied-20261101-vscode-multi-r2-cu-budget.numbers",
+      "thread_id": "01a19532-4d4c-7832-bdeb-798f89be64cd",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a19532-4d4c-7832-bdeb-798f89be64cd",
+          "turn_id": "01a19532-4f2e-7b10-bfa2-c6f3fd949bad",
+          "started_at": "2026-11-01T03:41:04.731Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-11-01T03:50:15.336Z",
+          "elapsed_ms": 550550,
+          "final": "DONE — edited and saved both files in VS Code using the assigned `cu` UI backend and verified the final content.",
+          "model_calls": 46,
+          "tokens": {
+            "input_tokens": 3855855,
+            "cached_input_tokens": 3590656,
+            "output_tokens": 12223,
+            "reasoning_output_tokens": 8254,
+            "total_tokens": 3868078
+          },
+          "tool_calls": 44,
+          "tool_output_chars": 427103,
+          "tool_errors": 4,
+          "tool_interval_ms": 17877,
+          "non_tool_interval_ms": 532673,
+          "label": "vscode-multi-r2-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "service.toml_exact": true,
+          "handoff.txt_exact": true
+        },
+        "actual": {
+          "files": {
+            "service.toml": "# Nimbus service\nrelease = \"NB-44\"\n\n[primary]\nregion = \"us-west\"\nretries = 4\nendpoint = \"https://prod.nimbus.example.invalid/v3/send?tenant=nb44\"\n\n[secondary]\nregion = \"eu-west\"\nretries = 2\nendpoint = \"https://staging.nimbus.example.invalid/v3/send?tenant=nb44\"\n\n# preserve: a+b[2].* / $HOME / 中文🙂\n",
+            "handoff.txt": "Release NB-44\nEnvironment: production\nOwner: 吴\nStatus: ready\n\nArchive NB-31\nEnvironment: staging\nOwner: 陈\nStatus: archived\n\nDo not alter: https://archive.nimbus.example.invalid/NB-31\n"
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 550550,
+      "combined_turn_ms": 550550,
+      "evidence_sha256": {
+        "brief.txt": "608b56ceba59c7e568e7a59ceb817451eb01a97496abf7144f0c92d8123170c8",
+        "source.json": "829d12b615c16d0cc05b655adc5deef6b0ac59e7ceda78815b7367fa4c177a80",
+        "saved.json": "5e7748a6dd470e0189de3477ee8542ff412c38baed5b82f6e3daed790bd66e4f",
+        "trace.json": "b5847b32611fe939e02472893423dab2f53d9540fcbd30b658cfe6a37f3be6a0"
+      },
+      "audit": {
+        "compliant": true,
+        "claimed_complete": true,
+        "note": "Reviewed the complete single-turn trace and runtime-context for this fresh cu attempt: no AGENTS/CLAUDE instructions were injected; the assigned packaged Computer Pilot skill was used; all app reads and actions used the task launcher/cu with the assigned PID and client runtime; only the dedicated VS Code workspace/window and task-owned output paths were used; no direct document filesystem edits, native backend, integrated terminal, scripts, browser/DOM, other model, or task overlap; skill/help/reference reads and recovery errors were retained. Final artifact verification is independent."
+      },
+      "timeline": {
+        "save_observation_count": 4,
+        "first_exact_index": 2,
+        "post_save_tool_calls": 5,
+        "post_save_tool_errors": 1
+      }
+    }
+  ],
+  "groups": [
+    {
+      "mode": "vscode",
+      "arms": {
+        "cu": {
+          "counts": {
+            "passed": 6,
+            "failed": 0,
+            "excluded": 0,
+            "unreviewed": 0,
+            "pending": 0
+          },
+          "success_medians_ms": {
+            "combined_turn_ms": 152892.0
+          }
+        }
+      },
+      "successful_pairs": [],
+      "median_paired_go_ratio": null,
+      "median_paired_combined_ratio": null
+    }
+  ],
+  "accuracy": {
+    "planned_attempts": 6,
+    "accepted_completed": 6,
+    "passed": 6,
+    "success_rate": 1.0,
+    "completion_claims_reviewed": 6,
+    "claimed_complete": 6,
+    "false_completion_claims": 0,
+    "false_completion_rate": 0.0
+  }
+}

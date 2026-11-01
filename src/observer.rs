@@ -113,6 +113,7 @@ impl ActionObserver {
             pid,
             &[
                 "AXValueChanged",
+                "AXSelectedTextChanged",
                 "AXFocusedUIElementChanged",
                 "AXMainWindowChanged",
                 "AXSelectedChildrenChanged",

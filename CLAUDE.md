@@ -175,6 +175,9 @@ After `click`, `type`, `key`, the CLI automatically returns a fresh snapshot in 
 - **Sequential integers** `[1]`, `[2]`, `[3]` in DFS order (roughly top-to-bottom, left-to-right).
 - **Only interactive elements** get refs: button, textfield, textarea, statictext, row, cell, checkbox, radiobutton, popupbutton, combobox, link, menuitem, menubutton, tab, slider, image.
 - **Refs are ephemeral.** They refresh with every snapshot. Don't try to keep stable refs across actions.
+- Ref actions retain the selected AX object during the freshness scan and act on
+  that object. Do not resolve the DFS number a second time or cache AX handles
+  across commands.
 
 ### 4. AX-first, CGEvent as fallback
 
@@ -231,9 +234,9 @@ the user", grep for `*-global` in logs.
 
 **Known limitation:** a small set of sandboxed apps (some Mac App Store
 builds) ignore PID-targeted events. Symptom: `ok:true` returned but the UI
-doesn't change. `cu click` catches this via the verify-by-default AX diff
-(R2) — the response carries `verified:false` + `verify_advice` so the
-agent can react. For a manual workaround: focus the app first, then retry
+doesn't change. `cu click` reports the default AX diff with `verified:null`
+and `verify_advice`; a tree change cannot establish the intended result.
+Text-input clicks separately check focus on the same window/control. For a manual workaround: focus the app first, then retry
 the same `cu click ... --app <Name>` (do NOT drop to global tap).
 
 ### 7. Screenshot rules
@@ -341,9 +344,12 @@ intermediate click/type/key action; it never disables target identity checks.
 Batch deterministic actions in one shell call, stop on failure, and verify the
 final state. Observe before planning a new target after navigation or dialogs.
 
-Implemented in `cu click` (R2 commit). When `verified=false`, attach a
-`verify_advice` string with concrete remediation, not a generic "it didn't
-work" — agents need next-step instructions, not just a flag.
+Verification must state its evidence: `verify_diff` describes tree changes,
+`value_changed` describes a same-target AX value change, and `focus_verified`
+checks input focus. Neither diff establishes exact content or task completion;
+generic `verified`/`effect_verified` remain null. Never match verification
+reads across snapshots by numeric ref. Compare paths within the same PID/window,
+and report unknown outcome when evidence is absent or unchanged.
 
 ### Principle 3 — Degraded output must be loud
 
@@ -358,7 +364,7 @@ Examples already wired:
 - `paste_reason` on `cu type` when auto-routed via clipboard (R7)
 - `clipboard_hint` on `cu type` when the pre-paste clipboard was not restored
   (user wrote to it mid-paste, or restore failed/partial)
-- `verify_advice` on `cu click` when verified=false (R2)
+- `verify_advice` on `cu click` when its intended result is unverified
 - `screenshot_error` on `cu state` and `cu screenshot` when capture refused (A from earlier batch)
 
 Whenever a command returns degraded or auto-corrected output, follow the
@@ -377,7 +383,8 @@ checklist exists so a future revert doesn't bring them back.
   AXTitle to internal IDs ("submit_btn_primary"). Walk
   AXTitle → AXDescription → AXHelp → AXIdentifier (R5).
 - **"Return ok=true after a CGEvent click without verification"** —
-  sandboxed apps silently drop PID-targeted events. Verify by AX diff (R2).
+  sandboxed apps silently drop PID-targeted events. Return state/diff evidence
+  and scoped input-focus checks; never present an arbitrary diff as completion.
 - **"Send unicode CGEvents to chat apps"** — WeChat/Slack/Discord/Telegram/
   Lark/QQ/DingTalk drop the first character. Auto-route through paste when
   text contains CJK or target is on the chat-app list (R7).

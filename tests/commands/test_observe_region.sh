@@ -158,7 +158,7 @@ section "observe-region — human mode"
 
 cu_human observe-region "$RX" "$RY" "$RW" "$RH" --app Finder --limit 30
 assert_exit_zero "human observe-region exits 0"
-if echo "$OUT" | grep -qE '^\[[0-9]+\]'; then
+if [[ "$OUT" =~ ^\[[0-9]+\] ]]; then
   _pass "human format: [ref] role"
 else
   _fail "human format" "${OUT:0:200}"
@@ -166,7 +166,7 @@ fi
 
 # Empty region produces "No elements" line in human mode
 cu_human observe-region 99999 99999 10 10 --app Finder
-if echo "$OUT" | grep -q "^No elements in region"; then
+if [[ "$OUT" == "No elements in region"* ]]; then
   _pass "empty region prints 'No elements in region'"
 else
   _fail "empty human line" "${OUT:0:200}"

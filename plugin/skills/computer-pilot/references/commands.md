@@ -47,13 +47,15 @@ identity comes from NSWorkspace and does not request Automation permission.
 
 ### `cu menu <app>`
 
-List menu bar items and enabled state. This currently uses System Events and
-may require per-target Automation access.
+List menu bar items and enabled state through native Accessibility. This is a
+read-only listing, not a source of refs or axPaths. Use an app-native scripting
+operation or its known shortcut; do not invent a menu axPath.
 
 ### `cu sdef <app>`
 
-Parse an app's scripting dictionary. Use before `cu tell` when the AppleScript
-object model is unfamiliar.
+Parse an app's scripting dictionary. For a known app-data task, try one
+read-only `cu tell` first; use `sdef` when that probe reports unknown
+terminology or fails.
 
 ### `cu examples [topic]`
 
@@ -92,7 +94,9 @@ recovery output. Use `cu --json snapshot` when coordinates or axPaths are needed
 ### `cu find --app <app> [filters] [--first] [--raw]`
 
 Query AX elements by `--role`, `--title-contains`, `--title-equals`, or
-`--value-contains`. Filters combine with AND. Prefer normal JSON so the
+`--value-contains`. Filters combine with AND. When the target label or role is
+known, prefer `--first` over a full snapshot; the returned ref is bound to the
+published observation and can be used immediately. Prefer normal JSON so the
 `observation_id` is retained. `--raw` is intended only for controlled shell
 workflows that also preserve Observation context.
 
@@ -163,18 +167,22 @@ tree does not prove an arbitrary AX action failed.
 Inject Unicode by PID. Automatically uses PID-targeted clipboard paste for
 known chat apps and focused inputs below `AXWebArea`; native controls keep
 Unicode events, including CJK. Read `paste_reason`. Targeted typing requires a focused AX text input.
-`effect_verified:true` means the focused value changed;
-An unobservable targeted result fails with `unknown_outcome`. Inputs below
-`AXWebArea` are checked after a 300ms stability delay and remain medium confidence:
-stable text does not generically prove every controlled-editor side effect.
+`value_changed:true` means the same window's focused AX value changed;
+`effect_verified:null` means exact input content and saving were not verified.
+An unchanged or incomparable targeted result returns `unknown_outcome` with
+the captured state, not proof of failed input. Inputs below `AXWebArea` are
+observed after a 300ms stability delay; virtual editor text can be partial.
 `--no-verify --no-snapshot` skips post-input observation for intermediate
-actions in a deterministic group; focus and target checks still run.
+actions in a deterministic group; focus and target checks still run. If `<text>`
+begins with `-`, put the flags first and terminate options immediately before
+the text, for example `cu type --no-snapshot --no-verify -- '- [x] done'`.
 
 ### `cu key <combo> --app <app> [--no-snapshot] [--no-verify]`
 
 Send modifiers and keys through PID-targeted CGEvents. Event dispatch is
-reported separately from observable effect. Enter on a focused input returns
-`verification_failed` when neither the input nor surrounding AX state changes.
+reported separately from observable effect, including Enter. A generic tree
+change cannot prove what a shortcut did. Inspect the returned snapshot or the
+final group state; `--no-snapshot` skips the action snapshot.
 
 ### `cu scroll <direction> [amount] --x <x> --y <y> --app <app>`
 

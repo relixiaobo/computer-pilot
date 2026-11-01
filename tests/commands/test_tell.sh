@@ -55,10 +55,19 @@ else
   _skip "delete note" "skipped because the note was never created"
 fi
 
-section "tell — full tell block passthrough"
+section "tell — nested object and application blocks"
+
+cu_json tell Finder 'get name of home'
+HOME_NAME=$(json_get '.result')
+cu_json tell Finder 'tell home
+get name
+end tell'
+assert_ok "nested object tell keeps Finder context"
+assert_json_field "nested object reads the intended home" ".result" "$HOME_NAME"
 
 cu_json tell Finder 'tell application "Finder" to get name of home'
-assert_ok "full tell block passthrough"
+assert_ok "explicit application tell remains valid"
+assert_json_field "explicit application reads the same home" ".result" "$HOME_NAME"
 
 section "tell — error handling"
 

@@ -187,7 +187,7 @@ This is a fresh task, app process and state directory. {'Initialize and execute 
     print(json.dumps(dict(meta, brief=str(trial / 'brief.txt'))))
 
 
-def collect(root, label, rollout_dir):
+def collect(root, label, rollout_dir, verify_result=verify):
     trial = root / label; meta = json.loads((trial / 'meta.json').read_text())
     single_turn = json.loads((root / 'manifest.json').read_text()).get('single_turn', False)
     tid = (trial / 'thread.txt').read_text().strip()
@@ -215,7 +215,7 @@ def collect(root, label, rollout_dir):
             result['runs'].append({k: v for k, v in turn.items() if k != 'tools'})
     # Preserve setup and every GO turn, including recovery; never overwrite an earlier turn.
     (trial / 'trace.json').write_text(json.dumps(traces, ensure_ascii=False, indent=2))
-    result['verification'] = verify(json.loads((trial / 'source.json').read_text()), trial / 'saved.json')
+    result['verification'] = verify_result(json.loads((trial / 'source.json').read_text()), trial / 'saved.json')
     result['setup_ms'] = sum(t['elapsed_ms'] for t in result['setup'])
     result['execution_ms'] = sum(t['elapsed_ms'] for t in result['runs'])
     result['combined_turn_ms'] = result['setup_ms'] + result['execution_ms']

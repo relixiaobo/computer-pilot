@@ -76,32 +76,47 @@ On `stale_observation`:
 
 ## Verification
 
-For `verified:false`, read `verify_advice` and the attached snapshot. Prefer:
+Treat an action error as a decision boundary. Do not rerun the same command or
+reuse its ref/coordinates after `verification_failed`, `unknown_outcome`,
+`stale_observation`, or a nonzero shell group. Use the attached
+`diagnostics.snapshot` first; if it is absent, obtain one fresh `find` or
+`snapshot`, then change the target or method. Two failures for the same
+intended effect are a blocker to report, not permission for another identical
+retry.
 
-1. `cu set-value` for native AX fields outside `AXWebArea`.
-2. `cu perform <ref> AXPress` for an exposed native action.
-3. `--ax-path` when structure is known.
-4. A fresh ref from a new Observation.
-5. OCR or visual targeting when AX is sparse.
+If the attached AX state contains the intended control, keep recovery on that
+AX path. Do not fall back to screenshot coordinates or OCR for the same control;
+those are for targets AX cannot expose.
 
-Do not recover by dropping `--app` or using `--allow-global`.
+Treat `focus_failed` as a foreground delivery blocker. Do not continue with
+keyboard or typing commands, remove `--app`, or use global input. Inspect the
+returned target state once and report the blocker when no background-safe
+primitive is available. A `verification_failed` response with `focused:null`
+does not establish input focus; wait for a fresh focus result before typing.
+
+`verify_diff` and `value_changed` describe observations, not task completion.
+An arbitrary tree change leaves `verified:null`; an input-focus check can set
+`verified:true` with `verification_basis:focused_target`. Inspect the attached
+state and advice before deciding whether another action is needed. An unchanged
+value may already be correct; an unchanged tree alone does not prove failure.
+Keep the same target PID and reuse returned refs; do not recover by dropping
+`--app` or using `--allow-global`.
 
 For Electron/CEF or any target under `AXWebArea`, confirm exact-PID focus and
-type the intended text once. Require `focus_verified:true` before type and
-`effect_verified:true` afterward. If either check fails, stop UI retries. Use a
-development app's explicitly provided localhost CDP/Playwright endpoint when
-available; otherwise report the unsupported delivery instead of using global
-keystrokes, System Events click/keystroke, name-based activation, or repeated
-AXValue writes.
+type the intended text once. `focus_verified:true` confirms the editor's AX
+focus, not that the application is frontmost. If foreground editing is authorized
+and needed, use `cu window focus` on the intended window before the edit group.
+Read the input effect afterward. When AX exposes no comparable value and returns
+`unknown_outcome`, inspect the attached state or a screenshot; this does not prove
+the input failed. Continue from an observed correct result, or stop if delivery
+remains uncertain. Do not repeat the full input to obtain a verification flag,
+change app settings to expose AX text, or switch to global input. A development
+app's explicitly provided CDP/Playwright endpoint is another option when available.
 
-The session helper skips effect verification for grouped native edits. For
-controlled input, use the verified binary directly with an explicit target:
-
-```bash
-"$CU_BIN" --compact click <editor-ref> --app "$CU_APP"
-# Read the focus result before typing.
-"$CU_BIN" --compact type "<intended text>" --app "$CU_APP"
-```
+Use the grouped verified click/type path in [SKILL.md](../SKILL.md#controlled-editors-and-recovery).
+It stops on command errors without requiring an extra model round between focus
+and typing. The task launcher keeps the same CLI defaults; only explicit
+`--no-verify` defers an intermediate action's effect check.
 
 `type` requires a focused AX text input and automatically uses PID-targeted
 clipboard paste below `AXWebArea` or in known chat apps. Do not override that
