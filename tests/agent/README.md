@@ -584,6 +584,43 @@ the coordinator's future editor plans received distinct pairing indices so a
 two-arm report retains all three cases; its regression verifies three pairs.
 This reporting fix changes no measured candidate, attempt or artifact.
 
+### General completion and receipt cleanup retest — 2026-11-01
+
+The next clean cu-only block used the same three source hashes and distinct
+fresh profiles, workspaces, runtime homes and VS Code windows. It followed the
+receipt cleanup and whole-request reconciliation guidance from `a222bf0` plus
+the native key observation fix; no native participant was rerun. The prior
+block's first local task is retained as a failure: four text fields were right,
+but the requested checklist item was still unchecked while the agent reported
+DONE. The prior scoped and multi-file attempts are also retained, including
+their stale-ref/navigation recovery.
+
+| Case | Prior same-data task | Retest | Calls / errors | Calls after first all-correct save |
+| --- | ---: | ---: | ---: | ---: |
+| Local note edits | 113.958 s | 42.731 s | 5 / 0 | 0 |
+| Scoped repeated values | 108.561 s | 107.463 s | 7 / 0 | 0 |
+| Three related files | 241.959 s | 79.030 s | 13 / 0 | 0 |
+
+All three retest artifacts and completion claims passed. The first sampled
+all-correct save occurred at 36.220 s, 93.443 s and 74.496 s respectively; no
+sample regressed. Calls and elapsed time are lower in this block, but one sample
+per case cannot establish a causal speedup. Model generation, cached context,
+shared VS Code state and application scheduling remain mixed into wall time.
+
+The previous false completion is a real accuracy finding. The new skill wording
+requires reconciling every requested edit, preservation constraint and save/export
+requirement with existing observations. It adds no per-field observation round.
+Normal PID dispatch receipts also omit the repeated generic advice string; the
+skill still explains that dispatch is not task completion. The five stale-ref
+rejections in the previous multi-file attempt remain correct protections: an
+untimed AX probe showed that the Explorer row object survived while the editor
+object and window/WebArea captions changed during file selection. No identity
+check was relaxed.
+
+This block's coordinator report is [frozen here](benchmarks/editor-coverage-2026-11-01.json).
+It includes the earlier failed retest, same-data comparisons, passive saved-file
+timeline, clean-context audits, settings/process cleanup and all input hashes.
+
 ## Architecture
 
 ```
