@@ -48,8 +48,9 @@ It preserves CLI verification and automatic snapshots. For known intermediate
 actions, `--no-snapshot` omits their output tree; only `click`, `type` and `key`
 accept `--no-verify`. Check the result at the group boundary. `tell` and `window`
 accept neither flag. Other commands keep ordinary arguments:
-`./pilot sdef "App Name"` and `./pilot tell "App Name" '<expression>'` need an
-application name or bundle path; AppleScript does not accept `pid:<PID>`.
+`./pilot sdef "App Name"` accepts an app name or bundle identifier.
+`./pilot tell "App Name" '<expression>' accepts an app name or bundle path;
+AppleScript does not accept `pid:<PID>`.
 Use the launcher's absolute path if cwd changes; do not fall back to bare `cu`.
 
 ## One Call Per Decision Boundary

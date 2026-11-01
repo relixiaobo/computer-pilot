@@ -459,6 +459,50 @@ moves localized editing guidance next to controlled editor actions, removing
 duplicate text. It adds no application/task-specific solver or extra check round.
 
 
+The [frozen follow-up](benchmarks/real-app-scoped-followup-2026-11-01.json)
+ran exactly two predeclared attempts on `c4655c7`, with fresh profiles, runtime
+homes, task documents and no AGENTS/memory injection or coaching:
+
+| Task | Outcome | Recorded time | Calls / errors |
+| --- | --- | ---: | ---: |
+| VS Code | 600 s cap, no completion claim; all three saved files exact | 598.614 s interrupted | 62 / 8, partial |
+| Numbers | Completed; reopened cells and formula recalculation passed | 75.910 s | 10 / 3 |
+
+VS Code remains an efficiency failure. Local checklist/release edits worked,
+but JSON line navigation/indentation mistakes led to undo, whole-document
+reconstruction and repeated AX-boundary newline corrections. It also attempted
+an Electron AXValue write and omitted fail-fast in several recovery groups;
+one internal stale-ref error was masked by the following successful find. Exact
+saved artifacts do not turn this interrupted task into a successful completion.
+The saved result passed independently; the agent did not claim DONE. The default
+input checks produced no unmapped-focus error, which alone does not imply a
+speed benefit. Recorded tool intervals were 25.363 s; the rest was 573.251 s.
+
+Numbers used native sorting and wrote formulas through `value`, without row
+reconstruction or read-only formula writes. Its one completed claim was correct.
+Two errors passed row lists instead of a range to sorting; another read failed
+after document identity changed during save, then recovered by the saved name.
+All owned windows/processes were cleaned; shared VS Code and settings preserved.
+Only 1/2 planned tasks completed: do not present correct timeout artifacts as a
+100% success rate or compare partial timing with successful completion timing.
+The Numbers reduction from 187.654 to 75.910 seconds is a single observed sample,
+not a causal or stable improvement. Native was not rerun.
+
+After this frozen block, `sdef` also gained an additive `parameter_types` map:
+`in rows` requires `range`, information the old parameter-name list omitted.
+The names remain compatible. The [untimed native regression](benchmarks/sdef-parameters-2026-11-01.json)
+uses [check_numbers_dictionary.py](check_numbers_dictionary.py) on a fresh owned
+trial prepared by the existing coordinator. It constructs sort syntax from the
+returned types, verifies actual ordered rows and a formula through independent
+app reads, and changes Quantity to verify recalculation (162 to 216). Run this
+only on a disposable trial before any model attempt, then use coordinator
+`stop`; it is a mutation test, not a benchmark participant or production solver.
+The probe also exposed an incorrect skill claim: `sdef` takes an app name or
+bundle identifier, whereas `tell` additionally accepts an application path.
+Both skill references now distinguish them. These last metadata/documentation
+changes have native/parser regression evidence, not another model timing sample.
+
+
 ## Architecture
 
 ```

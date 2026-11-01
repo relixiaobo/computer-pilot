@@ -16,8 +16,9 @@ the app is not scriptable, or AppleScript fails.
 
 Scripting is usually preferable for bulk reads/writes because it expresses one
 semantic operation without UI traversal. The session helper leaves `sdef` and
-`tell` arguments unchanged: supply the application name or bundle path, then
-address the intended document explicitly when the app has multiple documents.
+`tell` arguments unchanged. `sdef` accepts an app name or bundle identifier;
+`tell` accepts an app name or bundle path. Address the intended document
+explicitly when the app has multiple documents.
 
 ## Execute
 

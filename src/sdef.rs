@@ -3,6 +3,7 @@
 
 use quick_xml::events::Event;
 use quick_xml::reader::Reader;
+use std::collections::BTreeMap;
 use std::ffi::c_void;
 use std::path::{Path, PathBuf};
 
@@ -45,6 +46,9 @@ pub struct SdefCommand {
     pub name: String,
     pub description: String,
     pub parameters: Vec<String>,
+    /// Additive metadata; keep the existing parameter-name list compatible.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub parameter_types: BTreeMap<String, String>,
     #[serde(skip_serializing_if = "String::is_empty")]
     pub direct_parameter: String,
 }
@@ -243,6 +247,7 @@ fn parse_xml(app: &str, xml: &str) -> SdefResult {
                             name: attr_val(e, b"name"),
                             description: attr_val(e, b"description"),
                             parameters: Vec::new(),
+                            parameter_types: BTreeMap::new(),
                             direct_parameter: String::new(),
                         });
                         state = State::Command;
@@ -278,7 +283,12 @@ fn parse_xml(app: &str, xml: &str) -> SdefResult {
                     }
                     b"parameter" if matches!(state, State::Command) => {
                         if let Some(ref mut cmd) = current_cmd {
-                            cmd.parameters.push(attr_val(e, b"name"));
+                            let name = attr_val(e, b"name");
+                            let kind = attr_val(e, b"type");
+                            if !kind.is_empty() {
+                                cmd.parameter_types.insert(name.clone(), kind);
+                            }
+                            cmd.parameters.push(name);
                         }
                     }
                     _ => {}
@@ -353,7 +363,7 @@ mod tests {
           <class-extension extends="cell"><responds-to command="clear"/></class-extension>
           <class name="empty"/>
           <command name="sort"><direct-parameter type="table"/>
-            <parameter name="by"/><parameter name="in rows"/></command>
+            <parameter name="by" type="column"/><parameter name="in rows" type="range"/></command>
           <command name="empty"/>
         </suite>"#;
         // Explicit and self-closing leaves must produce identical output.
@@ -379,6 +389,8 @@ mod tests {
         assert_eq!(suite.classes[1].responds_to, ["clear"]);
         assert_eq!(suite.commands[0].direct_parameter, "table");
         assert_eq!(suite.commands[0].parameters, ["by", "in rows"]);
+        assert_eq!(suite.commands[0].parameter_types["by"], "column");
+        assert_eq!(suite.commands[0].parameter_types["in rows"], "range");
         assert_eq!(suite.commands.len(), 2);
     }
 

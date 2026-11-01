@@ -1,0 +1,63 @@
+{
+  "kind": "Untimed owned-app command regression, not a model benchmark",
+  "result": {
+    "passed": true,
+    "sort": {
+      "description": "Sort the rows of the table.",
+      "direct_parameter": "table",
+      "name": "sort",
+      "parameter_types": {
+        "by": "column",
+        "direction": "NMSD",
+        "in rows": "range"
+      },
+      "parameters": [
+        "by",
+        "direction",
+        "in rows"
+      ]
+    },
+    "formula_property": {
+      "access": "r",
+      "description": "The formula in the cell, as text, e.g. =SUM(40+2). If the cell does not contain a formula, returns missing value. To set the value of a cell to a formula as text, use the value property.",
+      "name": "formula"
+    },
+    "expression": "tell document \"CP-sdef-parameters-check-20261101-numbers-1-cu-budget\"\ntell table 1 of sheet 1\nsort by column \"A\" direction ascending in rows range \"A2:E7\"\nset value of cell \"E2\" to \"=ROUND(C2*D2*0.9,2)\"\nend tell\nend tell",
+    "receipt": {
+      "app": "/Applications/Numbers Creator Studio.app",
+      "command_id": "command:82283-1793496041728-5",
+      "command_status": "completed",
+      "ok": true,
+      "result": "",
+      "schema_version": "1.0"
+    },
+    "actual": {
+      "names": [
+        "Audit",
+        "Badges",
+        "Cable",
+        "Coaching",
+        "Support",
+        "Workshop"
+      ],
+      "total": 162,
+      "formula": "=ROUND(Quantity Audit×Unit price Audit×0.9,2)",
+      "recalculated": 216
+    }
+  },
+  "driver": "tests/agent/check_numbers_dictionary.py",
+  "fingerprints": {
+    "target/release/cu": "19e3b1c8438d8edb3fc8fb17eaa28889c9bd965b807afa958f53d8c24f05918e",
+    "src/sdef.rs": "a707bc63a78ad4730ba0cf23dec8c40239f1fab123443dcbdc3405663d0adab7",
+    "tests/agent/check_numbers_dictionary.py": "384e3adb8395f2fa450784de3fc75a96b9f600cf5624ad2a478faee135f5d33c"
+  },
+  "startup": {
+    "documents": [
+      "Untitled",
+      "CP-sdef-parameters-check-20261101-numbers-1-cu-budget"
+    ]
+  },
+  "cleanup": "Coordinator closed only the owned disposable document, quit its owned Numbers process and stopped its Broker; no saved test mutation.",
+  "scope": "After the frozen c4655c7 model block, add parameter_types without changing parameter names. Construct syntax from returned operand/parameter types and follow the formula property description. Independently read actual sorted names, then perturb Quantity to distinguish a live formula from a literal total.",
+  "development_note": "The first untimed probe rejected an absolute app path passed to sdef before document mutation. Cleanup completed. Corrected the skill/reference claim and used the supported app name for this fresh probe; tell continues to accept a bundle path. This is development verification, not a replacement model attempt."
+}
