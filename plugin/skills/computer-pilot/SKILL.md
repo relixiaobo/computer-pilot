@@ -18,10 +18,19 @@ Use the caller's verified binary and permissions directly. Otherwise put
 [compatibility.json](compatibility.json). Run `cu setup` only after installation
 or a permission error.
 
-Choose the cheapest suitable interface. For a known scriptable app's data,
-use `cu tell`; consult [scripting.md](references/scripting.md) if needed.
-Use `cu apps` once when the target or scripting support is unknown. For UI,
-start with an AX snapshot; use screenshots/OCR when AX lacks the needed content.
+Choose the cheapest suitable interface. For a known app and a document, file,
+or other app-data task, start with one read-only `cu tell` as the capability
+probe; do not call `apps`, `sdef`, help, snapshot, or screenshot first. If that
+probe succeeds and the operation is clear, group the authorized reads and
+writes in one app-scoped script and make one final read. If it fails with an
+unknown target, permission, or terminology error, use `cu apps` or `sdef` to
+route the fallback. For UI-only work, use AX; start with a snapshot and use
+screenshots/OCR only when AX lacks the needed content.
+
+When the task permits app-native scripting, this data route takes precedence
+over a generic request to use the app UI: use AX only for presentation-specific
+work such as menus, geometry, selection, or visual proof. Do not discover or
+edit app data through clicks when the permitted `tell` route can address it.
 
 For repeated actions, create one executable launcher in a fixed task directory.
 Put the supplied binary, target and environment in it; resolve the helper path
@@ -215,7 +224,8 @@ not a different state model.
 Use `state` when window/display metadata or an image is needed. File outputs need
 an absolute task-owned output directory; read returned paths through the host's normal file capability.
 
-Use `./pilot <command> --help` for unfamiliar syntax when using the launcher. Read only the relevant reference:
+Use `./pilot <command> --help` only when syntax is genuinely unfamiliar or
+ambiguous after an error; do not call help before a known command. Read only the relevant reference:
 
 - [commands.md](references/commands.md): CLI options and command inventory.
 - [visual.md](references/visual.md): screenshots, OCR, coordinates and file output.

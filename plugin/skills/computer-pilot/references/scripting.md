@@ -10,9 +10,15 @@ cu apps
 cu sdef "Calendar"
 ```
 
-Use `cu tell` when the app has `scriptable:true` and the requested object or
-operation appears in `cu sdef`. Use AX when the object exists only in the UI,
-the app is not scriptable, or AppleScript fails.
+For a known app and a document or data task, begin with one read-only `cu tell`
+as the capability probe. Use `cu sdef` or `cu apps` only if that probe reports
+unknown terminology, an unknown target, or a permission failure. Use AX when
+the object exists only in the UI, the app is not scriptable, or AppleScript
+fails.
+
+When app-native scripting is permitted, use it for data and file mutations even
+if the task also mentions using the app UI. Reserve AX for presentation work
+such as menus, geometry, selection, and visual proof.
 
 Scripting is usually preferable for bulk reads/writes because it expresses one
 semantic operation without UI traversal. The session helper leaves `sdef` and

@@ -53,8 +53,9 @@ operation or its known shortcut; do not invent a menu axPath.
 
 ### `cu sdef <app>`
 
-Parse an app's scripting dictionary. Use before `cu tell` when the AppleScript
-object model is unfamiliar.
+Parse an app's scripting dictionary. For a known app-data task, try one
+read-only `cu tell` first; use `sdef` when that probe reports unknown
+terminology or fails.
 
 ### `cu examples [topic]`
 
