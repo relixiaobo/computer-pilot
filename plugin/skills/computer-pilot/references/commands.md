@@ -170,7 +170,9 @@ An unchanged or incomparable targeted result returns `unknown_outcome` with
 the captured state, not proof of failed input. Inputs below `AXWebArea` are
 observed after a 300ms stability delay; virtual editor text can be partial.
 `--no-verify --no-snapshot` skips post-input observation for intermediate
-actions in a deterministic group; focus and target checks still run.
+actions in a deterministic group; focus and target checks still run. If `<text>`
+begins with `-`, put the flags first and terminate options immediately before
+the text, for example `cu type --no-snapshot --no-verify -- '- [x] done'`.
 
 ### `cu key <combo> --app <app> [--no-snapshot] [--no-verify]`
 

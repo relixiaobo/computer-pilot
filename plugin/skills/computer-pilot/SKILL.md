@@ -52,6 +52,9 @@ accept neither flag. Other commands keep ordinary arguments:
 `./pilot tell "App Name" '<expression>' accepts an app name or bundle path;
 AppleScript does not accept `pid:<PID>`.
 Use the launcher's absolute path if cwd changes; do not fall back to bare `cu`.
+When text begins with `-`, put all flags before the `--` separator: `./pilot type
+--no-snapshot --no-verify -- '- [x] done'`. Flags after `--` are treated as
+text and the CLI will reject the request.
 
 ## One Call Per Decision Boundary
 
