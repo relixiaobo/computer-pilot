@@ -187,20 +187,19 @@ when recovery needs setup or permissions outside that scope. See
 
 ## Complete The Requested Result
 
-At the final group boundary, compare the requested edits with the returned
-content and the requested documents' saved/modified state. Content change alone
-does not prove saving. Once these requirements are satisfied, finish.
-`effect_verified:null` leaves task interpretation to you; it is not a failed
-result requiring another call. Foreground/window checks diagnose a missing
-effect, not an additional requirement after observed success. Do not repeat Save,
-reopen correct documents or reread unchanged state to seek a verification flag
-or an exact AX/file-byte match.
+At completion, reconcile the original request with observed results: every
+requested change, preservation constraint, and required save/export. A successful
+action group establishes only that group's result. Reuse the returned observations
+for this comparison; obtain new evidence only for a specific missing or uncertain
+requirement.
 
-Investigate only a specific unresolved requirement. Use evidence that can answer
-it; repeating the same ambiguous AX value cannot establish a file-byte property.
-Correct a demonstrated content error, then recheck that affected result. If the
-authorized interface cannot resolve the remaining uncertainty, state precisely
-what is complete and unverified and stop, without claiming unobserved success.
+`effect_verified:null` means the CLI made no generic task judgment. Decide from
+the requested outcome, not that flag. Foreground/window checks diagnose missing
+effects, not additional completion requirements. Once every requirement is
+supported, finish without repeating Save, reopening correct documents or rereading
+unchanged state. Correct demonstrated errors and recheck only affected requirements.
+If the authorized interface cannot resolve remaining uncertainty, state precisely
+what is complete and unverified, without claiming unobserved success.
 
 ## Output And Further Commands
 
