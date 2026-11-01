@@ -23,45 +23,46 @@ use `cu tell`; consult [scripting.md](references/scripting.md) if needed.
 Use `cu apps` once when the target or scripting support is unknown. For UI,
 start with an AX snapshot; use screenshots/OCR when AX lacks the needed content.
 
-For repeated UI actions, keep a fixed task working directory. Copy the packaged
-helper into `./cu-env.sh`, append the task values, and take the first UI observation
-in one shell call. Resolve the helper path relative to this SKILL.md:
+For repeated actions, create one executable launcher in a fixed task directory.
+Put the supplied binary, target and environment in it; resolve the helper path
+relative to this SKILL.md. Use this launcher for all commands, including help,
+`sdef` and `tell`, in subsequent shell calls. No shell state needs to persist:
 
 ```bash
-cp /absolute/skill-directory/scripts/session.sh ./cu-env.sh
-cat >> ./cu-env.sh <<'EOF'
+cat > ./pilot <<'EOF'
+#!/bin/sh
 export CU_BIN="/verified/path/to/cu"
 export CU_APP="pid:89806"
 export COMPUTER_PILOT_CLIENT_KEY="<unique-stable-task-key>"
 export COMPUTER_PILOT_OUTPUT_DIR="/absolute/task/output"
 # Preserve any caller-supplied COMPUTER_PILOT_HOME here too.
+exec /bin/sh /absolute/skill-directory/scripts/session.sh "$@"
 EOF
-. ./cu-env.sh
-cu snapshot
+chmod 700 ./pilot
+./pilot snapshot
 ```
 
-The copied [helper](scripts/session.sh) contains the `cu` function and stops the
-shell on errors; it can be used without reading its implementation. Source only
-`./cu-env.sh` in each subsequent shell call; use its absolute path if cwd changes.
-Keep the supplied PID, binary and environment in that file throughout the task.
-Its `cu` function supplies the PID for UI commands (including `window`); omit
-repeated `--app` or positional apps. It also supplies `--no-snapshot` for actions
-and `--no-verify` for click/type/key. Other commands keep ordinary CLI arguments:
-`cu sdef "App Name"` and `cu tell "App Name" '<expression>'` require an explicit
+The [helper](scripts/session.sh) supplies compact output and the fixed PID for UI
+commands (including `window`); omit repeated `--app` or positional app selectors.
+It preserves CLI verification and automatic snapshots. Use explicit
+`--no-snapshot` / `--no-verify` only for known intermediate actions whose result
+will be checked at the group boundary. Other commands keep ordinary arguments:
+`./pilot sdef "App Name"` and `./pilot tell "App Name" '<expression>'` need an
 application name or bundle path; AppleScript does not accept `pid:<PID>`.
+Use the launcher's absolute path if cwd changes; do not fall back to bare `cu`.
 
 ## One Call Per Decision Boundary
 
-From the current observation, group all known field changes and authorized
-Save/Next actions **with their final snapshot or wait in the same shell call**.
+Use `set -e` for a shell group so a failed command stops later mutations. From
+the current observation, group known edits and authorized Save/Next actions
+**with their final observation in the same shell call**.
 For example, if refs 7, 12 and 15 are the observed fields and Save button:
 
 ```bash
-. ./cu-env.sh
-cu set-value 7 "Quarterly review"
-cu set-value 12 "Draft"
-cu click 15
-cu snapshot
+set -e
+./pilot set-value 7 "Quarterly review" --no-snapshot
+./pilot set-value 12 "Draft" --no-snapshot
+./pilot click 15
 ```
 
 Do not end one tool call after Save only to request its snapshot in the next.
@@ -77,13 +78,13 @@ additional external effects.
   observed item with `perform <ref> AXPress` (or its supported action).
   Observe the resulting controls before further edits or navigation.
   Writing the popup's AXValue may not select the item or fire its handler.
-- Skip per-field and pre-save inspections. After a recoverable error, refresh
+- Skip extra model rounds between known local edits or before Save. After an error, refresh
   the relevant state and resume grouping; do not turn the rest of the workflow
   into one-field-at-a-time checks.
 
-The helper omits action snapshots/effect checks and stops on command errors.
-The final observation checks the group's result. For uncertain input delivery,
-especially controlled editors, use the verified direct-CLI path below instead.
+The last action can supply the group's snapshot; do not request another snapshot
+when it already contains the needed result. Defer intermediate effect checks only
+when input delivery is established; controlled editors use the same launcher.
 
 ## Observe Transitions
 
@@ -95,9 +96,9 @@ Choose the group's final observation from what is already known:
   For example, when an observed confirmation returns to a list headed "All records":
 
   ```bash
-  . ./cu-env.sh
-  cu click 15
-  cu wait --text "All records"
+  set -e
+  ./pilot click 15 --no-snapshot --no-verify
+  ./pilot wait --text "All records"
   ```
 
 The wait returns the destination snapshot and usable refs; that is the group's
@@ -130,7 +131,7 @@ old action or switch to OCR merely because its ref expired.
 Use `find` for a missing known label/role, or `why` for an unclear control.
 A window close button is not a navigation shortcut.
 
-Outside the helper, pass `--app` to actions. Keep background work PID-targeted;
+For one-off direct CLI calls, pass `--app` to actions. Keep background work PID-targeted;
 never respond to delivery failures by dropping the target, using global input,
 or automatically focusing the app. `window focus` and `--allow-global` are
 visible/disruptive and require a workflow that explicitly needs foreground
@@ -150,9 +151,9 @@ AXValue writes. Group the known edit in one shell call; the CLI stops on focus
 or input failure. Omit the click when the intended editor is already focused:
 
 ```bash
-. ./cu-env.sh
-"$CU_BIN" --compact click <editor-ref> --app "$CU_APP" --limit 200 --no-snapshot
-"$CU_BIN" --compact type "<intended text>" --app "$CU_APP"
+set -e
+./pilot click <editor-ref> --no-snapshot
+./pilot type "<intended text>"
 ```
 
 The click keeps its private focus check; typing returns the group's observation.
@@ -160,15 +161,15 @@ The click keeps its private focus check; typing returns the group's observation.
 `effect_verified` remains null. A click's `verify_diff` likewise reports tree
 changes; only `focus_verified` establishes the scoped input-focus result.
 Virtual editors can expose only a document slice or add boundary newlines in AX.
-Resolve text discrepancies using the editor's document view and cursor/line state
-before changing the content again; AX text is not a saved-file byte dump.
+Do not rewrite or delete text solely to make an AX value match expected file
+bytes. For a boundary-newline discrepancy, inspect the visible final line/caret
+before editing again; AX text is not a saved-file byte dump.
 If AX lacks the text, inspect visible evidence before deciding input failed; do
 not replay it to obtain a verification flag. See
 [recovery.md](references/recovery.md#verification) for uncertain outcomes.
 
 Success receipts report dispatch. Read returned errors/advisories and scoped
-verification results. Reuse
-attached state for recovery. A missing/failed snapshot is not permission to
+verification results. Reuse attached state for recovery. A missing/failed snapshot is not permission to
 repeat a mutation. For timeout/unknown outcome, inspect current state before
 another mutation; use a request ID when a consequential action needs idempotent
 recovery, not for every local field edit.
@@ -180,9 +181,11 @@ when recovery needs setup or permissions outside that scope. See
 
 ## Complete The Requested Result
 
-For revisions, prefer literal edits to the observed source over regenerating
-unchanged content. Preserve identifiers, URLs, numbers and text outside the
-requested changes; do not substitute familiar values from memory.
+For revisions, use the app's literal Find/Replace or edit only the requested
+range when available. A replacement applying to every occurrence includes
+headings and body text; keep its scope within the authorized documents. Avoid
+regenerating whole documents for localized changes. Preserve identifiers, URLs,
+numbers and text outside the requested changes; do not substitute familiar values from memory.
 
 Before reporting completion, compare each deliverable's observed result with
 the original requirements, including unchanged content and saved state. Reuse
@@ -197,15 +200,14 @@ The helper defaults to concise JSON and complete snapshots up to 200 elements,
 including unchanged controls and full values. Increase `--limit` only when a
 truncation hint says needed content is missing. `--compact`, `--json` and
 `--human` before the command retain task binding; `--json` adds geometry/axPaths,
-not a different state model. For other root options or default action
-verification, call `"$CU_BIN"` directly with the explicit target.
+not a different state model.
 
 For a single short task, direct CLI actions may use `--no-snapshot` and
 `--no-verify`, with one final observation. Use `state` when window/display
 metadata or an image is needed. File outputs need an absolute task-owned output
 directory; read returned paths through the host's normal file capability.
 
-Use `cu <command> --help` for unfamiliar syntax. Read only the relevant reference:
+Use `./pilot <command> --help` for unfamiliar syntax when using the launcher. Read only the relevant reference:
 
 - [commands.md](references/commands.md): CLI options and command inventory.
 - [visual.md](references/visual.md): screenshots, OCR, coordinates and file output.

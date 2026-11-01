@@ -97,8 +97,8 @@ app's explicitly provided CDP/Playwright endpoint is another option when availab
 
 Use the grouped verified click/type path in [SKILL.md](../SKILL.md#controlled-editors-and-recovery).
 It stops on command errors without requiring an extra model round between focus
-and typing. The ordinary session helper defers effect verification to the group's
-final observation.
+and typing. The task launcher keeps the same CLI defaults; only explicit
+`--no-verify` defers an intermediate action's effect check.
 
 `type` requires a focused AX text input and automatically uses PID-targeted
 clipboard paste below `AXWebArea` or in known chat apps. Do not override that

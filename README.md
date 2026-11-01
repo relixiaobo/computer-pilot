@@ -372,8 +372,10 @@ Use `cu --compact snapshot <app> --limit 200` for agent ref-based work. It keeps
 labels, values and warnings, omits geometry/routine metadata, and returns complete
 state within the requested limit. Ordinary `--json` retains geometry and paths for the machine
 interface. For multi-round tasks, the skill's `scripts/session.sh` reuses a chosen
-PID and task environment: batch known edits plus authorized Save/Next, then
-observe once with `cu snapshot` or `cu wait`. No per-field or pre-save model round is required.
+PID and task environment through one executable task launcher. CLI verification
+and snapshots stay enabled unless explicitly deferred for known intermediate
+actions. Batch edits plus authorized Save/Next with the final action snapshot or
+wait result; no per-field or pre-save model round is required.
 
 ## Architecture
 

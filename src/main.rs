@@ -2587,11 +2587,31 @@ fn enforce_text_input_focus(
     target: Option<&ax::Element>,
     pre: Option<&ax::SnapshotResult>,
     post: Option<&ax::SnapshotResult>,
+    native_target: Option<&ax::RefTarget>,
 ) -> Result<(), CuError> {
     let Some(target) = target.filter(|element| is_text_input_role(&element.role)) else {
         return Ok(());
     };
-    let Some(post) = post.filter(|snapshot| snapshot.ok) else {
+    let focus_verified = post.filter(|snapshot| snapshot.ok).and_then(|post| {
+        if !pre.is_some_and(|pre| same_observed_window(pre, post)) {
+            return Some(false);
+        }
+        if let Some(native_target) = native_target {
+            // Sibling reorder can change a path while the retained object is
+            // still the intended focused input. No second tree walk is needed.
+            native_target.is_focused()
+        } else {
+            Some(post.focused.as_ref().is_some_and(|focused| {
+                same_control_path(
+                    &target.role,
+                    target.ax_path.as_deref(),
+                    &focused.role,
+                    focused.ax_path.as_deref(),
+                )
+            }))
+        }
+    });
+    let Some(focus_verified) = focus_verified else {
         return Err(CuError::msg(
             "unknown outcome: click was dispatched, but target focus could not be observed",
         )
@@ -2603,15 +2623,6 @@ fn enforce_text_input_focus(
             "action_result": result,
         })));
     };
-    let focus_verified = pre.is_some_and(|pre| same_observed_window(pre, post))
-        && post.focused.as_ref().is_some_and(|focused| {
-            same_control_path(
-                &target.role,
-                target.ax_path.as_deref(),
-                &focused.role,
-                focused.ax_path.as_deref(),
-            )
-        });
     if let Some(obj) = result.as_object_mut() {
         obj.insert("focus_verified".into(), focus_verified.into());
         if focus_verified {
@@ -2635,7 +2646,7 @@ fn enforce_text_input_focus(
     .with_diagnostics(serde_json::json!({
         "dispatched": true,
         "target": target,
-        "focused": post.focused,
+        "focused": post.and_then(|snapshot| snapshot.focused.as_ref()),
         "action_result": result,
     })))
 }
@@ -3161,6 +3172,7 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
             focus_target.as_ref(),
             pre_state.as_ref().map(|(_, _, snapshot)| snapshot),
             post.as_ref(),
+            None,
         )?;
         return if json {
             ok(result)
@@ -3289,6 +3301,7 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
             focus_target.as_ref(),
             pre_state.as_ref().map(|(_, _, snapshot)| snapshot),
             post.as_ref(),
+            None,
         )?;
         return if json {
             ok(result)
@@ -3362,6 +3375,7 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
             focus_target.as_ref(),
             pre_state.as_ref().map(|(_, _, snapshot)| snapshot),
             post.as_ref(),
+            None,
         )?;
         return if json {
             ok(result)
@@ -3449,6 +3463,7 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
         focus_target.as_ref(),
         pre_state.as_ref().map(|(_, _, snapshot)| snapshot),
         post.as_ref(),
+        ref_target.as_ref(),
     )?;
     if json {
         ok(result)
@@ -4824,9 +4839,14 @@ mod tests {
         let failed = verification_snapshot(false);
         for post in [None, Some(&failed)] {
             let mut result = serde_json::json!({"ok": true});
-            let error =
-                enforce_text_input_focus(&mut result, good.elements.first(), Some(&good), post)
-                    .unwrap_err();
+            let error = enforce_text_input_focus(
+                &mut result,
+                good.elements.first(),
+                Some(&good),
+                post,
+                None,
+            )
+            .unwrap_err();
             assert!(error.error.starts_with("unknown outcome:"));
             assert!(result.get("focus_verified").is_none());
         }
@@ -4961,7 +4981,8 @@ mod tests {
                 &mut result,
                 before.elements.first(),
                 Some(&before),
-                Some(&after)
+                Some(&after),
+                None
             )
             .is_err()
         );
@@ -4986,7 +5007,8 @@ mod tests {
                 &mut result,
                 before.elements.first(),
                 Some(&before),
-                Some(&after)
+                Some(&after),
+                None
             )
             .is_err()
         );

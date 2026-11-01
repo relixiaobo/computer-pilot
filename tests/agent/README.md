@@ -336,6 +336,28 @@ the accidentally started default Broker, were stopped. Shared user processes and
 VS Code settings were preserved. The uniquely named extra iCloud test copy was
 archived locally after evaluation, without repairing the requested output.
 
+
+### Executable task entrypoint and retained-target focus
+
+The packaged helper now runs through a task-owned executable launcher (`./pilot`)
+that exports its fixed binary, PID and runtime before each invocation. It no
+longer requires sourcing a shell function, silently disables verification, or
+suppresses action snapshots. Known intermediate actions can still explicitly
+use `--no-snapshot` / `--no-verify`, and shell groups use `set -e`. Controlled
+editors, help and scripting use the same entrypoint. The skill favors localized
+literal edits and requires visible evidence before correcting virtual AX boundary
+newlines. These are generic operations, not a task-specific solver.
+
+Enabling the existing default verification exposed a reproducible false failure:
+the owned fixture reordered siblings after the ref freshness read; dispatch
+focused the retained intended control, but its old path no longer matched the
+post-click path. Ref clicks now read `AXFocused` on the retained object, while
+keeping the same-PID/window check. An unreadable property is an unknown outcome.
+This is one scalar AX read, not another tree scan or a persistent handle cache.
+The fixture covers this reordered click with default verification, launcher
+binding in sh/bash/zsh despite a shadow `cu` on PATH, explicit batching, and
+unchanged-input errors with attached evidence.
+
 ## Architecture
 
 ```

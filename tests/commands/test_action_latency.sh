@@ -195,6 +195,12 @@ try:
     env = dict(os.environ, CU_BIN=cu, CU_APP=app,
                COMPUTER_PILOT_CLIENT_KEY="compact-latency")
     helper = pathlib.Path(cu).resolve().parents[2] / "plugin/skills/computer-pilot/scripts/session.sh"
+    config = bundle.parent / "pilot"
+    config.write_text("#!/bin/sh\n" + "\n".join(
+        f"export {key}={shlex.quote(env[key])}" for key in
+        ("CU_BIN", "CU_APP", "COMPUTER_PILOT_CLIENT_KEY")
+    ) + "\nexec /bin/sh " + shlex.quote(str(helper)) + ' "$@"\n')
+    config.chmod(0o700)
 
     def compact(*args):
         p = subprocess.run([cu, "--compact", *args], env=env,
@@ -205,10 +211,10 @@ try:
     compact("snapshot", app, "--limit", "200")
     exact = "compact中文😀\n\"quoted\"\\path " * 40
     script = "\n".join([
-        ". " + shlex.quote(str(helper)),
-        shlex.join(["cu", "set-value", ref, exact, "--no-snapshot"]),
-        shlex.join(["cu", "set-value", str(other["ref"]), "second-field"]),
-        "cu snapshot",
+        "set -e",
+        shlex.join([str(config), "set-value", ref, exact, "--no-snapshot"]),
+        shlex.join([str(config), "set-value", str(other["ref"]), "second-field", "--no-snapshot"]),
+        shlex.quote(str(config)) + " snapshot",
     ])
     grouped = subprocess.run(["/bin/sh", "-ec", script], env=env,
                              capture_output=True, text=True, timeout=15)
@@ -237,10 +243,10 @@ try:
     # A full JSON observation remains available, including paths/geometry.
     assert all("axPath" in e and "width" in e for e in full["elements"])
 
-    # Failing an action stops the sourced helper's group before the next edit.
+    # Failing an action stops an explicit shell group before the next edit.
     failed = subprocess.run(["/bin/sh", "-ec", "\n".join([
-        ". " + shlex.quote(str(helper)), "cu click 99999",
-        shlex.join(["cu", "set-value", ref, "must-not-run"]), "cu snapshot",
+        "set -e", shlex.quote(str(config)) + " click 99999",
+        shlex.join([str(config), "set-value", ref, "must-not-run"]), shlex.quote(str(config)) + " snapshot",
     ])], env=env, capture_output=True, text=True, timeout=15)
     assert failed.returncode != 0 and not failed.stdout, failed
     error = json.loads(failed.stderr)
@@ -250,11 +256,6 @@ try:
 
     # Use the same task file for every kind of command and across new shells.
     # The configured binary must win even if another `cu` is on PATH.
-    config = bundle.parent / "cu-env.sh"
-    config.write_text(helper.read_text() + "\n" + "\n".join(
-        f"export {key}={shlex.quote(env[key])}" for key in
-        ("CU_BIN", "CU_APP", "COMPUTER_PILOT_CLIENT_KEY")
-    ) + "\n")
     shadow = bundle.parent / "shadow"
     shadow.mkdir()
     wrong_binary = shadow / "cu"
@@ -263,7 +264,7 @@ try:
     session_env = dict(os.environ, PATH=str(shadow) + os.pathsep + os.environ["PATH"])
 
     def session(*args, shell="/bin/sh", ok=True):
-        script = ". " + shlex.quote(str(config)) + "\n" + shlex.join(["cu", *map(str, args)])
+        script = shlex.join([str(config), *map(str, args)])
         p = subprocess.run([shell, "-c", script], env=session_env,
                            capture_output=True, text=True, timeout=15)
         d = json.loads(p.stdout or p.stderr)
@@ -275,7 +276,8 @@ try:
     assert len(windows["windows"]) == 1, windows
     assert windows["windows"][0]["title"] == "Computer Pilot latency fixture", windows
     session("key", "cmd+a", "--no-snapshot", "--no-verify")
-    session("click", other["ref"], "--no-snapshot", "--no-verify")
+    focused = session("click", other["ref"], "--no-snapshot")
+    assert focused["focus_verified"] is True and "snapshot" not in focused, focused
     # Output flags must not silently switch to untargeted ordinary CLI calls.
     # Exercise real edits from independent shells, then read the assigned app.
     for shell in ("/bin/sh", "/bin/bash", "/bin/zsh"):
@@ -285,12 +287,12 @@ try:
         observed = session("--json", "snapshot", shell=shell)
         assert observed["pid"] == fixture.pid, observed
         assert next(e for e in observed["elements"] if e["ref"] == other["ref"])["value"] == shell
-        # The copied config itself supplies stop-on-error in a fresh shell.
+        # A shell group stops on the launcher's real nonzero exit status.
         # A rejected action cannot be hidden by a subsequent successful edit.
         failed = subprocess.run([shell, "-c", "\n".join([
-            ". " + shlex.quote(str(config)), "cu click 99999",
-            shlex.join(["cu", "set-value", str(other["ref"]), "must-not-run"]),
-            "cu snapshot",
+            "set -e", shlex.quote(str(config)) + " click 99999",
+            shlex.join([str(config), "set-value", str(other["ref"]), "must-not-run"]),
+            shlex.quote(str(config)) + " snapshot",
         ])], env=session_env, capture_output=True, text=True, timeout=15)
         assert failed.returncode != 0 and not failed.stdout, failed
         assert json.loads(failed.stderr)["code"] == "stale_observation", failed.stderr
@@ -361,11 +363,12 @@ try:
         current = session("--json", "snapshot")
         first = next(e for e in current["elements"] if e.get("title") == "latency-input")
         second = next(e for e in current["elements"] if e.get("title") == "other-input")
-        session("perform", "AXPress", "--ax-path", arm["axPath"])
+        session("perform", "AXPress", "--ax-path", arm["axPath"], "--no-snapshot")
         if action == "set-value":
             session("set-value", first["ref"], "retained-target")
         else:
-            session("click", first["ref"])
+            clicked = session("click", first["ref"])
+            assert clicked["focus_verified"] is True, clicked
         reordered = session("--json", "snapshot")
         intended = next(e for e in reordered["elements"] if e.get("title") == "latency-input")
         untouched = next(e for e in reordered["elements"] if e.get("title") == "other-input")
@@ -381,14 +384,14 @@ try:
     transform = next(e for e in current["elements"] if e.get("title") == "Transform next input")
     run("click", "--ax-path", first["axPath"], "--app", app)
     run("perform", "AXPress", "--ax-path", transform["axPath"], "--app", app)
-    typed = run("type", "X", "--app", app, "--no-paste")
+    typed = session("type", "X", "--no-paste")
     assert typed["snapshot"]["focused"]["value"] == "changed-by-application", typed
     assert typed["value_changed"] is True and typed["effect_verified"] is None, typed
     assert typed["confidence"] == "medium" and typed["effect_advice"], typed
     # Replacing the same text is not a proven delivery failure. No automatic
     # retry may duplicate it, and the attached state remains available.
-    run("key", "cmd+a", "--app", app, "--no-snapshot")
-    unchanged = run("type", "changed-by-application", "--app", app, "--no-paste", ok=False)
+    session("key", "cmd+a")
+    unchanged = session("type", "changed-by-application", "--no-paste", ok=False)
     assert unchanged["code"] == "unknown_outcome", unchanged
     assert unchanged["diagnostics"]["value_changed"] is False, unchanged
     assert unchanged["diagnostics"]["snapshot"]["focused"]["value"] == "changed-by-application", unchanged
@@ -415,7 +418,7 @@ try:
 
     # Root help/version use the bound binary without a separate setup path.
     for option, expected in (("--help", "Usage:"), ("--version", "cu ")):
-        script = ". " + shlex.quote(str(config)) + "\ncu " + option
+        script = shlex.join([str(config), option])
         p = subprocess.run(["/bin/sh", "-c", script], env=session_env,
                            capture_output=True, text=True, timeout=15)
         assert p.returncode == 0 and expected in p.stdout, (p.stdout, p.stderr)
@@ -449,6 +452,8 @@ try:
     event_text = exact.replace("\n", " ")
     typed = session("type", event_text, "--no-paste")
     assert "combo" not in selected and "text" not in typed, (selected, typed)
+    assert typed["value_changed"] is True and typed["effect_verified"] is None, typed
+    assert typed["snapshot"]["focused"]["value"] == event_text, typed
     full = session("--json", "snapshot")
     assert full["elements"][0]["value"] == event_text, full
 
