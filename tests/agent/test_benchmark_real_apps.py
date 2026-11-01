@@ -1,5 +1,7 @@
 """Offline saved-result checks for the real application workflows."""
 import json
+import io
+from contextlib import redirect_stdout
 from pathlib import Path
 import tempfile
 import unittest
@@ -9,6 +11,22 @@ import benchmark_real_apps as bench
 
 
 class RealAppResults(unittest.TestCase):
+    def test_prepared_repetitions_keep_complete_pairs_and_reproducible_order(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            app = root / 'App'
+            (app / 'Contents').mkdir(parents=True)
+            (app / 'Contents/Info.plist').write_bytes(bench.plistlib.dumps({'CFBundleShortVersionString': 'test'}))
+            with patch.dict(bench.APPS, {'textedit': (str(app), 'TextEdit')}), patch.object(bench, 'fingerprints', return_value={}), patch.object(bench.subprocess, 'check_output', return_value='test-sha'), redirect_stdout(io.StringIO()):
+                bench.prepare(root / 'a', 'holdout', repeats=3, seed=42)
+                bench.prepare(root / 'b', 'holdout', repeats=3, seed=42)
+            a = json.loads((root / 'a/manifest.json').read_text())
+            b = json.loads((root / 'b/manifest.json').read_text())
+            self.assertEqual(a['sequence'], b['sequence'])
+            self.assertEqual(len({row['label'] for row in a['sequence']}), 6)
+            for repeat in (1, 2, 3):
+                self.assertEqual({row['arm'] for row in a['sequence'] if row['repeat'] == repeat}, {'cu', 'native'})
+
     def test_finder_tasks_verify_exact_paths_and_bytes(self):
         for scenario in ('organize', 'rename'):
             spec = bench.source('finder', 'finder', scenario)
@@ -22,6 +40,56 @@ class RealAppResults(unittest.TestCase):
                 changed['wrong/' + name] = changed.pop(name)
                 path.write_text(json.dumps({'files': changed}))
                 self.assertFalse(bench.verify(spec, path)['passed'])
+
+    def test_finder_copy_instead_of_move_fails_final_and_timeline_checks(self):
+        spec = bench.source('finder', 'finder', 'organize')
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            trial = root / 'trial'
+            trial.mkdir()
+            work = trial / 'workspace'
+            work.mkdir()
+            meta = dict(mode='finder', workspace=str(work))
+            (trial / 'meta.json').write_text(json.dumps(meta))
+            (trial / 'source.json').write_text(json.dumps(spec))
+            for name, text in {**spec['files'], **spec['expected_files']}.items():
+                path = work / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(text)
+            bench.capture_saved(root, 'trial')
+            self.assertFalse(bench.verify(spec, trial / 'saved.json')['passed'])
+            self.assertFalse(bench.saved_file_sample(meta, spec)['all_exact'])
+            for name in set(spec['files']) - set(spec['expected_files']):
+                (work / name).unlink()
+            bench.capture_saved(root, 'trial')
+            self.assertTrue(bench.verify(spec, trial / 'saved.json')['passed'])
+            self.assertTrue(bench.saved_file_sample(meta, spec)['all_exact'])
+            (work / 'extra.bin').write_bytes(b'\xff')
+            (work / 'unrelated-link').symlink_to(root / 'absent')
+            bench.capture_saved(root, 'trial')
+            self.assertFalse(bench.verify(spec, trial / 'saved.json')['passed'])
+
+    def test_finder_cleanup_uses_owned_target_url_after_navigation(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            trial = root / 'trial'
+            trial.mkdir()
+            meta = dict(pid=123, mode='finder', shared_app=True,
+                        workspace=str(root / 'owned space'), runtime_home=folder, client_key='test')
+            path = trial / 'meta.json'
+            path.write_text(json.dumps(meta))
+            broker = SimpleNamespace(returncode=0, stdout='{"running":false}')
+            with patch.object(bench, 'jxa') as jxa, patch.object(bench.subprocess, 'run', return_value=broker):
+                bench.stop(root, 'trial')
+                script = jxa.call_args.args[0]
+                self.assertIn((root / 'owned space').resolve().as_uri() + '/', script)
+                self.assertIn('w.target.url()', script)
+                self.assertIsNone(json.loads(path.read_text())['pid'])
+            path.write_text(json.dumps(meta))
+            with patch.object(bench, 'jxa', side_effect=RuntimeError('Test Finder window remains open')), patch.object(bench.subprocess, 'run', return_value=broker):
+                with self.assertRaisesRegex(RuntimeError, 'remains open'):
+                    bench.stop(root, 'trial')
+                self.assertEqual(json.loads(path.read_text())['pid'], 123)
 
     def test_timeline_metrics_count_calls_after_first_exact_sample(self):
         with tempfile.TemporaryDirectory() as folder:

@@ -8,19 +8,20 @@
   ],
   "cases": [
     {
-      "id": "finder_ambiguous_target",
-      "category": "visual_disambiguation",
+      "id": "finder_file_organization",
+      "category": "file_management",
       "apps": ["Finder"],
       "goal": "In the supplied Finder workspace, create Ready, move only alpha.txt and archive.txt from Incoming into Ready, rename Ready/archive.txt to archive-approved.txt, and leave beta.txt and notes.txt in Incoming.",
-      "oracle": "Independently compare the exact owned directory tree and file bytes after the task.",
-      "tests": ["duplicate labels", "multi-pane targeting", "folder navigation", "final-state observation"],
+      "oracle": "Independently compare the exact owned file set and file bytes after the task; copying rather than moving must fail.",
+      "tests": ["folder navigation", "multiple selection", "file moves", "rename selection and extensions", "unrelated-file preservation", "final-state observation"],
       "side_effects": "Owned temporary directory only"
     },
     {
       "id": "textedit_scoped_rewrite",
       "category": "precise_single_app_edit",
+      "holdout_fixture": "textedit_holdout.json",
       "apps": ["TextEdit"],
-      "goal": "In the supplied plain-text document, change only the current-release section, move the validation section, check one item, preserve repeated historical values, Unicode, punctuation, blank lines, and the final newline, then save.",
+      "goal": "In the supplied maintenance handoff, change four fields only in Upcoming window, move Contacts before Archived window, check two specified checklist items, preserve the archived values, ticket literals, Unicode, blank lines and final newline, then save.",
       "oracle": "Compare the saved file byte-for-byte with the expected task-owned artifact.",
       "tests": ["scoped replacement", "repeated values", "Unicode", "newline preservation", "save confirmation"],
       "side_effects": "Owned temporary document only"

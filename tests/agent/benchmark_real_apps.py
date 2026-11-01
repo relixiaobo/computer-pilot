@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import plistlib
+import random
 import signal
 import subprocess
 import tempfile
@@ -26,6 +27,8 @@ APPS = {
 
 
 def source(mode, dataset='baseline', scenario=None):
+    if dataset == 'holdout':
+        return json.loads((ROOT/'tests/agent/tasks/textedit_holdout.json').read_text())
     if dataset == 'editor':
         return json.loads((ROOT/'tests/agent/tasks/editor_completion.json').read_text())[scenario]
     if dataset == 'varied':
@@ -79,6 +82,8 @@ def verify(spec, saved):
     if 'expected_files' in spec:
         checks = {name + '_exact': actual.get('files', {}).get(name) == expected
                   for name, expected in spec['expected_files'].items()}
+        if spec['mode'] == 'finder':
+            checks['file_set_exact'] = set(actual.get('files', {})) == set(spec['expected_files'])
     elif spec['mode'] == 'textedit':
         expected = spec['files']['brief.txt'].replace('草案', '定稿').replace('2026-11-15', '2026-11-22')
         expected = expected.replace('负责人：周。', '负责人：赵。') + '\n复核完成：6 个章节，保留原始顺序。\n'
@@ -123,6 +128,7 @@ def verify(spec, saved):
 
 def fingerprints():
     paths = [CU, Path(__file__), ROOT/'tests/agent/tasks/real_apps_scoped.json',
+             ROOT/'tests/agent/tasks/textedit_holdout.json',
              ROOT/'tests/agent/tasks/editor_completion.json',
              ROOT/'tests/agent/tasks/editor_varied.json',
              ROOT/'tests/agent/tasks/finder_varied.json',
@@ -134,13 +140,15 @@ def fingerprints():
     return {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
 
 
-def prepare(root, dataset='baseline', cu_only=False):
+def prepare(root, dataset='baseline', cu_only=False, repeats=1, seed=None):
     root.mkdir(parents=True, exist_ok=False)
     sequence = []
-    modes = ('finder',) if dataset == 'finder' else tuple(APPS)
+    modes = (('finder',) if dataset == 'finder' else ('textedit',) if dataset == 'holdout'
+             else ('textedit', 'vscode', 'numbers'))
     for i, mode in enumerate(modes):
-        for arm in (('cu',) if cu_only else ('native', 'cu') if i % 2 == 0 else ('cu', 'native')):
-            sequence.append(dict(label=f'{mode}-1-{arm}', mode=mode, repeat=1, arm=arm))
+        for repeat in range(1, repeats + 1):
+            for arm in (('cu',) if cu_only else ('native', 'cu') if i % 2 == 0 else ('cu', 'native')):
+                sequence.append(dict(label=f'{mode}-{repeat}-{arm}', mode=mode, repeat=repeat, arm=arm))
     if dataset in ('editor', 'varied', 'finder'):
         cases = ('local', 'scoped', 'multi')
         if dataset == 'varied':
@@ -148,16 +156,19 @@ def prepare(root, dataset='baseline', cu_only=False):
         elif dataset == 'finder':
             cases = ('organize', 'rename')
         # The shared collector pairs by mode/repeat; give each case and round its own index.
-        rounds = (1,)
+        rounds = range(1, repeats + 1)
         mode_name = 'finder' if dataset == 'finder' else 'vscode'
         sequence = [dict(label=f'{mode_name}-{case}-r{round_no}-{arm}', mode=mode_name, scenario=case,
                          repeat=(round_no - 1) * len(cases) + index, round=round_no, arm=arm)
                     for round_no in rounds for index, case in enumerate(cases, 1)
                     for arm in (('cu',) if cu_only else ('native', 'cu') if index % 2 else ('cu', 'native'))]
+    if seed is not None:
+        random.Random(seed).shuffle(sequence)
     manifest = dict(protocol_version=2, single_turn=True, sequence=sequence, dataset=dataset,
+        repeats=repeats, order_seed=seed,
         settings=dict(model='gpt-6-astra', reasoning_effort='high', service_tier=None),
         fingerprints=fingerprints(), cu_commit=subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip(),
-        scope=('Cu-only retest; historical native runs are not repeated. ' if cu_only else 'Matched native/cu trials. ') + f'Dataset: {dataset}; {len(sequence)} planned attempts, no replacements. TextEdit/VS Code trials share user application processes with dedicated test windows; any Numbers trials start separately. Fresh model profiles/cwd and cu runtimes. Normal documented app scripting is allowed through cu tell; native uses actual App APIs. No direct file edits, terminal commands inside apps, automation scripts outside the assigned backend, or task-specific solver. Report routes separately; changed datasets are not paired speed comparisons.',
+        scope=('Cu-only retest; historical native runs are not repeated. ' if cu_only else 'Matched native/cu trials. ') + f'Dataset: {dataset}; {len(sequence)} planned attempts, no replacements. TextEdit/VS Code/Finder trials share user application processes with dedicated test windows; any Numbers trials start separately. Fresh model profiles/cwd and cu runtimes, cleared clipboard before every attempt. Finder and holdout tasks are UI-only; other datasets permit documented cu tell where their task allows scripting. Native uses actual App APIs. No direct file edits, terminal commands inside apps, automation scripts outside the assigned backend, or task-specific solver. Report routes separately; changed datasets are not paired speed comparisons.',
         wall_timeout_seconds=600,
         app_versions={mode:plistlib.loads((Path(APPS[mode][0])/'Contents/Info.plist').read_bytes()).get('CFBundleShortVersionString') for mode in dict.fromkeys(e['mode'] for e in sequence)})
     (root/'manifest.json').write_text(json.dumps(manifest, indent=2))
@@ -178,7 +189,52 @@ def process_id(mode):
 
 
 def jxa(script):
-    return subprocess.check_output(['osascript','-l','JavaScript','-e',script],text=True,timeout=45).strip()
+    return subprocess.check_output(['osascript','-l','JavaScript','-'],input=script,text=True,timeout=45).strip()
+
+
+def isolate_clipboard(trial):
+    """Coordinator only: preserve all item types, then remove cross-trial input."""
+    saved = json.loads(jxa('''ObjC.import('AppKit');var p=$.NSPasteboard.generalPasteboard;
+var before=Number(p.changeCount), items=[], native=p.pasteboardItems;
+for(var i=0;i<native.count;i++){var item=native.objectAtIndex(i), types=item.types, row={};
+  for(var j=0;j<types.count;j++){var type=types.objectAtIndex(j), data=item.dataForType(type);
+    var encoded=ObjC.unwrap(data.base64EncodedStringWithOptions(0));
+    if(typeof encoded!=='string')throw Error('Cannot preserve clipboard type');
+    row[ObjC.unwrap(type)]=encoded;}
+  items.push(row);}
+if(Number(p.changeCount)!==before)throw Error('Clipboard changed during capture');
+JSON.stringify({change_count:before,items:items});'''))
+    path = trial / 'clipboard.json'
+    with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'w') as f:
+        json.dump(saved, f)
+    cleared = int(jxa('''ObjC.import('AppKit');var p=$.NSPasteboard.generalPasteboard;
+if(Number(p.changeCount)!==COUNT)throw Error('Clipboard changed before isolation');
+p.clearContents;'''.replace('COUNT', str(saved['change_count']))))
+    saved['cleared_count'] = cleared
+    path.write_text(json.dumps(saved))
+
+
+def restore_clipboard(trial, workspace):
+    path = trial / 'clipboard.json'
+    if not path.exists():
+        return
+    saved = json.loads(path.read_text())
+    if 'cleared_count' not in saved or saved.get('restore_status'):
+        return
+    saved['restore_status'] = jxa('var saved=' + json.dumps(saved) + ';var root=' +
+        json.dumps(str(Path(workspace).resolve())) + ''';
+ObjC.import('AppKit');var p=$.NSPasteboard.generalPasteboard, count=Number(p.changeCount);
+var files=ObjC.deepUnwrap(p.propertyListForType($('NSFilenamesPboardType')));
+var owned=Array.isArray(files)&&files.length&&files.every(f=>f.startsWith(root+'/'));
+if(count!==saved.cleared_count&&!owned){'skipped_changed';}else{
+  var items=saved.items.map(row=>{var item=$.NSPasteboardItem.alloc.init;
+    Object.keys(row).forEach(type=>{var data=$.NSData.alloc.initWithBase64EncodedStringOptions($(row[type]),0);
+      if(!item.setDataForType(data,$(type)))throw Error('Clipboard type restore failed');});return item;});
+  if(Number(p.changeCount)!==count)throw Error('Clipboard changed before restore');
+  p.clearContents;if(items.length&&!p.writeObjects($(items)))throw Error('Clipboard restore failed');
+  'restored';}
+''')
+    path.write_text(json.dumps(saved))
 
 
 def start(root, label):
@@ -221,6 +277,7 @@ def start(root, label):
               source_sha256=hashlib.sha256((trial/'source.json').read_bytes()).hexdigest(),
               shared_app=mode!='numbers',files=files,output_file=str(work/(work.name+'-budget.numbers')))
     (trial/'meta.json').write_text(json.dumps(meta,indent=2))
+    isolate_clipboard(trial)
     if 'goal' in spec:
         goal=spec['goal'].format(workspace=work, input_file=work/(files.get('brief.txt') or work.name+'-budget.csv'), output_file=meta['output_file'])
     elif mode=='textedit':
@@ -237,7 +294,10 @@ Task:
 Initialize and complete this workflow in ONE timed turn, including skill/API discovery. Read source content only through the assigned application backend. Shell writes are allowed only for task-owned configuration, not the documents. Do not use direct document filesystem access, application scripting consoles, external automation or browser/DOM tools to bypass the assigned backend. Ordinary grouping and reasoning from observed content are allowed; no prewritten solvers. Do not add artificial sleeps. Report DONE only after saving and observing the intended final result, or report the concrete blocker. All attempts, errors and recovery costs are retained; an independent coordinator verifies saved artifacts.
 '''
     if entry['arm']=='cu':
-        brief+=f'''Your backend is the existing shell plus {CU}, guided by {ROOT/'plugin/skills/computer-pilot/SKILL.md'}. Initialize the skill's task config with CU_APP=pid:{pid}, COMPUTER_PILOT_CLIENT_KEY={label}, COMPUTER_PILOT_HOME={runtime}, COMPUTER_PILOT_OUTPUT_DIR={trial/'output'}. Binary/permissions are verified. Both UI commands and cu tell for app-native document data are allowed; do not use do shell script, System Events, file IO or another app inside tell. All scripting must remain on the supplied document. Report which route you used in the final response.'''
+        route = ('This is an explicitly UI-only comparison: cu tell and all application scripting are forbidden, including capability probes.'
+                 if mode == 'finder' or spec.get('ui_only') else
+                 'Both UI commands and cu tell for app-native document data are allowed; do not use do shell script, System Events, file IO or another app inside tell. All scripting must remain on the supplied document.')
+        brief+=f'''Your backend is the existing shell plus {CU}, guided by {ROOT/'plugin/skills/computer-pilot/SKILL.md'}. Initialize the skill's task config with CU_APP=pid:{pid}, COMPUTER_PILOT_CLIENT_KEY={label}, COMPUTER_PILOT_HOME={runtime}, COMPUTER_PILOT_OUTPUT_DIR={trial/'output'}. Binary/permissions are verified. {route} Report which route you used in the final response.'''
     else:
         brief+=f'''Your backend is only the actual mcp__cua_repl native App APIs. Bind {path} with cua.getApp and read its documentation. This explicitly authorizes that backend for this comparison. Use the supplied test document/window only. Do not use cu, shell automation, AppleScript, browser/DOM APIs or another backend. Report which route you used in the final response.'''
     (trial/'brief.txt').write_text(brief)
@@ -260,12 +320,27 @@ def saved_file_sample(meta, spec):
     for name, expected in spec['expected_files'].items():
         try:
             path = Path(meta['workspace']) / name if meta.get('mode') == 'finder' else Path(meta['workspace']) / meta['files'][name]
+            if path.is_symlink():
+                files[name] = dict(sha256=None, exact=False)
+                continue
             data = path.read_bytes()
             files[name] = dict(sha256=hashlib.sha256(data).hexdigest(),
                                exact=data == expected.encode('utf-8'))
         except FileNotFoundError:
             files[name] = dict(sha256=None, exact=False)
-    return dict(files=files, all_exact=all(f['exact'] for f in files.values()))
+    exact = all(f['exact'] for f in files.values())
+    if meta.get('mode') == 'finder':
+        exact = exact and set(finder_files(Path(meta['workspace']))) == set(spec['expected_files'])
+    return dict(files=files, all_exact=exact)
+
+
+def finder_files(work):
+    # Keep unexpected files and symlinks visible to the oracle. Never follow a
+    # link outside the owned fixture or fail collection on an extra binary file.
+    return {path.relative_to(work).as_posix():
+            None if path.is_symlink() else path.read_bytes().decode('utf-8', errors='replace')
+            for path in sorted(work.rglob('*'))
+            if path.is_symlink() or (path.is_file() and path.name != '.DS_Store')}
 
 
 def record_saved_timeline(trial, stopped):
@@ -296,11 +371,7 @@ def capture_saved(root,label):
     trial=root/label;meta=json.loads((trial/'meta.json').read_text());work=Path(meta['workspace'])
     spec=json.loads((trial/'source.json').read_text())
     if meta['mode'] == 'finder':
-        files = {}
-        for path in sorted(Path(meta['workspace']).rglob('*')):
-            if path.is_file() and not path.is_symlink() and path.name != '.DS_Store':
-                files[path.relative_to(meta['workspace']).as_posix()] = path.read_bytes().decode('utf-8')
-        result={'files': files}
+        result={'files': finder_files(work)}
     elif meta['mode']!='numbers':
         result={'files':{name:(work/meta['files'][name]).read_bytes().decode('utf-8') if (work/meta['files'][name]).exists() else None for name in spec['files']}}
     else:
@@ -329,7 +400,15 @@ def stop(root,label):
     if not meta['pid']:return
     env=dict(os.environ,COMPUTER_PILOT_HOME=meta['runtime_home'],COMPUTER_PILOT_CLIENT_KEY=meta['client_key'])
     try:
-        if not meta['shared_app']:
+        if meta['mode'] == 'finder':
+            # Finder changes the title on every navigation. Use the actual
+            # target URL, with a path boundary, to close only owned windows.
+            uri = Path(meta['workspace']).resolve().as_uri() + '/'
+            jxa('''var a=Application('Finder');var root=ROOT;
+function owned(){return a.windows().filter(w=>{var u=w.target.url();return u===root.slice(0,-1)||u.startsWith(root);});}
+owned().map(w=>w.id()).forEach(id=>a.windows.byId(id).close());
+if(owned().length)throw Error('Test Finder window remains open');'''.replace('ROOT', json.dumps(uri)))
+        elif not meta['shared_app']:
             prefix=json.dumps(Path(meta['workspace']).name)
             jxa("var a=Application('Numbers');var prefix="+prefix+";"
                 "a.documents().filter(d=>d.name().startsWith(prefix)||d.name().startsWith('Untitled ('+prefix)"
@@ -354,6 +433,7 @@ def stop(root,label):
                     matches=task_windows()
             if matches:
                 raise RuntimeError('Test window remains open; inspect its save dialog before retrying cleanup. Do not quit the shared app.')
+        restore_clipboard(trial, meta['workspace'])
     finally:
         status=subprocess.run([str(CU),'--json','status'],env=env,capture_output=True,text=True)
         if status.returncode==0:
@@ -440,10 +520,13 @@ def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('root',type=Path)
     p.add_argument('action',choices=['prepare','start','collect','stop','report']);p.add_argument('label',nargs='?')
     p.add_argument('--rollouts',type=Path)
-    p.add_argument('--dataset',choices=['baseline','alternate','scoped','editor','varied','finder'],default='baseline')
+    p.add_argument('--dataset',choices=['baseline','alternate','scoped','editor','varied','finder','holdout'],default='baseline')
     p.add_argument('--cu-only',action='store_true')
+    p.add_argument('--repeats',type=int,default=1)
+    p.add_argument('--seed',type=int)
     args=p.parse_args();root=args.root.resolve()
-    if args.action=='prepare':prepare(root,args.dataset,args.cu_only)
+    if args.repeats < 1:p.error('--repeats must be positive')
+    if args.action=='prepare':prepare(root,args.dataset,args.cu_only,args.repeats,args.seed)
     elif args.action=='start':start(root,args.label)
     elif args.action=='collect':
         capture_saved(root,args.label);shared.collect(root,args.label,args.rollouts,verify)
