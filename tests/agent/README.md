@@ -411,6 +411,54 @@ successful-completion speed ratio. Validation also passed: 44 Rust tests,
 Clippy, release build, the owned native fixture, skill/version/format checks and
 candidate CI.
 
+### New scoped real-app tasks and generic follow-up fixes
+
+The [scoped block](benchmarks/real-app-scoped-2026-11-01.json) froze `0c635f8`
+and ran three new tasks, each in a new gpt-6-astra/high profile and neutral cwd,
+without AGENTS/memory injection or coaching. No native rerun or replacement.
+
+| Task | Saved-artifact result | Full task time | Calls / errors |
+| --- | --- | ---: | ---: |
+| TextEdit scoped changes + section move | Exact text passed | 126.773 s | 11 / 2 |
+| VS Code primary/current-only edits | Three exact files passed | 426.046 s | 57 / 13 |
+| Numbers discount formulas + two-key ordering | Reopened values and recalculation passed | 187.654 s | 24 / 11 |
+
+All three completion claims were correct. This is 3/3 planned tasks, not a
+population accuracy estimate. TextEdit and VS Code used shared app processes
+with dedicated files/windows. Numbers restored five identified historical test
+documents despite `open -F`; the coordinator closed only those captured IDs and
+recorded the single current document before starting the model timer. Shared
+processes/settings were preserved; task windows and owned processes were cleaned.
+
+Correct results still required substantial recovery. VS Code reconstructed
+whole files, repeatedly adjusted AX boundary newlines and hit stale-ref guards;
+one Electron AXValue write also deviated from skill guidance. Numbers tried to
+write a read-only formula property and repeatedly sent sort to a row range,
+then reconstructed the observed rows. These strategies remain findings despite
+the accepted saved outcomes. Recorded tool intervals were only 1.202 / 34.118 /
+4.355 seconds; total duration is dominated by the rest of the model/tool loop.
+Changed task definitions do not supply a paired native speed ratio.
+
+Two concrete general defects were fixed after sealing this block:
+
+- A deeply nested input can be readable through AXFocusedUIElement while absent
+  from the bounded tree. An owned 36-level fixture reproduced a real value
+  change returning `unknown_outcome` on the old binary. Input comparison now
+  retains the already-read focus object and uses native equality plus existing
+  PID/window identity; it compares the existing focused values directly. No
+  extra query, deeper traversal, persistent cache or numeric-ref fallback.
+  The fixture checks exact input, dropped input and a different focused object.
+- Scripting discovery omitted property descriptions and direct operand types.
+  The Numbers dictionary explains writing formulas through `value` and declares
+  `sort`'s operand as `table`; these were lost before the model saw them. `sdef`
+  now preserves those fields, decodes XML entities and shares one parser branch
+  for empty/nonempty XML elements. Existing parameter names remain compatible.
+
+The skill clarifies which commands accept snapshot/verification opt-outs and
+moves localized editing guidance next to controlled editor actions, removing
+duplicate text. It adds no application/task-specific solver or extra check round.
+
+
 ## Architecture
 
 ```

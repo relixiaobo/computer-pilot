@@ -44,9 +44,10 @@ chmod 700 ./pilot
 
 The [helper](scripts/session.sh) supplies compact output and the fixed PID for UI
 commands (including `window`); omit repeated `--app` or positional app selectors.
-It preserves CLI verification and automatic snapshots. Use explicit
-`--no-snapshot` / `--no-verify` only for known intermediate actions whose result
-will be checked at the group boundary. Other commands keep ordinary arguments:
+It preserves CLI verification and automatic snapshots. For known intermediate
+actions, `--no-snapshot` omits their output tree; only `click`, `type` and `key`
+accept `--no-verify`. Check the result at the group boundary. `tell` and `window`
+accept neither flag. Other commands keep ordinary arguments:
 `./pilot sdef "App Name"` and `./pilot tell "App Name" '<expression>'` need an
 application name or bundle path; AppleScript does not accept `pid:<PID>`.
 Use the launcher's absolute path if cwd changes; do not fall back to bare `cu`.
@@ -146,6 +147,11 @@ use the app's saved/modified state at the final group boundary.
 
 ## Controlled Editors And Recovery
 
+For document revisions, use literal Find/Replace within the intended scope or
+select only the requested range. Preserve surrounding text and final newlines
+by leaving them untouched; do not reconstruct a whole document from AX text
+for local changes.
+
 For Electron/CEF or an `AXWebArea` input, use verified click/type instead of
 AXValue writes. Group the known edit in one shell call; the CLI stops on focus
 or input failure. Omit the click when the intended editor is already focused:
@@ -181,12 +187,6 @@ when recovery needs setup or permissions outside that scope. See
 
 ## Complete The Requested Result
 
-For revisions, use the app's literal Find/Replace or edit only the requested
-range when available. A replacement applying to every occurrence includes
-headings and body text; keep its scope within the authorized documents. Avoid
-regenerating whole documents for localized changes. Preserve identifiers, URLs,
-numbers and text outside the requested changes; do not substitute familiar values from memory.
-
 Before reporting completion, compare each deliverable's observed result with
 the original requirements, including unchanged content and saved state. Reuse
 the group's observations; obtain further evidence only for a missing or
@@ -202,9 +202,7 @@ truncation hint says needed content is missing. `--compact`, `--json` and
 `--human` before the command retain task binding; `--json` adds geometry/axPaths,
 not a different state model.
 
-For a single short task, direct CLI actions may use `--no-snapshot` and
-`--no-verify`, with one final observation. Use `state` when window/display
-metadata or an image is needed. File outputs need an absolute task-owned output
+Use `state` when window/display metadata or an image is needed. File outputs need an absolute task-owned output
 directory; read returned paths through the host's normal file capability.
 
 Use `./pilot <command> --help` for unfamiliar syntax when using the launcher. Read only the relevant reference:

@@ -2518,31 +2518,16 @@ fn focused_inside_webarea(focused: &ax::FocusedSummary) -> bool {
         .is_some_and(|path| path.to_ascii_lowercase().contains("webarea"))
 }
 
-fn focused_tree_value(snapshot: &ax::SnapshotResult) -> Option<&str> {
-    let focused = snapshot.focused.as_ref()?;
-    let path = focused.ax_path.as_ref()?;
-    snapshot
-        .elements
-        .iter()
-        .find(|element| element.ax_path.as_ref() == Some(path) && element.role == focused.role)
-        .and_then(|element| element.value.as_deref())
-}
-
 fn observed_input_change(before: &ax::SnapshotResult, after: &ax::SnapshotResult) -> Option<bool> {
-    if !same_observed_window(before, after) {
+    if !same_observed_window(before, after)
+        || !before
+            .focused_target
+            .as_ref()?
+            .same_element(after.focused_target.as_ref()?)
+    {
         return None;
     }
-    let first = before.focused.as_ref()?;
-    let last = after.focused.as_ref()?;
-    if !same_control_path(
-        &first.role,
-        first.ax_path.as_deref(),
-        &last.role,
-        last.ax_path.as_deref(),
-    ) {
-        return None;
-    }
-    Some(focused_tree_value(before)? != focused_tree_value(after)?)
+    Some(before.focused.as_ref()?.value.as_ref()? != after.focused.as_ref()?.value.as_ref()?)
 }
 
 /// Keep post-action observations on the PID that was bound before dispatch.
@@ -4793,6 +4778,7 @@ mod tests {
             window_id: 10,
             window_frame: None,
             focused: ok.then(|| focused(Some(1), "textfield", Some("window/textfield"))),
+            focused_target: None,
             modal: None,
             elements: if ok {
                 vec![
@@ -4963,10 +4949,9 @@ mod tests {
             "textarea",
             before.elements[0].ax_path.as_deref(),
         ));
-        assert_eq!(focused_tree_value(&after), Some("before"));
-        assert_eq!(observed_input_change(&before, &after), Some(false));
-        after.elements[1].value = Some("new input".into());
-        assert_eq!(observed_input_change(&before, &after), Some(true));
+        // Matching paths or refs alone cannot establish native input identity.
+        // Real same-object and focus-switch cases are covered by the owned fixture.
+        assert_eq!(observed_input_change(&before, &after), None);
 
         // Reused ref/role cannot establish focus when its path changed.
         after.focused = Some(focused(
@@ -4974,7 +4959,6 @@ mod tests {
             "textarea",
             after.elements[0].ax_path.as_deref(),
         ));
-        assert_eq!(observed_input_change(&before, &after), None);
         let mut result = serde_json::json!({"ok":true});
         assert!(
             enforce_text_input_focus(
@@ -4987,10 +4971,6 @@ mod tests {
             .is_err()
         );
         assert_eq!(result["focus_verified"], false);
-        after.focused = before.focused.clone();
-        after.focused.as_mut().unwrap().ax_path = None;
-        assert_eq!(observed_input_change(&before, &after), None);
-
         // A title rename in the same window is allowed; another window with
         // identical paths, values and refs never supplies verification evidence.
         after.focused = Some(focused(
@@ -4999,9 +4979,17 @@ mod tests {
             Some("window[B]/webarea/textarea[editor]"),
         ));
         after.elements[1].ax_path = after.focused.as_ref().unwrap().ax_path.clone();
-        assert_eq!(observed_input_change(&before, &after), Some(true));
+        assert!(
+            enforce_text_input_focus(
+                &mut result,
+                before.elements.first(),
+                Some(&before),
+                Some(&after),
+                None
+            )
+            .is_ok()
+        );
         after.window_id += 1;
-        assert_eq!(observed_input_change(&before, &after), None);
         assert!(
             enforce_text_input_focus(
                 &mut result,
@@ -5012,9 +5000,6 @@ mod tests {
             )
             .is_err()
         );
-        after.window_id = before.window_id;
-        after.ok = false;
-        assert_eq!(observed_input_change(&before, &after), None);
     }
 
     #[test]

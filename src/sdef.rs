@@ -36,6 +36,8 @@ pub struct Class {
 pub struct Property {
     pub name: String,
     pub access: String,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub description: String,
 }
 
 #[derive(serde::Serialize)]
@@ -43,6 +45,8 @@ pub struct SdefCommand {
     pub name: String,
     pub description: String,
     pub parameters: Vec<String>,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub direct_parameter: String,
 }
 
 // Cocoa apps can ship .scriptSuite instead of .sdef. Ask the OS to convert
@@ -169,7 +173,12 @@ pub fn parse(app: &str, bundle_path: &str) -> SdefResult {
         }
     };
 
-    let mut reader = Reader::from_str(&xml);
+    parse_xml(app, &xml)
+}
+
+fn parse_xml(app: &str, xml: &str) -> SdefResult {
+    let mut reader = Reader::from_str(xml);
+    reader.config_mut().expand_empty_elements = true;
     let mut suites = Vec::new();
 
     // State machine
@@ -189,7 +198,7 @@ pub fn parse(app: &str, bundle_path: &str) -> SdefResult {
         e.attributes()
             .flatten()
             .find(|a| a.key.as_ref() == key)
-            .map(|a| String::from_utf8_lossy(&a.value).to_string())
+            .and_then(|a| a.unescape_value().ok().map(|value| value.into_owned()))
             .unwrap_or_default()
     }
 
@@ -234,6 +243,7 @@ pub fn parse(app: &str, bundle_path: &str) -> SdefResult {
                             name: attr_val(e, b"name"),
                             description: attr_val(e, b"description"),
                             parameters: Vec::new(),
+                            direct_parameter: String::new(),
                         });
                         state = State::Command;
                     }
@@ -242,6 +252,7 @@ pub fn parse(app: &str, bundle_path: &str) -> SdefResult {
                             let access = attr_val(e, b"access");
                             cls.properties.push(Property {
                                 name: attr_val(e, b"name"),
+                                description: attr_val(e, b"description"),
                                 access: if access.is_empty() {
                                     "rw".to_string()
                                 } else {
@@ -260,64 +271,14 @@ pub fn parse(app: &str, bundle_path: &str) -> SdefResult {
                             cls.responds_to.push(attr_val(e, b"command"));
                         }
                     }
-                    b"parameter" if matches!(state, State::Command) => {
+                    b"direct-parameter" if matches!(state, State::Command) => {
                         if let Some(ref mut cmd) = current_cmd {
-                            cmd.parameters.push(attr_val(e, b"name"));
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            Ok(Event::Empty(ref e)) => {
-                let tag = e.name();
-                match tag.as_ref() {
-                    b"property" if matches!(state, State::Class | State::ClassExt) => {
-                        if let Some(ref mut cls) = current_class {
-                            let access = attr_val(e, b"access");
-                            cls.properties.push(Property {
-                                name: attr_val(e, b"name"),
-                                access: if access.is_empty() {
-                                    "rw".to_string()
-                                } else {
-                                    access
-                                },
-                            });
-                        }
-                    }
-                    b"element" if matches!(state, State::Class | State::ClassExt) => {
-                        if let Some(ref mut cls) = current_class {
-                            cls.elements.push(attr_val(e, b"type"));
-                        }
-                    }
-                    b"responds-to" if matches!(state, State::ClassExt) => {
-                        if let Some(ref mut cls) = current_class {
-                            cls.responds_to.push(attr_val(e, b"command"));
+                            cmd.direct_parameter = attr_val(e, b"type");
                         }
                     }
                     b"parameter" if matches!(state, State::Command) => {
                         if let Some(ref mut cmd) = current_cmd {
                             cmd.parameters.push(attr_val(e, b"name"));
-                        }
-                    }
-                    // Self-closing class/class-extension/command in suite context
-                    b"class" if matches!(state, State::Suite) => {
-                        if let Some(ref mut suite) = current_suite {
-                            suite.classes.push(Class {
-                                name: attr_val(e, b"name"),
-                                properties: Vec::new(),
-                                elements: Vec::new(),
-                                responds_to: Vec::new(),
-                            });
-                        }
-                    }
-                    b"class-extension" if matches!(state, State::Suite) => {
-                        if let Some(ref mut suite) = current_suite {
-                            suite.classes.push(Class {
-                                name: attr_val(e, b"extends"),
-                                properties: Vec::new(),
-                                elements: Vec::new(),
-                                responds_to: Vec::new(),
-                            });
                         }
                     }
                     _ => {}
@@ -383,6 +344,43 @@ pub fn parse(app: &str, bundle_path: &str) -> SdefResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dictionary_keeps_operation_operand_and_property_guidance() {
+        let body = r#"<suite name="Fixture">
+          <class name="cell"><property name="formula" access="r"
+            description="Use &quot;value&quot; to write a formula &amp; preserve calculation."/></class>
+          <class-extension extends="cell"><responds-to command="clear"/></class-extension>
+          <class name="empty"/>
+          <command name="sort"><direct-parameter type="table"/>
+            <parameter name="by"/><parameter name="in rows"/></command>
+          <command name="empty"/>
+        </suite>"#;
+        // Explicit and self-closing leaves must produce identical output.
+        let explicit = body
+            .replace(
+                "preserve calculation.\"/>",
+                "preserve calculation.\"></property>",
+            )
+            .replace("type=\"table\"/>", "type=\"table\"></direct-parameter>");
+        let result = parse_xml("Fixture", body);
+        assert_eq!(
+            serde_json::to_value(&result).unwrap(),
+            serde_json::to_value(parse_xml("Fixture", &explicit)).unwrap()
+        );
+        let suites = result.suites.unwrap();
+        let suite = &suites[0];
+        assert_eq!(suite.classes.len(), 3);
+        assert_eq!(suite.classes[0].properties[0].access, "r");
+        assert_eq!(
+            suite.classes[0].properties[0].description,
+            "Use \"value\" to write a formula & preserve calculation."
+        );
+        assert_eq!(suite.classes[1].responds_to, ["clear"]);
+        assert_eq!(suite.commands[0].direct_parameter, "table");
+        assert_eq!(suite.commands[0].parameters, ["by", "in rows"]);
+        assert_eq!(suite.commands.len(), 2);
+    }
 
     #[test]
     fn legacy_discovery_does_not_request_dynamic_app_terminology() {

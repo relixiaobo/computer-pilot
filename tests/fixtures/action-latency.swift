@@ -1,5 +1,10 @@
 import AppKit
 
+final class Group: NSView {
+    override func isAccessibilityElement() -> Bool { true }
+    override func accessibilityRole() -> NSAccessibility.Role? { .group }
+    override func accessibilityChildren() -> [Any]? { subviews }
+}
 final class Field: NSTextField {
     override func setAccessibilityValue(_ value: Any?) {
         stringValue = value as? String ?? ""
@@ -117,9 +122,39 @@ final class Delegate: NSObject, NSApplicationDelegate {
             let other = NSButton(title: "Other window", target: self, action: #selector(openOtherWindow))
             other.frame = NSRect(x: 20, y: 350, width: 150, height: 26)
             window.contentView!.addSubview(other)
+            let deep = NSButton(title: "Deep input", target: self, action: #selector(deepPage))
+            deep.frame = NSRect(x: 20, y: 300, width: 150, height: 26)
+            window.contentView!.addSubview(deep)
             window.makeFirstResponder(input)
             NSAccessibility.post(element: NSApp!, notification: .layoutChanged)
         }
+    }
+    @objc func deepPage() {
+        window.contentView = NSView(frame: NSRect(x: 0, y: 0, width: 400, height: 440))
+        var parent = window.contentView!
+        // Deliberately beyond the AX traversal limit; focus remains readable.
+        for _ in 0..<36 {
+            let group = Group(frame: parent.bounds)
+            parent.addSubview(group)
+            parent = group
+        }
+        let input = Field(frame: NSRect(x: 20, y: 360, width: 350, height: 26))
+        input.stringValue = "deep initial"
+        parent.addSubview(input)
+        let other = Field(frame: NSRect(x: 20, y: 300, width: 350, height: 26))
+        other.stringValue = "deep other"
+        parent.addSubview(other)
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if event.characters == "?" { return nil } // Deliberately drop input.
+            if event.characters == "!" {
+                self.window.makeFirstResponder(other)
+                other.stringValue = "focus moved"
+                NSAccessibility.post(element: NSApp!, notification: .valueChanged)
+                return nil
+            }
+            return event
+        }
+        window.makeFirstResponder(input)
     }
     @objc func openOtherWindow() {
         // Same title, geometry, field and value: only window identity differs.

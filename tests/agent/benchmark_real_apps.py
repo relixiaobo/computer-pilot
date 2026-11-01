@@ -212,8 +212,7 @@ Initialize and complete this workflow in ONE timed turn, including skill/API dis
         brief+=f'''Your backend is only the actual mcp__cua_repl native App APIs. Bind {path} with cua.getApp and read its documentation. This explicitly authorizes that backend for this comparison. Use the supplied test document/window only. Do not use cu, shell automation, AppleScript, browser/DOM APIs or another backend. Report which route you used in the final response.'''
     (trial/'brief.txt').write_text(brief)
     if mode == 'numbers':
-        # -F prevents saved-window restoration, but macOS can still restore
-        # untitled documents. Refuse contaminated setup before any model runs.
+        # Even with -F, iWork can restore saved or untitled documents. Refuse contaminated setup before any model runs.
         names = []
         for _ in range(40):
             names = json.loads(jxa("JSON.stringify(Application('Numbers').documents.name())"))

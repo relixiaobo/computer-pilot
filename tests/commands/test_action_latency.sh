@@ -487,6 +487,24 @@ try:
     assert len(remaining["windows"]) == 1, remaining
     assert session("snapshot")["elements"][0]["value"] == event_text
 
+    # Native focus identity works even when no ref/path is in the truncated
+    # tree. A value on a different focused object must not count as delivery.
+    current = session("snapshot")
+    deep = next(e for e in current["elements"] if e.get("title") == "Deep input")
+    session("click", deep["ref"])
+    current = session("snapshot")
+    assert current["depth_limited"] and "ref" not in current["focused"], current
+    assert current["focused"]["value"] == "deep initial", current
+    typed = session("type", "deep exact", "--no-paste")
+    assert typed["value_changed"] is True and typed["effect_verified"] is None, typed
+    assert typed["snapshot"]["focused"]["value"] == "deep exact", typed
+    unchanged = session("type", "?", "--no-paste", ok=False)
+    assert unchanged["diagnostics"]["value_changed"] is False, unchanged
+    moved = session("type", "!", "--no-paste", ok=False)
+    assert moved["code"] == "unknown_outcome", moved
+    assert moved["diagnostics"]["value_changed"] is None, moved
+    assert moved["diagnostics"]["snapshot"]["focused"]["value"] == "focus moved", moved
+
 finally:
     fixture.terminate()
     fixture.wait(timeout=5)

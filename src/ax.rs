@@ -23,6 +23,7 @@ const CF_NUMBER_FLOAT64: isize = 6;
 unsafe extern "C" {
     fn CFRelease(cf: CFTypeRef);
     fn CFRetain(cf: CFTypeRef) -> CFTypeRef;
+    fn CFEqual(left: CFTypeRef, right: CFTypeRef) -> Boolean;
     fn CFGetTypeID(cf: CFTypeRef) -> CFTypeID;
     fn CFStringGetTypeID() -> CFTypeID;
     fn CFArrayGetTypeID() -> CFTypeID;
@@ -139,6 +140,9 @@ pub struct SnapshotResult {
     /// the snapshot's `--limit` window.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub focused: Option<FocusedSummary>,
+    /// Retained from the existing focus read, only for this command.
+    #[serde(skip)]
+    pub focused_target: Option<RefTarget>,
     /// A modal (AXSheet / AXSystemDialog) is currently blocking the window.
     /// Agent should dismiss it before doing anything else.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1652,6 +1656,10 @@ impl Drop for RefTarget {
 }
 
 impl RefTarget {
+    pub fn same_element(&self, other: &Self) -> bool {
+        self.pid == other.pid && unsafe { CFEqual(self.element, other.element) != 0 }
+    }
+
     /// Read focus on the object actually dispatched to, not its old tree path.
     pub fn is_focused(&self) -> Option<bool> {
         unsafe { ax_bool(self.element, "AXFocused") }
@@ -2013,7 +2021,11 @@ pub struct RefInspection {
 /// `elements` is the snapshot's element list — used to look up the matching
 /// ref by (role, x, y). Match on (x,y) is enough in practice — two elements
 /// with the same role and identical screen position would be a UI bug.
-unsafe fn detect_focused(app_el: CFTypeRef, elements: &[Element]) -> Option<FocusedSummary> {
+unsafe fn detect_focused(
+    app_el: CFTypeRef,
+    pid: i32,
+    elements: &[Element],
+) -> Option<(FocusedSummary, RefTarget)> {
     let fel = ax_attr(app_el, "AXFocusedUIElement")?;
     let role = ax_string(fel, "AXRole").unwrap_or_default();
     if role.is_empty() {
@@ -2025,7 +2037,6 @@ unsafe fn detect_focused(app_el: CFTypeRef, elements: &[Element]) -> Option<Focu
         .filter(|s| !s.is_empty());
     let value = ax_value(fel);
     let pos = ax_position(fel);
-    CFRelease(fel);
 
     let normalized = normalize_role(&role);
     let matched = pos.and_then(|p| {
@@ -2035,13 +2046,20 @@ unsafe fn detect_focused(app_el: CFTypeRef, elements: &[Element]) -> Option<Focu
             .find(|e| e.role == normalized && (e.x - px).abs() < 1.0 && (e.y - py).abs() < 1.0)
     });
 
-    Some(FocusedSummary {
-        ref_id: matched.map(|element| element.ref_id),
-        role: normalized,
-        title,
-        value,
-        ax_path: matched.and_then(|element| element.ax_path.clone()),
-    })
+    Some((
+        FocusedSummary {
+            ref_id: matched.map(|element| element.ref_id),
+            role: normalized,
+            title,
+            value,
+            ax_path: matched.and_then(|element| element.ax_path.clone()),
+        },
+        RefTarget {
+            element: fel,
+            pid,
+            ref_id: matched.map_or(0, |e| e.ref_id),
+        },
+    ))
 }
 
 /// Detect whether a modal (AXSheet) or system dialog is blocking the window.
@@ -2180,6 +2198,7 @@ fn snapshot_read(
                 truncation_hint: None,
                 depth_limited: false,
                 focused: None,
+                focused_target: None,
                 modal: None,
                 error: Some("failed to create AX element for application".into()),
             };
@@ -2211,6 +2230,7 @@ fn snapshot_read(
                 truncation_hint: None,
                 depth_limited: false,
                 focused: None,
+                focused_target: None,
                 modal: None,
                 error: Some(msg),
             };
@@ -2270,6 +2290,7 @@ fn snapshot_read(
                 truncation_hint: None,
                 depth_limited: false,
                 focused: None,
+                focused_target: None,
                 modal: None,
                 error: Some("failed to create AX batch attribute keys".into()),
             };
@@ -2325,7 +2346,9 @@ fn snapshot_read(
 
         // A4: surface the currently focused UI element so the agent can skip
         //     a redundant click on a field that's already focused.
-        let focused = detect_focused(app_el, &elements);
+        let (focused, focused_target) = detect_focused(app_el, pid, &elements)
+            .map(|(summary, target)| (Some(summary), Some(target)))
+            .unwrap_or_default();
 
         // A6: surface a modal/sheet warning so the agent dismisses it first
         //     instead of fruitlessly clicking on the (now-blocked) main window.
@@ -2345,6 +2368,7 @@ fn snapshot_read(
             window_id,
             window_frame,
             focused,
+            focused_target,
             modal,
             elements,
             limit,
