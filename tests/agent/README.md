@@ -26,6 +26,22 @@ dataset changes source literals, preserved config fields and spreadsheet inputs,
 while keeping the same task types. Historical timings on different data are
 context, not paired speed ratios. Referenced skill files are frozen too.
 
+`--cu-only --dataset scoped` adds three distinct tasks: section-scoped TextEdit
+edits plus paragraph movement, VS Code primary/history edits with repeated values
+that must remain unchanged elsewhere, and Numbers discounted formulas with
+Team/Item sorting. Exact expected text (including JSON formatting/newlines) and
+spreadsheet outcomes live in `tasks/real_apps_scoped.json`, frozen by the manifest
+and never supplied to participants. Formula checks perturb reopened saved inputs.
+
+Numbers setup now refuses an existing process, requests fresh launch and verifies
+that only the supplied document is open before timing. `open -F` alone does not
+establish isolation: iWork may still restore its own documents, including items
+temporarily named Untitled. A rejected untimed setup needs ownership-based cleanup
+and a recorded clean document list before a participant runs. Cleanup closes task
+documents by captured document IDs, recognizes task filenames when titles differ,
+and quits normally only when no non-task documents remain. It does not force-kill
+an app containing unexpected documents or modify global restoration preferences.
+
 Audit `claimed_complete` as a boolean alongside `compliant` after reading each
 final response and trace. The report counts saved-artifact successes over all
 planned attempts, and false completion claims over audited, compliant completed

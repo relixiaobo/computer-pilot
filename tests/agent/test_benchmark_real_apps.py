@@ -9,6 +9,51 @@ import benchmark_real_apps as bench
 
 
 class RealAppResults(unittest.TestCase):
+    def test_scoped_file_tasks_reject_out_of_scope_edits_and_lost_newlines(self):
+        for mode in ('textedit', 'vscode'):
+            spec = bench.source(mode, 'scoped')
+            with tempfile.TemporaryDirectory() as folder:
+                path = Path(folder) / 'saved.json'
+                files = dict(spec['expected_files'])
+                path.write_text(json.dumps(dict(files=files)))
+                self.assertTrue(bench.verify(spec, path)['passed'])
+                name = 'brief.txt' if mode == 'textedit' else 'release.md'
+                # Editing a repeated historical value violates the scoped task.
+                files[name] = files[name].replace('草案', '待验收').replace('Channel: preview', 'Channel: live')
+                path.write_text(json.dumps(dict(files=files)))
+                self.assertFalse(bench.verify(spec, path)['passed'])
+                files[name] = spec['expected_files'][name].rstrip('\n')
+                path.write_text(json.dumps(dict(files=files)))
+                self.assertFalse(bench.verify(spec, path)['passed'])
+
+    def test_scoped_numbers_requires_discount_order_and_live_formulas(self):
+        spec = bench.source('numbers', 'scoped')
+        recalculated = [round((row[2]+1)*(row[3]+2)*.9, 2) for row in spec['expected_rows'][1:7]]
+        result = dict(saved_file_exists=True, values=[list(row) for row in spec['expected_rows']],
+                      formulas=['=ROUND(C2*D2*0.9,2)']*6+['=SUM(E2:E7)'],
+                      recalculated_totals=recalculated+[round(sum(recalculated),2)],
+                      sheet='Invoice', row_count=8, column_count=5)
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'saved.json'
+            path.write_text(json.dumps(result))
+            self.assertTrue(bench.verify(spec,path)['passed'])
+            result['recalculated_totals']=[row[4] for row in result['values'][1:]]
+            path.write_text(json.dumps(result))
+            self.assertFalse(bench.verify(spec,path)['checks']['formulas_recalculate'])
+            result['values'][1],result['values'][2]=result['values'][2],result['values'][1]
+            path.write_text(json.dumps(result))
+            self.assertFalse(bench.verify(spec,path)['checks']['cells_exact'])
+
+    def test_numbers_setup_refuses_an_existing_process_before_launch(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            (root/'manifest.json').write_text(json.dumps(dict(fingerprints={},sequence=[dict(mode='numbers',label='numbers-1-cu')])))
+            with patch.object(bench,'fingerprints',return_value={}), patch.object(bench,'process_ids',return_value=[123]), patch.object(bench.subprocess,'run') as launch:
+                with self.assertRaisesRegex(RuntimeError,'already running'):
+                    bench.start(root,'numbers-1-cu')
+                launch.assert_not_called()
+                self.assertFalse((root/'numbers-1-cu').exists())
+
     def test_completion_claims_do_not_override_artifacts_or_exclusions(self):
         rows = [dict(status='passed', audit=dict(claimed_complete=True)),
                 dict(status='failed', audit=dict(claimed_complete=True)),

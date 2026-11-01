@@ -1,0 +1,148 @@
+{
+  "textedit": {
+    "mode": "textedit",
+    "files": {
+      "brief.txt": "当前发布\n状态：草案\n日期：2026-12-03\n负责人：周\n入口：https://preview.north.example.invalid/r7?mode=literal\n\n历史记录\n状态：草案\n日期：2026-12-03\n负责人：周\n入口：https://preview.north.example.invalid/r7?mode=literal\n\n行动清单\n[ ] 检查当前发布\n[ ] 等待外部批准\n\n校验说明\n原样保留：a+b[2].*、$HOME、C:\\docs\\v7、中文🙂。\n"
+    },
+    "expected_files": {
+      "brief.txt": "当前发布\n状态：待验收\n日期：2026-12-10\n负责人：许\n入口：https://preview.north.example.invalid/r7?mode=literal\n\n校验说明\n原样保留：a+b[2].*、$HOME、C:\\docs\\v7、中文🙂。\n\n历史记录\n状态：草案\n日期：2026-12-03\n负责人：周\n入口：https://preview.north.example.invalid/r7?mode=literal\n\n行动清单\n[x] 检查当前发布\n[ ] 等待外部批准\n"
+    },
+    "goal": "In the supplied TextEdit document {input_file}, change ONLY the 当前发布 section: 状态 to 待验收, 日期 to 2026-12-10, and 负责人 to 许. Move the entire 校验说明 section immediately after 当前发布 and before 历史记录. In 行动清单 mark only 检查当前发布 as [x]; leave external approval unchecked. Keep 历史记录 entirely unchanged despite repeated values. Preserve all other text, literal characters, blank lines between sections and final newline. Save the same plain-text file and observe the final result."
+  },
+  "vscode": {
+    "mode": "vscode",
+    "files": {
+      "service.json": "{\n  \"primary\": {\n    \"environment\": \"preview\",\n    \"endpoint\": \"https://preview.north.example.invalid/r7?mode=literal\",\n    \"timeoutSeconds\": 20,\n    \"workers\": [\n      {\n        \"name\": \"ingest\",\n        \"retries\": 2\n      },\n      {\n        \"name\": \"index\",\n        \"retries\": 2\n      },\n      {\n        \"name\": \"notify\",\n        \"retries\": 2\n      }\n    ]\n  },\n  \"fallback\": {\n    \"environment\": \"preview\",\n    \"endpoint\": \"https://preview.north.example.invalid/r7?mode=literal\",\n    \"timeoutSeconds\": 20,\n    \"workers\": [\n      {\n        \"name\": \"ingest\",\n        \"retries\": 2\n      }\n    ]\n  },\n  \"releaseTag\": \"v7.2.0-rc.4\",\n  \"literal\": \"a+b[2].* / $HOME / 中文🙂\"\n}\n",
+      "release.md": "# Current deployment\nChannel: preview\nEndpoint: https://preview.north.example.invalid/r7?mode=literal\nStatus: pending\n\n# History\nChannel: preview\nEndpoint: https://preview.north.example.invalid/r7?mode=literal\nStatus: pending\n\nLiteral: a+b[2].* / $HOME / 中文🙂\n",
+      "checklist.txt": "Release v7.2.0-rc.4\n[ ] verify primary endpoint\n[ ] verify primary retries\n[ ] obtain external approval\n[ ] announce deployment\n"
+    },
+    "expected_files": {
+      "service.json": "{\n  \"primary\": {\n    \"environment\": \"live\",\n    \"endpoint\": \"https://live.north.example.invalid/r7?mode=literal\",\n    \"timeoutSeconds\": 35,\n    \"workers\": [\n      {\n        \"name\": \"ingest\",\n        \"retries\": 5\n      },\n      {\n        \"name\": \"index\",\n        \"retries\": 2\n      },\n      {\n        \"name\": \"notify\",\n        \"retries\": 5\n      }\n    ]\n  },\n  \"fallback\": {\n    \"environment\": \"preview\",\n    \"endpoint\": \"https://preview.north.example.invalid/r7?mode=literal\",\n    \"timeoutSeconds\": 20,\n    \"workers\": [\n      {\n        \"name\": \"ingest\",\n        \"retries\": 2\n      }\n    ]\n  },\n  \"releaseTag\": \"v7.2.0-rc.4\",\n  \"literal\": \"a+b[2].* / $HOME / 中文🙂\"\n}\n",
+      "release.md": "# Current deployment\nChannel: live\nEndpoint: https://live.north.example.invalid/r7?mode=literal\nStatus: ready\n\n# History\nChannel: preview\nEndpoint: https://preview.north.example.invalid/r7?mode=literal\nStatus: pending\n\nLiteral: a+b[2].* / $HOME / 中文🙂\n",
+      "checklist.txt": "Release v7.2.0-rc.4\n[x] verify primary endpoint\n[x] verify primary retries\n[ ] obtain external approval\n[ ] announce deployment\n"
+    },
+    "goal": "In the supplied VS Code workspace {workspace}, inspect all three files. In service.json change ONLY primary: environment to live, endpoint host preview.north.example.invalid to live.north.example.invalid (preserve path/query), timeoutSeconds to 35, and retries to 5 for ingest and notify only. Leave primary.index retries at 2 and the entire fallback object unchanged. In release.md change Channel to live, the endpoint host to live.north.example.invalid, and Status to ready ONLY under Current deployment; preserve History entirely. In checklist.txt mark only the two verify primary items [x]; leave approval and announcement unchecked. Preserve unrelated text, JSON formatting, literal characters, blank lines and final newlines. Save all three files and observe the final contents. Use only editor UI, no integrated terminal, scripts, extension automation or direct filesystem operations."
+  },
+  "numbers": {
+    "mode": "numbers",
+    "rows": [
+      [
+        "Item",
+        "Team",
+        "Quantity",
+        "Unit price",
+        "Total"
+      ],
+      [
+        "Support",
+        "Platform",
+        4,
+        37.5,
+        ""
+      ],
+      [
+        "Badges",
+        "Office",
+        8,
+        12.5,
+        ""
+      ],
+      [
+        "Audit",
+        "Platform",
+        3,
+        60,
+        ""
+      ],
+      [
+        "Workshop",
+        "People",
+        5,
+        42.5,
+        ""
+      ],
+      [
+        "Cable",
+        "Office",
+        7,
+        8.5,
+        ""
+      ],
+      [
+        "Coaching",
+        "People",
+        2,
+        85,
+        ""
+      ],
+      [
+        "Grand total",
+        "",
+        "",
+        "",
+        ""
+      ]
+    ],
+    "expected_rows": [
+      [
+        "Item",
+        "Team",
+        "Quantity",
+        "Unit price",
+        "Total"
+      ],
+      [
+        "Badges",
+        "Office",
+        8,
+        12.5,
+        90.0
+      ],
+      [
+        "Cable",
+        "Office",
+        7,
+        9.5,
+        59.85
+      ],
+      [
+        "Coaching",
+        "People",
+        2,
+        85,
+        153.0
+      ],
+      [
+        "Workshop",
+        "People",
+        5,
+        42.5,
+        191.25
+      ],
+      [
+        "Audit",
+        "Platform",
+        6,
+        60,
+        324.0
+      ],
+      [
+        "Support",
+        "Platform",
+        4,
+        37.5,
+        135.0
+      ],
+      [
+        "Grand total",
+        null,
+        null,
+        null,
+        953.1
+      ]
+    ],
+    "total_multiplier": 0.9,
+    "sheet": "Invoice",
+    "goal": "In the supplied Numbers document imported from {input_file}, read the six line items. Change Audit Quantity to 6 and Cable Unit price to 9.5. Put a formula in every data-row Total that multiplies Quantity by Unit price and applies a 10 percent discount, rounded to two decimal places; use a SUM formula for Grand total. Sort only the six data rows ascending by Team, then ascending by Item within each Team. Keep the header first and Grand total last. Rename the sheet Invoice. Preserve other input values and exactly five columns/eight rows. Save a native Numbers document at {output_file} and observe the final table. Keep formulas, not literal computed totals."
+  }
+}

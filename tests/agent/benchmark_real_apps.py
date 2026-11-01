@@ -24,6 +24,8 @@ APPS = {
 
 
 def source(mode, dataset='baseline'):
+    if dataset == 'scoped':
+        return json.loads((ROOT/'tests/agent/tasks/real_apps_scoped.json').read_text())[mode]
     if mode == 'textedit':
         text = '\n\n'.join(f'章节 {i} · {title}\n草案：{title}将于 2026-11-15 交付。负责人：{owner}。\n验收：保留中文、标点“样本 {i}”和本段换行。'
                            for i, (title, owner) in enumerate(zip(
@@ -66,7 +68,10 @@ def source(mode, dataset='baseline'):
 def verify(spec, saved):
     actual = json.loads(saved.read_text()) if saved.exists() else {}
     checks = {}
-    if spec['mode'] == 'textedit':
+    if 'expected_files' in spec:
+        checks = {name + '_exact': actual.get('files', {}).get(name) == expected
+                  for name, expected in spec['expected_files'].items()}
+    elif spec['mode'] == 'textedit':
         expected = spec['files']['brief.txt'].replace('草案', '定稿').replace('2026-11-15', '2026-11-22')
         expected = expected.replace('负责人：周。', '负责人：赵。') + '\n复核完成：6 个章节，保留原始顺序。\n'
         checks['saved_text_exact'] = actual.get('files', {}).get('brief.txt') == expected
@@ -84,28 +89,33 @@ def verify(spec, saved):
             expected_text = spec['files'][name].replace('sandbox', 'production').replace('30 seconds', '45 seconds').replace('Status: draft', 'Status: ready').replace('[ ]', '[x]')
             checks[name + '_exact'] = actual.get('files', {}).get(name) == expected_text
     else:
-        rows = [list(row) for row in spec['rows'][1:7]]
-        for row in rows:
-            if row[0] == 'Hosting': row[2] = 10
-            if row[0] == 'Monitor': row[3] = 195
-            row[4] = row[2] * row[3]
-        rows.sort(key=lambda row: row[0])
-        expected = [spec['rows'][0]] + rows + [['Grand total', None, None, None, sum(row[4] for row in rows)]]
+        if 'expected_rows' in spec:
+            expected = spec['expected_rows']
+            rows = expected[1:7]
+        else:
+            rows = [list(row) for row in spec['rows'][1:7]]
+            for row in rows:
+                if row[0] == 'Hosting': row[2] = 10
+                if row[0] == 'Monitor': row[3] = 195
+                row[4] = row[2] * row[3]
+            rows.sort(key=lambda row: row[0])
+            expected = [spec['rows'][0]] + rows + [['Grand total', None, None, None, sum(row[4] for row in rows)]]
         checks['saved_file_exists'] = actual.get('saved_file_exists') is True
         checks['cells_exact'] = actual.get('values') == expected
         checks['formulas_present'] = len(actual.get('formulas', [])) == 7 and all(actual['formulas'])
         # Constant formulas can produce today's totals without fulfilling the
         # requested calculation. The coordinator perturbs the reopened document
         # without saving, independently of the participant's completion claim.
-        recalculated = [(row[2] + 1) * (row[3] + 2) for row in rows]
-        checks['formulas_recalculate'] = actual.get('recalculated_totals') == recalculated + [sum(recalculated)]
-        checks['sheet_name'] = actual.get('sheet') == 'Budget'
+        recalculated = [round((row[2] + 1) * (row[3] + 2) * spec.get('total_multiplier', 1), 2) for row in rows]
+        checks['formulas_recalculate'] = actual.get('recalculated_totals') == recalculated + [round(sum(recalculated), 2)]
+        checks['sheet_name'] = actual.get('sheet') == spec.get('sheet', 'Budget')
         checks['table_shape'] = (actual.get('row_count'), actual.get('column_count')) == (8, 5)
     return dict(passed=all(checks.values()), checks=checks, actual=actual)
 
 
 def fingerprints():
-    paths = [CU, Path(__file__), ROOT/'tests/agent/benchmark_varied_workflows.py',
+    paths = [CU, Path(__file__), ROOT/'tests/agent/tasks/real_apps_scoped.json',
+             ROOT/'tests/agent/benchmark_varied_workflows.py',
              ROOT/'tests/agent/collect_codex_benchmark.py',
              ROOT/'plugin/skills/computer-pilot/SKILL.md',
              ROOT/'plugin/skills/computer-pilot/scripts/session.sh']
@@ -129,11 +139,15 @@ def prepare(root, dataset='baseline', cu_only=False):
     print(json.dumps(manifest))
 
 
-def process_id(mode):
+def process_ids(mode):
     path, executable = APPS[mode]
     target = path + '/Contents/MacOS/' + executable
-    matches = [int(line.split(None,1)[0]) for line in subprocess.check_output(['ps','-axo','pid=,comm='],text=True).splitlines()
+    return [int(line.split(None,1)[0]) for line in subprocess.check_output(['ps','-axo','pid=,comm='],text=True).splitlines()
                if len(line.split(None,1)) == 2 and line.split(None,1)[1] == target]
+
+
+def process_id(mode):
+    matches = process_ids(mode)
     if len(matches) != 1: raise RuntimeError(f'Expected exactly one {mode} process, found {matches}')
     return matches[0]
 
@@ -146,7 +160,10 @@ def start(root, label):
     manifest=json.loads((root/'manifest.json').read_text())
     if manifest['fingerprints'] != fingerprints(): raise RuntimeError('Frozen inputs changed')
     entry=next(e for e in manifest['sequence'] if e['label']==label)
-    mode=entry['mode'];trial=root/label;trial.mkdir()
+    mode=entry['mode']
+    if mode == 'numbers' and process_ids(mode):
+        raise RuntimeError('Numbers is already running; an owned fresh process is required. Do not quit a user session.')
+    trial=root/label;trial.mkdir()
     (trial/'output').mkdir()
     work=trial/('CP-'+root.name+'-'+label);work.mkdir()
     spec=source(mode,manifest.get('dataset','baseline'));(trial/'source.json').write_text(json.dumps(spec,ensure_ascii=False))
@@ -161,7 +178,7 @@ def start(root, label):
         subprocess.run([path+'/Contents/Resources/app/bin/code','--new-window',str(work),str(work/'service.json')],env=env,check=True,timeout=30)
     else:
         file=work/(files['brief.txt'] if mode=='textedit' else work.name+'-budget.csv')
-        subprocess.run(['open','-g','-a',path,str(file)],check=True)
+        subprocess.run(['open','-g', *(['-F'] if mode == 'numbers' else []), '-a',path,str(file)],check=True)
     # App launch is outside the task timer. No task edits or strategy coaching.
     pid=None
     for _ in range(40):
@@ -174,7 +191,9 @@ def start(root, label):
               source_sha256=hashlib.sha256((trial/'source.json').read_bytes()).hexdigest(),
               shared_app=mode!='numbers',files=files,output_file=str(work/(work.name+'-budget.numbers')))
     (trial/'meta.json').write_text(json.dumps(meta,indent=2))
-    if mode=='textedit':
+    if 'goal' in spec:
+        goal=spec['goal'].format(workspace=work, input_file=work/(files.get('brief.txt') or work.name+'-budget.csv'), output_file=meta['output_file'])
+    elif mode=='textedit':
         goal=f"In the supplied TextEdit document {work / files['brief.txt']}, read all six sections. Replace every 草案 with 定稿, change every 2026-11-15 to 2026-11-22, change only section 3 owner from 周 to 赵, preserve all other content, punctuation, line breaks and section order. Append one blank line then 复核完成：6 个章节，保留原始顺序。 and a final newline. Save the same plain-text file and observe the final document."
     elif mode=='vscode':
         goal=f"In the supplied VS Code workspace {work}, inspect service.json, release.md and checklist.txt. Update every sandbox environment/URL occurrence to production. In service.json set timeoutSeconds=45, debug=false, and retries=4 for all three workers, preserving other values. In release.md change Timeout to 45 seconds and Status to ready. In checklist.txt mark all four boxes [x]. Preserve unrelated text and line breaks. Save all three files and observe their final contents. Use only the editor UI; no integrated terminal, scripts, extension automation or direct filesystem operations."
@@ -192,6 +211,17 @@ Initialize and complete this workflow in ONE timed turn, including skill/API dis
     else:
         brief+=f'''Your backend is only the actual mcp__cua_repl native App APIs. Bind {path} with cua.getApp and read its documentation. This explicitly authorizes that backend for this comparison. Use the supplied test document/window only. Do not use cu, shell automation, AppleScript, browser/DOM APIs or another backend. Report which route you used in the final response.'''
     (trial/'brief.txt').write_text(brief)
+    if mode == 'numbers':
+        # -F prevents saved-window restoration, but macOS can still restore
+        # untitled documents. Refuse contaminated setup before any model runs.
+        names = []
+        for _ in range(40):
+            names = json.loads(jxa("JSON.stringify(Application('Numbers').documents.name())"))
+            if file.name in names or file.stem in names: break
+            time.sleep(0.25)
+        (trial/'startup.json').write_text(json.dumps({'documents': names}, indent=2))
+        if len(names) != 1 or names[0] not in (file.name, file.stem):
+            raise RuntimeError('Numbers restored unexpected documents; inspect startup.json and clean only owned test artifacts before timing.')
     print(json.dumps(meta))
 
 
@@ -206,7 +236,7 @@ def capture_saved(root,label):
             # Close only the task document without saving, then reopen disk state.
             script='''var a=Application('Numbers');
 var names=NAMES;
-a.documents().filter(d=>names.includes(d.name())).forEach(d=>d.close({saving:'no'}));
+a.documents().filter(d=>names.includes(d.name())).map(d=>d.id()).forEach(id=>a.documents.byId(id).close({saving:'no'}));
 var d=a.open(Path(OUTPUT));var s=d.sheets()[0];var t=s.tables()[0];
 var values=[];for(var r=1;r<=8;r++){var row=[];for(var c=0;c<5;c++)row.push(t.cells[String.fromCharCode(65+c)+r].value());values.push(row);}
 var formulas=[];for(var r=2;r<=8;r++)formulas.push(t.cells['E'+r].formula());
@@ -228,9 +258,12 @@ def stop(root,label):
     try:
         if not meta['shared_app']:
             prefix=json.dumps(Path(meta['workspace']).name)
-            jxa("var a=Application('Numbers');a.documents().filter(d=>d.name().startsWith("+prefix+")).forEach(d=>d.close({saving:'no'}));")
-            try:os.kill(meta['pid'],signal.SIGTERM)
-            except ProcessLookupError:pass
+            jxa("var a=Application('Numbers');var prefix="+prefix+";"
+                "a.documents().filter(d=>d.name().startsWith(prefix)||d.name().startsWith('Untitled ('+prefix)"
+                "||(d.file()&&String(d.file()).split('/').pop().startsWith(prefix)))"
+                ".map(d=>d.id()).forEach(id=>a.documents.byId(id).close({saving:'no'}));"
+                "if(a.documents().length)throw Error('Non-task Numbers documents remain; do not quit');"
+                "a.quit();")
         else:
             # A successful close dispatch can leave an unsaved-changes dialog.
             # Keep ownership recorded until the dedicated window actually closes.
@@ -284,7 +317,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('root',type=Path)
     p.add_argument('action',choices=['prepare','start','collect','stop','report']);p.add_argument('label',nargs='?')
     p.add_argument('--rollouts',type=Path)
-    p.add_argument('--dataset',choices=['baseline','alternate'],default='baseline')
+    p.add_argument('--dataset',choices=['baseline','alternate','scoped'],default='baseline')
     p.add_argument('--cu-only',action='store_true')
     args=p.parse_args();root=args.root.resolve()
     if args.action=='prepare':prepare(root,args.dataset,args.cu_only)
