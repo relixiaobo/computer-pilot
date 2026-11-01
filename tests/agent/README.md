@@ -358,6 +358,43 @@ The fixture covers this reordered click with default verification, launcher
 binding in sh/bash/zsh despite a shadow `cu` on PATH, explicit batching, and
 unchanged-input errors with attached evidence.
 
+The [frozen launcher follow-up](benchmarks/real-app-launcher-2026-11-01.json)
+contains one predeclared VS Code attempt on `446199b`, with the same alternate
+source as the preceding accuracy block. A fresh gpt-6-astra/high profile and
+neutral cwd contained no AGENTS/memory injection. No coaching, replacement or
+native rerun occurred; the shared user app session limitation still applies.
+
+| VS Code attempt | Outcome | Recorded task time | Tool calls / errors |
+| --- | --- | ---: | ---: |
+| Previous accuracy block | Excluded global input; incomplete artifacts, 600 s cap | 598.634 s, interrupted | 88 / 15, partial |
+| Launcher follow-up | Compliant pass, all saved files correct | 90.948 s | 14 / 2 |
+
+All application commands used `./pilot`; the participant explicitly focused the
+dedicated window and used local find/select-occurrences edits. Both text files
+passed exact saved-content checks. The JSON passed the frozen structural check
+and an additional source-based exact-text audit, including unchanged fields,
+formatting and its final newline. Settings were unchanged; no global input,
+other backend or direct document filesystem access occurred. The task window
+and Broker closed while the shared Code process remained alive.
+
+This was not error-free execution. An initial Find input had no mapped AX path,
+so its changed focused value remained `unknown_outcome`; the participant used
+the attached evidence. One stale ref was rejected before dispatch. Two checklist
+selection mistakes produced visibly wrong text; group-end observations exposed
+them, and the participant corrected them before DONE. Most intermediate typing
+explicitly opted out of effect checks, so this pass cannot be attributed to
+default verification alone. Key selection semantics and unmapped focused-control
+identity remain investigation targets, not solved issues.
+
+Recorded tool time was 11.548 s; the remainder was 79.400 s. Returned text was
+190,004 characters and model output was 1,804 tokens. This establishes one
+compliant completion (1/1 planned, 0/1 false completion claims), not a population
+success rate or causal improvement. The previous task did not complete and the
+historical native attempt violated protocol, so neither supplies a valid
+successful-completion speed ratio. Validation also passed: 44 Rust tests,
+Clippy, release build, the owned native fixture, skill/version/format checks and
+candidate CI.
+
 ## Architecture
 
 ```
