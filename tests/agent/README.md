@@ -259,6 +259,83 @@ All dedicated test windows and owned Brokers closed; shared user apps remained
 alive and VS Code settings retained SHA-256
 `40dfa081420c5e2f384ebe1626aa32b590a0ee5a98726f8eb8e45736eb1cb19d`.
 
+### Target-bound evidence and completion accuracy — 2026-11-01
+
+Candidate `03f0fc2` removes cross-snapshot ref-number matching from input/focus
+verification. Comparisons require the same PID, nonzero window ID and matching
+control role/path; each focused value is resolved in its own snapshot. A window
+title change is allowed only after window identity matches. Empty AX strings
+remain `value:""`, distinct from unreadable values. These changes reuse existing
+observations and add no AX query or persistent element cache.
+
+Typing reports `value_changed` separately from `effect_verified:null`. Generic
+click diffs similarly leave `verified:null`; a specific input-focus check can
+still verify that focus. A changed value/tree does not prove exact input, saving
+or task completion. Unchanged/incomparable input remains an unknown outcome,
+not an instruction to replay it. The packaged skill adds generic literal
+preservation and requirement-by-requirement completion checks using available
+evidence. It contains no task-specific solver or application-name text fix.
+
+Regression coverage includes reused refs selecting a neighbor, window/control
+changes, failed observations, same-text replacement and an app that transforms
+requested input into different text. The latter changes its value but cannot
+claim exact-effect verification. Two duplicate Finder-based verification suites
+were removed in favor of owned-fixture behavior checks. Validation passed:
+44 Rust tests, 16 offline benchmark tests, the native action fixture, ref
+projection (15 passed, one skipped to preserve the shared TextEdit session),
+Clippy, release build, formatting, version/skill checks and candidate CI.
+
+The [alternate-data retest](benchmarks/real-app-accuracy-2026-11-01.json) retains
+all three predeclared attempts on that candidate, with fresh profiles/cwds,
+gpt-6-astra/high, no AGENTS or memory injection, and no replacements or coaching.
+Historical native attempts were not rerun. Source literals, preserved fields and
+Numbers inputs differ, so the timings below are context, not paired speed ratios.
+
+| Application | Historical native | Latest cu outcome | Calls / errors |
+| --- | --- | --- | --- |
+| TextEdit | Passed, 53.219 s | Passed, 94.676 s | 12 / 1 |
+| VS Code | Excluded setting change, 79.638 s | Excluded global input; 600 s cap, 598.634 s recorded | 88 / 15, partial |
+| Numbers | 600 s cap, 599.748 s recorded | Excluded different binary; artifact passed, 296.540 s | 30 / 4 |
+
+TextEdit preserved the alternate archive URL, batch literal and trailing newline
+in the saved file. Background Save left `modified:true`; the participant checked
+document identity, saved through `cu tell` and observed `modified:false`.
+
+VS Code preserved the alternate JSON values but left both text headings as
+`sandbox`; release.md and service.json lost their final newline. The frozen JSON
+oracle checks parsed values, not formatting/newline preservation, so its passing
+JSON subcheck is narrower than exact file equality. Repeated stale-ref, deferred
+typing and newline/undo recovery did not complete the task. Call 87 explicitly
+sent `X` with `--allow-global` and returned `unicode-global`. Its actual recipient
+is not recorded; surrounding targeted Code snapshots cannot establish where it
+landed. No blind undo was attempted. The attempt has no final completion claim.
+
+Numbers' requested output passed independent reopen, cell/order/shape and formula
+recalculation checks: changing quantities and prices changed the grand total
+from 1959 to 2521. However, call 20 omitted the helper and queried `sdef` through
+the globally installed, different binary, violating the frozen-backend contract.
+That read-only deviation is retained and excludes the whole attempt. Recovery
+also included a save timeout, unsupported export guesses and duplicate documents.
+The active document continued pointing to iCloud after saving a local copy, which
+prompted further recovery even though the requested local artifact existed.
+
+**Compliant success is 1/3 planned attempts; two are excluded.** Artifact checks
+alone pass 2/3, which is not the compliant success rate. All final claims were
+audited: TextEdit and Numbers claimed DONE, VS Code timed out without a claim.
+The accepted-completed claim denominator is only one, with **0/1 false claims**;
+excluded Numbers must not inflate that denominator or support a broad accuracy
+claim. Recorded tool intervals were 0.907 s, 11.265 s (partial) and 38.461 s.
+These measurements do not establish a general speedup or solve editor recovery.
+
+Fresh model profiles are not full application isolation: TextEdit/VS Code share
+user sessions as authorized, and the owned Numbers process restored three old
+benchmark windows. Their titles appeared in window metadata; their contents were
+not selected/read. A future clean application block needs to prevent restored
+windows before timing. All task windows and owned processes/Brokers, including
+the accidentally started default Broker, were stopped. Shared user processes and
+VS Code settings were preserved. The uniquely named extra iCloud test copy was
+archived locally after evaluation, without repairing the requested output.
+
 ## Architecture
 
 ```
