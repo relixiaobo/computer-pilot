@@ -71,9 +71,11 @@ app; omit `--allow-global` for the current frontmost PID.
 
 PID-targeted `drag` and `hover` also preserve the real cursor; only their
 `*-global` variants move it. A small set of sandboxed Mac App Store apps
-ignores PID-targeted events. `cu click` surfaces this as `verified:false`;
-observe again and try another targeted AX primitive. Do not drop `--app` as a
-workaround.
+ignores PID-targeted events. A click reports `verify_diff` and
+`verify_advice`; generic tree changes leave `verified:null`, while a scoped
+text-input focus check can set `focus_verified:true`. If the targeted event is
+not established, observe the returned state and try another targeted AX
+primitive. Do not drop `--app` as a workaround.
 
 For optional human-visible feedback, set `COMPUTER_PILOT_VISUAL_CURSOR=1`
 before the first `cu` command in a session. Pointer actions then show a small
@@ -284,7 +286,7 @@ snapshot disk cache remains.
 
 | Command | Description |
 |---------|-------------|
-| `cu click <ref\|x y\|--text>` | Click by ref, coordinates, or OCR text. Pre/post AX diff verifies by default — `verified:false` + `verify_advice` when sandbox apps swallow the event. `--no-verify` to skip |
+| `cu click <ref\|x y\|--text>` | Click by ref, coordinates, or OCR text. Pre/post AX diff returns `verify_diff`/`verify_advice`; generic tree changes leave `verified:null`, while text-input focus checks can set `focus_verified:true`. `--no-verify` defers those effect checks |
 | `cu key <combo> [--app]` | Keyboard shortcut (e.g., `cmd+c`, `enter`) |
 | `cu type <text> [--app]` | Type text. Auto-routes via clipboard paste for Chromium inputs and known chat apps; native inputs keep Unicode events, including CJK — see `paste_reason` |
 | `cu set-value <ref\|--ax-path> <text>` | Write text directly into an AX field — no focus, no IME, no clipboard |

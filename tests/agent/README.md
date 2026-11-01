@@ -683,6 +683,15 @@ Shared Finder/Code/TextEdit processes remained alive and dedicated Finder
 windows were closed after each task. The coordinator now handles moved Finder
 paths and incomplete attempts without crashing its evidence export.
 
+The review retest after the delayed `type --no-verify` snapshot fix repeated
+the same clean Finder block. cu completed organize in 124.5 s (15 calls, 1
+error) and rename in 307.3 s (27 calls, 5 errors), both exactly. Native rename
+completed in 32.9 s (5 calls, 0 errors); native organize again timed out at 600
+s. The only accepted pair was rename, with a cu/native full-task ratio of
+9.325. This one pair is diagnostic and does not establish a general speed
+result. The new frozen report is
+[finder-review-2026-11-01.json](benchmarks/finder-review-2026-11-01.json).
+
 ## Architecture
 
 ```

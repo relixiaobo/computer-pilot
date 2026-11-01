@@ -94,6 +94,13 @@ final class Delegate: NSObject, NSApplicationDelegate {
                 }
                 return nil
             }
+            if event.characters == "X" { // Type can also complete asynchronously.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    input.stringValue = "delayed-type-change"
+                    NSAccessibility.post(element: NSApp!, notification: .valueChanged)
+                }
+                return nil
+            }
             if event.keyCode == 98 { // F7: reuse controls for another document.
                 self.window.title = "Second document"
                 self.window.representedURL = URL(fileURLWithPath: "/tmp/cu-fixture-second-document.txt")

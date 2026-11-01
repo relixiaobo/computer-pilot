@@ -1,0 +1,486 @@
+{
+  "manifest": {
+    "protocol_version": 2,
+    "single_turn": true,
+    "sequence": [
+      {
+        "label": "finder-organize-r1-native",
+        "mode": "finder",
+        "scenario": "organize",
+        "repeat": 1,
+        "round": 1,
+        "arm": "native"
+      },
+      {
+        "label": "finder-organize-r1-cu",
+        "mode": "finder",
+        "scenario": "organize",
+        "repeat": 1,
+        "round": 1,
+        "arm": "cu"
+      },
+      {
+        "label": "finder-rename-r1-cu",
+        "mode": "finder",
+        "scenario": "rename",
+        "repeat": 2,
+        "round": 1,
+        "arm": "cu"
+      },
+      {
+        "label": "finder-rename-r1-native",
+        "mode": "finder",
+        "scenario": "rename",
+        "repeat": 2,
+        "round": 1,
+        "arm": "native"
+      }
+    ],
+    "dataset": "finder",
+    "settings": {
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null
+    },
+    "fingerprints": {
+      "target/release/cu": "c891852ba7afb3c8f69950b8775f98b10935ceacf529490d4cf21ba83c353dec",
+      "tests/agent/benchmark_real_apps.py": "9fac4fae0c87bef2e2bcac0abb7e8e4d667e46db51ae480be75bef0929bb6b0d",
+      "tests/agent/tasks/real_apps_scoped.json": "e58043300c6abd26fda75728fc7a599ec5ed535c6a5c121106c35e1db93b03e6",
+      "tests/agent/tasks/editor_completion.json": "2f32e8733b32e4c7b639b4fcecf02f4bc8b22b2584645c337faf2d3046007e48",
+      "tests/agent/tasks/editor_varied.json": "f22f494cf2a43e61f1ad93f62fda738bff1109a307daa4c33e71f706ddd6493e",
+      "tests/agent/tasks/finder_varied.json": "9d3047bd2e34b8cfbd09b4c01e98bc781316aa67ce6a6754d79f774d2d79eaf2",
+      "tests/agent/benchmark_varied_workflows.py": "c453866d58e580710fb5c3dbc33e79aeea64144f9717dbdcb26fea1c5792a64f",
+      "tests/agent/collect_codex_benchmark.py": "a35fba949ee73222e5e83eaeb35807ce8b7bfc43727c4db9fae4fa0f692f3d79",
+      "plugin/skills/computer-pilot/SKILL.md": "ec2efc94400430f96339c0fcbf10720533ade32104c6a9576195ead94c5e39b4",
+      "plugin/skills/computer-pilot/scripts/session.sh": "9d086c85bd78eac91693cf678c8180dbc0fd895d5c9806fefd6852c82cd46fb2",
+      "plugin/skills/computer-pilot/references/commands.md": "211291529d62d0e4435130813fcf46b26884962ece377650c887411e4c2cfbb9",
+      "plugin/skills/computer-pilot/references/embedding.md": "336642ed1e10acb21a706004753f8c95204252e185ab989d9fd0e094199386a9",
+      "plugin/skills/computer-pilot/references/permissions.md": "5b4a13b118ba37d74d50e8950bad817df080bafe8355b5db5761008a2019084d",
+      "plugin/skills/computer-pilot/references/recovery.md": "6b1d91dc9a1abcad837c16c74010cfe2ba3e3ead5650e7107a0696da2ee4e46b",
+      "plugin/skills/computer-pilot/references/scripting.md": "1013719ee23e93eccb74815631da92b44bd665dde2897071ffeef07d3668f468",
+      "plugin/skills/computer-pilot/references/visual.md": "7879ca3a1cb6b4ff6815a5b277486d31057b141e9c7ba5182efb7ea6329b6956"
+    },
+    "cu_commit": "bd2a93641d75139d404caecc597bd87c3463ff5d",
+    "scope": "Matched native/cu trials. Dataset: finder; 4 planned attempts, no replacements. TextEdit/VS Code trials share user application processes with dedicated test windows; any Numbers trials start separately. Fresh model profiles/cwd and cu runtimes. Normal documented app scripting is allowed through cu tell; native uses actual App APIs. No direct file edits, terminal commands inside apps, automation scripts outside the assigned backend, or task-specific solver. Report routes separately; changed datasets are not paired speed comparisons.",
+    "wall_timeout_seconds": 600,
+    "app_versions": {
+      "finder": "26.4"
+    }
+  },
+  "actual_order": [
+    "finder-organize-r1-native",
+    "finder-organize-r1-cu",
+    "finder-rename-r1-cu",
+    "finder-rename-r1-native"
+  ],
+  "attempts": [
+    {
+      "label": "finder-organize-r1-native",
+      "mode": "finder",
+      "scenario": "organize",
+      "repeat": 1,
+      "round": 1,
+      "arm": "native",
+      "status": "excluded",
+      "reasons": [
+        "Expected exactly one complete task turn",
+        "Interrupted turns have no complete timing; tool evidence retained",
+        "Interrupted after 599.535s"
+      ],
+      "pid": 607,
+      "app_path": "/System/Library/CoreServices/Finder.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-real-jtmche81",
+      "client_key": "finder-organize-r1-native",
+      "output_dir": "/private/tmp/finder-review-20261101-c/finder-organize-r1-native/output",
+      "workspace": "/private/tmp/finder-review-20261101-c/finder-organize-r1-native/CP-finder-review-20261101-c-finder-organize-r1-native",
+      "source_sha256": "75b0ae9cc605acaf532a4883e55cf3982f6b849ed14994525257e2dbbe0a36bd",
+      "shared_app": true,
+      "files": {
+        "Incoming/alpha.txt": "Incoming/alpha.txt",
+        "Incoming/archive.txt": "Incoming/archive.txt",
+        "Incoming/beta.txt": "Incoming/beta.txt",
+        "Incoming/notes.txt": "Incoming/notes.txt"
+      },
+      "output_file": "/private/tmp/finder-review-20261101-c/finder-organize-r1-native/CP-finder-review-20261101-c-finder-organize-r1-native/CP-finder-review-20261101-c-finder-organize-r1-native-budget.numbers",
+      "thread_id": "01a195d2-54b8-7b01-baef-a0e840f5631f",
+      "setup": [],
+      "runs": [],
+      "incomplete_turns": [
+        "01a195d2-5588-7363-8337-c69f1d1306e9"
+      ],
+      "interruptions": [
+        {
+          "turn_id": "01a195d2-5588-7363-8337-c69f1d1306e9",
+          "started_at": "2026-11-01T06:35:52.098Z",
+          "aborted_at": "2026-11-01T06:45:51.558Z",
+          "interrupted_elapsed_ms": 599535
+        }
+      ],
+      "verification": {
+        "passed": false,
+        "checks": {
+          "Incoming/beta.txt_exact": true,
+          "Incoming/notes.txt_exact": true,
+          "Ready/alpha.txt_exact": true,
+          "Ready/archive-approved.txt_exact": false
+        },
+        "actual": {
+          "files": {
+            "Incoming/beta.txt": "Beta record\nLeave this file in Incoming.\n",
+            "Incoming/notes.txt": "Notes\nPreserve this unrelated file.\n",
+            "Ready/alpha.txt": "Alpha record\nKeep this byte sequence.\n",
+            "Ready/archive-approved.txt.txt": "Archive record\nDo not rewrite this content.\n"
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 0,
+      "combined_turn_ms": 0,
+      "evidence_sha256": {
+        "brief.txt": "e9788ae601dc0e2cb219a090a48bff53194c2249126a93f4b83e18df66cd7507",
+        "source.json": "75b0ae9cc605acaf532a4883e55cf3982f6b849ed14994525257e2dbbe0a36bd",
+        "saved.json": "36fa9cb2178fea68d170fe6267d033d22d458a069f1d088735aa06bdbefe5dd4",
+        "trace.json": "80b60f9511d37c29ef6efb6fd7299a3faa3d4ef22716beae323fff497464bc09"
+      },
+      "audit": {
+        "compliant": true,
+        "claimed_complete": false,
+        "note": "Reviewed the complete single-turn native Finder trace and runtime context: fresh profile/cwd, no AGENTS/CLAUDE injection, only the assigned mcp__cua_repl native Finder App APIs, dedicated Finder window and task-owned temporary workspace, no alternate backend, direct document filesystem edits, other model or task overlap. Errors and recovery are retained; artifact verification is independent."
+      },
+      "timeline": {
+        "save_observation_count": 3,
+        "first_exact_index": null,
+        "post_save_tool_calls": null,
+        "post_save_tool_errors": null
+      }
+    },
+    {
+      "label": "finder-organize-r1-cu",
+      "mode": "finder",
+      "scenario": "organize",
+      "repeat": 1,
+      "round": 1,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 607,
+      "app_path": "/System/Library/CoreServices/Finder.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-real-jq0sg7li",
+      "client_key": "finder-organize-r1-cu",
+      "output_dir": "/private/tmp/finder-review-20261101-c/finder-organize-r1-cu/output",
+      "workspace": "/private/tmp/finder-review-20261101-c/finder-organize-r1-cu/CP-finder-review-20261101-c-finder-organize-r1-cu",
+      "source_sha256": "75b0ae9cc605acaf532a4883e55cf3982f6b849ed14994525257e2dbbe0a36bd",
+      "shared_app": true,
+      "files": {
+        "Incoming/alpha.txt": "Incoming/alpha.txt",
+        "Incoming/archive.txt": "Incoming/archive.txt",
+        "Incoming/beta.txt": "Incoming/beta.txt",
+        "Incoming/notes.txt": "Incoming/notes.txt"
+      },
+      "output_file": "/private/tmp/finder-review-20261101-c/finder-organize-r1-cu/CP-finder-review-20261101-c-finder-organize-r1-cu/CP-finder-review-20261101-c-finder-organize-r1-cu-budget.numbers",
+      "thread_id": "01a195db-8b1c-73e2-8416-85bacb58089d",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a195db-8b1c-73e2-8416-85bacb58089d",
+          "turn_id": "01a195db-8b8a-7581-bac3-e1f1e55b4c1b",
+          "started_at": "2026-11-01T06:45:55.735Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-11-01T06:48:00.188Z",
+          "elapsed_ms": 124455,
+          "final": "DONE. Used the assigned `cu` Finder route, including app-native `cu tell` operations and Finder snapshots. Final state observed:\n\n- `Ready`: `alpha.txt`, `archive-approved.txt`\n- `Incoming`: `beta.txt`, `notes.txt`",
+          "model_calls": 16,
+          "tokens": {
+            "input_tokens": 541619,
+            "cached_input_tokens": 510592,
+            "output_tokens": 2580,
+            "reasoning_output_tokens": 1295,
+            "total_tokens": 544199
+          },
+          "tool_calls": 15,
+          "tool_output_chars": 76136,
+          "tool_errors": 1,
+          "tool_interval_ms": 3919,
+          "non_tool_interval_ms": 120536,
+          "label": "finder-organize-r1-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "Incoming/beta.txt_exact": true,
+          "Incoming/notes.txt_exact": true,
+          "Ready/alpha.txt_exact": true,
+          "Ready/archive-approved.txt_exact": true
+        },
+        "actual": {
+          "files": {
+            "Incoming/beta.txt": "Beta record\nLeave this file in Incoming.\n",
+            "Incoming/notes.txt": "Notes\nPreserve this unrelated file.\n",
+            "Ready/alpha.txt": "Alpha record\nKeep this byte sequence.\n",
+            "Ready/archive-approved.txt": "Archive record\nDo not rewrite this content.\n"
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 124455,
+      "combined_turn_ms": 124455,
+      "evidence_sha256": {
+        "brief.txt": "ad1901bc64fe3cfe5018dcf19c3b7e75853b8327c3cf6e62c67a0fa44f4c1c70",
+        "source.json": "75b0ae9cc605acaf532a4883e55cf3982f6b849ed14994525257e2dbbe0a36bd",
+        "saved.json": "dc0a7cab53520fe8814c5955e623ae5b28392ba0868258cb661632fb151f4d65",
+        "trace.json": "5cb0d7a857f32f7f514b711385f1251b27c4b0f2f8e7c57e3d4f5ea9365d131e"
+      },
+      "audit": {
+        "compliant": true,
+        "claimed_complete": true,
+        "note": "Reviewed the complete single-turn cu Finder trace and runtime context: fresh profile/cwd, no AGENTS/CLAUDE injection, only the assigned shell plus cu with PID/client runtime, dedicated Finder window and task-owned temporary workspace, no alternate backend, direct document filesystem edits, other model or task overlap. Errors and recovery are retained; artifact verification is independent."
+      },
+      "timeline": {
+        "save_observation_count": 4,
+        "first_exact_index": 2,
+        "post_save_tool_calls": 2,
+        "post_save_tool_errors": 0
+      }
+    },
+    {
+      "label": "finder-rename-r1-cu",
+      "mode": "finder",
+      "scenario": "rename",
+      "repeat": 2,
+      "round": 1,
+      "arm": "cu",
+      "status": "passed",
+      "reasons": [],
+      "pid": 607,
+      "app_path": "/System/Library/CoreServices/Finder.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-real-u0fgvird",
+      "client_key": "finder-rename-r1-cu",
+      "output_dir": "/private/tmp/finder-review-20261101-c/finder-rename-r1-cu/output",
+      "workspace": "/private/tmp/finder-review-20261101-c/finder-rename-r1-cu/CP-finder-review-20261101-c-finder-rename-r1-cu",
+      "source_sha256": "6d21e98a2020742f4d950a8e2dfa29823b534badaf97cb3a98a8c4a0842531bf",
+      "shared_app": true,
+      "files": {
+        "ToReview/alpha-note.txt": "ToReview/alpha-note.txt",
+        "ToReview/beta-note.txt": "ToReview/beta-note.txt",
+        "ToReview/gamma.txt": "ToReview/gamma.txt",
+        "ToReview/keep.txt": "ToReview/keep.txt"
+      },
+      "output_file": "/private/tmp/finder-review-20261101-c/finder-rename-r1-cu/CP-finder-review-20261101-c-finder-rename-r1-cu/CP-finder-review-20261101-c-finder-rename-r1-cu-budget.numbers",
+      "thread_id": "01a195dd-8843-79b2-991e-5713063d09a3",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "cu",
+          "thread_id": "01a195dd-8843-79b2-991e-5713063d09a3",
+          "turn_id": "01a195dd-8871-7c50-8544-27dabde20e48",
+          "started_at": "2026-11-01T06:48:06.014Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-11-01T06:53:13.266Z",
+          "elapsed_ms": 307253,
+          "final": "DONE — renamed `alpha-note.txt` and `beta-note.txt` as requested. `gamma.txt` and `keep.txt` remain unchanged. Final state verified in Finder.\n\nRoute: Finder-native `cu tell`, verified via Finder UI snapshot/screenshot.",
+          "model_calls": 30,
+          "tokens": {
+            "input_tokens": 1474252,
+            "cached_input_tokens": 1341568,
+            "output_tokens": 4821,
+            "reasoning_output_tokens": 2720,
+            "total_tokens": 1479073
+          },
+          "tool_calls": 27,
+          "tool_output_chars": 136390,
+          "tool_errors": 5,
+          "tool_interval_ms": 4891,
+          "non_tool_interval_ms": 302362,
+          "label": "finder-rename-r1-cu"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "ToReview/alpha-note-reviewed.txt_exact": true,
+          "ToReview/beta-note-reviewed.txt_exact": true,
+          "ToReview/gamma.txt_exact": true,
+          "ToReview/keep.txt_exact": true
+        },
+        "actual": {
+          "files": {
+            "ToReview/alpha-note-reviewed.txt": "Alpha note\nKeep exact bytes.\n",
+            "ToReview/beta-note-reviewed.txt": "Beta note\nKeep exact bytes.\n",
+            "ToReview/gamma.txt": "Gamma unrelated\nLeave the name unchanged.\n",
+            "ToReview/keep.txt": "Keep unrelated\nLeave this file unchanged.\n"
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 307253,
+      "combined_turn_ms": 307253,
+      "evidence_sha256": {
+        "brief.txt": "1b426e92c11e691b3e15c0d85c060171b7e09037ac94053de57d8330b97798b1",
+        "source.json": "6d21e98a2020742f4d950a8e2dfa29823b534badaf97cb3a98a8c4a0842531bf",
+        "saved.json": "1d05a1b3b797b2c96457645397658bb9904daa3bb4c5ffa43b55ea811e21a80e",
+        "trace.json": "14b592d9f8e47593bd667e8ac6fa262d13450f6eaaa77a6ec6f3dcb05a46b162"
+      },
+      "audit": {
+        "compliant": true,
+        "claimed_complete": true,
+        "note": "Reviewed the complete single-turn cu Finder trace and runtime context: fresh profile/cwd, no AGENTS/CLAUDE injection, only the assigned shell plus cu with PID/client runtime, dedicated Finder window and task-owned temporary workspace, no alternate backend, direct document filesystem edits, other model or task overlap. Errors and recovery are retained; artifact verification is independent."
+      },
+      "timeline": {
+        "save_observation_count": 3,
+        "first_exact_index": 1,
+        "post_save_tool_calls": 3,
+        "post_save_tool_errors": 0
+      }
+    },
+    {
+      "label": "finder-rename-r1-native",
+      "mode": "finder",
+      "scenario": "rename",
+      "repeat": 2,
+      "round": 1,
+      "arm": "native",
+      "status": "passed",
+      "reasons": [],
+      "pid": 607,
+      "app_path": "/System/Library/CoreServices/Finder.app",
+      "runtime_home": "/var/folders/lg/xc2nmjj16nl9m5mpwtqjpzcw0000gn/T/cu-real-gabxbcy9",
+      "client_key": "finder-rename-r1-native",
+      "output_dir": "/private/tmp/finder-review-20261101-c/finder-rename-r1-native/output",
+      "workspace": "/private/tmp/finder-review-20261101-c/finder-rename-r1-native/CP-finder-review-20261101-c-finder-rename-r1-native",
+      "source_sha256": "6d21e98a2020742f4d950a8e2dfa29823b534badaf97cb3a98a8c4a0842531bf",
+      "shared_app": true,
+      "files": {
+        "ToReview/alpha-note.txt": "ToReview/alpha-note.txt",
+        "ToReview/beta-note.txt": "ToReview/beta-note.txt",
+        "ToReview/gamma.txt": "ToReview/gamma.txt",
+        "ToReview/keep.txt": "ToReview/keep.txt"
+      },
+      "output_file": "/private/tmp/finder-review-20261101-c/finder-rename-r1-native/CP-finder-review-20261101-c-finder-rename-r1-native/CP-finder-review-20261101-c-finder-rename-r1-native-budget.numbers",
+      "thread_id": "01a195e2-4c93-7a03-9180-654f63f9cd58",
+      "setup": [],
+      "runs": [
+        {
+          "arm": "native",
+          "thread_id": "01a195e2-4c93-7a03-9180-654f63f9cd58",
+          "turn_id": "01a195e2-4cc1-76f2-8ae0-bbb5df4d761d",
+          "started_at": "2026-11-01T06:53:18.407Z",
+          "model": "gpt-6-astra",
+          "reasoning_effort": "high",
+          "service_tier": null,
+          "completed_at": "2026-11-01T06:53:51.356Z",
+          "elapsed_ms": 32949,
+          "final": "DONE — Used Finder UI through mcp__cua_repl native App APIs. Observed both reviewed filenames; gamma.txt and keep.txt remain unchanged. Only filenames were edited; file contents were preserved.",
+          "model_calls": 6,
+          "tokens": {
+            "input_tokens": 153187,
+            "cached_input_tokens": 139776,
+            "output_tokens": 351,
+            "total_tokens": 153538
+          },
+          "tool_calls": 5,
+          "tool_output_chars": 35171,
+          "tool_errors": 0,
+          "tool_interval_ms": 5630,
+          "non_tool_interval_ms": 27319,
+          "label": "finder-rename-r1-native"
+        }
+      ],
+      "incomplete_turns": [],
+      "verification": {
+        "passed": true,
+        "checks": {
+          "ToReview/alpha-note-reviewed.txt_exact": true,
+          "ToReview/beta-note-reviewed.txt_exact": true,
+          "ToReview/gamma.txt_exact": true,
+          "ToReview/keep.txt_exact": true
+        },
+        "actual": {
+          "files": {
+            "ToReview/alpha-note-reviewed.txt": "Alpha note\nKeep exact bytes.\n",
+            "ToReview/beta-note-reviewed.txt": "Beta note\nKeep exact bytes.\n",
+            "ToReview/gamma.txt": "Gamma unrelated\nLeave the name unchanged.\n",
+            "ToReview/keep.txt": "Keep unrelated\nLeave this file unchanged.\n"
+          }
+        }
+      },
+      "setup_ms": 0,
+      "execution_ms": 32949,
+      "combined_turn_ms": 32949,
+      "evidence_sha256": {
+        "brief.txt": "6679e8efca86ba7e9d74a62284aa9ff152e3e02528709a80d15776274ca24018",
+        "source.json": "6d21e98a2020742f4d950a8e2dfa29823b534badaf97cb3a98a8c4a0842531bf",
+        "saved.json": "1d05a1b3b797b2c96457645397658bb9904daa3bb4c5ffa43b55ea811e21a80e",
+        "trace.json": "949c862b7f7bed745d0fea759b8b447d98cb04dc7028ab4f0f962dc35e5ae3d2"
+      },
+      "audit": {
+        "compliant": true,
+        "claimed_complete": true,
+        "note": "Reviewed the complete single-turn native Finder trace and runtime context: fresh profile/cwd, no AGENTS/CLAUDE injection, only the assigned mcp__cua_repl native Finder App APIs, dedicated Finder window and task-owned temporary workspace, no alternate backend, direct document filesystem edits, other model or task overlap. Errors and recovery are retained; artifact verification is independent."
+      },
+      "timeline": {
+        "save_observation_count": 4,
+        "first_exact_index": 2,
+        "post_save_tool_calls": 1,
+        "post_save_tool_errors": 0
+      }
+    }
+  ],
+  "groups": [
+    {
+      "mode": "finder",
+      "arms": {
+        "native": {
+          "counts": {
+            "passed": 1,
+            "failed": 0,
+            "excluded": 1,
+            "unreviewed": 0,
+            "pending": 0
+          },
+          "success_medians_ms": {
+            "combined_turn_ms": 32949
+          }
+        },
+        "cu": {
+          "counts": {
+            "passed": 2,
+            "failed": 0,
+            "excluded": 0,
+            "unreviewed": 0,
+            "pending": 0
+          },
+          "success_medians_ms": {
+            "combined_turn_ms": 215854.0
+          }
+        }
+      },
+      "successful_pairs": [
+        {
+          "repeat": 2,
+          "go_cu_over_native": null,
+          "combined_cu_over_native": 9.325108501016723
+        }
+      ],
+      "median_paired_go_ratio": null,
+      "median_paired_combined_ratio": 9.325108501016723
+    }
+  ],
+  "accuracy": {
+    "planned_attempts": 4,
+    "accepted_completed": 3,
+    "passed": 3,
+    "success_rate": 0.75,
+    "completion_claims_reviewed": 3,
+    "claimed_complete": 3,
+    "false_completion_claims": 0,
+    "false_completion_rate": 0.0
+  }
+}

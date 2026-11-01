@@ -79,6 +79,16 @@ try:
     assert delayed["effect_verified"] is None, delayed
     assert delayed["dispatched"] and delayed["confidence"] == "medium", delayed
     assert "advice" not in delayed and "effect_advice" not in delayed, delayed
+
+    # --no-verify defers effect interpretation, not the settle needed by an
+    # emitted JSON snapshot. The fixture applies X after 100 ms; a snapshot
+    # taken immediately would still report the previous value.
+    run("set-value", ref, "initial", "--app", app, "--no-snapshot")
+    delayed_type = run("type", "X", "--app", app, "--no-verify")
+    assert delayed_type["verification_skipped"].startswith("--no-verify"), delayed_type
+    assert delayed_type["snapshot"]["focused"]["value"] == "delayed-type-change", delayed_type
+    assert delayed_type.get("settle_ms", 0) >= 50, delayed_type
+    run("set-value", ref, "initial", "--app", app, "--no-snapshot")
     snap = run("snapshot", app, "--limit", "1")
 
     # The fixture changes its value and posts AXValueChanged during the AX

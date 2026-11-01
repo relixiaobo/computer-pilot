@@ -2702,8 +2702,12 @@ fn cmd_type(
         (auto_reason.is_some(), auto_reason)
     };
 
+    // `--no-verify` defers effect interpretation, but an emitted JSON snapshot
+    // still needs the same post-dispatch settle observation as a verified one.
+    // `--no-snapshot` is the only input flag that suppresses that capture.
+    let capture_requested = !no_verify || (json && !no_snapshot);
     let observer = target_pid
-        .filter(|_| !no_verify)
+        .filter(|_| capture_requested)
         .and_then(observer::ActionObserver::new);
     let mut clipboard_hint: Option<String> = None;
     let method = if use_paste {
@@ -2723,11 +2727,11 @@ fn cmd_type(
     };
     // Native input needs no additional fixed stability delay. Chromium can
     // roll back AXValue before its controlled editor accepts the input.
-    let captured = if (!no_verify || (json && !no_snapshot))
+    let captured = if capture_requested
         && let (Some(pid), Some(name)) = (target_pid, resolved_app.as_deref())
     {
         let waited = observer::wait_for_settle(observer, POST_ACTION_DELAY_MS);
-        let stability_delay = if webarea_input && !no_verify {
+        let stability_delay = if webarea_input {
             WEB_INPUT_STABILITY_DELAY_MS
         } else {
             0
