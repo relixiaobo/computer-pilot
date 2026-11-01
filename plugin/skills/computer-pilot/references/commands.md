@@ -94,7 +94,9 @@ recovery output. Use `cu --json snapshot` when coordinates or axPaths are needed
 ### `cu find --app <app> [filters] [--first] [--raw]`
 
 Query AX elements by `--role`, `--title-contains`, `--title-equals`, or
-`--value-contains`. Filters combine with AND. Prefer normal JSON so the
+`--value-contains`. Filters combine with AND. When the target label or role is
+known, prefer `--first` over a full snapshot; the returned ref is bound to the
+published observation and can be used immediately. Prefer normal JSON so the
 `observation_id` is retained. `--raw` is intended only for controlled shell
 workflows that also preserve Observation context.
 

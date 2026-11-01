@@ -95,11 +95,20 @@ additional external effects.
   fresh observation only when the needed state is missing. Keep established
   local edits together; do not add a check round for every field.
 
+For UI-only work, use the shortest observation that still identifies the next
+target. If the role and label/value are already known, use one
+`find --first` and act on its returned ref; use a full `snapshot` only when the
+target or navigation is unknown, several candidates must be disambiguated, or
+the task requires a complete visual state. Do not call `window focus` before
+PID-targeted observation or actions. Those commands are background-safe; focus
+only when the workflow explicitly needs foreground menus or keyboard handling.
+
 ## Observe Transitions
 
 Choose the group's final observation from what is already known:
 
 - Unfamiliar navigation: `snapshot` to discover what opened, including dialogs.
+  For a known control, use `find --first` instead of a preliminary full tree.
 - Known asynchronous transition: the action followed directly by `wait` in the
   same shell call. Once the flow has been observed, reuse it on subsequent items.
   For example, when an observed confirmation returns to a list headed "All records":
