@@ -95,6 +95,13 @@ additional external effects.
   fresh observation only when the needed state is missing. Keep established
   local edits together; do not add a check round for every field.
 
+An action error is a branch point, not a retry signal. After a nonzero command,
+`verification_failed`, `unknown_outcome`, or `stale_observation`, never rerun
+the identical command or reuse the same ref/coordinates. Use the attached
+`diagnostics.snapshot` when present; otherwise perform one fresh `find` or
+`snapshot`, then choose a different target or method. If the same intended
+effect fails twice, stop the loop and report the concrete blocker.
+
 For UI-only work, use the shortest observation that still identifies the next
 target. If the role and label/value are already known, use one
 `find --first` and act on its returned ref; use a full `snapshot` only when the

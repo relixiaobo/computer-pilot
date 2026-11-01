@@ -14,7 +14,12 @@ case "$1" in
         exit 2
         ;;
     click|type|key|set-value|perform|scroll|hover|drag)
-        set -- "$@" --app "${CU_APP:?set the chosen pid selector}"
+        # Keep --app before a caller's `--` text separator. Appending it after
+        # that separator makes clap parse it as another positional argument,
+        # so `type -- ...` fails before dispatch.
+        cu_command=$1
+        shift
+        set -- "$cu_command" --app "${CU_APP:?set the chosen pid selector}" "$@"
         ;;
     snapshot)
         if [ "$#" -eq 1 ]; then set -- "$@" --limit 200; fi

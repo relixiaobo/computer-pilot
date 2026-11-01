@@ -76,6 +76,14 @@ On `stale_observation`:
 
 ## Verification
 
+Treat an action error as a decision boundary. Do not rerun the same command or
+reuse its ref/coordinates after `verification_failed`, `unknown_outcome`,
+`stale_observation`, or a nonzero shell group. Use the attached
+`diagnostics.snapshot` first; if it is absent, obtain one fresh `find` or
+`snapshot`, then change the target or method. Two failures for the same
+intended effect are a blocker to report, not permission for another identical
+retry.
+
 `verify_diff` and `value_changed` describe observations, not task completion.
 An arbitrary tree change leaves `verified:null`; an input-focus check can set
 `verified:true` with `verification_basis:focused_target`. Inspect the attached
