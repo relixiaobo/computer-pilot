@@ -84,6 +84,16 @@ reuse its ref/coordinates after `verification_failed`, `unknown_outcome`,
 intended effect are a blocker to report, not permission for another identical
 retry.
 
+If the attached AX state contains the intended control, keep recovery on that
+AX path. Do not fall back to screenshot coordinates or OCR for the same control;
+those are for targets AX cannot expose.
+
+Treat `focus_failed` as a foreground delivery blocker. Do not continue with
+keyboard or typing commands, remove `--app`, or use global input. Inspect the
+returned target state once and report the blocker when no background-safe
+primitive is available. A `verification_failed` response with `focused:null`
+does not establish input focus; wait for a fresh focus result before typing.
+
 `verify_diff` and `value_changed` describe observations, not task completion.
 An arbitrary tree change leaves `verified:null`; an input-focus check can set
 `verified:true` with `verification_basis:focused_target`. Inspect the attached

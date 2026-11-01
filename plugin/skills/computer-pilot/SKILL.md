@@ -27,6 +27,10 @@ unknown target, permission, or terminology error, use `cu apps` or `sdef` to
 route the fallback. For UI-only work, use AX; start with a snapshot and use
 screenshots/OCR only when AX lacks the needed content.
 
+When the launcher already binds an exact `pid:<PID>`, do not call `cu apps` to
+reconfirm that target; go directly to `snapshot` or `find`. Use `cu apps` only
+when the target selector or running process is unknown.
+
 When the task permits app-native scripting, this data route takes precedence
 over a generic request to use the app UI: use AX only for presentation-specific
 work such as menus, geometry, selection, or visual proof. Do not discover or
@@ -101,6 +105,17 @@ the identical command or reuse the same ref/coordinates. Use the attached
 `diagnostics.snapshot` when present; otherwise perform one fresh `find` or
 `snapshot`, then choose a different target or method. If the same intended
 effect fails twice, stop the loop and report the concrete blocker.
+
+If AX exposes the intended control, recover with its fresh ref or `find` result;
+do not switch to screenshot coordinates or OCR for the same control. Use
+coordinates/OCR only when AX cannot expose the target.
+
+Treat `focus_failed` as a foreground delivery blocker. Do not continue with
+keyboard or typing commands, drop `--app`, or use global input after it. Inspect
+the returned target state once; if the workflow cannot use a background-safe
+primitive, report the concrete focus blocker instead of claiming completion.
+Likewise, a `verification_failed` result with `focused:null` does not establish
+input focus; do not send the text again until a fresh focus result exists.
 
 For UI-only work, use the shortest observation that still identifies the next
 target. If the role and label/value are already known, use one
