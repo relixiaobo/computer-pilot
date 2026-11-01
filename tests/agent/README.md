@@ -652,6 +652,37 @@ same call/error and save-boundary metrics. Shared application scheduling,
 model generation, caches and the absence of a contemporaneous native arm remain
 limits on any speed conclusion.
 
+### Finder file workflows — 2026-11-01
+
+A new clean block compared the native Computer Use API and cu on Finder, using
+a private temporary workspace and a dedicated window on the shared Finder
+process. It contained two fresh tasks with the same `gpt-6-astra / high`
+settings: organize files into a new folder and rename only files matching a
+suffix. Each arm used a new profile, neutral cwd and task state; no
+AGENTS/CLAUDE instructions were injected. The cu arm was allowed to use
+Finder-native `cu tell`, as the skill recommends for scriptable apps, while
+native used Finder App APIs.
+
+| Task | cu | Native | Independent result |
+| --- | ---: | ---: | --- |
+| Organize and rename | 230.4 s, 20 calls / 4 errors | **timeout at 600 s** | cu exact; native partial, `archive-approved.txt.txt` |
+| Rename matching files | 294.1 s, 25 calls / 2 errors | 86.6 s, 6 calls / 0 errors | cu exact; native reported DONE but both target renames were missing |
+
+The native organize timeout is retained as an incomplete attempt, and the
+native rename is a false completion claim. This block has **2/2 cu exact
+outcomes and 0/2 native exact outcomes**; it provides no valid paired speed
+ratio. The failures expose Finder-specific UI state and filename-extension
+handling issues in the model workflow, while the cu results show that the
+script-first route can complete the same app-native operations. This is an
+accuracy finding for a small sample, not evidence that cu is generally faster
+or more accurate across desktop applications.
+
+The frozen records and independent path/content checks are in
+[finder-varied-2026-11-01.json](benchmarks/finder-varied-2026-11-01.json).
+Shared Finder/Code/TextEdit processes remained alive and dedicated Finder
+windows were closed after each task. The coordinator now handles moved Finder
+paths and incomplete attempts without crashing its evidence export.
+
 ## Architecture
 
 ```

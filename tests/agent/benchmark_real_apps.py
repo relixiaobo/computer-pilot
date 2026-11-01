@@ -21,6 +21,7 @@ APPS = {
     'textedit': ('/System/Applications/TextEdit.app', 'TextEdit'),
     'vscode': ('/Applications/Visual Studio Code.app', 'Code'),
     'numbers': ('/Applications/Numbers Creator Studio.app', 'Numbers'),
+    'finder': ('/System/Library/CoreServices/Finder.app', 'Finder'),
 }
 
 
@@ -29,6 +30,8 @@ def source(mode, dataset='baseline', scenario=None):
         return json.loads((ROOT/'tests/agent/tasks/editor_completion.json').read_text())[scenario]
     if dataset == 'varied':
         return json.loads((ROOT/'tests/agent/tasks/editor_varied.json').read_text())[scenario]
+    if dataset == 'finder':
+        return json.loads((ROOT/'tests/agent/tasks/finder_varied.json').read_text())[scenario]
     if dataset == 'scoped':
         return json.loads((ROOT/'tests/agent/tasks/real_apps_scoped.json').read_text())[mode]
     if mode == 'textedit':
@@ -122,6 +125,7 @@ def fingerprints():
     paths = [CU, Path(__file__), ROOT/'tests/agent/tasks/real_apps_scoped.json',
              ROOT/'tests/agent/tasks/editor_completion.json',
              ROOT/'tests/agent/tasks/editor_varied.json',
+             ROOT/'tests/agent/tasks/finder_varied.json',
              ROOT/'tests/agent/benchmark_varied_workflows.py',
              ROOT/'tests/agent/collect_codex_benchmark.py',
              ROOT/'plugin/skills/computer-pilot/SKILL.md',
@@ -133,19 +137,23 @@ def fingerprints():
 def prepare(root, dataset='baseline', cu_only=False):
     root.mkdir(parents=True, exist_ok=False)
     sequence = []
-    for i, mode in enumerate(APPS):
+    modes = ('finder',) if dataset == 'finder' else tuple(APPS)
+    for i, mode in enumerate(modes):
         for arm in (('cu',) if cu_only else ('native', 'cu') if i % 2 == 0 else ('cu', 'native')):
             sequence.append(dict(label=f'{mode}-1-{arm}', mode=mode, repeat=1, arm=arm))
-    if dataset in ('editor', 'varied'):
+    if dataset in ('editor', 'varied', 'finder'):
         cases = ('local', 'scoped', 'multi')
         if dataset == 'varied':
             cases = ('json', 'markdown', 'multi')
+        elif dataset == 'finder':
+            cases = ('organize', 'rename')
         # The shared collector pairs by mode/repeat; give each case and round its own index.
-        rounds = (1,) if dataset == 'editor' else (1, 2)
-        sequence = [dict(label=f'vscode-{case}-r{round_no}-{arm}', mode='vscode', scenario=case,
+        rounds = (1,)
+        mode_name = 'finder' if dataset == 'finder' else 'vscode'
+        sequence = [dict(label=f'{mode_name}-{case}-r{round_no}-{arm}', mode=mode_name, scenario=case,
                          repeat=(round_no - 1) * len(cases) + index, round=round_no, arm=arm)
                     for round_no in rounds for index, case in enumerate(cases, 1)
-                    for arm in (('cu',) if cu_only else ('cu', 'native'))]
+                    for arm in (('cu',) if cu_only else ('native', 'cu') if index % 2 else ('cu', 'native'))]
     manifest = dict(protocol_version=2, single_turn=True, sequence=sequence, dataset=dataset,
         settings=dict(model='gpt-6-astra', reasoning_effort='high', service_tier=None),
         fingerprints=fingerprints(), cu_commit=subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip(),
@@ -185,14 +193,19 @@ def start(root, label):
     work=trial/('CP-'+root.name+'-'+label);work.mkdir()
     spec=source(mode,manifest.get('dataset','baseline'),entry.get('scenario'));(trial/'source.json').write_text(json.dumps(spec,ensure_ascii=False))
     files = {name: (work.name+'-'+name if mode=='textedit' else name) for name in spec.get('files', {})}
-    if mode in ('textedit','vscode'):
-        for name,text in spec['files'].items():(work/files[name]).write_text(text)
+    if mode in ('textedit','vscode','finder'):
+        for name,text in spec['files'].items():
+            path = work / files[name]
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text)
     else:
         with (work/(work.name+'-budget.csv')).open('w',newline='') as f:csv.writer(f).writerows(spec['rows'])
     path,_=APPS[mode]
     if mode=='vscode':
         env=dict(os.environ);env.pop('VSCODE_IPC_HOOK_CLI',None)
         subprocess.run([path+'/Contents/Resources/app/bin/code','--new-window',str(work),str(work/next(iter(files)))],env=env,check=True,timeout=30)
+    elif mode == 'finder':
+        subprocess.run(['open','-g','-a',path,str(work)],check=True,timeout=30)
     else:
         file=work/(files['brief.txt'] if mode=='textedit' else work.name+'-budget.csv')
         subprocess.run(['open','-g', *(['-F'] if mode == 'numbers' else []), '-a',path,str(file)],check=True)
@@ -216,7 +229,7 @@ def start(root, label):
         goal=f"In the supplied VS Code workspace {work}, inspect service.json, release.md and checklist.txt. Update every sandbox environment/URL occurrence to production. In service.json set timeoutSeconds=45, debug=false, and retries=4 for all three workers, preserving other values. In release.md change Timeout to 45 seconds and Status to ready. In checklist.txt mark all four boxes [x]. Preserve unrelated text and line breaks. Save all three files and observe their final contents. Use only the editor UI; no integrated terminal, scripts, extension automation or direct filesystem operations."
     else:
         goal=f"In the supplied Numbers document imported from {work / (work.name+'-budget.csv')}, read the six expense rows. Change Hosting Quantity to 10 and Monitor Unit price to 195. Put a formula multiplying Quantity by Unit price in each Total cell, and a SUM formula in the Grand total Total cell. Sort only the six data rows alphabetically by Item (keep header first and Grand total last). Rename the sheet Budget. Save the native Numbers document at {meta['output_file']} and observe the final table. Keep exactly the existing five columns and eight rows; do not replace formulas with literal results."
-    brief=f'''You are a participant in a user-authorized real desktop application benchmark. Use only the dedicated test window/workspace below. The user explicitly permits test-only edits and normal UI dialogs needed to save these local artifacts. Foreground the dedicated test window if necessary for editor input. Keep VS Code Restricted Mode if asked to trust the folder. TextEdit and VS Code share existing app processes; never read/edit other documents or windows, quit the app, change user settings, sign in, install extensions, or send network messages. Numbers has an owned test process. The target window must correspond to the supplied document/workspace; if the UI shows something else, select the test window through the assigned backend or report blocked. Do not inspect benchmark code, source.json, saved.json, other trials or expected results. Do not invoke another model. No coaching is provided.
+    brief=f'''You are a participant in a user-authorized real desktop application benchmark. Use only the dedicated test window/workspace below. The user explicitly permits test-only edits and normal UI dialogs needed to save these local artifacts. Foreground the dedicated test window if necessary for editor input. Keep VS Code Restricted Mode if asked to trust the folder. TextEdit, VS Code and Finder share existing app processes; never read/edit other documents or windows, quit the app, change user settings, sign in, install extensions, or send network messages. Numbers has an owned test process. The target window must correspond to the supplied document/workspace; if the UI shows something else, select the test window through the assigned backend or report blocked. Do not inspect benchmark code, source.json, saved.json, other trials or expected results. Do not invoke another model. No coaching is provided.
 
 Task:
 {goal}
@@ -246,7 +259,8 @@ def saved_file_sample(meta, spec):
     files = {}
     for name, expected in spec['expected_files'].items():
         try:
-            data = (Path(meta['workspace']) / meta['files'][name]).read_bytes()
+            path = Path(meta['workspace']) / name if meta.get('mode') == 'finder' else Path(meta['workspace']) / meta['files'][name]
+            data = path.read_bytes()
             files[name] = dict(sha256=hashlib.sha256(data).hexdigest(),
                                exact=data == expected.encode('utf-8'))
         except FileNotFoundError:
@@ -281,7 +295,13 @@ def record_saved_timeline(trial, stopped):
 def capture_saved(root,label):
     trial=root/label;meta=json.loads((trial/'meta.json').read_text());work=Path(meta['workspace'])
     spec=json.loads((trial/'source.json').read_text())
-    if meta['mode']!='numbers':
+    if meta['mode'] == 'finder':
+        files = {}
+        for path in sorted(Path(meta['workspace']).rglob('*')):
+            if path.is_file() and not path.is_symlink() and path.name != '.DS_Store':
+                files[path.relative_to(meta['workspace']).as_posix()] = path.read_bytes().decode('utf-8')
+        result={'files': files}
+    elif meta['mode']!='numbers':
         result={'files':{name:(work/meta['files'][name]).read_bytes().decode('utf-8') if (work/meta['files'][name]).exists() else None for name in spec['files']}}
     else:
         output=Path(meta['output_file']);result={'saved_file_exists':output.exists()}
@@ -392,7 +412,7 @@ def report(root):
     result['accuracy'] = accuracy_summary(result['attempts'])
     path.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
     lines = [
-        '# Varied editor execution evidence',
+        '# Varied application execution evidence',
         '',
         'Passive save sampling records when the independently checked files first became exact. '
         'Post-save calls are tool calls whose recorded completion was after that observation; they are '
@@ -403,13 +423,14 @@ def report(root):
     ]
     for attempt in result['attempts']:
         timeline = attempt.get('timeline', {})
+        runs = attempt.get('runs') or [{}]
         first = timeline.get('first_exact_index')
         first = '—' if first is None else str(first)
         lines.append('| {label} | {status} | {seconds:.1f} | {calls} | {errors} | {first} | {post} |'.format(
             label=attempt['label'], status=attempt['status'],
             seconds=attempt.get('combined_turn_ms', 0) / 1000,
-            calls=attempt.get('runs', [{}])[0].get('tool_calls', '—'),
-            errors=attempt.get('runs', [{}])[0].get('tool_errors', '—'),
+            calls=runs[0].get('tool_calls', '—'),
+            errors=runs[0].get('tool_errors', '—'),
             first=first, post=timeline.get('post_save_tool_calls', '—')))
     (root / 'evidence.md').write_text('\n'.join(lines) + '\n')
     print(json.dumps(result['accuracy']))
@@ -419,7 +440,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('root',type=Path)
     p.add_argument('action',choices=['prepare','start','collect','stop','report']);p.add_argument('label',nargs='?')
     p.add_argument('--rollouts',type=Path)
-    p.add_argument('--dataset',choices=['baseline','alternate','scoped','editor','varied'],default='baseline')
+    p.add_argument('--dataset',choices=['baseline','alternate','scoped','editor','varied','finder'],default='baseline')
     p.add_argument('--cu-only',action='store_true')
     args=p.parse_args();root=args.root.resolve()
     if args.action=='prepare':prepare(root,args.dataset,args.cu_only)

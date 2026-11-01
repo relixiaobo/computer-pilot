@@ -9,6 +9,20 @@ import benchmark_real_apps as bench
 
 
 class RealAppResults(unittest.TestCase):
+    def test_finder_tasks_verify_exact_paths_and_bytes(self):
+        for scenario in ('organize', 'rename'):
+            spec = bench.source('finder', 'finder', scenario)
+            self.assertEqual(spec['mode'], 'finder')
+            with tempfile.TemporaryDirectory() as folder:
+                path = Path(folder) / 'saved.json'
+                path.write_text(json.dumps({'files': spec['expected_files']}))
+                self.assertTrue(bench.verify(spec, path)['passed'])
+                changed = dict(spec['expected_files'])
+                name = next(iter(changed))
+                changed['wrong/' + name] = changed.pop(name)
+                path.write_text(json.dumps({'files': changed}))
+                self.assertFalse(bench.verify(spec, path)['passed'])
+
     def test_timeline_metrics_count_calls_after_first_exact_sample(self):
         with tempfile.TemporaryDirectory() as folder:
             trial = Path(folder)
