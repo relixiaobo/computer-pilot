@@ -78,7 +78,8 @@ try:
     assert delayed["snapshot"]["focused"]["value"] == "delayed-key-change", delayed
     assert delayed["effect_verified"] is None, delayed
     assert delayed["dispatched"] and delayed["confidence"] == "medium", delayed
-    assert "advice" not in delayed and "effect_advice" not in delayed, delayed
+    assert delayed["advice"].startswith("the event was dispatched"), delayed
+    assert "effect_advice" not in delayed, delayed
 
     # --no-verify defers effect interpretation, not the settle needed by an
     # emitted JSON snapshot. The fixture applies X after 100 ms; a snapshot

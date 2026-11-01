@@ -39,7 +39,10 @@ fn method_meta(method: &str) -> (&'static str, &'static str) {
         // API acceptance or event dispatch is not the same as a business
         // effect. Command-specific verification may promote confidence later.
         "ax-set-value" | "ax-perform" => ("medium", ""),
-        "key-pid" | "unicode-pid" | "paste-pid" => ("medium", ""),
+        "key-pid" | "unicode-pid" | "paste-pid" => (
+            "medium",
+            "the event was dispatched to the target pid; inspect effect_verified before assuming the UI changed",
+        ),
         "cgevent-pid" => ("high", ""),
         // OCR text click — visual coords; element may have moved/re-laid-out.
         "ocr-text-pid" => (
@@ -4712,9 +4715,9 @@ mod tests {
             ("ax-action", "high", false),
             ("ax-set-value", "medium", false),
             ("ax-perform", "medium", false),
-            ("key-pid", "medium", false),
-            ("unicode-pid", "medium", false),
-            ("paste-pid", "medium", false),
+            ("key-pid", "medium", true),
+            ("unicode-pid", "medium", true),
+            ("paste-pid", "medium", true),
             ("cgevent-pid", "high", false),
             ("ocr-text-pid", "medium", true),
             ("cgevent-global", "low", true),

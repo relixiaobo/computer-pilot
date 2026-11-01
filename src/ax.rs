@@ -1697,17 +1697,28 @@ impl RefTarget {
                 return Ok(());
             }
             let available = copy_action_names(self.element);
-            Err(CuError::msg(format!(
+            let mut error = CuError::msg(format!(
                 "element [{}] does not support {action}",
                 self.ref_id
-            ))
-            .with_hint(if available.is_empty() {
-                "Element exposes no AX actions. Inspect its children or use a coordinate click."
-                    .into()
+            ));
+            if available.is_empty() {
+                error = error.with_hint(
+                    "Element exposes no AX actions. Inspect its children or use a coordinate click.",
+                );
             } else {
-                format!("Available actions: {}", available.join(", "))
-            })
-            .with_diagnostics(serde_json::json!({"available_actions": available})))
+                error = error
+                    .with_hint(format!("Available actions: {}", available.join(", ")))
+                    .with_diagnostics(serde_json::json!({
+                        "available_actions": available.clone()
+                    }));
+                for supported_action in &available {
+                    error = error.with_next(format!(
+                        "cu perform {} {} --app <name>",
+                        self.ref_id, supported_action
+                    ));
+                }
+            }
+            Err(error)
         }
     }
 
