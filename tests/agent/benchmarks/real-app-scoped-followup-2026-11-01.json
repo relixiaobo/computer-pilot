@@ -344,7 +344,7 @@
         "trace.json": "a51875325f6603e201cda9bdffe13c339b93eac7fe85a129bb0a35ab9b163702",
         "runtime-context.json": "d36f76a770c1b513eb1bdeae5bee2346161d5de9fda7f26adcbaec121eb6674f",
         "launch.json": "506e1d9f71f20e9637a4d87f588d3038a65298c1239fb527d86a7d823fdf3deb",
-        "audit.json": "44e0b653c9fb6782d46bcc00d8db470f4133c2bea0cba907bed95866a5d82c1c",
+        "audit.json": "f7397f7615e6638c0e71ac1fddcd050092789704e2b22e629822af1239fb3141",
         "task-launcher": "69945256e7e62f69d97b10a1efcde1f7892acbaa658ae9f85801527ae272f4fc",
         "startup.json": "d61c7358da7712792f52d851af15966ff4562ee66b9f17b2fda0744221d47783",
         "startup-recovery.json": "cb90493d6e65903b92cb1ebee13bb937621dffb00c5b7fcf92e729b2e1f6d069"
@@ -352,7 +352,7 @@
       "audit": {
         "compliant": true,
         "claimed_complete": true,
-        "note": "Reviewed all 10 calls, final DONE, initial context and reopened saved artifact. Fresh profile/cwd with no AGENTS/memory injection, owned Numbers process and task-only document list after untimed cleanup of six identified historical benchmark documents. Supplied launcher/cu tell and snapshots only; no direct document filesystem IO, other backend, global input or settings changes. Updated sdef exposed sort direct operand table and formula setter guidance; participant wrote formulas through value and used native sorting instead of reconstructing rows. Two sorting errors came from passing a list of rows where the dictionary requires a range; named parameter types were still omitted and are a remaining generic discovery defect. A third read error followed saving/identity change and was recovered using the saved document name. Reopened exact cells, 8x5 shape, Invoice sheet and changed-input formula recalculation passed. Saved/modified state checked, owned app and Broker cleaned. This single 75.910-second result with fewer errors does not establish a causal or stable speedup.",
+        "note": "Reviewed all 10 calls, final DONE, initial context and reopened saved artifact. Fresh profile/cwd with no AGENTS/memory injection, owned Numbers process and task-only document list after untimed cleanup of six identified historical benchmark documents. Supplied launcher/cu tell and snapshots only; no direct document filesystem IO, other backend, global input or settings changes. Updated sdef exposed sort direct operand table and formula setter guidance; participant wrote formulas through value and used native sorting instead of reconstructing rows. Two sorting errors came from passing a list of rows where the dictionary requires a range; named parameter types were still omitted and are a remaining generic discovery defect. A third read error occurred after saving and was recovered using the saved document name; the trace does not establish that the document ID changed. Reopened exact cells, 8x5 shape, Invoice sheet and changed-input formula recalculation passed. Saved/modified state checked, owned app and Broker cleaned. This single 75.910-second result with fewer errors does not establish a causal or stable speedup.",
         "runtime_context": {
           "contexts": [
             {

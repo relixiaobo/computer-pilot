@@ -481,7 +481,7 @@ speed benefit. Recorded tool intervals were 25.363 s; the rest was 573.251 s.
 Numbers used native sorting and wrote formulas through `value`, without row
 reconstruction or read-only formula writes. Its one completed claim was correct.
 Two errors passed row lists instead of a range to sorting; another read failed
-after document identity changed during save, then recovered by the saved name.
+after saving, then recovered by the saved name; an ID change was not established.
 All owned windows/processes were cleaned; shared VS Code and settings preserved.
 Only 1/2 planned tasks completed: do not present correct timeout artifacts as a
 100% success rate or compare partial timing with successful completion timing.
