@@ -111,7 +111,9 @@ it; use `wait --modal` when the expected next state is a dialog.
 
 AX actions can return before a menu closes or a view updates. If the observation
 still shows the departing menu/view, observe again or wait for the distinguishing
-next state; do not repeat the accepted action. Do not add fixed sleeps.
+next state. If the destination content is already present, use its controls;
+focus can remain on the initiating row or link after navigation. Do not repeat
+the accepted activation merely to move focus. Do not add fixed sleeps.
 
 ## Target And Ref Identity
 
@@ -186,10 +188,13 @@ when recovery needs setup or permissions outside that scope. See
 ## Complete The Requested Result
 
 At the final group boundary, compare the requested edits with the returned
-content and the app's saved/modified state. Content change alone does not prove
-saving. Once these requirements are satisfied, finish; do not repeat Save,
-reopen correct documents or reread unchanged state merely to seek a stronger
-verification flag or an exact AX/file-byte match.
+content and the requested documents' saved/modified state. Content change alone
+does not prove saving. Once these requirements are satisfied, finish.
+`effect_verified:null` leaves task interpretation to you; it is not a failed
+result requiring another call. Foreground/window checks diagnose a missing
+effect, not an additional requirement after observed success. Do not repeat Save,
+reopen correct documents or reread unchanged state to seek a verification flag
+or an exact AX/file-byte match.
 
 Investigate only a specific unresolved requirement. Use evidence that can answer
 it; repeating the same ambiguous AX value cannot establish a file-byte property.

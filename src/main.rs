@@ -39,10 +39,7 @@ fn method_meta(method: &str) -> (&'static str, &'static str) {
         // API acceptance or event dispatch is not the same as a business
         // effect. Command-specific verification may promote confidence later.
         "ax-set-value" | "ax-perform" => ("medium", ""),
-        "key-pid" | "unicode-pid" | "paste-pid" => (
-            "medium",
-            "the event was dispatched to the target pid; inspect the returned state for the intended result; dispatch alone does not establish it",
-        ),
+        "key-pid" | "unicode-pid" | "paste-pid" => ("medium", ""),
         "cgevent-pid" => ("high", ""),
         // OCR text click — visual coords; element may have moved/re-laid-out.
         "ocr-text-pid" => (
@@ -2993,8 +2990,6 @@ fn cmd_key(
     if no_verify {
         result["verification_skipped"] =
             "--no-verify: inspect the final group state before assuming success".into();
-    } else {
-        result["effect_advice"] = "Key dispatched; inspect the intended result before retrying. Background apps may ignore menu shortcuts even with AX editor focus. Use app scripting, or explicitly focus the intended window when foreground editing is authorized.".into();
     }
     annotate_method(&mut result);
     if let Some(captured) = captured.as_ref() {
@@ -4713,9 +4708,9 @@ mod tests {
             ("ax-action", "high", false),
             ("ax-set-value", "medium", false),
             ("ax-perform", "medium", false),
-            ("key-pid", "medium", true),
-            ("unicode-pid", "medium", true),
-            ("paste-pid", "medium", true),
+            ("key-pid", "medium", false),
+            ("unicode-pid", "medium", false),
+            ("paste-pid", "medium", false),
             ("cgevent-pid", "high", false),
             ("ocr-text-pid", "medium", true),
             ("cgevent-global", "low", true),

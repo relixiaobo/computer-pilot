@@ -94,6 +94,12 @@ final class Delegate: NSObject, NSApplicationDelegate {
                 }
                 return nil
             }
+            if event.keyCode == 98 { // F7: reuse controls for another document.
+                self.window.title = "Second document"
+                self.window.representedURL = URL(fileURLWithPath: "/tmp/cu-fixture-second-document.txt")
+                NSAccessibility.post(element: self.window!, notification: .titleChanged)
+                return nil
+            }
             if event.keyCode == 36 {
                 FileHandle.standardOutput.write(Data("enter handled\n".utf8))
                 return nil // A handled shortcut need not change the AX tree.

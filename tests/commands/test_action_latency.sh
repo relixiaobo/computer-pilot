@@ -77,6 +77,8 @@ try:
     delayed = run("key", "f6", "--app", app)
     assert delayed["snapshot"]["focused"]["value"] == "delayed-key-change", delayed
     assert delayed["effect_verified"] is None, delayed
+    assert delayed["dispatched"] and delayed["confidence"] == "medium", delayed
+    assert "advice" not in delayed and "effect_advice" not in delayed, delayed
     snap = run("snapshot", app, "--limit", "1")
 
     # The fixture changes its value and posts AXValueChanged during the AX
@@ -493,6 +495,20 @@ try:
     remaining = run("window", "list", "--app", app)
     assert len(remaining["windows"]) == 1, remaining
     assert session("snapshot")["elements"][0]["value"] == event_text
+
+    # Reusing the native control in the same window does not authorize an old
+    # document's write. Caption/path changes preserve this context boundary.
+    original = session("--json", "snapshot")
+    field = original["elements"][0]
+    session("key", "f7")
+    rejected = session("set-value", field["ref"], "wrong-document-write",
+                       "--observation", original["observation_id"], ok=False)
+    assert rejected["code"] == "stale_observation", rejected
+    assert rejected["window_id"] == original["window_id"], rejected
+    assert rejected["diagnostics"]["dispatched"] is False, rejected
+    current = rejected["diagnostics"]["snapshot"]["elements"][0]
+    assert all(current.get(k) == field.get(k) for k in ("ref", "role", "title", "value")), current
+    assert current["value"] == event_text, current
 
     # Native focus identity works even when no ref/path is in the truncated
     # tree. A value on a different focused object must not count as delivery.
