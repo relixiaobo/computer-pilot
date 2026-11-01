@@ -621,6 +621,37 @@ This block's coordinator report is [frozen here](benchmarks/editor-coverage-2026
 It includes the earlier failed retest, same-data comparisons, passive saved-file
 timeline, clean-context audits, settings/process cleanup and all input hashes.
 
+### Varied editor workflows — 2026-11-01
+
+To test generality beyond the earlier completion fixtures, a cu-only block ran
+two fresh rounds of three VS Code tasks: a scoped JSON object edit, a Markdown
+release edit with preserved history and checklist state, and a two-file TOML/text
+handoff edit. Each attempt used a fresh Codex profile, neutral cwd, private cu
+runtime and dedicated window while sharing the existing Code process. The
+packaged Computer Pilot skill was the only computer-use guidance; no AGENTS or
+CLAUDE instructions were injected. Native Computer Use was not rerun, so this
+block is an accuracy and repeatability sample rather than a contemporaneous
+cu/native speed comparison.
+
+All six artifacts passed independent byte-exact verification and all six
+completion claims were supported. The median full-task time was **152.9 s**;
+the individual times were 48.9 / 473.1 / 167.5 s in round 1 and 85.4 / 138.3 /
+550.5 s in round 2 for JSON / Markdown / multi-file respectively. Tool errors
+were 0 / 10 / 3 and 0 / 3 / 4. The Markdown first round and multi-file second
+round are accurate but slow long-tail samples; they remain included. The second
+round Markdown result shows recovery variability on the same task (138.3 s vs
+473.1 s), so the block does not establish a stable speed improvement.
+
+Passive saved-file sampling found the first exact artifact before the final
+turn sample in every attempt. Five attempts had one tool call after the first
+exact observation; the second multi-file attempt had five. These are diagnostic
+post-save calls, not removed from timing or treated as failures. The complete
+audited report is [editor-varied-2026-11-01.json](benchmarks/editor-varied-2026-11-01.json);
+the local `test-results/editor-varied-20261101/evidence.md` table records the
+same call/error and save-boundary metrics. Shared application scheduling,
+model generation, caches and the absence of a contemporaneous native arm remain
+limits on any speed conclusion.
+
 ## Architecture
 
 ```

@@ -27,6 +27,8 @@ APPS = {
 def source(mode, dataset='baseline', scenario=None):
     if dataset == 'editor':
         return json.loads((ROOT/'tests/agent/tasks/editor_completion.json').read_text())[scenario]
+    if dataset == 'varied':
+        return json.loads((ROOT/'tests/agent/tasks/editor_varied.json').read_text())[scenario]
     if dataset == 'scoped':
         return json.loads((ROOT/'tests/agent/tasks/real_apps_scoped.json').read_text())[mode]
     if mode == 'textedit':
@@ -119,6 +121,7 @@ def verify(spec, saved):
 def fingerprints():
     paths = [CU, Path(__file__), ROOT/'tests/agent/tasks/real_apps_scoped.json',
              ROOT/'tests/agent/tasks/editor_completion.json',
+             ROOT/'tests/agent/tasks/editor_varied.json',
              ROOT/'tests/agent/benchmark_varied_workflows.py',
              ROOT/'tests/agent/collect_codex_benchmark.py',
              ROOT/'plugin/skills/computer-pilot/SKILL.md',
@@ -133,10 +136,15 @@ def prepare(root, dataset='baseline', cu_only=False):
     for i, mode in enumerate(APPS):
         for arm in (('cu',) if cu_only else ('native', 'cu') if i % 2 == 0 else ('cu', 'native')):
             sequence.append(dict(label=f'{mode}-1-{arm}', mode=mode, repeat=1, arm=arm))
-    if dataset == 'editor':
-        # The shared collector pairs by mode/repeat; give each case its own index.
-        sequence = [dict(label=f'vscode-{case}-{index}-{arm}', mode='vscode', scenario=case, repeat=index, arm=arm)
-                    for index, case in enumerate(('local', 'scoped', 'multi'), 1)
+    if dataset in ('editor', 'varied'):
+        cases = ('local', 'scoped', 'multi')
+        if dataset == 'varied':
+            cases = ('json', 'markdown', 'multi')
+        # The shared collector pairs by mode/repeat; give each case and round its own index.
+        rounds = (1,) if dataset == 'editor' else (1, 2)
+        sequence = [dict(label=f'vscode-{case}-r{round_no}-{arm}', mode='vscode', scenario=case,
+                         repeat=(round_no - 1) * len(cases) + index, round=round_no, arm=arm)
+                    for round_no in rounds for index, case in enumerate(cases, 1)
                     for arm in (('cu',) if cu_only else ('cu', 'native'))]
     manifest = dict(protocol_version=2, single_turn=True, sequence=sequence, dataset=dataset,
         settings=dict(model='gpt-6-astra', reasoning_effort='high', service_tier=None),
@@ -349,12 +357,61 @@ def accuracy_summary(attempts):
                 false_completion_rate=false_claims / len(claims) if claims else None)
 
 
+def timeline_metrics(trial):
+    """Summarize passive save observations and calls made after the first exact save."""
+    timeline_path = trial / 'saved-timeline.jsonl'
+    if not timeline_path.exists():
+        return {}
+    timeline = [json.loads(line) for line in timeline_path.read_text().splitlines()]
+    exact_index = next((i for i, sample in enumerate(timeline) if sample.get('all_exact')), None)
+    metrics = {'save_observation_count': len(timeline), 'first_exact_index': exact_index}
+    if exact_index is None:
+        metrics['post_save_tool_calls'] = None
+        metrics['post_save_tool_errors'] = None
+        return metrics
+    first_exact = datetime.fromisoformat(timeline[exact_index]['observed_at']).timestamp() * 1000
+    trace_path = trial / 'trace.json'
+    calls = []
+    if trace_path.exists():
+        for turn in json.loads(trace_path.read_text()):
+            calls.extend(turn.get('tools', []))
+    after = [call for call in calls if call.get('end_ms', 0) > first_exact]
+    metrics['post_save_tool_calls'] = len(after)
+    metrics['post_save_tool_errors'] = sum(call.get('status') != 'completed' or call.get('exit_code', 0) not in (0, None)
+                                          for call in after)
+    return metrics
+
+
 def report(root):
     shared.report(root)
     path = root / 'report.json'
     result = json.loads(path.read_text())
+    for attempt in result['attempts']:
+        trial = root / attempt['label']
+        attempt['timeline'] = timeline_metrics(trial)
     result['accuracy'] = accuracy_summary(result['attempts'])
     path.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
+    lines = [
+        '# Varied editor execution evidence',
+        '',
+        'Passive save sampling records when the independently checked files first became exact. '
+        'Post-save calls are tool calls whose recorded completion was after that observation; they are '
+        'diagnostic and do not alter the pass/fail result.',
+        '',
+        '| Attempt | Status | Full task s | Calls | Errors | First exact sample | Post-save calls |',
+        '| --- | --- | ---: | ---: | ---: | ---: | ---: |',
+    ]
+    for attempt in result['attempts']:
+        timeline = attempt.get('timeline', {})
+        first = timeline.get('first_exact_index')
+        first = '—' if first is None else str(first)
+        lines.append('| {label} | {status} | {seconds:.1f} | {calls} | {errors} | {first} | {post} |'.format(
+            label=attempt['label'], status=attempt['status'],
+            seconds=attempt.get('combined_turn_ms', 0) / 1000,
+            calls=attempt.get('runs', [{}])[0].get('tool_calls', '—'),
+            errors=attempt.get('runs', [{}])[0].get('tool_errors', '—'),
+            first=first, post=timeline.get('post_save_tool_calls', '—')))
+    (root / 'evidence.md').write_text('\n'.join(lines) + '\n')
     print(json.dumps(result['accuracy']))
 
 
@@ -362,7 +419,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('root',type=Path)
     p.add_argument('action',choices=['prepare','start','collect','stop','report']);p.add_argument('label',nargs='?')
     p.add_argument('--rollouts',type=Path)
-    p.add_argument('--dataset',choices=['baseline','alternate','scoped','editor'],default='baseline')
+    p.add_argument('--dataset',choices=['baseline','alternate','scoped','editor','varied'],default='baseline')
     p.add_argument('--cu-only',action='store_true')
     args=p.parse_args();root=args.root.resolve()
     if args.action=='prepare':prepare(root,args.dataset,args.cu_only)

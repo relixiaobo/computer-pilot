@@ -9,6 +9,46 @@ import benchmark_real_apps as bench
 
 
 class RealAppResults(unittest.TestCase):
+    def test_timeline_metrics_count_calls_after_first_exact_sample(self):
+        with tempfile.TemporaryDirectory() as folder:
+            trial = Path(folder)
+            (trial / 'saved-timeline.jsonl').write_text(
+                '\n'.join(json.dumps(row) for row in (
+                    {'observed_at': '2026-11-01T00:00:00+00:00', 'all_exact': False},
+                    {'observed_at': '2026-11-01T00:00:02+00:00', 'all_exact': True},
+                    {'observed_at': '2026-11-01T00:00:03+00:00', 'all_exact': True},
+                )) + '\n')
+            (trial / 'trace.json').write_text(json.dumps([{'tools': [
+                {'end_ms': 1793491201000, 'status': 'completed', 'exit_code': 0},
+                {'end_ms': 1793491202500, 'status': 'completed', 'exit_code': 0},
+                {'end_ms': 1793491203000, 'status': 'failed', 'exit_code': 1},
+            ]}]))
+            self.assertEqual(bench.timeline_metrics(trial), {
+                'save_observation_count': 3, 'first_exact_index': 1,
+                'post_save_tool_calls': 2, 'post_save_tool_errors': 1,
+            })
+
+    def test_varied_editor_sources_keep_repeated_sections_scoped(self):
+        for scenario in ('json', 'markdown', 'multi'):
+            spec = bench.source('vscode', 'varied', scenario)
+            self.assertEqual(set(spec['files']), set(spec['expected_files']))
+            with tempfile.TemporaryDirectory() as folder:
+                path = Path(folder) / 'saved.json'
+                path.write_text(json.dumps(dict(files=spec['expected_files'])))
+                self.assertTrue(bench.verify(spec, path)['passed'])
+                name = next(iter(spec['files']))
+                changed = dict(spec['expected_files'])
+                changed[name] = changed[name].replace('release.', 'wrong.', 1)
+                if changed[name] == spec['expected_files'][name]:
+                    changed[name] = changed[name].replace('production', 'wrong-environment', 1)
+                if changed[name] == spec['expected_files'][name]:
+                    changed[name] = changed[name].replace('us-west', 'wrong-region', 1)
+                if changed[name] == spec['expected_files'][name]:
+                    changed[name] = changed[name].replace('ready', 'wrong-status', 1)
+                self.assertNotEqual(changed[name], spec['expected_files'][name])
+                path.write_text(json.dumps(dict(files=changed)))
+                self.assertFalse(bench.verify(spec, path)['passed'])
+
     def test_editor_cases_track_correct_saved_bytes_and_later_regressions(self):
         for case in ('local', 'scoped', 'multi'):
             spec = bench.source('vscode', 'editor', case)

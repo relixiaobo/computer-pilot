@@ -1,0 +1,34 @@
+{
+  "json": {
+    "mode": "vscode",
+    "files": {
+      "settings.json": "{\n  \"active\": {\n    \"name\": \"Cedar API\",\n    \"endpoint\": \"https://preview.cedar.example.invalid/v2/items?team=lab-8\",\n    \"timeout\": 20,\n    \"enabled\": false,\n    \"owners\": [\"林\", \"周\"]\n  },\n  \"legacy\": {\n    \"name\": \"Cedar API\",\n    \"endpoint\": \"https://preview.cedar.example.invalid/v2/items?team=lab-8\",\n    \"timeout\": 20,\n    \"enabled\": false\n  },\n  \"literal\": \"a+b[2].* / $HOME / 中文🙂\"\n}\n"
+    },
+    "expected_files": {
+      "settings.json": "{\n  \"active\": {\n    \"name\": \"Cedar API\",\n    \"endpoint\": \"https://release.cedar.example.invalid/v2/items?team=lab-8\",\n    \"timeout\": 45,\n    \"enabled\": true,\n    \"owners\": [\"林\", \"许\"]\n  },\n  \"legacy\": {\n    \"name\": \"Cedar API\",\n    \"endpoint\": \"https://preview.cedar.example.invalid/v2/items?team=lab-8\",\n    \"timeout\": 20,\n    \"enabled\": false\n  },\n  \"literal\": \"a+b[2].* / $HOME / 中文🙂\"\n}\n"
+    },
+    "goal": "In the supplied VS Code workspace {workspace}, edit only the active object in settings.json: change the endpoint host to release.cedar.example.invalid while preserving path/query, timeout to 45, enabled to true, and replace only the second owner 许. Preserve the legacy object exactly, including its endpoint, timeout and enabled values, and preserve formatting, literals and final newline. Save and observe the result."
+  },
+  "markdown": {
+    "mode": "vscode",
+    "files": {
+      "runbook.md": "# Production runbook\nService: Nimbus\nStatus: draft\nOwner: 陈\nReview: 2026-11-30\n\n## Current release\n- endpoint: https://staging.nimbus.example.invalid/v1/deploy?region=cn\n- rollback: enabled\n- status: pending\n\n## Checklist\n- [ ] verify endpoint\n- [ ] verify rollback\n- [ ] notify owner\n- [ ] external approval\n\n## Previous release\nService: Nimbus\nStatus: archived\nOwner: 郑\nEndpoint: https://archive.nimbus.example.invalid/v0/deploy?region=cn\n\nKeep literal: a+b[2].* / $HOME / 中文🙂\n"
+    },
+    "expected_files": {
+      "runbook.md": "# Production runbook\nService: Nimbus\nStatus: ready\nOwner: 吴\nReview: 2026-12-07\n\n## Current release\n- endpoint: https://prod.nimbus.example.invalid/v1/deploy?region=cn\n- rollback: enabled\n- status: ready\n\n## Checklist\n- [x] verify endpoint\n- [x] verify rollback\n- [ ] notify owner\n- [ ] external approval\n\n## Previous release\nService: Nimbus\nStatus: archived\nOwner: 郑\nEndpoint: https://archive.nimbus.example.invalid/v0/deploy?region=cn\n\nKeep literal: a+b[2].* / $HOME / 中文🙂\n"
+    },
+    "goal": "In the supplied VS Code workspace {workspace}, edit only the current production release in runbook.md: set the top Status to ready, Owner to 吴, Review to 2026-12-07, change the Current release endpoint host to prod.nimbus.example.invalid, set its status to ready, and check only verify endpoint and verify rollback. Preserve Previous release, notify owner, external approval, URL path/query, literals, formatting, blank lines and final newline. Save and observe the result."
+  },
+  "multi": {
+    "mode": "vscode",
+    "files": {
+      "service.toml": "# Nimbus service\nrelease = \"NB-44\"\n\n[primary]\nregion = \"us-east\"\nretries = 2\nendpoint = \"https://staging.nimbus.example.invalid/v3/send?tenant=nb44\"\n\n[secondary]\nregion = \"eu-west\"\nretries = 2\nendpoint = \"https://staging.nimbus.example.invalid/v3/send?tenant=nb44\"\n\n# preserve: a+b[2].* / $HOME / 中文🙂\n",
+      "handoff.txt": "Release NB-44\nEnvironment: staging\nOwner: 许\nStatus: pending\n\nArchive NB-31\nEnvironment: staging\nOwner: 陈\nStatus: archived\n\nDo not alter: https://archive.nimbus.example.invalid/NB-31\n"
+    },
+    "expected_files": {
+      "service.toml": "# Nimbus service\nrelease = \"NB-44\"\n\n[primary]\nregion = \"us-west\"\nretries = 4\nendpoint = \"https://prod.nimbus.example.invalid/v3/send?tenant=nb44\"\n\n[secondary]\nregion = \"eu-west\"\nretries = 2\nendpoint = \"https://staging.nimbus.example.invalid/v3/send?tenant=nb44\"\n\n# preserve: a+b[2].* / $HOME / 中文🙂\n",
+      "handoff.txt": "Release NB-44\nEnvironment: production\nOwner: 吴\nStatus: ready\n\nArchive NB-31\nEnvironment: staging\nOwner: 陈\nStatus: archived\n\nDo not alter: https://archive.nimbus.example.invalid/NB-31\n"
+    },
+    "goal": "In the supplied VS Code workspace {workspace}, edit both files. In service.toml change only [primary] region to us-west, retries to 4, and the endpoint host to prod.nimbus.example.invalid while preserving path/query; leave [secondary] exactly unchanged. In handoff.txt change only the current Release NB-44 Environment to production, Owner to 吴 and Status to ready; preserve Archive NB-31 and the URL. Preserve all literals, formatting and final newlines. Save both files and observe the result."
+  }
+}
