@@ -65,9 +65,17 @@ accept neither flag. Other commands keep ordinary arguments:
 `./pilot tell "App Name" '<expression>' accepts an app name or bundle path;
 AppleScript does not accept `pid:<PID>`.
 Use the launcher's absolute path if cwd changes; do not fall back to bare `cu`.
-When text begins with `-`, put all flags before the `--` separator: `./pilot type
---no-snapshot --no-verify -- '- [x] done'`. Flags after `--` are treated as
-text and the CLI will reject the request.
+When text begins with `-`, put all flags before the optional `--` separator:
+`./pilot type --no-snapshot --no-verify -- '- [x] done'`. The CLI also accepts
+a leading-hyphen text value directly; flags after `--` are always treated as
+text.
+
+Use only documented option names. `cu click` uses `--double-click` for a
+double click and has no `--count` option. `cu find` filters with `--role`,
+`--title-contains`, `--title-equals` and `--value-contains`; it has no `--text`
+predicate. If a syntax error occurs, read that command's `--help` once and
+retry with the documented form. Do not invent a flag or repeat the same invalid
+command.
 
 ## One Call Per Decision Boundary
 
@@ -86,6 +94,12 @@ set -e
 Use the last action's snapshot as the group result. Stop when a new page,
 dialog or unknown control needs a decision. Grouping does not authorize
 additional external effects.
+
+Keep a group within one observed UI state. Split it before navigation, menu
+opening or closing, focus changes, selection changes, or any action whose
+result changes the next target. `--no-snapshot` is appropriate for deterministic
+local edits after the target is known; it is not a substitute for observing a
+new selection, caret, window, or document section.
 
 - Use `set-value` for native textfields, textareas and editable comboboxes.
   For Electron/CEF or fields inside `AXWebArea`, use the verified click/type
@@ -204,7 +218,11 @@ set -e
 ./pilot type "<intended text>"
 ```
 
-The click keeps its private focus check; typing returns the group's observation.
+The click reports `focus_verified` for textfield-shaped targets, but a false or
+unknown value does not fail the click: Finder filenames and similar controls
+can be selectable rows rather than edit fields. `cu type` performs the strict
+focused-input check immediately before dispatch and refuses to send text
+without it.
 `value_changed:true` reports an AX value change, not exact input or saving;
 `effect_verified` remains null. A click's `verify_diff` likewise reports tree
 changes; only `focus_verified` establishes the scoped input-focus result.

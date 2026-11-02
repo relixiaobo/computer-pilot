@@ -91,8 +91,11 @@ those are for targets AX cannot expose.
 Treat `focus_failed` as a foreground delivery blocker. Do not continue with
 keyboard or typing commands, remove `--app`, or use global input. Inspect the
 returned target state once and report the blocker when no background-safe
-primitive is available. A `verification_failed` response with `focused:null`
-does not establish input focus; wait for a fresh focus result before typing.
+primitive is available. A click on a textfield-shaped element may report
+`focus_verified:false` or `null` when the control is a selectable row or the
+post-action observation is unavailable. That is not a click failure. Before
+typing, obtain a fresh observation or let `cu type` enforce the focused-input
+precondition; never send text based only on the click receipt.
 
 `verify_diff` and `value_changed` describe observations, not task completion.
 An arbitrary tree change leaves `verified:null`; an input-focus check can set

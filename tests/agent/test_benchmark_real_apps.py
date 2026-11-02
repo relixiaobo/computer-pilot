@@ -110,6 +110,18 @@ class RealAppResults(unittest.TestCase):
                 'post_save_tool_calls': 2, 'post_save_tool_errors': 1,
             })
 
+    def test_backend_call_estimate_excludes_launcher_setup_and_counts_batches(self):
+        traces = [{"tools": [
+            {"command": ["/bin/zsh", "-lc", "cat > ./pilot <<'EOF'\\nEOF\\nchmod 700 ./pilot\\n./pilot snapshot"]},
+            {"command": ["/bin/zsh", "-lc", "set -e\\n./pilot key down\\n./pilot key enter"]},
+        ]}]
+        self.assertEqual(bench.shared.backend_calls_estimate(traces, 'cu'), 3)
+        native = [{"tools": [
+            {"server": "cua_repl"}, {"server": "cua_repl"},
+            {"server": "other"},
+        ]}]
+        self.assertEqual(bench.shared.backend_calls_estimate(native, 'native'), 2)
+
     def test_varied_editor_sources_keep_repeated_sections_scoped(self):
         for scenario in ('json', 'markdown', 'multi'):
             spec = bench.source('vscode', 'varied', scenario)

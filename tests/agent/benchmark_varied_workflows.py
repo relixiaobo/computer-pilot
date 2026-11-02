@@ -215,6 +215,7 @@ def collect(root, label, rollout_dir, verify_result=verify):
             result['runs'].append({k: v for k, v in turn.items() if k != 'tools'})
     # Preserve setup and every GO turn, including recovery; never overwrite an earlier turn.
     (trial / 'trace.json').write_text(json.dumps(traces, ensure_ascii=False, indent=2))
+    result['backend_calls_estimate'] = backend_calls_estimate(traces, meta['arm'])
     result['verification'] = verify_result(json.loads((trial / 'source.json').read_text()), trial / 'saved.json')
     result['setup_ms'] = sum(t['elapsed_ms'] for t in result['setup'])
     result['execution_ms'] = sum(t['elapsed_ms'] for t in result['runs'])
@@ -228,6 +229,32 @@ def collect(root, label, rollout_dir, verify_result=verify):
                          combined_turn_ms=result['combined_turn_ms'], verified=result['verification']['passed'],
                          checks=result['verification']['checks'],
                          runs=[{k: r[k] for k in ('model', 'reasoning_effort', 'model_calls', 'tool_calls', 'tool_errors', 'tool_output_chars')} for r in result['runs']])))
+
+
+def backend_calls_estimate(traces, arm):
+    """Count dispatched backend calls separately from outer model tool calls.
+
+    The CU arm can batch many `./pilot` invocations in one shell tool call,
+    while native CUA emits one API call per tool item. This is deliberately
+    labelled an estimate because a shell command can stop before later lines
+    after an error; it is a diagnostic, not a replacement for outer-call
+    timing.
+    """
+    tools = [tool for turn in traces for tool in turn.get('tools', [])]
+    if arm == 'native':
+        return sum(tool.get('server') == 'cua_repl' for tool in tools)
+    count = 0
+    for tool in tools:
+        command = tool.get('command')
+        if isinstance(command, list):
+            command = ' '.join(command)
+        if isinstance(command, str):
+            command = command.replace('\\n', '\n')
+            # Most Codex shell tools invoke `./pilot` directly after `-lc`,
+            # while the launcher-creation call also contains the literal path
+            # in `cat > ./pilot` and `chmod`. Remove those setup references.
+            count += command.count('./pilot') - command.count('cat > ./pilot') - command.count('chmod 700 ./pilot')
+    return count
 
 
 def report(root):

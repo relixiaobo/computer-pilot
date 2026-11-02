@@ -145,8 +145,11 @@ client's latest observation; pass `--observation` only to select an earlier one.
 Targets a ref, coordinates, `--ax-path`, or OCR `--text`. Supports right,
 double-click, modifiers, OCR index/region, `--no-verify`, and `--no-snapshot`.
 Ref clicks try native AX actions before PID-targeted CGEvent fallback.
-Clicks targeting text inputs require the post-action focused element to match
-the intended ref/path and return `verification_failed` otherwise.
+Clicks targeting textfield-shaped elements report `focus_verified` when the
+post-action focused element matches, but a false/unknown value does not fail the
+click because Finder filenames and similar controls can represent selection or
+navigation. `cu type` performs the strict focused-input check immediately before
+dispatching text.
 
 ### `cu set-value <ref> <text> --app <app> [--observation <id>]`
 
@@ -173,9 +176,9 @@ An unchanged or incomparable targeted result returns `unknown_outcome` with
 the captured state, not proof of failed input. Inputs below `AXWebArea` are
 observed after a 300ms stability delay; virtual editor text can be partial.
 `--no-verify --no-snapshot` skips post-input observation for intermediate
-actions in a deterministic group; focus and target checks still run. If `<text>`
-begins with `-`, put the flags first and terminate options immediately before
-the text, for example `cu type --no-snapshot --no-verify -- '- [x] done'`.
+actions in a deterministic group; focus and target checks still run. Put flags
+before a leading-hyphen text value; `--` is optional but explicit, for example
+`cu type --no-snapshot --no-verify -- '- [x] done'`.
 
 ### `cu key <combo> --app <app> [--no-snapshot] [--no-verify]`
 

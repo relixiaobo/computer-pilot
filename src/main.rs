@@ -240,6 +240,7 @@ enum Cmd {
         Unicode events, including CJK. Original clipboard preserved.")]
     Type {
         /// Text to type
+        #[arg(allow_hyphen_values = true)]
         text: String,
         /// Target app selector — unique name, bundle ID, or pid:<PID>
         #[arg(long)]
@@ -569,7 +570,9 @@ enum Cmd {
         an explicit --app; --allow-global opts into the global HID tap.\n\n\
         Verify (default ON): takes a pre-action AX snapshot and diffs after the click.\n\
         Returns `verify_diff` and `verify_advice`; a generic tree change leaves `verified:null`.\n\
-        For text inputs, `focus_verified` checks the target in the same window. The\n\
+        For textfield-shaped targets, `focus_verified` is an observation only; a\n\
+        click may select a row or filename without entering edit mode. `cu type`\n\
+        performs the strict focused-input check immediately before dispatch. The\n\
         caller checks the intended content and saved result at the group boundary.")]
     Click {
         /// Element ref number, or x coordinate
@@ -2567,15 +2570,22 @@ fn input_is_focused(target: Option<&ax::Element>, snapshot: Option<&ax::Snapshot
         })
 }
 
-fn enforce_text_input_focus(
+/// Attach the result of the optional post-click focus observation.
+///
+/// A click on a textfield-shaped AX node can mean selecting a row (Finder
+/// exposes filenames this way) or entering an editor. The click command
+/// cannot infer that intent from the role alone, so focus is informational at
+/// this boundary. `cu type` performs the strict focused-input check immediately
+/// before dispatching text, where the intent is unambiguous.
+fn attach_text_input_focus(
     result: &mut serde_json::Value,
     target: Option<&ax::Element>,
     pre: Option<&ax::SnapshotResult>,
     post: Option<&ax::SnapshotResult>,
     native_target: Option<&ax::RefTarget>,
-) -> Result<(), CuError> {
+) {
     let Some(target) = target.filter(|element| is_text_input_role(&element.role)) else {
-        return Ok(());
+        return;
     };
     let focus_verified = post.filter(|snapshot| snapshot.ok).and_then(|post| {
         if !pre.is_some_and(|pre| same_observed_window(pre, post)) {
@@ -2596,44 +2606,17 @@ fn enforce_text_input_focus(
             }))
         }
     });
-    let Some(focus_verified) = focus_verified else {
-        return Err(CuError::msg(
-            "unknown outcome: click was dispatched, but target focus could not be observed",
-        )
-        .with_code(ErrorCode::UnknownOutcome)
-        .with_hint("inspect the target state before typing or retrying the click")
-        .with_diagnostics(serde_json::json!({
-            "dispatched": true,
-            "target": target,
-            "action_result": result,
-        })));
-    };
     if let Some(obj) = result.as_object_mut() {
-        obj.insert("focus_verified".into(), focus_verified.into());
-        if focus_verified {
+        obj.insert(
+            "focus_verified".into(),
+            focus_verified.map_or(serde_json::Value::Null, serde_json::Value::from),
+        );
+        if focus_verified == Some(true) {
             obj.insert("verified".into(), true.into());
             obj.insert("verification_basis".into(), "focused_target".into());
             obj.remove("verify_advice");
         }
     }
-    if focus_verified {
-        return Ok(());
-    }
-
-    Err(CuError::msg(format!(
-        "verification failed: click did not focus text input [{}]",
-        target.ref_id
-    ))
-    .with_code(ErrorCode::VerificationFailed)
-    .with_hint(
-        "inspect snapshot.focused and retry at most once with a fresh Observation; do not type until the exact target ref is focused",
-    )
-    .with_diagnostics(serde_json::json!({
-        "dispatched": true,
-        "target": target,
-        "focused": post.and_then(|snapshot| snapshot.focused.as_ref()),
-        "action_result": result,
-    })))
 }
 
 fn focused_input_before_type(pid: i32, name: &str) -> Result<ax::SnapshotResult, CuError> {
@@ -3158,13 +3141,13 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
             post.as_ref(),
             method,
         );
-        enforce_text_input_focus(
+        attach_text_input_focus(
             &mut result,
             focus_target.as_ref(),
             pre_state.as_ref().map(|(_, _, snapshot)| snapshot),
             post.as_ref(),
             None,
-        )?;
+        );
         return if json {
             ok(result)
         } else {
@@ -3287,13 +3270,13 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
             post.as_ref(),
             method,
         );
-        enforce_text_input_focus(
+        attach_text_input_focus(
             &mut result,
             focus_target.as_ref(),
             pre_state.as_ref().map(|(_, _, snapshot)| snapshot),
             post.as_ref(),
             None,
-        )?;
+        );
         return if json {
             ok(result)
         } else {
@@ -3361,13 +3344,13 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
             post.as_ref(),
             method,
         );
-        enforce_text_input_focus(
+        attach_text_input_focus(
             &mut result,
             focus_target.as_ref(),
             pre_state.as_ref().map(|(_, _, snapshot)| snapshot),
             post.as_ref(),
             None,
-        )?;
+        );
         return if json {
             ok(result)
         } else {
@@ -3449,13 +3432,13 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
         post.as_ref(),
         method,
     );
-    enforce_text_input_focus(
+    attach_text_input_focus(
         &mut result,
         focus_target.as_ref(),
         pre_state.as_ref().map(|(_, _, snapshot)| snapshot),
         post.as_ref(),
         ref_target.as_ref(),
-    )?;
+    );
     if json {
         ok(result)
     } else {
@@ -4826,21 +4809,14 @@ mod tests {
     }
 
     #[test]
-    fn unreadable_focus_is_unknown_not_a_failed_click() {
+    fn unreadable_focus_is_advisory_not_a_failed_click() {
         let good = verification_snapshot(true);
         let failed = verification_snapshot(false);
         for post in [None, Some(&failed)] {
             let mut result = serde_json::json!({"ok": true});
-            let error = enforce_text_input_focus(
-                &mut result,
-                good.elements.first(),
-                Some(&good),
-                post,
-                None,
-            )
-            .unwrap_err();
-            assert!(error.error.starts_with("unknown outcome:"));
-            assert!(result.get("focus_verified").is_none());
+            attach_text_input_focus(&mut result, good.elements.first(), Some(&good), post, None);
+            assert_eq!(result["focus_verified"], serde_json::Value::Null);
+            assert_eq!(result["ok"], true);
         }
     }
 
@@ -4966,15 +4942,12 @@ mod tests {
             after.elements[0].ax_path.as_deref(),
         ));
         let mut result = serde_json::json!({"ok":true});
-        assert!(
-            enforce_text_input_focus(
-                &mut result,
-                before.elements.first(),
-                Some(&before),
-                Some(&after),
-                None
-            )
-            .is_err()
+        attach_text_input_focus(
+            &mut result,
+            before.elements.first(),
+            Some(&before),
+            Some(&after),
+            None,
         );
         assert_eq!(result["focus_verified"], false);
         // A title rename in the same window is allowed; another window with
@@ -4985,27 +4958,23 @@ mod tests {
             Some("window[B]/webarea/textarea[editor]"),
         ));
         after.elements[1].ax_path = after.focused.as_ref().unwrap().ax_path.clone();
-        assert!(
-            enforce_text_input_focus(
-                &mut result,
-                before.elements.first(),
-                Some(&before),
-                Some(&after),
-                None
-            )
-            .is_ok()
+        attach_text_input_focus(
+            &mut result,
+            before.elements.first(),
+            Some(&before),
+            Some(&after),
+            None,
         );
+        assert_eq!(result["focus_verified"], true);
         after.window_id += 1;
-        assert!(
-            enforce_text_input_focus(
-                &mut result,
-                before.elements.first(),
-                Some(&before),
-                Some(&after),
-                None
-            )
-            .is_err()
+        attach_text_input_focus(
+            &mut result,
+            before.elements.first(),
+            Some(&before),
+            Some(&after),
+            None,
         );
+        assert_eq!(result["focus_verified"], false);
     }
 
     #[test]

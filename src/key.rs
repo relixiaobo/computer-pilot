@@ -332,11 +332,12 @@ pub fn resolve_keycode(name: &str) -> Result<u16, String> {
         "escape" | "esc" => 53,
         "forwarddelete" => 117,
 
-        // Arrow keys
-        "up" => 126,
-        "down" => 125,
-        "left" => 123,
-        "right" => 124,
+        // Arrow keys. Accept the names used by both common desktop
+        // automation APIs and the compact CLI spelling.
+        "up" | "arrowup" | "arrow-up" => 126,
+        "down" | "arrowdown" | "arrow-down" => 125,
+        "left" | "arrowleft" | "arrow-left" => 123,
+        "right" | "arrowright" | "arrow-right" => 124,
 
         // Punctuation
         "-" | "minus" => 27,
@@ -415,6 +416,8 @@ mod tests {
             ("backspace", 51),
             ("esc", 53),
             ("up", 126),
+            ("ArrowDown", 125),
+            ("arrow-left", 123),
             ("right", 124),
             ("minus", 27),
             ("plus", 24),
