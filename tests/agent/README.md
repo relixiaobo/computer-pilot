@@ -19,6 +19,37 @@ python3 tests/agent/benchmark_real_apps.py test-results/real-apps-NEW stop LABEL
 python3 tests/agent/benchmark_real_apps.py test-results/real-apps-NEW report
 ```
 
+For resource-based evaluation, freeze both budgets when preparing each cohort:
+
+```bash
+python3 tests/agent/benchmark_real_apps.py test-results/resource-NEW prepare \
+  --dataset varied --cu-only --repeats 2 --seed 20261102 \
+  --max-model-calls 100 --max-total-tokens 8000000
+python3 tests/agent/run_codex_comparison.py test-results/resource-NEW \
+  --base-profile /path/to/authenticated/profile
+```
+
+This protocol prioritizes exact saved results, then model rounds and token use.
+One round is one recorded model response ID, including discovery, recovery and
+the final response; tool calls and batched CLI actions are separate counters.
+These counters cover the participant, including its skill/API discovery;
+coordinator fixture preparation, independent audits and reporting are outside
+both arms.
+Input includes cached input, and output includes reasoning tokens: report these
+subsets separately without adding them again to total tokens. Uncached input is
+input minus cached input. Historical comparisons must use the same definitions
+and retain failed attempts; do not rank incomplete tasks as cheap successes.
+
+Resource cohorts have no task wall-time deadline. A coordinator checks completed
+usage records every second and interrupts at either budget. An in-flight response
+can overshoot the limit; report actual consumption without clamping. A completed
+task over its budget is also budget-exhausted, even with a correct artifact.
+Twenty minutes without a new event or rollout byte triggers an infrastructure
+watchdog, not a product accuracy failure. Service failures, watchdog stops and
+budget stops keep their recorded tokens and tool evidence; unreported in-flight
+usage is unknown, not zero. Wall time remains diagnostic. Legacy manifests retain
+their original wall-time protocol and are never silently rewritten.
+
 For a fresh cu-only accuracy check with different source content, prepare with
 `--cu-only --dataset alternate`. It freezes one attempt each for TextEdit, VS Code
 and Numbers; it does not rerun native or replace a failed attempt. The alternate

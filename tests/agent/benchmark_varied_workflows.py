@@ -196,16 +196,17 @@ def collect(root, label, rollout_dir, verify_result=verify):
     result = dict(meta, thread_id=tid, setup=[], runs=[], incomplete_turns=[])
     traces = []
     for turn in collect_turns(paths[0], meta['arm'], tid):
+        summarize(turn)
         if 'elapsed_ms' not in turn:
-            turn.pop('usage_records', None)
             traces.append(turn)
             if 'started_at' in turn:
                 result['incomplete_turns'].append(turn['turn_id'])
                 result.setdefault('interruptions', []).append({
-                    k: turn[k] for k in ('turn_id', 'started_at', 'aborted_at', 'interrupted_elapsed_ms')
+                    k: turn[k] for k in ('turn_id', 'started_at', 'aborted_at', 'interrupted_elapsed_ms',
+                                        'model', 'reasoning_effort', 'service_tier', 'model_calls',
+                                        'tokens', 'tool_calls', 'tool_errors')
                     if k in turn})
             continue
-        summarize(turn)
         if single_turn:
             turn['label'] = label
         traces.append(turn)
@@ -220,6 +221,17 @@ def collect(root, label, rollout_dir, verify_result=verify):
     result['setup_ms'] = sum(t['elapsed_ms'] for t in result['setup'])
     result['execution_ms'] = sum(t['elapsed_ms'] for t in result['runs'])
     result['combined_turn_ms'] = result['setup_ms'] + result['execution_ms']
+    result['consumption'] = dict(model_calls=sum(t['model_calls'] for t in traces),
+        tokens={key: sum(t['tokens'].get(key, 0) for t in traces)
+                for key in set().union(*(t['tokens'] for t in traces))},
+        tool_calls=sum(t['tool_calls'] for t in traces), tool_errors=sum(t['tool_errors'] for t in traces))
+    if (trial/'stop.json').exists():
+        result['termination'] = json.loads((trial/'stop.json').read_text())
+    if (trial/'events.jsonl').exists():
+        events = [json.loads(line) for line in (trial/'events.jsonl').read_text().splitlines()]
+        result['service_errors'] = [e.get('message', e.get('error', {}).get('message'))
+                                    for e in events if e['type'] in ('error', 'turn.failed')]
+        result['service_failed'] = any(e['type'] == 'turn.failed' for e in events)
     result['evidence_sha256'] = {
         name: hashlib.sha256((trial / name).read_bytes()).hexdigest()
         for name in ('brief.txt', 'source.json', 'saved.json', 'cu-env.sh', 'trace.json')
@@ -268,11 +280,13 @@ def report(root):
         if path.exists():
             row.update(json.loads(path.read_text()))
             reasons = []
-            turns = row['setup'] + row['runs']
-            if len(row['runs']) != 1 or bool(row['setup']) != (not single_turn):
+            resource_protocol = bool(manifest.get('budget'))
+            turns = row['setup'] + row['runs'] + (row.get('interruptions', []) if resource_protocol else [])
+            interrupted = resource_protocol and bool(row.get('incomplete_turns'))
+            if not interrupted and (len(row['runs']) != 1 or bool(row['setup']) != (not single_turn)):
                 reasons.append('Expected exactly one complete task turn' if single_turn
                                else 'Expected setup and exactly one completed GO turn')
-            if row.get('incomplete_turns'):
+            if row.get('incomplete_turns') and not resource_protocol:
                 reasons.append('Interrupted turns have no complete timing; tool evidence retained')
                 for interruption in row.get('interruptions', []):
                     if 'interrupted_elapsed_ms' in interruption:
@@ -291,6 +305,17 @@ def report(root):
                 row['status'] = 'excluded'
             elif audit.get('compliant') is not True:
                 row['status'] = 'unreviewed'
+            elif resource_protocol and (row.get('service_failed') or row.get('termination', {}).get('kind') == 'infrastructure_stall'):
+                row['status'] = 'infrastructure_failed'
+                row['reasons'] = row.get('service_errors') or ['No runner activity within the infrastructure watchdog']
+            elif resource_protocol and (row.get('termination', {}).get('kind') == 'budget_exhausted'
+                    or row.get('consumption', {}).get('model_calls', 0) > manifest['budget']['model_calls']
+                    or row.get('consumption', {}).get('tokens', {}).get('total_tokens', 0) > manifest['budget']['total_tokens']):
+                row['status'] = 'budget_exhausted'
+                row['reasons'] = ['Model-round or token budget exhausted; saved-artifact outcome retained separately']
+            elif interrupted:
+                row['status'] = 'infrastructure_failed'
+                row['reasons'] = ['Interrupted without a recorded resource-budget stop']
             else:
                 row['status'] = 'passed' if row['verification']['passed'] else 'failed'
                 if row['status'] == 'failed':
@@ -323,7 +348,7 @@ def report(root):
             samples = [r for r in rows if r['arm'] == arm]
             passed = [r for r in samples if r['status'] == 'passed']
             arms[arm] = dict(counts={s: sum(r['status'] == s for r in samples)
-                                    for s in ('passed', 'failed', 'excluded', 'unreviewed', 'pending')},
+                                    for s in ('passed', 'failed', 'budget_exhausted', 'infrastructure_failed', 'excluded', 'unreviewed', 'pending')},
                              success_medians_ms={k: statistics.median(r[k] for r in passed) if passed else None
                                                  for k in (('combined_turn_ms',) if single_turn else ('setup_ms', 'execution_ms', 'combined_turn_ms'))})
         groups.append(dict(mode=mode, arms=arms, successful_pairs=pairs,
@@ -335,6 +360,26 @@ def report(root):
     actual_order = list(dict.fromkeys(label for _, label in sorted(starts)))
     result = dict(manifest=manifest, actual_order=actual_order, attempts=attempts, groups=groups)
     (root / 'report.json').write_text(json.dumps(result, ensure_ascii=False, indent=2))
+    if manifest.get('budget'):
+        lines = ['# Model-round and token comparison', '',
+                 'Accuracy first. One model round is one recorded response ID, including discovery, recovery and final responses. '
+                 'Cached input is part of input; reasoning is part of output. Neither is added twice. '
+                 'Service failures and budget stops retain their consumed resources and independent artifact checks. '
+                 'Wall time and the legacy timing groups in JSON are diagnostics, not rankings.', '',
+                 '| Attempt | Status | Exact artifact | Model rounds | Input | Cached input | Output | Reasoning | Total | Tool calls |',
+                 '| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |']
+        for row in attempts:
+            usage = row.get('consumption', {})
+            tokens = usage.get('tokens', {})
+            values = [row['label'], row['status'], str(row.get('verification', {}).get('passed', '—')),
+                      usage.get('model_calls', '—')]
+            values.extend(tokens.get(key, '—') for key in
+                          ('input_tokens', 'cached_input_tokens', 'output_tokens', 'reasoning_output_tokens', 'total_tokens'))
+            values.append(usage.get('tool_calls', '—'))
+            lines.append('| ' + ' | '.join(map(str, values)) + ' |')
+        (root / 'report.md').write_text('\n'.join(lines) + '\n')
+        print('\n'.join(lines))
+        return
     lines = ['# Fresh-task comparison', '',
              'All planned attempts are retained. Ratios use only pairs where both tasks passed; below 1 favors cu.',
              'Failed durations are time to an unsuccessful outcome. Unreviewed results are not accepted.', '']

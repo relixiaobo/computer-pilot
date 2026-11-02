@@ -134,13 +134,15 @@ def fingerprints():
              ROOT/'tests/agent/tasks/finder_varied.json',
              ROOT/'tests/agent/benchmark_varied_workflows.py',
              ROOT/'tests/agent/collect_codex_benchmark.py',
+             ROOT/'tests/agent/run_codex_comparison.py',
              ROOT/'plugin/skills/computer-pilot/SKILL.md',
              ROOT/'plugin/skills/computer-pilot/scripts/session.sh']
     paths.extend(sorted((ROOT/'plugin/skills/computer-pilot/references').glob('*.md')))
     return {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
 
 
-def prepare(root, dataset='baseline', cu_only=False, repeats=1, seed=None):
+def prepare(root, dataset='baseline', cu_only=False, repeats=1, seed=None,
+            max_model_calls=None, max_total_tokens=None):
     root.mkdir(parents=True, exist_ok=False)
     sequence = []
     modes = (('finder',) if dataset == 'finder' else ('textedit',) if dataset == 'holdout'
@@ -171,6 +173,13 @@ def prepare(root, dataset='baseline', cu_only=False, repeats=1, seed=None):
         scope=('Cu-only retest; historical native runs are not repeated. ' if cu_only else 'Matched native/cu trials. ') + f'Dataset: {dataset}; {len(sequence)} planned attempts, no replacements. TextEdit/VS Code/Finder trials share user application processes with dedicated test windows; any Numbers trials start separately. Fresh model profiles/cwd and cu runtimes, cleared clipboard before every attempt. Finder and holdout tasks are UI-only; other datasets permit documented cu tell where their task allows scripting. Native uses actual App APIs. No direct file edits, terminal commands inside apps, automation scripts outside the assigned backend, or task-specific solver. Report routes separately; changed datasets are not paired speed comparisons.',
         wall_timeout_seconds=600,
         app_versions={mode:plistlib.loads((Path(APPS[mode][0])/'Contents/Info.plist').read_bytes()).get('CFBundleShortVersionString') for mode in dict.fromkeys(e['mode'] for e in sequence)})
+    if max_model_calls is not None or max_total_tokens is not None:
+        if not max_model_calls or max_model_calls < 1 or not max_total_tokens or max_total_tokens < 1:
+            raise ValueError('Both model-call and total-token budgets must be positive')
+        manifest.update(protocol_version=3, wall_timeout_seconds=None,
+                        budget=dict(model_calls=max_model_calls, total_tokens=max_total_tokens),
+                        inactivity_timeout_seconds=1200,
+                        primary_metrics=['saved_artifact_accuracy', 'model_calls', 'tokens'])
     (root/'manifest.json').write_text(json.dumps(manifest, indent=2))
     print(json.dumps(manifest))
 
@@ -305,6 +314,12 @@ Initialize and complete this workflow in ONE timed turn, including skill/API dis
         brief+=f'''Your backend is the existing shell plus {CU}, guided by {ROOT/'plugin/skills/computer-pilot/SKILL.md'}. Initialize the skill's task config with CU_APP=pid:{pid}, COMPUTER_PILOT_CLIENT_KEY={label}, COMPUTER_PILOT_HOME={runtime}, COMPUTER_PILOT_OUTPUT_DIR={trial/'output'}. Binary/permissions are verified. {route} Report which route you used in the final response.'''
     else:
         brief+=f'''Your backend is only the actual mcp__cua_repl native App APIs. Bind {path} with cua.getApp and read its documentation. This explicitly authorizes that backend for this comparison. Use the supplied test document/window only. Do not use cu, shell automation, AppleScript, browser/DOM APIs or another backend. Report which route you used in the final response.'''
+    if budget := manifest.get('budget'):
+        brief = brief.replace('ONE timed turn', 'ONE task turn')
+        brief += (f"\nEvaluation prioritizes correct saved results, then model rounds and token consumption, not elapsed time. "
+                  f"Your budget is {budget['model_calls']} model responses and {budget['total_tokens']} cumulative total tokens "
+                  "(input including cached input, plus output including reasoning). Tool calls within a response are not separate model rounds. "
+                  "Discovery and recovery count toward the budget. There is no task wall-time deadline.")
     (trial/'brief.txt').write_text(brief)
     if mode == 'numbers':
         # Even with -F, iWork can restore saved or untitled documents. Refuse contaminated setup before any model runs.
@@ -496,6 +511,11 @@ def report(root):
         attempt['timeline'] = timeline_metrics(trial)
     result['accuracy'] = accuracy_summary(result['attempts'])
     path.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
+    if result['manifest'].get('budget'):
+        (root/'evidence.md').write_text((root/'report.md').read_text() +
+            '\nPassive save transitions and post-save calls remain in report.json; they do not coach or stop the participant.\n')
+        print(json.dumps(result['accuracy']))
+        return
     lines = [
         '# Varied application execution evidence',
         '',
@@ -529,9 +549,12 @@ def main():
     p.add_argument('--cu-only',action='store_true')
     p.add_argument('--repeats',type=int,default=1)
     p.add_argument('--seed',type=int)
+    p.add_argument('--max-model-calls',type=int)
+    p.add_argument('--max-total-tokens',type=int)
     args=p.parse_args();root=args.root.resolve()
     if args.repeats < 1:p.error('--repeats must be positive')
-    if args.action=='prepare':prepare(root,args.dataset,args.cu_only,args.repeats,args.seed)
+    if args.action=='prepare':prepare(root,args.dataset,args.cu_only,args.repeats,args.seed,
+                                      args.max_model_calls,args.max_total_tokens)
     elif args.action=='start':start(root,args.label)
     elif args.action=='collect':
         capture_saved(root,args.label);shared.collect(root,args.label,args.rollouts,verify)

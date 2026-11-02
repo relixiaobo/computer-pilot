@@ -57,6 +57,27 @@ class ProtocolTests(unittest.TestCase):
         self.assertEqual(len(report['attempts']), 4)
         self.assertEqual(report['attempts'][2]['execution_ms'], 10)
 
+    def test_resource_stops_and_service_failures_keep_distinct_results_and_costs(self):
+        self.write(self.root / 'manifest.json', dict(sequence=self.sequence, settings=self.settings,
+                   single_turn=True, budget=dict(model_calls=100, total_tokens=8000000)))
+        usage = dict(model_calls=100, tokens=dict(input_tokens=1000, cached_input_tokens=900,
+                     output_tokens=200, reasoning_output_tokens=150, total_tokens=1200), tool_calls=80)
+        self.sample('triage-1-cu', setup=[], runs=[], incomplete_turns=['turn'],
+                    interruptions=[dict(self.settings, turn_id='turn', interrupted_elapsed_ms=50000)],
+                    termination=dict(kind='budget_exhausted'), consumption=usage)
+        self.sample('triage-1-native', setup=[], service_failed=True,
+                    service_errors=['429 Too Many Requests'], consumption=dict(usage, model_calls=3))
+        result = self.report()
+        self.assertEqual([r['status'] for r in result['attempts'][:2]],
+                         ['budget_exhausted', 'infrastructure_failed'])
+        self.assertTrue(result['attempts'][0]['verification']['passed'])
+        self.assertEqual(result['attempts'][0]['consumption']['tokens']['total_tokens'], 1200)
+        self.assertEqual(result['groups'][0]['successful_pairs'], [])
+        markdown = (self.root / 'report.md').read_text()
+        self.assertIn('Model rounds', markdown)
+        self.assertIn('Cached input', markdown)
+        self.assertNotIn('median paired', markdown)
+
     def test_missing_audit_and_unrun_trials_cannot_enter_comparison(self):
         self.sample('triage-1-cu', audited=False)
         self.sample('triage-1-native')

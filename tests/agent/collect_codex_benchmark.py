@@ -15,6 +15,34 @@ from pathlib import Path
 from benchmark_long_workflow import verify_saved
 
 
+def usage_summary(records):
+    """One response ID is one model round; reasoning is a subset of output."""
+    tokens = dict(sum((collections.Counter(u) for u in records.values()), collections.Counter()))
+    return dict(model_calls=len(records), tokens=tokens)
+
+
+class UsageReader:
+    """Read completed usage records incrementally, including interrupted tasks."""
+    def __init__(self, path):
+        self.path, self.offset, self.records = path, 0, {}
+        self.completed = False
+
+    def read(self):
+        with self.path.open('rb') as stream:
+            stream.seek(self.offset)
+            while line := stream.readline():
+                if not line.endswith(b'\n'):
+                    break
+                event = json.loads(line)
+                if event['type'] == 'token_usage_record':
+                    payload = event['payload']
+                    self.records[payload['response_id']] = payload['usage']
+                elif event['type'] == 'event_msg' and event['payload'].get('type') == 'task_complete':
+                    self.completed = True
+                self.offset = stream.tell()
+        return usage_summary(self.records)
+
+
 def collect_turns(path, arm, thread_id):
     turns = {}
     for line in path.read_text().splitlines():
@@ -67,22 +95,19 @@ def collect_turns(path, arm, thread_id):
 
 
 def summarize(turn):
-    usage = turn.pop('usage_records')
-    turn['model_calls'] = len(usage)
-    turn['tokens'] = dict(sum((collections.Counter(u) for u in usage.values()),
-                             collections.Counter()))
+    turn.update(usage_summary(turn.pop('usage_records')))
     turn['tool_calls'] = len(turn['tools'])
     turn['tool_output_chars'] = sum(
-        len(tool['output']) if isinstance(tool['output'], str)
+        len(tool.get('output', '')) if isinstance(tool.get('output', ''), str)
         else sum(len(block.get('text', '')) for block in tool['output'].get('content', []))
         for tool in turn['tools'])
     turn['tool_errors'] = sum(
-        tool['exit_code'] not in (None, 0) or tool['status'] == 'failed'
-        or (isinstance(tool['output'], dict) and tool['output'].get('isError', False))
+        tool.get('exit_code') not in (None, 0) or tool.get('status') == 'failed'
+        or (isinstance(tool.get('output'), dict) and tool['output'].get('isError', False))
         for tool in turn['tools'])
     # Union overlapping intervals; residual includes model, network and orchestration.
     intervals = sorted((tool['start_ms'], tool['end_ms']) for tool in turn['tools']
-                       if tool['start_ms'] is not None and tool['end_ms'] is not None)
+                       if tool.get('start_ms') is not None and tool.get('end_ms') is not None)
     merged = []
     for start, end in intervals:
         if merged and start <= merged[-1][1]:
@@ -90,7 +115,8 @@ def summarize(turn):
         else:
             merged.append([start, end])
     turn['tool_interval_ms'] = sum(end - start for start, end in merged)
-    turn['non_tool_interval_ms'] = turn['elapsed_ms'] - turn['tool_interval_ms']
+    elapsed = turn.get('elapsed_ms', turn.get('interrupted_elapsed_ms'))
+    turn['non_tool_interval_ms'] = elapsed - turn['tool_interval_ms'] if elapsed is not None else None
 
 
 def main():
