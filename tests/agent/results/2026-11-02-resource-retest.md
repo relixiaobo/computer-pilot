@@ -4,6 +4,8 @@ Six cases, two fresh agent attempts each. One pre-model setup failure is recorde
 
 Primary measures are correctness, model rounds and token consumption. Each attempt receives 100 model responses and 8 million cumulative tokens. The 600-second task cutoff is removed. Elapsed time is diagnostic only.
 
+New real-app cohorts now use these budgets by default. This preparation cleanup happened after collection; measured runtime, product and skill behavior were unchanged. The [exact measured harness](https://github.com/relixiaobo/computer-pilot/commit/2c3c0baa6ee938a539b6807a94fd419dea42df35) is retained in Git.
+
 | Attempt | Result | Exact | Rounds | Total tokens | Uncached input | Cached input | Output | Reasoning | Tool calls |
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | finder-organize-r2-cu | failed | no | 94 | 7284117 | 608468 | 6663168 | 12481 | 6724 | 88 |
@@ -74,6 +76,6 @@ Protocol and interpretation:
 
 Recommended follow-up: diagnose committed application effects separately from AX/display writes; preserve target/focus guarantees; reduce repeated no-effect recovery and unsupported route switching. Validate general behavior across apps instead of adding task-specific solvers.
 
-Verification: 36 benchmark/protocol tests passed, covering partial/duplicate usage records, both budgets, final responses at the cap, no 600-second cutoff, inactivity classification, interrupted usage and report status. Live runs retain model/context audits, exact file checks and cleanup evidence.
+Verification: 36 benchmark/protocol tests passed, covering partial/duplicate usage records, both budgets, final responses at the cap, no 600-second cutoff, inactivity classification, interrupted usage and report status. Live runs retain model/context audits, exact file checks and cleanup evidence. After the preparation-default cleanup, the 18 real-app tests passed again; CLI probes verified defaults and a single-budget override without launching apps or models. Unaffected protocol/resource test results remain applicable.
 
 [Machine-readable results](2026-11-02-resource-retest.json) include all resource counters, limits, dispositions and evidence hashes. [The earlier wall-limited cohort](2026-11-02-skill-long-retest.md) remains unchanged.

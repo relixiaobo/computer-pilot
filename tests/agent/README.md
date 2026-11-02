@@ -19,7 +19,9 @@ python3 tests/agent/benchmark_real_apps.py test-results/real-apps-NEW stop LABEL
 python3 tests/agent/benchmark_real_apps.py test-results/real-apps-NEW report
 ```
 
-For resource-based evaluation, freeze both budgets when preparing each cohort:
+New cohorts default to **100 model responses and 8,000,000 total tokens** per
+attempt, with no task wall-time deadline. Override either budget at preparation;
+the manifest freezes the resulting values:
 
 ```bash
 python3 tests/agent/benchmark_real_apps.py test-results/resource-NEW prepare \
@@ -90,17 +92,18 @@ Audit `claimed_complete` as a boolean alongside `compliant` after reading each
 final response and trace. The report counts saved-artifact successes over all
 planned attempts, and false completion claims over audited, compliant completed
 attempts that claimed success; it reports claim-audit coverage separately.
-Missing claim audits never count as honest reports. Per-app timing medians still
-include successful attempts only. Numbers evaluation also changes quantity and
+Missing claim audits never count as honest reports. Legacy per-app timing medians
+remain diagnostics and include successful attempts only. Numbers evaluation also changes quantity and
 price in the reopened document, checks recalculated totals, then closes without
 saving; constant formulas cannot satisfy the calculation requirement.
 
-The manifest freezes six attempts, one matching dataset per application, with
+The default dataset freezes six attempts, one matching dataset per application, with
 alternating arm order, gpt-6-astra/high, no tier override, application versions
 and binary/skill/coordinator hashes. The same fresh-profile procedure used below
 removes global/project AGENTS and previous model history. Each full task turn
 includes skill/API discovery and setup. App launch, coordinator checks and cleanup
-are outside the timer; the runner enforces the predeclared 600-second wall limit.
+are outside participant counters; the runner enforces the predeclared response
+and token budgets. Existing wall-limited manifests retain their original limits.
 All failures, interruptions, protocol deviations and recovery costs are retained;
 no individual attempt is replaced.
 

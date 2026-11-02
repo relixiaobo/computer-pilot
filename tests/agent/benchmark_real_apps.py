@@ -18,6 +18,8 @@ import benchmark_varied_workflows as shared
 
 ROOT = shared.ROOT
 CU = shared.CU
+DEFAULT_MODEL_CALLS = 100
+DEFAULT_TOTAL_TOKENS = 8_000_000
 APPS = {
     'textedit': ('/System/Applications/TextEdit.app', 'TextEdit'),
     'vscode': ('/Applications/Visual Studio Code.app', 'Code'),
@@ -142,7 +144,9 @@ def fingerprints():
 
 
 def prepare(root, dataset='baseline', cu_only=False, repeats=1, seed=None,
-            max_model_calls=None, max_total_tokens=None):
+            max_model_calls=DEFAULT_MODEL_CALLS, max_total_tokens=DEFAULT_TOTAL_TOKENS):
+    if max_model_calls < 1 or max_total_tokens < 1:
+        raise ValueError('Both model-call and total-token budgets must be positive')
     root.mkdir(parents=True, exist_ok=False)
     sequence = []
     modes = (('finder',) if dataset == 'finder' else ('textedit',) if dataset == 'holdout'
@@ -166,20 +170,16 @@ def prepare(root, dataset='baseline', cu_only=False, repeats=1, seed=None,
                     for arm in (('cu',) if cu_only else ('native', 'cu') if index % 2 else ('cu', 'native'))]
     if seed is not None:
         random.Random(seed).shuffle(sequence)
-    manifest = dict(protocol_version=2, single_turn=True, sequence=sequence, dataset=dataset,
+    manifest = dict(protocol_version=3, single_turn=True, sequence=sequence, dataset=dataset,
         repeats=repeats, order_seed=seed,
         settings=dict(model='gpt-6-astra', reasoning_effort='high', service_tier=None),
         fingerprints=fingerprints(), cu_commit=subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip(),
         scope=('Cu-only retest; historical native runs are not repeated. ' if cu_only else 'Matched native/cu trials. ') + f'Dataset: {dataset}; {len(sequence)} planned attempts, no replacements. TextEdit/VS Code/Finder trials share user application processes with dedicated test windows; any Numbers trials start separately. Fresh model profiles/cwd and cu runtimes, cleared clipboard before every attempt. Finder and holdout tasks are UI-only; other datasets permit documented cu tell where their task allows scripting. Native uses actual App APIs. No direct file edits, terminal commands inside apps, automation scripts outside the assigned backend, or task-specific solver. Report routes separately; changed datasets are not paired speed comparisons.',
-        wall_timeout_seconds=600,
+        wall_timeout_seconds=None,
+        budget=dict(model_calls=max_model_calls, total_tokens=max_total_tokens),
+        inactivity_timeout_seconds=1200,
+        primary_metrics=['saved_artifact_accuracy', 'model_calls', 'tokens'],
         app_versions={mode:plistlib.loads((Path(APPS[mode][0])/'Contents/Info.plist').read_bytes()).get('CFBundleShortVersionString') for mode in dict.fromkeys(e['mode'] for e in sequence)})
-    if max_model_calls is not None or max_total_tokens is not None:
-        if not max_model_calls or max_model_calls < 1 or not max_total_tokens or max_total_tokens < 1:
-            raise ValueError('Both model-call and total-token budgets must be positive')
-        manifest.update(protocol_version=3, wall_timeout_seconds=None,
-                        budget=dict(model_calls=max_model_calls, total_tokens=max_total_tokens),
-                        inactivity_timeout_seconds=1200,
-                        primary_metrics=['saved_artifact_accuracy', 'model_calls', 'tokens'])
     (root/'manifest.json').write_text(json.dumps(manifest, indent=2))
     print(json.dumps(manifest))
 
@@ -549,8 +549,10 @@ def main():
     p.add_argument('--cu-only',action='store_true')
     p.add_argument('--repeats',type=int,default=1)
     p.add_argument('--seed',type=int)
-    p.add_argument('--max-model-calls',type=int)
-    p.add_argument('--max-total-tokens',type=int)
+    p.add_argument('--max-model-calls',type=int,default=DEFAULT_MODEL_CALLS,
+                   help='Model-response budget per attempt (default: %(default)s)')
+    p.add_argument('--max-total-tokens',type=int,default=DEFAULT_TOTAL_TOKENS,
+                   help='Cumulative token budget per attempt (default: %(default)s)')
     args=p.parse_args();root=args.root.resolve()
     if args.repeats < 1:p.error('--repeats must be positive')
     if args.action=='prepare':prepare(root,args.dataset,args.cu_only,args.repeats,args.seed,

@@ -1595,5 +1595,8 @@
     "Markdown-r2 passed in 10 rounds / 329,123 tokens with no tool or service errors. It used grouped local Find/keyboard edits and preserved exact bytes without a whole-document rewrite. The other current Markdown success used 37 rounds / 2,064,772 tokens with the same frozen product/skill. This shows a workable low-round path and substantial run-to-run variability, not a causal speed improvement.",
     "Finder organize-r1 grew from 17,747 input tokens on its first response to 118,407 on its final response. Its 4,805,720 total tokens include 4,509,696 cached input tokens and 8,053 output tokens. Repeated recovery increases both decision count and accumulated context; total tokens are not newly generated reasoning or a uniform cost measure.",
     "A shorter elapsed duration can hide expensive recovery, while a slow model response can make a low-round task look inefficient. The new tables expose these as separate quantities without calling all residual wall time model reasoning."
-  ]
+  ],
+  "tested_harness_commit": "2c3c0baa6ee938a539b6807a94fd419dea42df35",
+  "post_cohort_change": "New real-app cohort preparation now defaults to the same 100-response / 8,000,000-token budget already explicit in every measured manifest. Runtime budget enforcement and product/skill behavior did not change. The exact measured harness source is retained at tested_harness_commit.",
+  "post_cohort_validation": "18 real-app tests passed again after the preparation-default change; CLI default and single-budget override probes passed without launching apps or models. The 12 protocol and 6 resource-runner test results remain applicable."
 }

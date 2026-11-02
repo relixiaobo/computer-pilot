@@ -51,7 +51,7 @@ $.NSData.alloc.initWithBase64EncodedStringOptions($('AP8BQkM='),0),$(t)));''')
         finally:
             isolated(prefix + 'p.releaseGlobally;')
 
-    def test_prepared_repetitions_keep_complete_pairs_and_reproducible_order(self):
+    def test_prepared_repetitions_keep_pairs_order_and_default_resource_budgets(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             app = root / 'App'
@@ -62,6 +62,10 @@ $.NSData.alloc.initWithBase64EncodedStringOptions($('AP8BQkM='),0),$(t)));''')
                 bench.prepare(root / 'b', 'holdout', repeats=3, seed=42)
             a = json.loads((root / 'a/manifest.json').read_text())
             b = json.loads((root / 'b/manifest.json').read_text())
+            self.assertEqual(a['protocol_version'], 3)
+            self.assertEqual(a['budget'], {'model_calls': 100, 'total_tokens': 8_000_000})
+            self.assertIsNone(a['wall_timeout_seconds'])
+            self.assertEqual(a['primary_metrics'], ['saved_artifact_accuracy', 'model_calls', 'tokens'])
             self.assertEqual(a['sequence'], b['sequence'])
             self.assertEqual(len({row['label'] for row in a['sequence']}), 6)
             for repeat in (1, 2, 3):
