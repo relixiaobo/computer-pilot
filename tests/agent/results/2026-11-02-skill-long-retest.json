@@ -1,0 +1,1040 @@
+{
+  "date": "2026-11-02",
+  "tested_commit": "a1d41921bb0736238e662ec00eaaf66fc321d067",
+  "settings": {
+    "model": "gpt-6-astra",
+    "reasoning_effort": "high",
+    "service_tier": null
+  },
+  "summary": {
+    "planned_model_attempts": 12,
+    "model_attempts": 12,
+    "setup_failures": 1,
+    "exact_saved_artifacts": 3,
+    "completed_with_exact_artifacts": 2,
+    "timeouts": 7,
+    "infrastructure_failures": 1,
+    "service_affected_attempts": 5,
+    "completion_claims": 2,
+    "false_completion_claims": 0,
+    "total_recorded_turn_ms": 5610758,
+    "total_tool_interval_ms": 92293
+  },
+  "limitations": [
+    "Fresh model profiles, threads, neutral working directories, fixtures, CU runtimes and clipboard isolation; project documents and memories disabled. Runtime audits confirmed no AGENTS.md injection. Finder/TextEdit/VS Code processes and the macOS desktop were shared, not isolated OS sessions.",
+    "Foreground changes were observed, including focus_failed with another application frontmost. TextEdit Find state persisted across shared-app documents. These are shared-session execution results, not a controlled estimate of a skill-only or backend-only speed change.",
+    "One JSON attempt encountered model-server overload and exhausted retries with HTTP 429 before editing. It remains in the planned-attempt record but is an infrastructure failure, not evidence of a product accuracy defect. Finder organize-r1 and Markdown-r1 also logged stream reconnection errors; multi-r1 logged a reconnection and overload. Markdown-r2 hit an account concurrency limit after its exact save, then recovered and completed. Rows preserve all service error messages. These timing confounds prevent a pure product-speed conclusion.",
+    "Same gpt-6-astra/high/null service-tier settings as historical controls. Native Computer Use was not rerun. All historical rows, including both Markdown rounds, are retained; they are non-contemporaneous references, not new paired measurements.",
+    "Each model attempt had a 600-second CLI wall timeout. Reported time is the completed or interrupted model task turn, including skill discovery, but not CLI startup before task_started. Timeouts remain unsuccessful deadline completions even if saved artifacts are exact; artifact accuracy is also reported independently.",
+    "Interrupted turns have combined_turn_ms=0 in the existing raw collector. This report reconstructs metrics from the original rollout using interrupted_elapsed_ms, never treats those zeros as measured duration, and retains completed tool/usage records. In-flight work may not be represented in token/tool counters.",
+    "Tool intervals are the union of recorded tool executions. Residual time includes model, network and orchestration, not pure inference. Backend invocation estimates may count unexecuted lines in failed shell batches.",
+    "The first Finder organize timeout was retained. A later Finder rename setup failed before model launch because a legacy clipboard type was unreadable through NSPasteboardItem; it did not clear the clipboard. Only coordinator clipboard IO changed. Successor manifests preserved the original remaining order, product/skill fingerprints and failed evidence; no failed model attempt was replaced.",
+    "No coaching or product/skill changes during the cohort. Raw rollouts, UI output, clipboard backups and credentials remain private. Cleanup closed only dedicated test windows; clipboard restore skipped user-modified contents where appropriate."
+  ],
+  "cohorts": [
+    {
+      "id": "cu-skill-long-20261102-101811-finder",
+      "dataset": "finder",
+      "planned_order": [
+        "finder-organize-r2-cu",
+        "finder-rename-r2-cu",
+        "finder-rename-r1-cu",
+        "finder-organize-r1-cu"
+      ],
+      "coordinator_sha256": "7a94568ca0459500cebef88f8b9938cb086e39d2b63cff64b606d4f06263212c",
+      "supersedes": null
+    },
+    {
+      "id": "cu-skill-long-20261102-101811-holdout",
+      "dataset": "holdout",
+      "planned_order": [
+        "textedit-2-cu",
+        "textedit-1-cu"
+      ],
+      "coordinator_sha256": "7a94568ca0459500cebef88f8b9938cb086e39d2b63cff64b606d4f06263212c",
+      "supersedes": null
+    },
+    {
+      "id": "cu-skill-long-20261102-101811-varied",
+      "dataset": "varied",
+      "planned_order": [
+        "vscode-markdown-r1-cu",
+        "vscode-multi-r2-cu",
+        "vscode-multi-r1-cu",
+        "vscode-json-r2-cu",
+        "vscode-json-r1-cu",
+        "vscode-markdown-r2-cu"
+      ],
+      "coordinator_sha256": "7a94568ca0459500cebef88f8b9938cb086e39d2b63cff64b606d4f06263212c",
+      "supersedes": null
+    },
+    {
+      "id": "cu-skill-long-20261102-101811-finder-clipboard-fix",
+      "dataset": "finder",
+      "planned_order": [
+        "finder-rename-r2-cu",
+        "finder-rename-r1-cu",
+        "finder-organize-r1-cu"
+      ],
+      "coordinator_sha256": "1a146b1f4ccbe0e523ecd9037bf24541a77d7f910c287d960a84d119535f3450",
+      "supersedes": "cu-skill-long-20261102-101811-finder"
+    },
+    {
+      "id": "cu-skill-long-20261102-101811-holdout-clipboard-fix",
+      "dataset": "holdout",
+      "planned_order": [
+        "textedit-2-cu",
+        "textedit-1-cu"
+      ],
+      "coordinator_sha256": "1a146b1f4ccbe0e523ecd9037bf24541a77d7f910c287d960a84d119535f3450",
+      "supersedes": "cu-skill-long-20261102-101811-holdout"
+    },
+    {
+      "id": "cu-skill-long-20261102-101811-varied-clipboard-fix",
+      "dataset": "varied",
+      "planned_order": [
+        "vscode-markdown-r1-cu",
+        "vscode-multi-r2-cu",
+        "vscode-multi-r1-cu",
+        "vscode-json-r2-cu",
+        "vscode-json-r1-cu",
+        "vscode-markdown-r2-cu"
+      ],
+      "coordinator_sha256": "1a146b1f4ccbe0e523ecd9037bf24541a77d7f910c287d960a84d119535f3450",
+      "supersedes": "cu-skill-long-20261102-101811-varied"
+    }
+  ],
+  "tested_fingerprints": {
+    "target/release/cu": "eb35e54861a7cf3c7a172ef11eb8d939be751cfbb1c7f7a51c57a0016599470f",
+    "tests/agent/benchmark_real_apps.py": "7a94568ca0459500cebef88f8b9938cb086e39d2b63cff64b606d4f06263212c",
+    "tests/agent/tasks/real_apps_scoped.json": "e58043300c6abd26fda75728fc7a599ec5ed535c6a5c121106c35e1db93b03e6",
+    "tests/agent/tasks/textedit_holdout.json": "ee4e80e33e5520a863d756cf0458e5c5bf4ddacf99a088172322297ad2b1f366",
+    "tests/agent/tasks/editor_completion.json": "2f32e8733b32e4c7b639b4fcecf02f4bc8b22b2584645c337faf2d3046007e48",
+    "tests/agent/tasks/editor_varied.json": "f22f494cf2a43e61f1ad93f62fda738bff1109a307daa4c33e71f706ddd6493e",
+    "tests/agent/tasks/finder_varied.json": "9d3047bd2e34b8cfbd09b4c01e98bc781316aa67ce6a6754d79f774d2d79eaf2",
+    "tests/agent/benchmark_varied_workflows.py": "93ea20af94fe840c52187f07816995a3a23e8222b93a1a6fc37402005f72b5cc",
+    "tests/agent/collect_codex_benchmark.py": "a35fba949ee73222e5e83eaeb35807ce8b7bfc43727c4db9fae4fa0f692f3d79",
+    "plugin/skills/computer-pilot/SKILL.md": "97f59fa00d5a03247dbabe4999ca87029609a0ac4f65bb1bb1970abfe4eacf0e",
+    "plugin/skills/computer-pilot/scripts/session.sh": "55f72b0721478a01fb2c3147d382725953e541e79ffe3f8ee541e14652eb163a",
+    "plugin/skills/computer-pilot/references/commands.md": "3b119d60e7c0f1a56f4cafb804f23a62131f8eb5a4cad26dcb282f5fa5aa2cd8",
+    "plugin/skills/computer-pilot/references/embedding.md": "336642ed1e10acb21a706004753f8c95204252e185ab989d9fd0e094199386a9",
+    "plugin/skills/computer-pilot/references/permissions.md": "5cacdbb92186d5445acc7fa0548d4046dc7d64465fa24bd729c219f6c428eea7",
+    "plugin/skills/computer-pilot/references/recovery.md": "02c06fbc415c3819a67c5bc7580081eccf62ce6c466852374d0a4ad704cf6dcb",
+    "plugin/skills/computer-pilot/references/scripting.md": "85e070fa19cdfd31564d68421c209f69f14a992e119d95731a857c554b94b14c",
+    "plugin/skills/computer-pilot/references/visual.md": "2ad1bd40713f4eebefc37bfd332ed16a5d74bfd98d0ed5e1faf5b06fda7de79d"
+  },
+  "patched_coordinator_sha256": "1a146b1f4ccbe0e523ecd9037bf24541a77d7f910c287d960a84d119535f3450",
+  "attempts": [
+    {
+      "label": "finder-organize-r2-cu",
+      "mode": "finder",
+      "arm": "cu",
+      "repeat": 3,
+      "scenario": "organize",
+      "cohort": "cu-skill-long-20261102-101811-finder",
+      "service_events": [],
+      "passed": false,
+      "artifact_exact": false,
+      "status": "timeout",
+      "claimed_complete": false,
+      "audit": {
+        "compliant": true,
+        "claimed_complete": false,
+        "route": "AX + PID keyboard/mouse + OCR",
+        "note": "Timed out at the original 600-second limit. Used only the assigned CLI and packaged references; no project documents, direct artifact access, scripting, or other backend. Three stale-ref rejections while an Action menu disappeared; later foregrounding and navigation proceeded, but file selection/move/rename remained unfinished. Screenshot paths were requested without a recorded image-view call. All failures are retained.",
+        "limitations": [
+          "Shared Finder process and desktop",
+          "Interrupted turn: use interrupted_elapsed_ms, not combined_turn_ms=0"
+        ]
+      },
+      "elapsed_kind": "interrupted_turn",
+      "checks": {
+        "Incoming/beta.txt_exact": true,
+        "Incoming/notes.txt_exact": true,
+        "Ready/alpha.txt_exact": false,
+        "Ready/archive-approved.txt_exact": false,
+        "file_set_exact": false
+      },
+      "no_agents_injected": true,
+      "task_window_closed": true,
+      "clipboard_restore": "skipped_changed",
+      "backend_calls_estimate": 34,
+      "help_calls": 2,
+      "timeline": {
+        "save_observation_count": 2,
+        "first_exact_index": null,
+        "post_save_tool_calls": null,
+        "post_save_tool_errors": null
+      },
+      "evidence_sha256": {
+        "brief.txt": "4c543dfc7f5d9c92729a747cee230ceaa1c9ce05de2e8df55713ee6cc5b57144",
+        "source.json": "75b0ae9cc605acaf532a4883e55cf3982f6b849ed14994525257e2dbbe0a36bd",
+        "saved.json": "ab424b6509350c6c88e73f3cd4d945775ad3fa46f0f3ddf40776b399d696c292",
+        "trace.json": "12e70b563af35f6a1ffcd0de781e67b7f611f46714767d62895cbee6612f9814"
+      },
+      "first_exact_elapsed_ms": null,
+      "elapsed_ms": 599664,
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null,
+      "model_calls": 33,
+      "tool_calls": 31,
+      "tool_errors": 3,
+      "tool_interval_ms": 16131,
+      "non_tool_interval_ms": 583533,
+      "tool_output_chars": 162480,
+      "tokens": {
+        "input_tokens": 1380053,
+        "cached_input_tokens": 1224832,
+        "output_tokens": 4361,
+        "reasoning_output_tokens": 2473,
+        "total_tokens": 1384414
+      }
+    },
+    {
+      "label": "finder-rename-r2-cu",
+      "mode": "finder",
+      "arm": "cu",
+      "repeat": 4,
+      "scenario": "rename",
+      "cohort": "cu-skill-long-20261102-101811-finder-clipboard-fix",
+      "service_events": [],
+      "passed": false,
+      "artifact_exact": false,
+      "status": "failed",
+      "claimed_complete": false,
+      "audit": {
+        "compliant": true,
+        "claimed_complete": false,
+        "note": "Computer Pilot UI only; target Finder window observed. Repeated PID double-click and keyboard/AX activation did not open ToReview; agent reported blocked. --allow-global was passed twice but returned method remained double-click-pid. No alternate backend or direct fixture access. Exact oracle failed."
+      },
+      "elapsed_kind": "completed_turn",
+      "checks": {
+        "ToReview/alpha-note-reviewed.txt_exact": false,
+        "ToReview/beta-note-reviewed.txt_exact": false,
+        "ToReview/gamma.txt_exact": true,
+        "ToReview/keep.txt_exact": true,
+        "file_set_exact": false
+      },
+      "no_agents_injected": true,
+      "task_window_closed": true,
+      "clipboard_restore": "restored",
+      "backend_calls_estimate": 16,
+      "help_calls": 2,
+      "timeline": {
+        "save_observation_count": 2,
+        "first_exact_index": null,
+        "post_save_tool_calls": null,
+        "post_save_tool_errors": null
+      },
+      "evidence_sha256": {
+        "brief.txt": "686581f91ede9af65fb3c5210703aa2ebf8aa0a3ff1a245a95bec7cacf89257f",
+        "source.json": "6d21e98a2020742f4d950a8e2dfa29823b534badaf97cb3a98a8c4a0842531bf",
+        "saved.json": "9969a667472b4330aa94c0e526f86aa93bf56ec6f6febd93a899e0c7831e9e24",
+        "trace.json": "8ead509dce7f16db4c1eeabfad63288d8567a664243218cb9472948f0ea5c864"
+      },
+      "first_exact_elapsed_ms": null,
+      "elapsed_ms": 107444,
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null,
+      "model_calls": 15,
+      "tool_calls": 14,
+      "tool_errors": 0,
+      "tool_interval_ms": 5816,
+      "non_tool_interval_ms": 101628,
+      "tool_output_chars": 63907,
+      "tokens": {
+        "input_tokens": 454160,
+        "cached_input_tokens": 416000,
+        "output_tokens": 1028,
+        "total_tokens": 455188,
+        "reasoning_output_tokens": 149
+      }
+    },
+    {
+      "label": "finder-rename-r1-cu",
+      "mode": "finder",
+      "arm": "cu",
+      "repeat": 2,
+      "scenario": "rename",
+      "cohort": "cu-skill-long-20261102-101811-finder-clipboard-fix",
+      "service_events": [],
+      "passed": false,
+      "artifact_exact": false,
+      "status": "failed",
+      "claimed_complete": false,
+      "audit": {
+        "compliant": true,
+        "claimed_complete": false,
+        "note": "Computer Pilot UI only. Repeated AX/PID/OCR folder activation had no effect; final window focus failed with another application frontmost. Agent observed once then stopped without further input or completion claim. Shared desktop foreground interference; retain as failed outcome, not a controlled performance regression."
+      },
+      "elapsed_kind": "completed_turn",
+      "checks": {
+        "ToReview/alpha-note-reviewed.txt_exact": false,
+        "ToReview/beta-note-reviewed.txt_exact": false,
+        "ToReview/gamma.txt_exact": true,
+        "ToReview/keep.txt_exact": true,
+        "file_set_exact": false
+      },
+      "no_agents_injected": true,
+      "task_window_closed": true,
+      "clipboard_restore": "skipped_changed",
+      "backend_calls_estimate": 16,
+      "help_calls": 2,
+      "timeline": {
+        "save_observation_count": 2,
+        "first_exact_index": null,
+        "post_save_tool_calls": null,
+        "post_save_tool_errors": null
+      },
+      "evidence_sha256": {
+        "brief.txt": "3db0c136ccdd864d21106b2586a5898a2d6dd4184770ff7085406e69b79d24e0",
+        "source.json": "6d21e98a2020742f4d950a8e2dfa29823b534badaf97cb3a98a8c4a0842531bf",
+        "saved.json": "9969a667472b4330aa94c0e526f86aa93bf56ec6f6febd93a899e0c7831e9e24",
+        "trace.json": "b53b8295e8012b0cc9e35b2d84eaaf42ea4ce905b155c27500275b7061ef4a1d"
+      },
+      "first_exact_elapsed_ms": null,
+      "elapsed_ms": 142233,
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null,
+      "model_calls": 14,
+      "tool_calls": 13,
+      "tool_errors": 1,
+      "tool_interval_ms": 8850,
+      "non_tool_interval_ms": 133383,
+      "tool_output_chars": 58986,
+      "tokens": {
+        "input_tokens": 451359,
+        "cached_input_tokens": 378624,
+        "output_tokens": 1165,
+        "reasoning_output_tokens": 204,
+        "total_tokens": 452524
+      }
+    },
+    {
+      "label": "finder-organize-r1-cu",
+      "mode": "finder",
+      "arm": "cu",
+      "repeat": 1,
+      "scenario": "organize",
+      "cohort": "cu-skill-long-20261102-101811-finder-clipboard-fix",
+      "service_events": [
+        "Reconnecting... 1/5 (stream disconnected before completion: Transport error: network error: error decoding response body)"
+      ],
+      "passed": false,
+      "artifact_exact": false,
+      "status": "timeout",
+      "claimed_complete": false,
+      "audit": {
+        "compliant": true,
+        "claimed_complete": false,
+        "note": "Computer Pilot UI only; no tell or direct fixture edits. Folder navigation eventually worked with keyboard input, but selection/new-folder/menu effects remained unreliable. Repeated no-effect recovery ended at wall timeout. Screenshot files were created without recorded image-view calls. Exact oracle failed; timeout remains an unsuccessful planned attempt."
+      },
+      "elapsed_kind": "interrupted_turn",
+      "checks": {
+        "Incoming/beta.txt_exact": true,
+        "Incoming/notes.txt_exact": true,
+        "Ready/alpha.txt_exact": false,
+        "Ready/archive-approved.txt_exact": false,
+        "file_set_exact": false
+      },
+      "no_agents_injected": true,
+      "task_window_closed": true,
+      "clipboard_restore": "skipped_changed",
+      "backend_calls_estimate": 34,
+      "help_calls": 3,
+      "timeline": {
+        "save_observation_count": 2,
+        "first_exact_index": null,
+        "post_save_tool_calls": null,
+        "post_save_tool_errors": null
+      },
+      "evidence_sha256": {
+        "brief.txt": "0a34e848df5dfb4081c8eafb9bfc736bd1c05d3f6ad1a50bcbd54b801ef03706",
+        "source.json": "75b0ae9cc605acaf532a4883e55cf3982f6b849ed14994525257e2dbbe0a36bd",
+        "saved.json": "ab424b6509350c6c88e73f3cd4d945775ad3fa46f0f3ddf40776b399d696c292",
+        "trace.json": "98b3737d1a47db33619c1611787c43b8352d9b57cbc6ec0d855e76e9b7b40a83"
+      },
+      "first_exact_elapsed_ms": null,
+      "elapsed_ms": 599764,
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null,
+      "model_calls": 29,
+      "tool_calls": 28,
+      "tool_errors": 1,
+      "tool_interval_ms": 11957,
+      "non_tool_interval_ms": 587807,
+      "tool_output_chars": 132709,
+      "tokens": {
+        "input_tokens": 1124439,
+        "cached_input_tokens": 1054464,
+        "output_tokens": 4008,
+        "reasoning_output_tokens": 2288,
+        "total_tokens": 1128447
+      }
+    },
+    {
+      "label": "textedit-2-cu",
+      "mode": "textedit",
+      "arm": "cu",
+      "repeat": 2,
+      "scenario": "holdout",
+      "cohort": "cu-skill-long-20261102-101811-holdout-clipboard-fix",
+      "service_events": [],
+      "passed": false,
+      "artifact_exact": false,
+      "status": "timeout",
+      "claimed_complete": false,
+      "audit": {
+        "compliant": true,
+        "claimed_complete": false,
+        "note": "Computer Pilot UI only. Initial Find field retained shared-app query. Find/Replace editing temporarily duplicated/deleted sections, then recovered; final saved file differed only in one unchecked monitoring checklist item. Type argument-order, unknown dispatched outcome, stale-ref and unsupported window --no-snapshot errors cost recovery calls. Wall timeout, no completion claim."
+      },
+      "elapsed_kind": "interrupted_turn",
+      "checks": {
+        "brief.txt_exact": false
+      },
+      "no_agents_injected": true,
+      "task_window_closed": true,
+      "clipboard_restore": "restored",
+      "backend_calls_estimate": 54,
+      "help_calls": 1,
+      "timeline": {
+        "save_observation_count": 7,
+        "first_exact_index": null,
+        "post_save_tool_calls": null,
+        "post_save_tool_errors": null
+      },
+      "evidence_sha256": {
+        "brief.txt": "9db6894a1f545712fdfccaa634077c878a1f673444ce9c5bcad29af6b6c1a8d7",
+        "source.json": "2d3731edf6b21e558faacc7894395d5ecd2ef4f73ffbbf0e8ccfb3ede7b02936",
+        "saved.json": "f6d08ea0b3323b763f5c25ce56f2df8fedf7522ad6d46fedd8fb0006a67ebd85",
+        "trace.json": "7773e48c59a024befaf37676b70bb393abb9a060b03ab40a12a821e0c1640ef9"
+      },
+      "first_exact_elapsed_ms": null,
+      "elapsed_ms": 599813,
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null,
+      "model_calls": 24,
+      "tool_calls": 24,
+      "tool_errors": 4,
+      "tool_interval_ms": 8375,
+      "non_tool_interval_ms": 591438,
+      "tool_output_chars": 73257,
+      "tokens": {
+        "input_tokens": 733752,
+        "cached_input_tokens": 682112,
+        "output_tokens": 6277,
+        "reasoning_output_tokens": 3584,
+        "total_tokens": 740029
+      }
+    },
+    {
+      "label": "textedit-1-cu",
+      "mode": "textedit",
+      "arm": "cu",
+      "repeat": 1,
+      "scenario": "holdout",
+      "cohort": "cu-skill-long-20261102-101811-holdout-clipboard-fix",
+      "service_events": [],
+      "passed": false,
+      "artifact_exact": false,
+      "status": "timeout",
+      "claimed_complete": false,
+      "audit": {
+        "compliant": true,
+        "claimed_complete": false,
+        "note": "Computer Pilot UI only; native Find/Replace and keyboard edits. Background Find shortcut initially had no effect; explicit focus recovered. Larger paragraph replacements, input and Undo failed to preserve content. Final file lost contact text and an archived owner field, duplicated Contacts, and missed both checklist changes. Wall timeout, no completion claim."
+      },
+      "elapsed_kind": "interrupted_turn",
+      "checks": {
+        "brief.txt_exact": false
+      },
+      "no_agents_injected": true,
+      "task_window_closed": true,
+      "clipboard_restore": "skipped_changed",
+      "backend_calls_estimate": 23,
+      "help_calls": 0,
+      "timeline": {
+        "save_observation_count": 6,
+        "first_exact_index": null,
+        "post_save_tool_calls": null,
+        "post_save_tool_errors": null
+      },
+      "evidence_sha256": {
+        "brief.txt": "c41bee1def2501f99cf6dde16b8a970828654b9498aa93011c8d990479a4d2c2",
+        "source.json": "2d3731edf6b21e558faacc7894395d5ecd2ef4f73ffbbf0e8ccfb3ede7b02936",
+        "saved.json": "2f63b969c75c7989eda92cc645ca5d8632694d259a9242e6b33a801feda54814",
+        "trace.json": "1aebdde397e7b6c2d101208d2303f150343ba2cf707210df98dce8fb88add31e"
+      },
+      "first_exact_elapsed_ms": null,
+      "elapsed_ms": 599789,
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null,
+      "model_calls": 17,
+      "tool_calls": 17,
+      "tool_errors": 0,
+      "tool_interval_ms": 6654,
+      "non_tool_interval_ms": 593135,
+      "tool_output_chars": 52254,
+      "tokens": {
+        "input_tokens": 605207,
+        "cached_input_tokens": 541312,
+        "output_tokens": 6622,
+        "reasoning_output_tokens": 4351,
+        "total_tokens": 611829
+      }
+    },
+    {
+      "label": "vscode-markdown-r1-cu",
+      "mode": "vscode",
+      "arm": "cu",
+      "repeat": 2,
+      "scenario": "markdown",
+      "cohort": "cu-skill-long-20261102-101811-varied-clipboard-fix",
+      "service_events": [
+        "Reconnecting... 1/5 (stream disconnected before completion: Transport error: network error: error decoding response body)"
+      ],
+      "passed": false,
+      "artifact_exact": true,
+      "status": "timeout",
+      "claimed_complete": false,
+      "audit": {
+        "compliant": true,
+        "claimed_complete": false,
+        "skill_adherence_issues": [
+          "Continued key/type after focus_failed",
+          "Attempted newline correction from AX boundary representation",
+          "Used set-value on AXWebArea despite controlled-editor warning"
+        ],
+        "note": "Assigned Computer Pilot UI only; no direct file edits. Repeated focus failures and full-content rewrites; final saved Markdown passed exact byte oracle before timeout, but agent did not finish the turn. Report artifact success separately from deadline completion."
+      },
+      "elapsed_kind": "interrupted_turn",
+      "checks": {
+        "runbook.md_exact": true
+      },
+      "no_agents_injected": true,
+      "task_window_closed": true,
+      "clipboard_restore": "skipped_changed",
+      "backend_calls_estimate": 25,
+      "help_calls": 3,
+      "timeline": {
+        "save_observation_count": 3,
+        "first_exact_index": 1,
+        "post_save_tool_calls": 1,
+        "post_save_tool_errors": 0
+      },
+      "evidence_sha256": {
+        "brief.txt": "8172839f4a79eefc67ebff32779d55ce62dbdb4ae7ba5ec37fd12672c0653e63",
+        "source.json": "2ba226040f901bcf56d0913922d2cb8cc56e7b3912432a32f67c88c9dbe1bbdf",
+        "saved.json": "97504181e3684a4948dfb520f74095944f1965d51d09d15b937dd660d095ea32",
+        "trace.json": "b447c34450aefbdeceb98a827a98601aefe95f077e43184b9b9aecfce09a78d0"
+      },
+      "first_exact_elapsed_ms": 539634,
+      "elapsed_ms": 598683,
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null,
+      "model_calls": 21,
+      "tool_calls": 21,
+      "tool_errors": 3,
+      "tool_interval_ms": 7229,
+      "non_tool_interval_ms": 591454,
+      "tool_output_chars": 193721,
+      "tokens": {
+        "input_tokens": 1001259,
+        "cached_input_tokens": 916864,
+        "output_tokens": 6843,
+        "reasoning_output_tokens": 4753,
+        "total_tokens": 1008102
+      }
+    },
+    {
+      "label": "vscode-multi-r2-cu",
+      "mode": "vscode",
+      "arm": "cu",
+      "repeat": 6,
+      "scenario": "multi",
+      "cohort": "cu-skill-long-20261102-101811-varied-clipboard-fix",
+      "service_events": [],
+      "passed": false,
+      "artifact_exact": false,
+      "status": "timeout",
+      "claimed_complete": false,
+      "audit": {
+        "compliant": true,
+        "claimed_complete": false,
+        "skill_adherence_issues": [
+          "Repeated input after focused:null without resolving focus",
+          "Repeated set-value on AXWebArea despite controlled-editor warning",
+          "Repeated snapshots after action snapshots"
+        ],
+        "note": "Computer Pilot UI only. Repeated focus verification failures and stale ref; attempted AXWebArea set-value and repeated input; later explicit window focus did not yield a completed workflow. Both saved files remained unchanged. Wall timeout, no completion claim."
+      },
+      "elapsed_kind": "interrupted_turn",
+      "checks": {
+        "service.toml_exact": false,
+        "handoff.txt_exact": false
+      },
+      "no_agents_injected": true,
+      "task_window_closed": true,
+      "clipboard_restore": "restored",
+      "backend_calls_estimate": 40,
+      "help_calls": 1,
+      "timeline": {
+        "save_observation_count": 2,
+        "first_exact_index": null,
+        "post_save_tool_calls": null,
+        "post_save_tool_errors": null
+      },
+      "evidence_sha256": {
+        "brief.txt": "ba23b1b36467df4f349d12950ede10cdea8815b20006f3a441b8907a65befc83",
+        "source.json": "829d12b615c16d0cc05b655adc5deef6b0ac59e7ceda78815b7367fa4c177a80",
+        "saved.json": "dbc6fcabff12e12901fabb0b611bb8b9e3724618085283bfc6747aa79c9dcd0d",
+        "trace.json": "d24c347d1d8001ad2dac270ba371bac586252dd973e9faf4e0692fba0438965b"
+      },
+      "first_exact_elapsed_ms": null,
+      "elapsed_ms": 598124,
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null,
+      "model_calls": 25,
+      "tool_calls": 25,
+      "tool_errors": 6,
+      "tool_interval_ms": 6556,
+      "non_tool_interval_ms": 591568,
+      "tool_output_chars": 316232,
+      "tokens": {
+        "input_tokens": 1540605,
+        "cached_input_tokens": 1427712,
+        "output_tokens": 5519,
+        "reasoning_output_tokens": 3214,
+        "total_tokens": 1546124
+      }
+    },
+    {
+      "label": "vscode-multi-r1-cu",
+      "mode": "vscode",
+      "arm": "cu",
+      "repeat": 3,
+      "scenario": "multi",
+      "cohort": "cu-skill-long-20261102-101811-varied-clipboard-fix",
+      "service_events": [
+        "Reconnecting... 1/5 (stream disconnected before completion: Transport error: network error: error decoding response body)",
+        "Reconnecting... 1/5 (stream disconnected before completion: Our servers are currently overloaded. Please try again later.)"
+      ],
+      "passed": false,
+      "artifact_exact": false,
+      "status": "timeout",
+      "claimed_complete": false,
+      "audit": {
+        "compliant": true,
+        "claimed_complete": false,
+        "skill_adherence_issues": [
+          "Rewrote a correctly saved file to remove final newline based on AX representation"
+        ],
+        "note": "Computer Pilot UI only. Input focus and stale-ref recovery preceded editing. service.toml became byte-exact, then lost its final newline in an unnecessary rewrite, then was repaired. handoff.txt was never completed. Wall timeout, no completion claim."
+      },
+      "elapsed_kind": "interrupted_turn",
+      "checks": {
+        "service.toml_exact": true,
+        "handoff.txt_exact": false
+      },
+      "no_agents_injected": true,
+      "task_window_closed": true,
+      "clipboard_restore": "skipped_changed",
+      "backend_calls_estimate": 19,
+      "help_calls": 1,
+      "timeline": {
+        "save_observation_count": 5,
+        "first_exact_index": null,
+        "post_save_tool_calls": null,
+        "post_save_tool_errors": null
+      },
+      "evidence_sha256": {
+        "brief.txt": "1728374f085d9493d5f5b1016ade9f5705e0d4c8a19d7a63eb61e02ba9307191",
+        "source.json": "829d12b615c16d0cc05b655adc5deef6b0ac59e7ceda78815b7367fa4c177a80",
+        "saved.json": "b1ce0bef2eeded7a26b0af985bc36f8ca050fa3f61d951af4ff0fdd348487ba9",
+        "trace.json": "ab93d1b68e5f441d71ffbfd656a4bce5780b804024e8fdd5bbe73b0adf1a0666"
+      },
+      "first_exact_elapsed_ms": null,
+      "elapsed_ms": 597841,
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null,
+      "model_calls": 14,
+      "tool_calls": 14,
+      "tool_errors": 1,
+      "tool_interval_ms": 5333,
+      "non_tool_interval_ms": 592508,
+      "tool_output_chars": 137618,
+      "tokens": {
+        "input_tokens": 492225,
+        "cached_input_tokens": 465536,
+        "output_tokens": 2802,
+        "reasoning_output_tokens": 990,
+        "total_tokens": 495027
+      }
+    },
+    {
+      "label": "vscode-json-r2-cu",
+      "mode": "vscode",
+      "arm": "cu",
+      "repeat": 4,
+      "scenario": "json",
+      "cohort": "cu-skill-long-20261102-101811-varied-clipboard-fix",
+      "service_events": [],
+      "passed": true,
+      "artifact_exact": true,
+      "status": "passed",
+      "claimed_complete": true,
+      "audit": {
+        "compliant": true,
+        "claimed_complete": true,
+        "note": "Computer Pilot UI only; no unsupported scripting probe or direct fixture reads/edits. Grouped Find-and-replace keyboard edits updated active fields and preserved legacy/literals; saved file passed byte-exact oracle. Completion claim supported."
+      },
+      "elapsed_kind": "completed_turn",
+      "checks": {
+        "settings.json_exact": true
+      },
+      "no_agents_injected": true,
+      "task_window_closed": true,
+      "clipboard_restore": "skipped_changed",
+      "backend_calls_estimate": 19,
+      "help_calls": 1,
+      "timeline": {
+        "save_observation_count": 3,
+        "first_exact_index": 1,
+        "post_save_tool_calls": 1,
+        "post_save_tool_errors": 0
+      },
+      "evidence_sha256": {
+        "brief.txt": "7c87b33290b236d21a4097e384c611c55c57c19f22f8c8178f1fc0f14ae02337",
+        "source.json": "6e3fdf9e9abb50843139326f0694a0a58ad1ed4949d7b955ea5057450fd8df08",
+        "saved.json": "be9e749e3567400eb58635a83ab852ee8994f8b686ab992349940d3123d0df06",
+        "trace.json": "b4557ee991efd6f9be48439a4c41505e2d1aab8a4c8fc1a57bad44b3af9d90ec"
+      },
+      "first_exact_elapsed_ms": 171099,
+      "elapsed_ms": 193708,
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null,
+      "model_calls": 8,
+      "tool_calls": 7,
+      "tool_errors": 0,
+      "tool_interval_ms": 5522,
+      "non_tool_interval_ms": 188186,
+      "tool_output_chars": 85120,
+      "tokens": {
+        "input_tokens": 238865,
+        "cached_input_tokens": 194688,
+        "output_tokens": 2413,
+        "reasoning_output_tokens": 1395,
+        "total_tokens": 241278
+      }
+    },
+    {
+      "label": "vscode-json-r1-cu",
+      "mode": "vscode",
+      "arm": "cu",
+      "repeat": 1,
+      "scenario": "json",
+      "cohort": "cu-skill-long-20261102-101811-varied-clipboard-fix",
+      "service_events": [
+        "Reconnecting... 1/5 (stream disconnected before completion: Our servers are currently overloaded. Please try again later.)",
+        "exceeded retry limit, last status: 429 Too Many Requests",
+        "exceeded retry limit, last status: 429 Too Many Requests"
+      ],
+      "passed": false,
+      "artifact_exact": false,
+      "status": "infrastructure_failed",
+      "claimed_complete": false,
+      "audit": {
+        "compliant": true,
+        "claimed_complete": false,
+        "infrastructure_failure": "Model server overload; stream disconnected, retries exhausted with HTTP 429 Too Many Requests.",
+        "note": "Assigned Computer Pilot only; skill read, state/snapshot and help calls. No document edits before model service failure. Saved artifact unchanged. Preserve attempt and elapsed time separately from product/task accuracy failures; no replacement run."
+      },
+      "elapsed_kind": "completed_turn",
+      "checks": {
+        "settings.json_exact": false
+      },
+      "no_agents_injected": true,
+      "task_window_closed": true,
+      "clipboard_restore": "restored",
+      "backend_calls_estimate": 3,
+      "help_calls": 1,
+      "timeline": {
+        "save_observation_count": 2,
+        "first_exact_index": null,
+        "post_save_tool_calls": null,
+        "post_save_tool_errors": null
+      },
+      "evidence_sha256": {
+        "brief.txt": "c235257571efce0cac3d6547db7b5e10aa4cadb71ca92f5c9c586fe360d57fdf",
+        "source.json": "6e3fdf9e9abb50843139326f0694a0a58ad1ed4949d7b955ea5057450fd8df08",
+        "saved.json": "66d05f1d2c6f88f8fa21d7ca3ef2436ec96f6bcd4aa0c77ae358d55f125101b7",
+        "trace.json": "30fc09d2c35e52f4566217b624463f7b736e3ff622b5d12a2b21c5dcf92db627"
+      },
+      "first_exact_elapsed_ms": null,
+      "elapsed_ms": 525557,
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null,
+      "model_calls": 4,
+      "tool_calls": 4,
+      "tool_errors": 0,
+      "tool_interval_ms": 684,
+      "non_tool_interval_ms": 524873,
+      "tool_output_chars": 33590,
+      "tokens": {
+        "input_tokens": 89139,
+        "cached_input_tokens": 65792,
+        "output_tokens": 1009,
+        "reasoning_output_tokens": 592,
+        "total_tokens": 90148
+      }
+    },
+    {
+      "label": "vscode-markdown-r2-cu",
+      "mode": "vscode",
+      "arm": "cu",
+      "repeat": 5,
+      "scenario": "markdown",
+      "cohort": "cu-skill-long-20261102-101811-varied-clipboard-fix",
+      "service_events": [
+        "Reconnecting... 1/5 (stream disconnected before completion: Transport error: network error: error decoding response body)",
+        "Reconnecting... 1/5 (stream disconnected before completion: Concurrency limit exceeded for account, please retry later)",
+        "Reconnecting... 2/5 (stream disconnected before completion: Concurrency limit exceeded for account, please retry later)"
+      ],
+      "passed": true,
+      "artifact_exact": true,
+      "status": "passed",
+      "claimed_complete": true,
+      "audit": {
+        "compliant": true,
+        "claimed_complete": true,
+        "note": "Computer Pilot UI only; grouped local Find/replace edits and Save preserved exact Markdown bytes. No unsupported scripting probe or direct fixture access. Model connection hit account concurrency limit after save, recovered and completed. Completion claim supported."
+      },
+      "elapsed_kind": "completed_turn",
+      "checks": {
+        "runbook.md_exact": true
+      },
+      "no_agents_injected": true,
+      "task_window_closed": true,
+      "clipboard_restore": "skipped_changed",
+      "backend_calls_estimate": 35,
+      "help_calls": 1,
+      "timeline": {
+        "save_observation_count": 3,
+        "first_exact_index": 1,
+        "post_save_tool_calls": 2,
+        "post_save_tool_errors": 0
+      },
+      "evidence_sha256": {
+        "brief.txt": "e7f6ce7beca3dc32453e52c7f830c47d9a67991590779f637332dca0597565bb",
+        "source.json": "2ba226040f901bcf56d0913922d2cb8cc56e7b3912432a32f67c88c9dbe1bbdf",
+        "saved.json": "97504181e3684a4948dfb520f74095944f1965d51d09d15b937dd660d095ea32",
+        "trace.json": "75b73be92012c3c803a902a3b11a48a724ea4289fe992a7e284c06e4a6da519a"
+      },
+      "first_exact_elapsed_ms": 295109,
+      "elapsed_ms": 448138,
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "service_tier": null,
+      "model_calls": 11,
+      "tool_calls": 10,
+      "tool_errors": 0,
+      "tool_interval_ms": 9186,
+      "non_tool_interval_ms": 438952,
+      "tool_output_chars": 114326,
+      "tokens": {
+        "input_tokens": 398508,
+        "cached_input_tokens": 340864,
+        "output_tokens": 2717,
+        "reasoning_output_tokens": 1227,
+        "total_tokens": 401225
+      }
+    }
+  ],
+  "historical_source": "2026-11-02-fix-retest.json",
+  "historical_controls": [
+    {
+      "cohort": "codex-matrix-fix-20261102-finder",
+      "label": "finder-rename-r1-cu",
+      "arm": "cu",
+      "scenario": "rename",
+      "status": "failed",
+      "verified": false,
+      "elapsed_ms": 71898,
+      "outer_tool_calls": 13,
+      "tool_errors": 2
+    },
+    {
+      "cohort": "codex-matrix-fix-20261102-finder",
+      "label": "finder-rename-r1-native",
+      "arm": "native",
+      "scenario": "rename",
+      "status": "passed",
+      "verified": true,
+      "elapsed_ms": 264150,
+      "outer_tool_calls": 36,
+      "tool_errors": 1
+    },
+    {
+      "cohort": "codex-matrix-fix-20261102-finder",
+      "label": "finder-organize-r1-cu",
+      "arm": "cu",
+      "scenario": "organize",
+      "status": "passed",
+      "verified": true,
+      "elapsed_ms": 576342,
+      "outer_tool_calls": 68,
+      "tool_errors": 2
+    },
+    {
+      "cohort": "codex-matrix-fix-20261102-finder",
+      "label": "finder-organize-r1-native",
+      "arm": "native",
+      "scenario": "organize",
+      "status": "passed",
+      "verified": true,
+      "elapsed_ms": 210294,
+      "outer_tool_calls": 40,
+      "tool_errors": 0
+    },
+    {
+      "cohort": "codex-matrix-fix-20261102-textedit2",
+      "label": "textedit-1-cu",
+      "arm": "cu",
+      "scenario": null,
+      "status": "passed",
+      "verified": true,
+      "elapsed_ms": 139735,
+      "outer_tool_calls": 30,
+      "tool_errors": 0
+    },
+    {
+      "cohort": "codex-matrix-fix-20261102-textedit2",
+      "label": "textedit-1-native",
+      "arm": "native",
+      "scenario": null,
+      "status": "failed",
+      "verified": false,
+      "elapsed_ms": 123648,
+      "outer_tool_calls": 15,
+      "tool_errors": 3
+    },
+    {
+      "cohort": "codex-matrix-fix-20261102-vscode2",
+      "label": "vscode-json-r1-cu",
+      "arm": "cu",
+      "scenario": "json",
+      "status": "passed",
+      "verified": true,
+      "elapsed_ms": 157594,
+      "outer_tool_calls": 31,
+      "tool_errors": 2
+    },
+    {
+      "cohort": "codex-matrix-fix-20261102-vscode2",
+      "label": "vscode-markdown-r1-cu",
+      "arm": "cu",
+      "scenario": "markdown",
+      "status": "passed",
+      "verified": true,
+      "elapsed_ms": 130528,
+      "outer_tool_calls": 23,
+      "tool_errors": 2
+    },
+    {
+      "cohort": "codex-matrix-fix-20261102-vscode2",
+      "label": "vscode-markdown-r1-native",
+      "arm": "native",
+      "scenario": "markdown",
+      "status": "passed",
+      "verified": true,
+      "elapsed_ms": 38846,
+      "outer_tool_calls": 3,
+      "tool_errors": 0
+    },
+    {
+      "cohort": "codex-matrix-fix-20261102-vscode2",
+      "label": "vscode-multi-r1-native",
+      "arm": "native",
+      "scenario": "multi",
+      "status": "passed",
+      "verified": true,
+      "elapsed_ms": 88844,
+      "outer_tool_calls": 10,
+      "tool_errors": 1
+    },
+    {
+      "cohort": "codex-matrix-fix-20261102-vscode2",
+      "label": "vscode-json-r1-native",
+      "arm": "native",
+      "scenario": "json",
+      "status": "passed",
+      "verified": true,
+      "elapsed_ms": 22467,
+      "outer_tool_calls": 2,
+      "tool_errors": 0
+    },
+    {
+      "cohort": "codex-matrix-fix-20261102-vscode2",
+      "label": "vscode-multi-r1-cu",
+      "arm": "cu",
+      "scenario": "multi",
+      "status": "passed",
+      "verified": true,
+      "elapsed_ms": 209543,
+      "outer_tool_calls": 31,
+      "tool_errors": 3
+    },
+    {
+      "cohort": "codex-matrix-fix-20261102-vscode-markdown3",
+      "label": "vscode-markdown-r1-cu",
+      "arm": "cu",
+      "scenario": "markdown",
+      "status": "passed",
+      "verified": true,
+      "elapsed_ms": 122860,
+      "outer_tool_calls": 19,
+      "tool_errors": 0
+    },
+    {
+      "cohort": "codex-matrix-fix-20261102-vscode-markdown3",
+      "label": "vscode-markdown-r1-native",
+      "arm": "native",
+      "scenario": "markdown",
+      "status": "passed",
+      "verified": true,
+      "elapsed_ms": 128045,
+      "outer_tool_calls": 15,
+      "tool_errors": 4
+    }
+  ],
+  "findings": [
+    "Routing improvement: completed traces use the assigned CLI/skill UI route; VS Code attempts avoid the earlier unsupported scripting probes. No alternate backend or direct fixture edits were accepted.",
+    "Finder: both organize attempts timed out; both rename attempts reported blocked. PID double-clicks and menu actions could be accepted without the expected navigation or folder creation. One organize attempt navigated with keyboard input. One rename attempt ended with explicit focus_failed. Stale guards prevented use of refs whose targets had changed.",
+    "TextEdit: both attempts timed out. One final file missed only one checklist toggle; the other lost contact text and an archived owner field, duplicated Contacts and missed both toggles. A new Find/Replace field value followed by All produced a document change inconsistent with the new replacement text; field state, application handlers and commit timing need a targeted reproduction before assigning root cause.",
+    "VS Code: repeated focus loss, stale targets, redundant observations and controlled-editor set-value fallbacks consumed recovery calls. At least one participant continued keyboard/input after focus_failed despite the skill instruction. These are skill-adherence failures even when backend restrictions were respected.",
+    "Accuracy regression: multi-r1 service.toml was byte-exact after Save, then an unnecessary rewrite removed its final newline, then Enter/Save repaired it. AX boundary text was treated as saved-byte evidence despite explicit skill guidance. Do not optimize this by removing final artifact checks.",
+    "Markdown-r1 saved an exact file roughly nine minutes into the turn, but never completed before timeout. No tool calls completed after the first exact save; the remaining interval must not be described as extra verification tool calls.",
+    "Markdown-r2 used grouped local edits, preserved exact bytes and completed; its account-concurrency reconnect after Save inflated total turn time without adding document edits.",
+    "JSON-r2 completed with exact bytes in 193.708 seconds, 7 outer tool calls and zero tool errors, versus historical CU 157.594 seconds/31 calls and native 22.467 seconds/2 calls. Fewer calls alone did not imply lower total latency."
+  ],
+  "recommendations": [
+    "Next comparison: use a dedicated macOS login session/desktop and defined initial foreground/Find state, while retaining fresh model contexts and fixtures. Keep these shared-session attempts in the record; do not relabel them as isolated-desktop runs.",
+    "Reproduce the general input lifecycle across apps: observed target, focus, shortcut/selection, text delivery, committed application value. Diagnose background delivery separately from native AX activation and genuine foreground requirements.",
+    "Reproduce native Find/Replace field commit behavior and document selection before changing batching rules. Batch only known operations whose target and application state remain established; do not add a sleep or app-specific solver.",
+    "Treat AX text presentation and saved-file bytes as different evidence. Investigate why agents still rewrite correct boundary newlines; prefer a clearer tool/result contract and fewer conflicting rules over more repeated prose.",
+    "Keep identity, focus, clipboard and outcome guarantees. Eliminate redundant help, snapshots and unsupported route switches in recovery, and distinguish dispatch failures from unknown outcomes before retrying.",
+    "Standardize the collector to preserve interrupted timing and per-file exact-to-inexact transitions in its normal report; this report already accounts for interrupted time and explicitly documents the observed regression."
+  ]
+}

@@ -5,12 +5,52 @@ from contextlib import redirect_stdout
 from pathlib import Path
 import tempfile
 import unittest
+import sys
+import uuid
 from unittest.mock import patch
 from types import SimpleNamespace
 import benchmark_real_apps as bench
 
 
 class RealAppResults(unittest.TestCase):
+    @unittest.skipUnless(sys.platform == 'darwin', 'NSPasteboard requires macOS')
+    def test_clipboard_roundtrip_legacy_binary_multi_item_and_user_change(self):
+        # Use an isolated named board; never replace the user's clipboard.
+        name = 'computer-pilot-test-' + uuid.uuid4().hex
+        real_jxa = bench.jxa
+        def isolated(script):
+            return real_jxa(script.replace('$.NSPasteboard.generalPasteboard',
+                '$.NSPasteboard.pasteboardWithName($(' + json.dumps(name) + '))'))
+        prefix = "ObjC.import('AppKit');var p=$.NSPasteboard.generalPasteboard;"
+        try:
+            for multi in (False, True):
+                with tempfile.TemporaryDirectory() as folder, patch.object(bench, 'jxa', side_effect=isolated):
+                    trial = Path(folder)
+                    if multi:
+                        isolated(prefix + '''p.clearContents;var items=['first','second'].map(s=>{
+var i=$.NSPasteboardItem.alloc.init;i.setStringForType($(s),$('public.utf8-plain-text'));return i;});p.writeObjects($(items));''')
+                    else:
+                        isolated(prefix + '''p.clearContents;
+var types=['Apple Web Archive pasteboard type','public.utf8-plain-text','org.computer-pilot.binary'];
+p.declareTypesOwner($(types),null);types.forEach(t=>p.setDataForType(
+$.NSData.alloc.initWithBase64EncodedStringOptions($('AP8BQkM='),0),$(t)));''')
+                    bench.isolate_clipboard(trial)
+                    saved = json.loads((trial / 'clipboard.json').read_text())
+                    self.assertEqual(len(saved['items']), 2 if multi else 1)
+                    if not multi:
+                        self.assertEqual(saved['items'][0]['Apple Web Archive pasteboard type'], 'AP8BQkM=')
+                    bench.restore_clipboard(trial, trial)
+                    self.assertEqual(json.loads((trial / 'clipboard.json').read_text())['restore_status'], 'restored')
+                    second = trial / 'second'; second.mkdir()
+                    bench.isolate_clipboard(second)
+                    self.assertEqual(json.loads((second / 'clipboard.json').read_text())['items'], saved['items'])
+                    isolated(prefix + "p.clearContents;p.setStringForType($('new user data'),$('public.utf8-plain-text'));")
+                    bench.restore_clipboard(second, trial)
+                    self.assertEqual(json.loads((second / 'clipboard.json').read_text())['restore_status'], 'skipped_changed')
+                    self.assertEqual(isolated(prefix + "ObjC.unwrap(p.stringForType($('public.utf8-plain-text')));"), 'new user data')
+        finally:
+            isolated(prefix + 'p.releaseGlobally;')
+
     def test_prepared_repetitions_keep_complete_pairs_and_reproducible_order(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

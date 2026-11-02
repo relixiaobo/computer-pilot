@@ -196,8 +196,9 @@ def isolate_clipboard(trial):
     """Coordinator only: preserve all item types, then remove cross-trial input."""
     saved = json.loads(jxa('''ObjC.import('AppKit');var p=$.NSPasteboard.generalPasteboard;
 var before=Number(p.changeCount), items=[], native=p.pasteboardItems;
-for(var i=0;i<native.count;i++){var item=native.objectAtIndex(i), types=item.types, row={};
+for(var i=0;i<native.count;i++){var item=Number(native.count)===1?p:native.objectAtIndex(i), types=item.types, row={};
   for(var j=0;j<types.count;j++){var type=types.objectAtIndex(j), data=item.dataForType(type);
+    if(data.isNil())throw Error('Cannot preserve clipboard type');
     var encoded=ObjC.unwrap(data.base64EncodedStringWithOptions(0));
     if(typeof encoded!=='string')throw Error('Cannot preserve clipboard type');
     row[ObjC.unwrap(type)]=encoded;}
@@ -227,11 +228,15 @@ ObjC.import('AppKit');var p=$.NSPasteboard.generalPasteboard, count=Number(p.cha
 var files=ObjC.deepUnwrap(p.propertyListForType($('NSFilenamesPboardType')));
 var owned=Array.isArray(files)&&files.length&&files.every(f=>f.startsWith(root+'/'));
 if(count!==saved.cleared_count&&!owned){'skipped_changed';}else{
-  var items=saved.items.map(row=>{var item=$.NSPasteboardItem.alloc.init;
+  var items=saved.items.length===1?[]:saved.items.map(row=>{var item=$.NSPasteboardItem.alloc.init;
     Object.keys(row).forEach(type=>{var data=$.NSData.alloc.initWithBase64EncodedStringOptions($(row[type]),0);
       if(!item.setDataForType(data,$(type)))throw Error('Clipboard type restore failed');});return item;});
   if(Number(p.changeCount)!==count)throw Error('Clipboard changed before restore');
-  p.clearContents;if(items.length&&!p.writeObjects($(items)))throw Error('Clipboard restore failed');
+  p.clearContents;
+  if(saved.items.length===1){var row=saved.items[0];p.declareTypesOwner($(Object.keys(row)),null);
+    Object.keys(row).forEach(type=>{var data=$.NSData.alloc.initWithBase64EncodedStringOptions($(row[type]),0);
+      if(!p.setDataForType(data,$(type)))throw Error('Clipboard type restore failed');});
+  }else if(items.length&&!p.writeObjects($(items)))throw Error('Clipboard restore failed');
   'restored';}
 ''')
     path.write_text(json.dumps(saved))
