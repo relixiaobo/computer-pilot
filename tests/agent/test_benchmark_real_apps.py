@@ -51,6 +51,18 @@ $.NSData.alloc.initWithBase64EncodedStringOptions($('AP8BQkM='),0),$(t)));''')
         finally:
             isolated(prefix + 'p.releaseGlobally;')
 
+    def test_clipboard_restore_records_failure(self):
+        with tempfile.TemporaryDirectory() as folder:
+            trial = Path(folder)
+            (trial / 'clipboard.json').write_text(json.dumps({
+                'cleared_count': 7, 'items': [{'public.utf8-plain-text': 'YQ=='}]}))
+            with patch.object(bench, 'jxa', side_effect=RuntimeError('restore unavailable')):
+                with self.assertRaisesRegex(RuntimeError, 'restore unavailable'):
+                    bench.restore_clipboard(trial, trial)
+            saved = json.loads((trial / 'clipboard.json').read_text())
+            self.assertEqual(saved['restore_status'], 'restore_failed')
+            self.assertIn('restore unavailable', saved['restore_error'])
+
     def test_prepared_repetitions_keep_pairs_order_and_default_resource_budgets(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
@@ -130,10 +142,30 @@ $.NSData.alloc.initWithBase64EncodedStringOptions($('AP8BQkM='),0),$(t)));''')
                 self.assertIn('w.target.url()', script)
                 self.assertIsNone(json.loads(path.read_text())['pid'])
             path.write_text(json.dumps(meta))
-            with patch.object(bench, 'jxa', side_effect=RuntimeError('Test Finder window remains open')), patch.object(bench.subprocess, 'run', return_value=broker):
+            with patch.object(bench, 'jxa', side_effect=RuntimeError('Test Finder window remains open')), \
+                 patch.object(bench, 'restore_clipboard') as restore, \
+                 patch.object(bench.subprocess, 'run', return_value=broker):
                 with self.assertRaisesRegex(RuntimeError, 'remains open'):
                     bench.stop(root, 'trial')
+                restore.assert_called_once_with(trial, meta['workspace'])
                 self.assertEqual(json.loads(path.read_text())['pid'], 123)
+
+    def test_cleanup_error_survives_clipboard_restore_failure(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            trial = root / 'trial'
+            trial.mkdir()
+            meta = dict(pid=123, mode='finder', shared_app=True,
+                        workspace=str(root / 'owned'), runtime_home=folder,
+                        client_key='test')
+            (trial / 'meta.json').write_text(json.dumps(meta))
+            broker = SimpleNamespace(returncode=0, stdout='{"running":false}')
+            with patch.object(bench, 'jxa', side_effect=RuntimeError('cleanup failed')), \
+                 patch.object(bench, 'restore_clipboard', side_effect=RuntimeError('restore failed')) as restore, \
+                 patch.object(bench.subprocess, 'run', return_value=broker):
+                with self.assertRaisesRegex(RuntimeError, 'cleanup failed'):
+                    bench.stop(root, 'trial')
+                restore.assert_called_once_with(trial, meta['workspace'])
 
     def test_timeline_metrics_count_calls_after_first_exact_sample(self):
         with tempfile.TemporaryDirectory() as folder:

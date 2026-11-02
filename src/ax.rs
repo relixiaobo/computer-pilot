@@ -1999,18 +1999,42 @@ pub fn ax_perform_by_path(pid: i32, ax_path: &str, action: &str) -> Result<(), C
         let role = (action == "AXPress")
             .then(|| ax_string(element, "AXRole"))
             .flatten();
-        perform_action_with_menu_wait(pid, element, role.as_deref(), action)
+        match perform_action_with_menu_wait(pid, element, role.as_deref(), action) {
+            Ok(()) => Ok(()),
+            Err(ax_error) => Err((ax_error, copy_action_names(element))),
+        }
     })
     .map_err(|e| {
         CuError::msg(e).with_hint("axPath did not resolve — re-snapshot to refresh paths")
     })?;
     match result {
         Ok(()) => Ok(()),
-        Err(ax_error) => Err(CuError::msg(format!(
-            "AX action '{action}' was rejected (AX error {ax_error})"
-        ))
-        .with_hint("Inspect the current element state before retrying the action.")
-        .with_diagnostics(serde_json::json!({"action": action, "ax_error": ax_error}))),
+        Err((ax_error, available)) => {
+            let mut error = CuError::msg(format!(
+                "AX action '{action}' was rejected (AX error {ax_error})"
+            ));
+            if available.is_empty() {
+                error = error.with_hint(
+                    "The element exposed no AX actions. Inspect its children or use a coordinate click.",
+                );
+            } else if available.iter().any(|supported| supported == action) {
+                error = error.with_hint(
+                    "The element advertises this AX action but macOS rejected dispatch; inspect the current state before retrying.",
+                );
+            } else {
+                error = error.with_hint(format!("Available actions: {}", available.join(", ")));
+                for supported_action in &available {
+                    error = error.with_next(format!(
+                        "cu perform --ax-path '{ax_path}' {supported_action} --app <name>"
+                    ));
+                }
+            }
+            Err(error.with_diagnostics(serde_json::json!({
+                "action": action,
+                "ax_error": ax_error,
+                "available_actions": available,
+            })))
+        }
     }
 }
 

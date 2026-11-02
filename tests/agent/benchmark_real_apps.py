@@ -231,8 +231,9 @@ def restore_clipboard(trial, workspace):
     saved = json.loads(path.read_text())
     if 'cleared_count' not in saved or saved.get('restore_status'):
         return
-    saved['restore_status'] = jxa('var saved=' + json.dumps(saved) + ';var root=' +
-        json.dumps(str(Path(workspace).resolve())) + ''';
+    try:
+        status = jxa('var saved=' + json.dumps(saved) + ';var root=' +
+            json.dumps(str(Path(workspace).resolve())) + ''';
 ObjC.import('AppKit');var p=$.NSPasteboard.generalPasteboard, count=Number(p.changeCount);
 var files=ObjC.deepUnwrap(p.propertyListForType($('NSFilenamesPboardType')));
 var owned=Array.isArray(files)&&files.length&&files.every(f=>f.startsWith(root+'/'));
@@ -248,6 +249,12 @@ if(count!==saved.cleared_count&&!owned){'skipped_changed';}else{
   }else if(items.length&&!p.writeObjects($(items)))throw Error('Clipboard restore failed');
   'restored';}
 ''')
+    except Exception as error:
+        saved['restore_status'] = 'restore_failed'
+        saved['restore_error'] = str(error)
+        path.write_text(json.dumps(saved))
+        raise
+    saved['restore_status'] = status
     path.write_text(json.dumps(saved))
 
 
@@ -419,48 +426,62 @@ def stop(root,label):
     trial=root/label;meta=json.loads((trial/'meta.json').read_text())
     if not meta['pid']:return
     env=dict(os.environ,COMPUTER_PILOT_HOME=meta['runtime_home'],COMPUTER_PILOT_CLIENT_KEY=meta['client_key'])
+    cleanup_error = None
+    restore_error = None
     try:
-        if meta['mode'] == 'finder':
-            # Finder changes the title on every navigation. Use the actual
-            # target URL, with a path boundary, to close only owned windows.
-            uri = Path(meta['workspace']).resolve().as_uri() + '/'
-            jxa('''var a=Application('Finder');var root=ROOT;
+        try:
+            if meta['mode'] == 'finder':
+                # Finder changes the title on every navigation. Use the actual
+                # target URL, with a path boundary, to close only owned windows.
+                uri = Path(meta['workspace']).resolve().as_uri() + '/'
+                jxa('''var a=Application('Finder');var root=ROOT;
 function owned(){return a.windows().filter(w=>{var u=w.target.url();return u===root.slice(0,-1)||u.startsWith(root);});}
 owned().map(w=>w.id()).forEach(id=>a.windows.byId(id).close());
 if(owned().length)throw Error('Test Finder window remains open');'''.replace('ROOT', json.dumps(uri)))
-        elif not meta['shared_app']:
-            prefix=json.dumps(Path(meta['workspace']).name)
-            jxa("var a=Application('Numbers');var prefix="+prefix+";"
-                "a.documents().filter(d=>d.name().startsWith(prefix)||d.name().startsWith('Untitled ('+prefix)"
-                "||(d.file()&&String(d.file()).split('/').pop().startsWith(prefix)))"
-                ".map(d=>d.id()).forEach(id=>a.documents.byId(id).close({saving:'no'}));"
-                "if(a.documents().length)throw Error('Non-task Numbers documents remain; do not quit');"
-                "a.quit();")
-        else:
-            # A successful close dispatch can leave an unsaved-changes dialog.
-            # Keep ownership recorded until the dedicated window actually closes.
-            needle=meta['files']['brief.txt'] if meta['mode']=='textedit' else Path(meta['workspace']).name
-            def task_windows():
-                raw=subprocess.run([str(CU),'--json','window','list','--app',f"pid:{meta['pid']}"],env=env,capture_output=True,text=True,check=True)
-                return [w for w in json.loads(raw.stdout)['windows'] if needle in w.get('title','')]
-            matches=task_windows()
-            if len(matches)==1:
-                subprocess.run([str(CU),'--json','window','close','--app',f"pid:{meta['pid']}",'--window',str(matches[0]['index'])],env=env,capture_output=True,check=True)
+            elif not meta['shared_app']:
+                prefix=json.dumps(Path(meta['workspace']).name)
+                jxa("var a=Application('Numbers');var prefix="+prefix+";"
+                    "a.documents().filter(d=>d.name().startsWith(prefix)||d.name().startsWith('Untitled ('+prefix)"
+                    "||(d.file()&&String(d.file()).split('/').pop().startsWith(prefix)))"
+                    ".map(d=>d.id()).forEach(id=>a.documents.byId(id).close({saving:'no'}));"
+                    "if(a.documents().length)throw Error('Non-task Numbers documents remain; do not quit');"
+                    "a.quit();")
+            else:
+                # A successful close dispatch can leave an unsaved-changes dialog.
+                # Keep ownership recorded until the dedicated window actually closes.
+                needle=meta['files']['brief.txt'] if meta['mode']=='textedit' else Path(meta['workspace']).name
+                def task_windows():
+                    raw=subprocess.run([str(CU),'--json','window','list','--app',f"pid:{meta['pid']}"],env=env,capture_output=True,text=True,check=True)
+                    return [w for w in json.loads(raw.stdout)['windows'] if needle in w.get('title','')]
                 matches=task_windows()
-                deadline=time.monotonic()+2
-                while matches and time.monotonic()<deadline:
-                    time.sleep(0.1)
+                if len(matches)==1:
+                    subprocess.run([str(CU),'--json','window','close','--app',f"pid:{meta['pid']}",'--window',str(matches[0]['index'])],env=env,capture_output=True,check=True)
                     matches=task_windows()
-            if matches:
-                raise RuntimeError('Test window remains open; inspect its save dialog before retrying cleanup. Do not quit the shared app.')
-        restore_clipboard(trial, meta['workspace'])
+                    deadline=time.monotonic()+2
+                    while matches and time.monotonic()<deadline:
+                        time.sleep(0.1)
+                        matches=task_windows()
+                if matches:
+                    raise RuntimeError('Test window remains open; inspect its save dialog before retrying cleanup. Do not quit the shared app.')
+        except BaseException as error:
+            cleanup_error = error
     finally:
+        try:
+            restore_clipboard(trial, meta['workspace'])
+        except BaseException as error:
+            restore_error = error
         status=subprocess.run([str(CU),'--json','status'],env=env,capture_output=True,text=True)
         if status.returncode==0:
             value=json.loads(status.stdout)
             if value.get('running'):
                 try:os.kill(value['pid'],signal.SIGTERM)
                 except ProcessLookupError:pass
+    if cleanup_error is not None:
+        if restore_error is not None:
+            cleanup_error.add_note(f'Clipboard restoration failed: {restore_error}')
+        raise cleanup_error
+    if restore_error is not None:
+        raise restore_error
     meta['pid']=None;(trial/'meta.json').write_text(json.dumps(meta,indent=2))
 
 
