@@ -5,11 +5,21 @@ vision-capable Agent must inspect the real UI.
 
 ## Choose A Visual Surface
 
-- Use `cu state <app>` for tree plus a plain window image.
+- Use `cu state <app>` when window metadata is needed along with tree/image.
 - Use `cu snapshot <app> --with-screenshot` for a fresh tree/image pair.
 - Use `cu snapshot <app> --annotated` to draw each current ref on the image.
 - Use `cu screenshot --region` for a small verification image.
 - Use `cu ocr <app>` when visible text is missing from AX.
+
+Window capture works in the background. `screenshot --region` and `--full`
+capture the desktop surface and are not constrained to `--app`; other windows
+can cover the intended content. Use window capture for an obscured target.
+
+Choose the observation that answers the missing question; do not run all of
+these in sequence. A visible icon needs an image, not OCR. A known text label
+can use `click --text` directly when its region/uniqueness is established;
+that command performs OCR itself. Use a current visual target when AX is absent
+or demonstrably unusable, not merely because a previous ref became stale.
 
 Set the task output directory first:
 
@@ -45,8 +55,14 @@ screen_x = pixel_x / scale + offset_x
 screen_y = pixel_y / scale + offset_y
 ```
 
-Prefer `cu nearest <screen_x> <screen_y> --app <app>` to obtain an AX candidate
-before clicking. Inspect `inside` and `distance`.
+Reuse a matching ref already returned with the image. Use `cu nearest` only
+when an AX candidate still needs to be located; inspect `inside`, `distance`,
+and identity. It adds no value when AX cannot expose the target. For an observed
+visual-only target, use `cu click <screen_x> <screen_y> --app <app>` directly.
+For tree/image output use full JSON when geometry is needed. Window image
+offsets come from `window_frame.x/y`; standalone screenshot output supplies
+`offset_x/offset_y`. Captures and AX reads are sequential, not atomic: observe
+again if the layout changes before acting.
 
 Use `cu observe-region` when a dialog, panel, or pane defines the search area:
 
@@ -64,6 +80,11 @@ cu click --text "Privacy & Security" --app "System Settings"
 Read `confidence`, aggregate confidence fields, and `confidence_hint`. Restrict
 duplicate text with `--index` or `--region`. Verify OCR-driven actions visually
 or through a fresh AX observation.
+
+Targeted `type` still requires a focused AX textfield/textarea/combobox. Seeing
+a caret in pixels cannot satisfy that precondition for a fully AX-less input.
+Use a permitted app-native operation if available, or report that limitation;
+do not switch to global typing to bypass it.
 
 ## Capture Protection
 

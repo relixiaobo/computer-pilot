@@ -76,17 +76,15 @@ On `stale_observation`:
 
 ## Verification
 
-Treat an action error as a decision boundary. Do not rerun the same command or
-reuse its ref/coordinates after `verification_failed`, `unknown_outcome`,
-`stale_observation`, or a nonzero shell group. Use the attached
-`diagnostics.snapshot` first; if it is absent, obtain one fresh `find` or
-`snapshot`, then change the target or method. Two failures for the same
-intended effect are a blocker to report, not permission for another identical
-retry.
+Read whether dispatch occurred before choosing recovery. Correct syntax errors
+without a UI probe. For stale targets, use `diagnostics.snapshot` or obtain one
+fresh observation. For uncertain mutations, inspect current state before any
+retry. Do not repeat an unchanged failed approach; stop when no new evidence
+supports a safe next step.
 
-If the attached AX state contains the intended control, keep recovery on that
-AX path. Do not fall back to screenshot coordinates or OCR for the same control;
-those are for targets AX cannot expose.
+Prefer fresh AX targets. If AX is absent or demonstrably unusable, current
+visual evidence can support a coordinate/OCR action. This cannot bypass stale
+identity, permission, or focus failures.
 
 Treat `focus_failed` as a foreground delivery blocker. Do not continue with
 keyboard or typing commands, remove `--app`, or use global input. Inspect the
@@ -94,8 +92,9 @@ returned target state once and report the blocker when no background-safe
 primitive is available. A click on a textfield-shaped element may report
 `focus_verified:false` or `null` when the control is a selectable row or the
 post-action observation is unavailable. That is not a click failure. Before
-typing, obtain a fresh observation or let `cu type` enforce the focused-input
-precondition; never send text based only on the click receipt.
+typing, establish that the focused input is the intended editor; never send
+text based only on the click receipt. `cu type` checks that some text input is
+focused in that PID; it cannot infer which editor the caller intended.
 
 `verify_diff` and `value_changed` describe observations, not task completion.
 An arbitrary tree change leaves `verified:null`; an input-focus check can set
@@ -116,10 +115,10 @@ remains uncertain. Do not repeat the full input to obtain a verification flag,
 change app settings to expose AX text, or switch to global input. A development
 app's explicitly provided CDP/Playwright endpoint is another option when available.
 
-Use the grouped verified click/type path in [SKILL.md](../SKILL.md#controlled-editors-and-recovery).
-It stops on command errors without requiring an extra model round between focus
-and typing. The task launcher keeps the same CLI defaults; only explicit
-`--no-verify` defers an intermediate action's effect check.
+Use the focus-and-type guidance in [SKILL.md](../SKILL.md#controlled-editors-and-recovery).
+A shell group can branch on the exact focus result without another model round;
+`set -e` alone does not catch a successful click that focused the wrong control.
+Only explicit `--no-verify` defers an intermediate action's effect check.
 
 `type` requires a focused AX text input and automatically uses PID-targeted
 clipboard paste below `AXWebArea` or in known chat apps. Do not override that

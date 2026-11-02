@@ -5,26 +5,22 @@ the task is data-oriented rather than UI-oriented.
 
 ## Select Scripting
 
-```bash
-cu apps
-cu sdef "Calendar"
-```
-
-For a known app and a document or data task, begin with one read-only `cu tell`
-as the capability probe. Use `cu sdef` or `cu apps` only if that probe reports
-unknown terminology, an unknown target, or a permission failure. Use AX when
-the object exists only in the UI, the app is not scriptable, or AppleScript
-fails.
-
-When app-native scripting is permitted, use it for data and file mutations even
-if the task also mentions using the app UI. Reserve AX for presentation work
-such as menus, geometry, selection, and visual proof.
+Use scripting when permitted and the needed app objects/operations are exposed.
+For known terminology, make the first useful read with `cu tell`; do not add a
+separate version probe. If terminology is unknown, read `cu sdef <app>` before
+inventing expressions. Use `cu apps` when process identity or scriptability is
+unknown. Skip this path for known unsupported operations and explicit UI-only
+tasks. A scriptable flag or successful generic read does not prove all app data
+is scriptable. Permission errors need permission recovery, not more discovery.
 
 Scripting is usually preferable for bulk reads/writes because it expresses one
 semantic operation without UI traversal. The session helper leaves `sdef` and
 `tell` arguments unchanged. `sdef` accepts an app name or bundle identifier;
-`tell` accepts an app name or bundle path. Address the intended document
-explicitly when the app has multiple documents.
+`tell` accepts an app name or bundle path, not `pid:<PID>`. It is not bound by
+the helper's `CU_APP`; if the exact intended instance cannot be addressed
+unambiguously, use PID-targeted UI commands. Address the intended document
+explicitly when the app has multiple documents. Group authorized operations
+and read the affected result once; reuse that evidence at completion.
 
 ## Execute
 
@@ -51,11 +47,11 @@ make new event at end of events of first calendar with properties {summary:"Revi
 ```
 
 For mutations that need idempotent recovery, assign a request ID and verify by
-reading the object back (use the binary directly for root options):
+reading the object back. The helper accepts `--request-id` after the command:
 
 ```bash
-"$CU_BIN" --request-id "calendar-review-20260728" tell Calendar 'make new event at end of events of first calendar with properties {summary:"Review"}'
-cu tell Calendar 'get summary of every event of first calendar'
+./pilot tell Calendar 'make new event at end of events of first calendar with properties {summary:"Review"}' --request-id "calendar-review-20260728"
+./pilot tell Calendar 'get summary of every event of first calendar'
 ```
 
 Expressions containing `activate` or System Events `keystroke`/`key code` are

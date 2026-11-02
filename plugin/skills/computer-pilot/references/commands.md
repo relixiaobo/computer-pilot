@@ -53,9 +53,9 @@ operation or its known shortcut; do not invent a menu axPath.
 
 ### `cu sdef <app>`
 
-Parse an app's scripting dictionary. For a known app-data task, try one
-read-only `cu tell` first; use `sdef` when that probe reports unknown
-terminology or fails.
+Parse an app's scripting dictionary when the needed terminology is unknown.
+For a supported operation with known terminology, use `tell` directly for the
+first useful read. Skip scripting for known unsupported operations.
 
 ### `cu examples [topic]`
 
@@ -65,8 +65,10 @@ Print built-in recipes from the installed CLI.
 
 ### `cu state <app> [--limit N] [--no-screenshot] [--output /abs/file.png]`
 
-Use when window/display metadata or an image is needed. Returns app/PID, windows, displays, AX elements,
-frontmost state, `observation_id`, and normally a screenshot.
+Use when window/display metadata or an image is needed. It combines the AX tree,
+window list, frontmost state, and (unless disabled) a screenshot in one call.
+For routine AX work use `snapshot` or `find`; `state` is not required before every
+action.
 
 File fields:
 
@@ -94,9 +96,10 @@ recovery output. Use `cu --json snapshot` when coordinates or axPaths are needed
 ### `cu find --app <app> [filters] [--first] [--raw]`
 
 Query AX elements by `--role`, `--title-contains`, `--title-equals`, or
-`--value-contains`. Filters combine with AND. When the target label or role is
-known, prefer `--first` over a full snapshot; the returned ref is bound to the
-published observation and can be used immediately. Prefer normal JSON so the
+`--value-contains`. Filters combine with AND. `--first` returns the first match
+in tree order, not the best match; inspect `count` and `truncated` and disambiguate
+duplicates before acting. The returned ref is bound to the published observation
+and can be used immediately. Prefer normal JSON so the
 `observation_id` is retained. `--raw` is intended only for controlled shell
 workflows that also preserve Observation context.
 
@@ -123,9 +126,11 @@ a CoreGraphics fallback and refuses capture-protected windows.
 
 ### `cu wait [condition] --app <app> [--timeout seconds] [--limit N]`
 
-Poll until `--text`, `--ref`, `--gone`, `--new-window`, `--modal`,
-`--focused-changed`, or `--app-running` succeeds. Prefer semantic text/window
-conditions over ref conditions.
+Poll until `--text`, `--ref`, `--gone`, `--new-window`, `--modal`, or
+`--focused-changed` succeeds. Prefer semantic text/window conditions over ref
+conditions. `--new-window` and `--focused-changed` measure changes after the
+wait starts; they can miss a transition already completed by the preceding
+action. Use its returned state or a destination text/modal condition instead.
 
 `--text` is a substring match across all element labels/values, including
 navigation buttons. Use a distinguishing destination condition. Successful and
@@ -193,19 +198,22 @@ Scroll at screen coordinates.
 
 ### `cu hover <x> <y> --app <app>`
 
-Move the real pointer to expose hover UI. This is visually disruptive even
-with PID targeting.
+Send pointer-move events to the target PID without moving the real pointer.
+The global variant is disruptive.
 
 ### `cu drag <x1> <y1> <x2> <y2> --app <app> [modifiers]`
 
-Move the real pointer through an interpolated drag and guarantee mouse-up.
+Send an interpolated drag to the target PID and attempt mouse-up even after
+an intermediate failure. The global variant moves the real pointer.
 
 ## Script And System
 
 ### `cu tell <app> <expression> [--timeout seconds]`
 
 Run an escaped, app-scoped AppleScript expression. Automation permission is
-per target app and requested here, not by app discovery.
+per target app and requested here, not by app discovery. See
+[scripting.md](scripting.md) for capability discovery, instance targeting, and
+recovery after a partially executed script.
 
 ### `cu defaults read <domain> [key]`
 

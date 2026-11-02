@@ -9,7 +9,7 @@ Computer Pilot uses separate macOS permission classes:
 - Accessibility: AX observation and native AX actions.
 - Screen Recording: screenshots and OCR.
 - Automation: Apple Events, granted separately for each target app and used by
-  `cu tell` plus any remaining System Events fallback.
+  `cu tell`.
 
 There is no single global Automation-ready state. `cu setup` reports
 Automation as `per_target_app` and `not_checked`.

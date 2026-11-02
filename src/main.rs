@@ -96,16 +96,18 @@ fn annotate_method(result: &mut serde_json::Value) {
     long_about = "macOS desktop automation CLI for AI agents.\n\n\
         THREE-TIER CONTROL:\n\
         1. AppleScript (scriptable apps) — cu tell / cu sdef\n\
-        2. AX tree + CGEvent (any app)   — cu snapshot / cu click\n\
+        2. Accessibility + CGEvent      — cu snapshot / cu click\n\
         3. OCR + screenshot (fallback)   — cu ocr / cu screenshot\n\n\
-        WORKFLOW FOR SCRIPTABLE APPS (check S flag in cu apps):\n\
-        1. cu apps                         — see what's running (S = scriptable)\n\
-        2. cu sdef <app>                   — discover scripting dictionary\n\
-        3. cu tell <app> '<AppleScript>'   — read/write app data directly\n\n\
-        WORKFLOW FOR NON-SCRIPTABLE APPS:\n\
-        1. cu menu <app>                   — discover what menus/features exist\n\
-        2. cu snapshot [app] --limit 30    — get UI elements with [ref] numbers\n\
-        3. cu click <ref> --app <name>     — click element by ref\n\n\
+        WORKFLOW FOR APP DATA (when scripting is permitted and supported):\n\
+        Use cu tell for the first useful read, group authorized writes, then read the result.\n\
+        Use cu sdef for unknown terminology; cu apps for unknown process/capability.\n\
+        Skip scripting for known unsupported operations and explicit UI-only tasks.\n\n\
+        WORKFLOW FOR UI CONTROLS:\n\
+        Reuse returned refs; otherwise use cu find for known targets or cu snapshot to explore.\n\
+        Use cu click for activation, cu set-value for native field replacement,\n\
+        cu type for insertion/controlled editors, and cu perform for specific AX actions.\n\
+        Use cu menu only to inspect menu structure; use an observed AX action, a known\n\
+        shortcut, or a permitted app-native script to activate a menu item.\n\n\
         WORKFLOW FOR VLM AGENTS (vision-equipped):\n\
         1. cu snapshot <app> --annotated   — PNG with each ref's box+number drawn\n\
         2. agent looks at PNG, picks ref by visual identification\n\
@@ -208,8 +210,8 @@ enum Cmd {
         #[arg(long)]
         annotated: bool,
         /// Attach a plain (un-annotated) window screenshot to the snapshot output.
-        /// Guarantees the tree and image are from the same instant. Skipped when --annotated
-        /// is also set (annotated already includes a screenshot).
+        /// Reads the tree and then captures the image in one call (not an atomic observation).
+        /// Skipped when --annotated is also set (annotated already includes a screenshot).
         #[arg(long = "with-screenshot")]
         with_screenshot: bool,
         /// Output path for the annotated PNG or --with-screenshot PNG.
@@ -220,7 +222,7 @@ enum Cmd {
     /// Type text into the focused element (Unicode supported)
     #[command(after_help = "\
         PREFER:\n  \
-        Use `cu set-value <ref>` for native AX fields outside AXWebArea (faster, no focus needed).\n  \
+        Use `cu set-value <ref>` to replace a whole native AX field outside AXWebArea.\n  \
         Use this when the target is Electron/browser content or when you need\n  \
         to drive a multi-step keystroke flow that requires real focus + IME-bypass entry.\n\n\
         Examples:\n  \
@@ -312,9 +314,9 @@ enum Cmd {
         allow_missing_positional = true,
         after_help = "\
         PREFER:\n  \
-        Use this over `cu type` when the target is an AX textfield/textarea/combobox\n  \
-        (faster, no focus shift, no clipboard pollution).\n  \
-        Fall back to `cu click + cu type` for non-AX inputs (Electron, web pages, etc).\n\n\
+        Use this to replace a native AX textfield/textarea/combobox's whole value.\n  \
+        Use `cu type` for insertion/selected text or Electron/AXWebArea inputs.\n  \
+        Targeted type requires the intended AX text input to be focused.\n\n\
         Fastest way to fill a text field. Uses AXUIElementSetAttributeValue\n\
         on AXValue — works on AXTextField / AXTextArea / AXComboBox.\n\
         For controls that reject AXValue writes, fall back to:\n  \
@@ -451,7 +453,7 @@ enum Cmd {
     #[command(after_help = "\
         PREFER:\n  \
         Use this over `cu snapshot | grep` whenever you know what you're looking for.\n  \
-        Use `--first --raw` to pipe straight into `xargs cu click` (no jq needed).\n\n\
+        Use `--first` only for an unambiguous target; inspect count and truncated.\n\n\
         Predicate query over the AX tree — returns matching elements with refs\n\
         usable directly with `cu click`. Replaces the snapshot+search pattern.\n\n\
         Filters (combine with AND; at least one is required):\n  \
@@ -462,9 +464,9 @@ enum Cmd {
         Examples:\n  \
         cu find --app Finder --role row --title-contains Documents\n  \
         cu find --app Safari --role button --title-equals 'Reload' --first\n  \
-        cu find --app Mail --role textfield --first | jq -r .match.ref | \\\n    \
-          xargs -I{} cu set-value {} 'alice@example.com' --app Mail\n\n\
-        --first returns one best match in `.match`; otherwise `.matches` is an array.\n\
+        cu find --app Mail --role textfield --title-contains 'Subject'\n\n\
+        --first returns the first match in tree order in `.match`, not the best match.\n\
+        Otherwise `.matches` is an array; disambiguate duplicates before acting.\n\
         Empty result is not an error — check `.matches | length` (or `.match == null`).")]
     Find {
         /// Target app (default: frontmost)
@@ -845,10 +847,9 @@ enum Cmd {
 
     /// Unified state probe — snapshot + windows + screenshot + frontmost in one call
     #[command(after_help = "\
-        PREFER:\n  \
-        First call when starting a task on a specific app — saves one LLM round-trip\n  \
-        vs `cu snapshot` + `cu window list` + `cu screenshot`. The screenshot gives\n  \
-        a VLM agent visual context; the snapshot gives ref-based interaction targets.\n\n\
+        Use when window metadata or an image is needed. For routine UI control,\n\
+        cu snapshot or cu find avoids an unnecessary screenshot. The combined\n\
+        call saves a round trip when all of tree, windows, and image are needed.\n\n\
         Examples:\n  \
         cu state Safari                # full state + task-directory screenshot\n  \
         cu state Mail --no-screenshot  # tree + windows only (faster)\n  \
@@ -895,8 +896,8 @@ enum Cmd {
         cu defaults read NSGlobalDomain KeyRepeat\n  \
         cu defaults write NSGlobalDomain KeyRepeat -int 2\n  \
         cu defaults read com.apple.calculator ViewDefaultsKey\n\n\
-        After writing dock/finder settings, restart with:\n  \
-        killall Dock   or   killall Finder")]
+        A preference write does not prove the app applied it. Inspect the consuming\n\
+        app's state; do not restart user apps unless that is part of the authorized task.")]
     Defaults {
         /// Subcommand: read or write
         action: String,
@@ -919,7 +920,9 @@ enum Cmd {
         cu sdef Calendar                # calendar scripting API\n  \
         cu sdef Finder                  # file management API\n  \
         cu sdef \"System Events\"         # system controls\n\n\
-        Workflow: cu apps → cu sdef <app> → cu tell <app> '<expression>'")]
+        Use sdef for unknown terminology. For a supported operation with known\n\
+        terminology, use tell directly for the first useful read. Use apps only\n\
+        when process identity or scripting capability is unknown.")]
     Sdef {
         /// Application name
         app: String,
@@ -940,10 +943,10 @@ enum Cmd {
     /// Execute AppleScript against a scriptable app
     #[command(after_help = "\
         PREFER:\n  \
-        Check `cu apps` for the S flag — if the target is scriptable, prefer this over\n  \
-        the snapshot+click loop (faster, more reliable, fewer tokens).\n  \
-        Fall back to AX (cu snapshot + cu click) when the app has no S flag\n  \
-        (Electron, Firefox, custom-render apps) or when the data isn't in the scripting dict.\n\n\
+        Use tell for permitted app-data operations with known scripting support.\n  \
+        Make the first useful read, group authorized writes, then read the result.\n  \
+        Use sdef for unknown terminology; apps for unknown process/capability.\n  \
+        Skip scripting for known unsupported operations or explicit UI-only tasks.\n\n\
         Run AppleScript in the context of a target application.\n\
         The expression is auto-wrapped in `tell application \"<app>\" ... end tell`.\n\n\
         Examples:\n  \
@@ -958,8 +961,8 @@ enum Cmd {
         cu tell Calendar 'make new event at end of events of first calendar \\\n    \
           with properties {summary:\"Meeting\", start date:date \"2026-04-06 14:00\"}'\n  \
         cu tell Notes 'make new note with properties {name:\"Test\", body:\"Hello\"}'\n\n\
-        Tip: Use `cu apps` to see which apps are scriptable (S flag),\n\
-        then `cu sdef <app>` to discover what properties/commands are available.\n\n\
+        The app argument is an application name or bundle path, not pid:<PID>.\n\
+        A task launcher's UI PID does not bind this AppleScript target.\n\n\
         Disruptive AppleScript is refused by default: `activate` steals the\n\
         user's frontmost app, and System Events `keystroke`/`key code` send\n\
         global keyboard input to whatever the user has focused. Use cu's\n\
@@ -4180,7 +4183,7 @@ const RECIPES: &[(&str, &str, &str)] = &[
         "# Preferred: direct AX write\n\
          REF=$(cu find --app Mail --role textfield --title-contains 'Subject' --first | jq -r .match.ref)\n\
          cu set-value \"$REF\" \"Hello\" --app Mail\n\n\
-         # Fallback if set-value fails (non-AX field, e.g. Electron):\n\
+         # For controlled editors, click instead; inspect intended focus before typing:\n\
          cu click \"$REF\" --app Mail\n\
          cu type \"Hello\" --app Mail",
     ),
@@ -4196,12 +4199,7 @@ const RECIPES: &[(&str, &str, &str)] = &[
     (
         "read-app-data",
         "Read app data via scripting (no UI traversal)",
-        "# Find scriptable apps (S flag in human mode)\n\
-         cu apps | jq '.apps[] | select(.scriptable == true) | .name'\n\n\
-         # Run AppleScript directly\n\
-         cu tell Safari 'get URL of current tab of front window'\n\
-         cu tell Notes 'get plaintext of note 1'\n\
-         cu tell Mail 'get subject of message 1 of inbox'",
+        "# For known supported terminology, make the first useful read directly\ncu tell Safari 'get URL of current tab of front window'\ncu tell Notes 'get plaintext of note 1'\ncu tell Mail 'get subject of message 1 of inbox'\n# Use cu apps for unknown identity/capability; cu sdef for unknown terminology",
     ),
     (
         "wait-for-ui",
@@ -4233,10 +4231,8 @@ const RECIPES: &[(&str, &str, &str)] = &[
     ),
     (
         "menu-click",
-        "Click any menu bar item (works for ANY app)",
-        "cu menu Calculator                                # discover menu structure\n\
-         cu tell \"System Events\" 'tell process \"Calculator\" to \\\n  \
-           click menu item \"Scientific\" of menu \"View\" of menu bar 1'",
+        "Discover a menu action and its UI target",
+        "cu menu Calculator                     # discover menu structure\ncu snapshot Calculator --annotated      # locate the menu control\n# Use its observed ref, or grounded screenshot coordinates if AX lacks it.\n# Observe the opened menu before selecting the intended item.\n# A known shortcut can avoid menu traversal when the workflow permits it.",
     ),
     (
         "region-screenshot",
@@ -4249,7 +4245,7 @@ const RECIPES: &[(&str, &str, &str)] = &[
         "Change a macOS preference without opening System Settings",
         "cu defaults read  com.apple.dock autohide\n\
          cu defaults write com.apple.dock autohide -bool true\n\
-         killall Dock                                       # apply",
+         # Inspect Dock state; restart only if that is part of the authorized task.",
     ),
 ];
 
