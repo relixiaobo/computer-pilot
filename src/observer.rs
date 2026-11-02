@@ -183,14 +183,20 @@ impl Drop for ActionObserver {
     }
 }
 
-/// Wait for the already-armed notification, bounded by an actual deadline.
-/// A queued notification from a synchronous action is handled immediately.
+/// Wait for the already-armed notifications to go quiet, within one deadline.
+/// The first notification can precede the remaining input events or UI updates.
+/// Drain the burst before taking a snapshot instead of treating its start as
+/// completion. No subscription still means no wait.
 pub fn wait_for_settle(observer: Option<ActionObserver>, max_ms: u64) -> u64 {
     let start = Instant::now();
-    let budget = Duration::from_millis(max_ms);
+    let deadline = start + Duration::from_millis(max_ms);
     if let Some(observer) = observer {
-        while !observer.fired.load(Ordering::SeqCst) {
-            let remaining = budget.saturating_sub(start.elapsed());
+        let mut until = deadline;
+        loop {
+            if observer.fired.swap(false, Ordering::SeqCst) {
+                until = deadline.min(Instant::now() + Duration::from_millis(20));
+            }
+            let remaining = until.saturating_duration_since(Instant::now());
             if remaining.is_zero() {
                 break;
             }

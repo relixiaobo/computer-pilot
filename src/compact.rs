@@ -27,11 +27,11 @@ pub fn apply(value: &mut Value) {
     let Some(object) = value.as_object_mut() else {
         return;
     };
+    // Keep window_id: same-title windows still need distinguishable identity.
     for key in [
         "schema_version",
         "client_key",
         "bundle_id",
-        "window_id",
         "command_id",
         "command_status",
         "settle_ms",

@@ -31,7 +31,9 @@ result. These are alternatives, not a mandatory discovery sequence.
 | A canvas, missing AX text/control, or appearance that must be seen | Visual: `ocr` for text; `screenshot` for layout/non-text targets; `snapshot --with-screenshot` or `--annotated` when both tree and image are needed. Use grounded `click --text` or screen coordinates. See [visual](references/visual.md). |
 | Launching, arranging windows, or a known preference key | `launch`, `window`, or `defaults`. A preference write does not prove the app applied it; do not restart user apps merely to force a change. |
 
-Within UI work, use `set-value` for replacing a native field's complete value.
+Within UI work, use `set-value` for replacing a native edit field's complete value.
+An editable-looking label is not necessarily in edit mode. Use the app's editing
+interaction to enter that mode; an AXValue write alone need not commit app data.
 Use `type` for insertion/replacing a selected range and for Electron/CEF or
 `AXWebArea` inputs; `type` automatically chooses Unicode or preserved clipboard
 paste. Use `key` for known shortcuts, `scroll` to reveal content, and `hover` or
@@ -201,7 +203,13 @@ may identify another element. After `stale_observation`, re-plan from the attach
 `diagnostics.snapshot`; observe once only when none is attached. Do not retry the
 old action or switch to OCR merely because its ref expired.
 Use `find` for a missing known label/role, or `why` for an unclear control.
-A window close button is not a navigation shortcut.
+PID binding selects a process, not a task window. Observations retain `window_id`
+even in compact output; identical titles can belong to different windows.
+After a window change or stale observation, match the returned window/document
+context to the authorized task before using its refs. A fresh ref in another
+window does not authorize work there.
+Use `window list` if the intended window needs locating; focus its observed index
+only when foreground work is needed. Closing windows is not a focus-recovery step.
 
 For one-off direct CLI calls, pass `--app` to actions. Keep background work PID-targeted;
 never respond to delivery failures by dropping the target, using global input,
@@ -224,31 +232,25 @@ shortcuts such as Select All or Save. Prefer native scripting for document data;
 when the workflow permits and needs foreground editing, explicitly focus the
 intended window before the edit group.
 
-For Electron/CEF or an `AXWebArea` input, use verified click/type instead of
+For Electron/CEF or an `AXWebArea` input, use keyboard/type input instead of
 AXValue writes. Omit the click when the intended editor is already focused.
-The CLI checks for a focused text input, not that it is the editor you meant.
-After clicking a new editor, inspect `focus_verified`/`snapshot.focused` before
-typing; a shell group may check the exact focus result and stop on mismatch.
-Do not blindly chain click/type on the assumption that a zero exit code proves
-the intended editor was focused:
-
-```bash
-./pilot click <editor-ref>
-# Continue only when the returned focus identifies the intended editor.
-./pilot type "<intended text>"
-```
-
-The click reports `focus_verified` for textfield-shaped targets, but a false or
-unknown value does not fail the click: Finder filenames and similar controls
-can be selectable rows rather than edit fields. `cu type` performs the strict
-focused-input check immediately before dispatch and refuses to send text
-without it.
+For a new editor, a shell group can check the click's `focus_verified:true`
+before typing, stopping on false/unknown without another model round.
+Click and type use the application's focused-input observation; a true click
+result establishes that clicked input at that moment, not continued focus or
+foreground delivery. A successful click with false/unknown focus may have selected
+a row instead of entering an editor. `type` checks for a focused text input
+immediately before dispatch; the caller still chooses the intended editor.
 `value_changed:true` reports an AX value change, not exact input or saving;
 `effect_verified` remains null. A click's `verify_diff` likewise reports tree
 changes; only `focus_verified` establishes the scoped input-focus result.
 Virtual editors can expose a slice or synthetic boundary newlines in AX.
 Treat AX text as an observation, not saved-file bytes: do not add/delete boundary
 characters or rewrite correct content merely to match that representation.
+An accepted AXValue/AXConfirm and a changed label can still leave application
+data unchanged. Commit through the app's editing workflow and use its resulting
+document/list/data state as evidence. When that evidence is absent, do not repeat
+AX writes or declare completion from the same editable representation.
 If the intended editor is unfocused and its AX value is empty, focus the observed
 editor before concluding it lacks content. For an actual discrepancy, inspect
 visible document/selection evidence or app-native data before another edit.

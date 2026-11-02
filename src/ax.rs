@@ -1673,11 +1673,6 @@ impl RefTarget {
         self.pid == other.pid && unsafe { CFEqual(self.element, other.element) != 0 }
     }
 
-    /// Read focus on the object actually dispatched to, not its old tree path.
-    pub fn is_focused(&self) -> Option<bool> {
-        unsafe { ax_bool(self.element, "AXFocused") }
-    }
-
     pub fn click(&self, perform_actions: bool) -> Result<(bool, f64, f64), CuError> {
         unsafe {
             let pos = ax_position(self.element).ok_or("target position is unavailable")?;

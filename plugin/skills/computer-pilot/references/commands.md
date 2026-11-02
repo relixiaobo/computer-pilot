@@ -159,9 +159,11 @@ dispatching text.
 ### `cu set-value <ref> <text> --app <app> [--observation <id>]`
 
 Set `AXValue` directly without focus, IME, or clipboard. An `--ax-path`
-selector may replace the ref where supported. When `controlled_editor_risk` is
-true, AXValue may not reach an Electron/React editor's application state; never
-use the write alone as proof that Submit/Send is enabled.
+selector may replace the ref where supported. `ax_value_written:true` reports
+acceptance of the AX write; `effect_verified:null` makes no commit/save claim.
+When `controlled_editor_risk` is true, the value may not reach the application's
+document or input handlers. Inspect the intended result; use keyboard/type input
+for a missing edit instead of repeating AXValue writes.
 
 ### `cu perform <ref> <AXAction> --app <app> [--observation <id>]`
 

@@ -165,9 +165,10 @@ These rules are derived from browser-pilot lessons and project experience. Follo
 
 After `click`, `type`, `key`, the CLI automatically returns a fresh snapshot in JSON mode. This way the agent always knows the current UI state without an extra call.
 
-- Subscribe to AX changes **before dispatch**, then wait up to 500ms before the
-  post-action snapshot. Reuse that snapshot for verification; typing also retains
-  its native/Chromium stability delay.
+- Subscribe to AX changes **before dispatch**, then wait for a 20ms quiet
+  interval within the 500ms bound before the post-action snapshot. The first
+  notification can precede the remaining input/UI updates. Reuse that snapshot
+  for verification; Chromium typing also retains its stability delay.
 - Opt out with `--no-snapshot` when the caller doesn't need it.
 
 ### 3. Ref design

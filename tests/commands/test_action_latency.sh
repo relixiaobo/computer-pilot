@@ -28,7 +28,7 @@ cu, bundle = sys.argv[1], pathlib.Path(sys.argv[2])
 }))
 
 def run(*args, ok=True):
-    p = subprocess.run([cu, "--json", "--client-key", "latency-fixture", *args],
+    p = subprocess.run([cu, "--client-key", "latency-fixture", *args],
                        capture_output=True, text=True, timeout=15)
     d = json.loads(p.stdout or p.stderr)
     if ok:
@@ -57,6 +57,21 @@ try:
     ref = str(field["ref"])
     path = field["axPath"]
 
+    # State must preserve the same input/window identity and actionable limit
+    # evidence as snapshot. Recover a missing control using the suggested limit,
+    # then use its returned ref without another observation round.
+    state = run("--compact", "state", app, "--limit", "1", "--no-screenshot")
+    assert state["window"] == snap["window"] and state["focused"]["ref"] == int(ref), state
+    assert state["window_id"] == snap["window_id"] != 0, state
+    assert state["tree_truncated"] and "--limit 2" in state["truncation_hint"], state
+    expanded = run("state", app, "--limit", "200", "--no-screenshot")
+    assert len(expanded["elements"]) > 100 and not expanded["tree_truncated"], expanded
+    assert "truncation_hint" not in expanded, expanded
+    extra = next(e for e in expanded["elements"] if e.get("title") == "other-input")
+    changed = run("set-value", str(extra["ref"]), "state recovery", "--app", app, "--limit", "200")
+    assert changed["effect_verified"] is None, changed
+    assert next(e for e in changed["snapshot"]["elements"] if e.get("title") == "other-input")["value"] == "state recovery", changed
+
     # No observation/effect check may be needed between grouped shortcuts,
     # but their short-lived senders must still deliver the actual events.
     # Count delivery in the background app, independently of menu handling.
@@ -80,6 +95,13 @@ try:
     assert delayed["dispatched"] and delayed["confidence"] == "medium", delayed
     assert delayed["advice"].startswith("the event was dispatched"), delayed
     assert "effect_advice" not in delayed, delayed
+
+    # Several notifications belong to one action. Observe the completed burst,
+    # not a tree read started after its first change and finished after its last.
+    burst = run("key", "f8", "--app", app)
+    assert burst["snapshot"]["focused"]["value"] == "burst-final", burst
+    assert next(e for e in burst["snapshot"]["elements"] if e["ref"] == int(ref))["value"] == "burst-final", burst
+    assert burst["effect_verified"] is None, burst
 
     # --no-verify defers effect interpretation, not the settle needed by an
     # emitted JSON snapshot. The fixture applies X after 100 ms; a snapshot
@@ -243,7 +265,8 @@ try:
     current = outputs[-1]
     assert len(outputs) == 3 and "base_observation_id" not in current, outputs
     assert outputs[:2] == [{"ok": True, "method": "ax-set-value", "confidence": "medium",
-                           "dispatched": True, "ax_value_written": True}] * 2, outputs[:2]
+                           "dispatched": True, "ax_value_written": True,
+                           "effect_verified": None}] * 2, outputs[:2]
     state = {e["ref"]: e for e in current["elements"]}
     full = run("snapshot", app, "--limit", "200")
     assert {r: e.get("value") for r, e in state.items()} == {
@@ -443,6 +466,24 @@ try:
                            capture_output=True, text=True, timeout=15)
         assert p.returncode == 0 and expected in p.stdout, (p.stdout, p.stderr)
 
+    # A lying AXFocused flag must neither verify a click on another control
+    # nor authorize typing after the app reports no focused text input.
+    observed = session("snapshot")
+    decoy = next(e for e in observed["elements"] if e.get("title") == "Stale focus flag")
+    inspected = session("why", decoy["ref"], "--limit", "200")
+    assert inspected["checks"]["focused"] is True, inspected
+    clicked = session("click", decoy["ref"])
+    assert clicked["focus_verified"] is False, clicked
+    assert clicked["snapshot"]["focused"]["ref"] != decoy["ref"], clicked
+    assert clicked.get("verification_basis") != "focused_target", clicked
+    clicked = session("click", decoy["ref"])
+    assert clicked["focus_verified"] is not True, clicked
+    refused = session("type", "must-not-land", "--no-verify", ok=False)
+    assert refused["code"] == "verification_failed", refused
+    assert refused["diagnostics"]["dispatched"] is False, refused
+    assert not any("must-not-land" in e.get("value", "") for e in refused["diagnostics"]["snapshot"]["elements"]), refused
+    print("Stale AXFocused flag rejected; non-input application focus prevented text dispatch")
+
     # Replace the entire view asynchronously. Refs returned by wait must be
     # usable directly, without a redundant snapshot to register them first.
     found = session("find", "--role", "button", "--title-equals", "Next page", "--first")
@@ -481,7 +522,9 @@ try:
     # previous window's ref. Identity comes from the same read as the tree.
     original = full
     other_window = next(e for e in original["elements"] if e.get("title") == "Other window")
-    session("click", other_window["ref"])
+    switched_window = session("click", other_window["ref"])
+    assert switched_window["snapshot"]["window"] == original["window"], switched_window
+    assert switched_window["window_id"] != original["window_id"], switched_window
     rejected = session("set-value", original["elements"][0]["ref"], "must-not-run",
                        "--observation", original["observation_id"], ok=False)
     assert rejected["code"] == "stale_observation" and "window changed" in rejected["error"], rejected

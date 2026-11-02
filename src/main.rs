@@ -2596,8 +2596,12 @@ fn attach_text_input_focus(
         }
         if let Some(native_target) = native_target {
             // Sibling reorder can change a path while the retained object is
-            // still the intended focused input. No second tree walk is needed.
-            native_target.is_focused()
+            // still the intended input. Use the application's focused object
+            // already read for this snapshot, exactly as the type precheck does.
+            // A control's own AXFocused flag can disagree with that object.
+            post.focused_target
+                .as_ref()
+                .map(|focused| native_target.same_element(focused))
         } else {
             Some(post.focused.as_ref().is_some_and(|focused| {
                 same_control_path(
@@ -2849,11 +2853,12 @@ fn cmd_set_value(
         "method": "ax-set-value",
         "dispatched": true,
         "ax_value_written": true,
+        "effect_verified": serde_json::Value::Null,
     });
     if controlled_editor_risk {
         result["controlled_editor_risk"] = true.into();
         result["confidence"] = "low".into();
-        result["effect_advice"] = "The target is inside AXWebArea. AXValue may update only Chromium's accessibility shadow state without firing the controlled editor's input/onChange handlers. Do not use this result as proof that Send/Submit is enabled.".into();
+        result["effect_advice"] = "AXValue may change only the accessibility representation, without updating the application's document or firing input handlers. Inspect the intended result; if absent, use focused keyboard/type input instead of repeating AXValue writes.".into();
     }
     let _ = capture_and_maybe_attach_snapshot(
         &mut result,
@@ -4016,22 +4021,15 @@ fn cmd_state(
         };
 
     if json {
-        let mut full = serde_json::json!({
-            "ok": true,
-            "app": name,
-            "pid": pid,
-            "frontmost": frontmost,
-            "windows": windows,
-            "elements": snap.elements,
-            "snapshot_size": snap.elements.len(),
-            "tree_truncated": snap.truncated,
-        });
-        if let Some(frame) = &snap.window_frame {
-            full["window_frame"] = serde_json::json!({
-                "x": frame.x, "y": frame.y,
-                "width": frame.width, "height": frame.height,
-            });
-        }
+        // State is the same observation with window/capture metadata. Reuse
+        // its serialization so focus, modal and truncation evidence cannot be
+        // silently dropped by a second handwritten snapshot representation.
+        let mut full = snapshot_value(&snap);
+        full["frontmost"] = frontmost.into();
+        full["windows"] = serde_json::json!(windows);
+        full["snapshot_size"] = snap.elements.len().into();
+        let truncated = full.as_object_mut().unwrap().remove("truncated").unwrap();
+        full["tree_truncated"] = truncated;
         if let Some(file) = screenshot_info {
             full["screenshot"] = serde_json::json!(file.path);
             full["screenshot_file"] = serde_json::json!(file);
@@ -4048,6 +4046,9 @@ fn cmd_state(
             snap.elements.len(),
             if snap.truncated { " (truncated)" } else { "" },
         );
+        if let Some(hint) = &snap.truncation_hint {
+            println!("{hint}");
+        }
         if let Some(file) = &screenshot_info {
             println!("Screenshot: {}", file.path);
         } else if let Some(err) = &screenshot_err {
