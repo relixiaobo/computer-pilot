@@ -29,7 +29,7 @@
     "Interrupted turns have combined_turn_ms=0 in the existing raw collector. This report reconstructs metrics from the original rollout using interrupted_elapsed_ms, never treats those zeros as measured duration, and retains completed tool/usage records. In-flight work may not be represented in token/tool counters.",
     "Tool intervals are the union of recorded tool executions. Residual time includes model, network and orchestration, not pure inference. Backend invocation estimates may count unexecuted lines in failed shell batches.",
     "The first Finder organize timeout was retained. A later Finder rename setup failed before model launch because a legacy clipboard type was unreadable through NSPasteboardItem; it did not clear the clipboard. Only coordinator clipboard IO changed. Successor manifests preserved the original remaining order, product/skill fingerprints and failed evidence; no failed model attempt was replaced.",
-    "No coaching or product/skill changes during the cohort. Raw rollouts, UI output, clipboard backups and credentials remain private. Cleanup closed only dedicated test windows; clipboard restore skipped user-modified contents where appropriate."
+    "No coaching or product/skill changes during the cohort. Raw rollouts, UI output, clipboard backups and credentials remain private. Cleanup closed only dedicated test windows. Clipboard restore skipped when changeCount changed and current contents were not recognized as task-owned files; that guard cannot distinguish user writes from tool clipboard activity. Original clipboard backups remain private; no later clipboard state was overwritten to force restoration."
   ],
   "cohorts": [
     {
