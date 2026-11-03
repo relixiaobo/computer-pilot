@@ -1,8 +1,9 @@
-# Computer Pilot — AGENTS.md
+# Computer Pilot — Working Agreement
 
-> Same working agreement as `CLAUDE.md`, kept under a second name so Codex picks
-> it up automatically. Update both when the project's contract changes (or
-> symlink one to the other).
+`AGENTS.md` and `CLAUDE.md` contain the same agreement. Update both together.
+Start new work from [docs/README.md](docs/README.md); release status and remaining
+work live in [docs/ROADMAP.md](docs/ROADMAP.md). Dated benchmark reports and
+archived plans are evidence, not an implicit queue of unfinished work.
 
 ## Project Overview
 
@@ -15,12 +16,16 @@ Three-tier control: **AppleScript** (scriptable apps) → **AX tree + CGEvent** 
 ## Quick Reference
 
 ```
+bash scripts/verify.sh                        # Rust/metadata checks + command suite
+bash scripts/verify.sh --skip-desktop         # Rust/metadata checks without desktop
+python3 -m unittest discover -s tests/agent -p 'test_benchmark*.py' # Additional hosted CI check
 cargo build --release                         # Build
 bash tests/commands/run_all.sh                # Run 700+ command-test assertions
 ./target/release/cu --human <command>         # Run in dev
 bash scripts/release.sh <version>              # Prepare a draft release PR
 bash scripts/release.sh <version> --dry-run    # Preview release-PR preparation
 bash scripts/check-version-sync.sh             # Verify all version surfaces
+bash scripts/promote-skill-stable.sh <version> # Promote a published release to skill-stable
 ```
 
 ## Release Flow
@@ -29,26 +34,76 @@ bash scripts/check-version-sync.sh             # Verify all version surfaces
 
 1. **Pre-flight**: clean, current `main` matches `origin/main`, version/tag/branch are new
 2. **Version bump**: update every CLI, skill, plugin, marketplace, and compatibility surface
-3. **Build & test**: build plus L1/L2 checks unless explicitly skipped
+3. **Build & test**: `scripts/verify.sh` (Rust/metadata checks plus L1) then L2, unless explicitly skipped. Hosted CI also runs the Python benchmark-reporting tests listed above.
 4. **PR**: commit on `release/vX.Y.Z`, push that branch, and open a draft PR
-5. **CI**: hosted static checks plus the TCC-enabled Apple Silicon command suite must pass
+5. **CI**: the hosted `test` job must pass. L1 is not a CI gate — `verify.sh` in step 3 is what covers it (see Testing)
 6. **Tag**: after merge, the protected Tag Release workflow tags the merged `main`
-7. **Publish**: the tag workflow packages, checksums, and publishes assets; it
-   signs/notarizes when Developer ID secrets exist, otherwise it emits a clearly
-   marked fixed-identifier ad-hoc artifact
+7. **Publish**: the tag workflow packages, checksums, and publishes assets.
+   The current manifest requires Developer ID signing and notarization;
+   missing signing secrets stop publication. The ad-hoc path is available only
+   when the tagged manifest does not require Developer ID.
+8. **Promote**: `scripts/promote-skill-stable.sh <version>` verifies the
+   published release (public, checksums consistent with `release-index.json`,
+   code identifier, version sync at the tag) and fast-forwards the
+   `skill-stable` branch to the release tag. Agent hosts (Tenon etc.) track
+   `skill-stable`, never `main`.
+
+   The signing gate enforces the **tagged manifest's declared intent**, not a
+   fixed tier: `installation.signing.required_status` must equal the
+   published `signing.status`. Publication and promotion both enforce the
+   declared signing intent, so a repository that declares
+   `developer-id-notarized` cannot publish or promote an ad-hoc artifact. A project
+   without a Developer ID declares `ad-hoc-unsigned` with a null
+   `requirement` (ad-hoc designated requirements are a bare cdhash that
+   changes every build, so pinning one is always wrong), and integrity then
+   rests on the verified SHA-256 digests — which the gate says out loud.
 
 Manual rules:
 - **Never push a release commit or tag directly to main.** Use a release PR and protected workflows.
-- **README points to `/releases/latest/` URL** — auto-resolves to the newest release tag, so updating the release is enough.
+- **README's `/releases/latest/` URLs are the human browsing entry only.**
+  The skill installer and the manifest always pin versioned
+  `releases/download/v<version>/` URLs — never point the installer at
+  `latest`.
+- **`skill-stable` only moves through the promote script.** Never push it by
+  hand.
 
 The release script bumps **five** version surfaces in one commit:
 1. `Cargo.toml` — drives `cu --version`
 2. `plugin/.claude-plugin/plugin.json` — Claude Code plugin manifest
 3. `plugin/package.json` — packaged skill/plugin version
 4. `.claude-plugin/marketplace.json` — marketplace entry (what users see in `/plugin marketplace`)
-5. `plugin/skills/computer-pilot/compatibility.json` — CLI, skill, platform, and Broker compatibility
+5. `plugin/skills/computer-pilot/compatibility.json` — the manifest: CLI,
+   skill, platform, Broker compatibility, and the `installation` block the
+   skill preflight installs from. Its `cli.version`, `cli.tested_version`,
+   and `cli.minimum_version` move together under the exact-pin support
+   policy (widen to a range only after cross-version tests exist).
 
-All five must move together. `scripts/check-version-sync.sh` enforces this.
+All five must move together. `scripts/check-version-sync.sh` enforces this,
+plus manifest self-consistency (schema, installation block, signing policy).
+
+## Install Layout
+
+`install-native.sh` (bundled in the skill) converges the machine to the
+manifest: `<install-root>/bin/cu` is the **fixed realpath** — upgrades stage
+on the same volume and atomically rename over it, never write in place, and
+never activate via versioned directories + symlink swap (TCC resolves the
+realpath; a per-version path would shed permission grants on every upgrade —
+this is the deliberate inverse of Browser Pilot's layout, which has no TCC
+dependency). `<install-root>/versions/` holds rollback copies only. A `cu`
+symlink in `~/.local/bin` (or `--bin-dir`) points at the fixed path and never
+retargets. No sudo, no `/usr/local/bin`, no `latest` URLs.
+
+**macOS ships an unrelated `/usr/bin/cu`** (Taylor UUCP serial dialer) that
+answers `cu --version` with `cu (Taylor UUCP) 1.07`. Never resolve the binary
+with a bare `command -v cu`: the skill preflight, README, and embedding docs
+all prepend `<install-root>/bin` to `PATH` and require `cu <semver>` output.
+The installer's `path_ready` reports whether a plain `cu` actually reaches
+Computer Pilot, with `shadowed_by` naming whatever won instead.
+
+The binary asset name has one source: `installation.asset_template` in the
+manifest. `build-release-assets.sh` and `promote-skill-stable.sh` read it;
+the installer takes `--asset-template` (its literal default is asserted equal
+to the manifest by `test_installer.sh`).
 
 Users update the plugin with:
 ```
@@ -154,9 +209,10 @@ Fall back to AX snapshot+click when:
 ### 6. Focus model — `--app` and PID-targeted delivery
 
 `cu`'s non-disruption guarantee comes from **per-process CGEvent delivery**:
-when `--app <Name>` is given, every event is posted via `CGEventPostToPid`
-to the resolved pid instead of through the global HID tap. The cursor stays
+events are posted via `CGEventPostToPid` to the explicit `--app` target or,
+when omitted, the resolved current frontmost PID. The cursor stays
 put, the frontmost app stays frontmost, and the user is not interrupted.
+Only `--allow-global` selects the disruptive global HID path.
 
 `--app` accepts a unique name, a unique bundle identifier, or `pid:<PID>`.
 Names and bundle identifiers are never resolved by an active/first-instance
@@ -170,13 +226,14 @@ pid up front and pass it down to `mouse::*` / `key::*`.
 
 The `EventSource` RAII wrapper in `src/mouse.rs` and `src/key.rs` creates a
 `kCGEventSourceStateCombinedSessionState` (=0) source when targeted, so PID
-events do not collide with the user's real HID stream. Without `--app`, the
-source is null (default global source) and events go through the global tap.
+events do not collide with the user's real HID stream. With `--allow-global`,
+the source is null (default global source) and events go through the global tap.
 
-`cu type` uses **`CGEventKeyboardSetUnicodeString`** with `virtual_key=0` —
-it injects UTF-16 code units directly per CGEvent, bypassing IME and the
-clipboard. No pbcopy/pbpaste round-trip. `cu key` parses the combo and
-posts virtual-key down/up events the same way.
+Native `cu type` uses **`CGEventKeyboardSetUnicodeString`** with `virtual_key=0`,
+injecting UTF-16 directly and bypassing IME and clipboard. Chromium inputs and
+known chat apps auto-route through full-fidelity clipboard paste and report
+`paste_reason`; CJK text alone does not select paste. `cu key` parses the combo
+and posts virtual-key down/up events to the same target.
 
 Every action response carries a `method` field that documents the routing:
 `ax-action`, `ax-set-value`, `ax-perform` (best — no cursor move at all),
@@ -202,8 +259,9 @@ the same `cu click ... --app <Name>` (do NOT drop to global tap).
 ### 8. Agent operation etiquette
 
 - Snapshot, screenshot, direct AX actions, and PID-targeted events preserve the
-  user's frontmost app and real pointer. Always pass `--app`.
-- `cu window focus`, commands without `--app`, `*-global` methods, and
+  user's frontmost app and real pointer. Pass `--app` to keep the target explicit
+  across commands; omission resolves the current frontmost PID.
+- `cu window focus`, `--allow-global`, `*-global` methods, and
   visualization mode (`--full -R`) are disruptive. Use them only when the
   workflow explicitly requires foreground state.
 - Clipboard paste uses a desktop-level lock and restores the full pasteboard
@@ -236,6 +294,34 @@ the same `cu click ... --app <Name>` (do NOT drop to global tap).
 
 - **AppleScript injection**: Escape `\` and `"` in user-provided text before embedding in AppleScript strings.
 - **`cu tell` expressions**: The user/agent provides AppleScript expression, auto-wrapped in `tell application "X" ... end tell`. App name escaped via `applescript_escape()`. Timeout enforced (default 10s). Output uses `-ss` flag for unambiguous structured text.
+
+### 12. Broker compatibility contract
+
+Broker reuse is decided by `broker_is_current` in `src/broker.rs`: same
+`INTERNAL_PROTOCOL` **and** a Broker version at least the calling CLI's.
+When a client requests the optional visual cursor, the Broker must also have
+its presentation loop enabled. A missing loop triggers idle retirement;
+disabling the cursor does not retire an otherwise compatible Broker.
+
+- **Newer or equal compatible Broker → reused untouched.** Workers always run from the
+  calling CLI's own executable, so a second CLI (an older global install, an
+  Agent-bundled copy) must never restart a Broker that already speaks its
+  wire format.
+- **Older or unidentifiable Broker → retired via StopIfIdle.** Without this
+  there is no retirement path at all — the daemon has no idle timeout and no
+  stop command — so a Broker-side fix that did not change the wire format
+  would never take effect after an upgrade. The machine converges on the
+  newest installed version.
+- **Older but busy → keep serving through it.** Its protocol still matches,
+  so failing the user's command would be gratuitous; the upgrade happens on a
+  later idle call.
+
+Therefore: any change to Broker request/response **semantics** must bump
+`INTERNAL_PROTOCOL`, and version ordering — not a capability list — is what
+tells a CLI whether a running Broker predates a behavior it needs.
+
+`tests/commands/test_broker_upgrade.sh` covers the full matrix offline with
+scripted Brokers plus a real prior release binary; keep it green.
 
 ## Agent Reliability Principles
 
@@ -313,8 +399,9 @@ checklist exists so a future revert doesn't bring them back.
   sandboxed apps silently drop PID-targeted events. Return state/diff evidence
   and scoped input-focus checks; never present an arbitrary diff as completion.
 - **"Send unicode CGEvents to chat apps"** — WeChat/Slack/Discord/Telegram/
-  Lark/QQ/DingTalk drop the first character. Auto-route through paste when
-  text contains CJK or target is on the chat-app list (R7).
+  Lark/QQ/DingTalk can drop the first character. Auto-route through paste for
+  Chromium inputs or targets on the chat-app list (R7); native CJK input keeps
+  Unicode events.
 - **"Capture cross-Space window via CGWindowListCreateImage"** — returns
   blank PNG. Use ScreenCaptureKit (`sck.rs`) primary path (B), and honor
   `kCGWindowSharingState=0` upfront with a structured error (A).
@@ -334,16 +421,47 @@ checklist exists so a future revert doesn't bring them back.
   image/file/rich-text clipboard is silently destroyed. Use
   `pasteboard::save/restore` (all items, all types) and skip the restore when
   changeCount shows the user wrote mid-paste.
+- **"Grade a check against a command's output without checking it succeeded"**
+  — this applies to test harnesses too. `tests/agent/run.py` matched
+  `expect_contains` against the text of a failed `cu tell`, and AppleScript
+  quotes the object it could not find (`Can't get note "Agent Test - X"`), so
+  the check that proved the note existed passed precisely when it did not.
+  Route every check through the ok/text pair, never the text alone. The same
+  applies one step earlier: a task whose `setup` failed has no world to be
+  graded against, so it must abort as `setup_failed` rather than spend an
+  agent's step budget hunting for a fixture that was never built.
 
 ## Testing
 
 Three layers (defined in `tests/`):
 
 - **L1 Command tests** (`tests/commands/run_all.sh`) — 700+ assertions covering every CLI command in isolation. The default run preserves the user's foreground app and pointer. Run `COMPUTER_PILOT_TEST_INTERACTIVE=1 bash tests/commands/run_all.sh` only on a dedicated desktop to include exact-PID focus, foreground Electron paste, and global HID compatibility tests. Specific suites: `bash tests/commands/run_all.sh snapshot key tell`.
-- **L2 Agent E2E** (`tests/agent/run.py`) — real LLM agent + cross-check verification. Loads `plugin/skills/computer-pilot/SKILL.md` as the system prompt so the test mirrors production. Needs `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in `.env`. Wired into `scripts/release.sh` — every release runs L2 unless `--skip-agent` or no API key.
+- **L2 Agent E2E** (`tests/agent/run.py`) — real LLM agent + cross-check verification. Loads `plugin/skills/computer-pilot/SKILL.md` as the system prompt so the test mirrors production. Needs `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in `.env`, plus `AGENT_MODEL` naming a model that key can actually reach (and `OPENAI_BASE_URL` when it is served by a relay). `release.sh` runs `run.py` with no flags, so `.env` is the only place a release can express which model it tests against; a mismatch between the key and the model fails the preflight before anything is built. Wired into `scripts/release.sh` — every release runs L2 unless `--skip-agent` or no API key.
 - **L3 macOSWorld** (`tests/macosworld/`) — 133 locally-runnable tasks classified in `local_test_set.json`. Run via `tests/macosworld/run_selected.py`. Manual / quarterly cadence — too slow + heavy for per-release.
 
 All tests use the release binary: `target/release/cu`. Build first with `cargo build --release`.
+
+### What CI covers, and what it cannot
+
+`bash scripts/verify.sh` is the local pre-push/pre-merge command. Steps 1-6
+cover the hosted Rust/metadata checks (version sync, skill metadata,
+`cargo fmt --check`, `cargo clippy --all-targets -D warnings`, `cargo test`,
+release build); step 7 is L1. The hosted `test` job additionally runs
+`python3 -m unittest discover -s tests/agent -p 'test_benchmark*.py' -v`.
+Run that command when benchmark tooling changes; `verify.sh` does not include it.
+
+**CI does not run L1.** The suite needs a macOS session already holding
+Accessibility and Screen Recording grants, which a GitHub-hosted runner
+cannot provide. The only Actions path is a self-hosted runner, and this
+repository must not use one while it is public: any fork can open a pull
+request that runs arbitrary code on it, and that machine by definition has
+full desktop-automation permissions. `.github/workflows/tcc-suite.yml`
+therefore keeps the job on `workflow_dispatch` only. Add `pull_request:` back
+only if the repo goes private or a dedicated disposable machine exists.
+
+So L1 is a **local gate the maintainer owns**. Running only L1 locally is not
+enough either — that gap once left `main` red on `cargo fmt` across four
+merges. Run `verify.sh`, not its parts.
 
 ### Two rules for adding tests
 

@@ -1,6 +1,7 @@
 # Universal Agent Integration
 
-Status: CLI-only public boundary and private per-user Broker implemented.
+Status: implemented and included in v0.9.3. Agent hosts consume the published
+`skill-stable` channel; see [release status](ROADMAP.md#release-status).
 
 ## Goal
 
@@ -68,12 +69,14 @@ Pilot validates at least:
 - client key;
 - PID and bundle identifier;
 - AX-derived window identity;
-- AX generation and current target attributes.
+- the selected target's current attributes and AX-derived identity.
 
-If the app, window, generation, or target changed, the action fails with
+If the app, window, or selected target identity changed, the action fails with
 `stale_observation`. It must never execute against a ref that merely occupies
-the same sequential number in a newer tree. User activity invalidates state;
-Computer Pilot does not try to lock the user out of the desktop.
+the same sequential number in a newer tree. Unrelated UI changes alone do not
+invalidate the target. The freshness scan retains the selected AX object for
+dispatch; it does not resolve the numeric ref a second time. Computer Pilot
+does not try to lock the user out of the desktop.
 
 ## Command Recovery
 

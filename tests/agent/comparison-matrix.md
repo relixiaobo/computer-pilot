@@ -1,5 +1,12 @@
 # Codex and Computer Pilot comparison matrix
 
+Status as of **2026-11-03**: the harness and initial reports shipped in v0.9.3;
+the complete six-class, three-repeat matrix has **not** been executed. The
+[evidence index](README.md#status-and-evidence-index) links the completed pilots
+and cu-only follow-ups. Cross-app transfer, stale-target fixtures and explicit
+same-label/multi-pane coverage remain future benchmark work, not release gates
+already passed.
+
 This matrix compares general desktop ability across six task classes. It keeps
 the task goal and independent oracle identical between the two arms; only the
 backend changes:

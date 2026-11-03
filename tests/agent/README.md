@@ -3,6 +3,29 @@
 Real LLM agent tests for `cu`. Unlike `tests/commands/` (which test "does the command work"),
 these tests verify "can an agent complete a real task correctly".
 
+## Status and evidence index
+
+Reconciled for **v0.9.3 on 2026-11-03**. The benchmark tooling and reliability
+fixes in PRs #45/#46 are merged and released. Dated reports preserve their exact
+failures, budgets and isolation limits; later fixes do not turn earlier failed
+attempts into passes. The six-class comparison remains incomplete, and the
+cu-only retests do not establish a new paired speed comparison.
+
+| Evidence | Scope |
+| --- | --- |
+| [Comparison matrix](comparison-matrix.md) | Current comparison design and remaining coverage |
+| [2026-11-02 clean pilot](results/2026-11-02-clean-pilot.md) | Audited paired pilot and excluded contaminated cohort |
+| [2026-11-02 fix retest](results/2026-11-02-fix-retest.md) | Post-fix real-app evidence |
+| [2026-11-02 skill/long retest](results/2026-11-02-skill-long-retest.md) | Longer tasks and skill changes |
+| [2026-11-02 resource retest](results/2026-11-02-resource-retest.md) | Model-round and token budgets |
+| [2026-11-03 follow-up retest](results/2026-11-03-followup-resource-retest.md) | Latest cu-only cohort: TextEdit false completion and a VS Code budget stop remain visible |
+
+The dated experiment narratives below are historical records, including any
+"next work" suggestions made at that time. Use the
+[Roadmap](../../docs/ROADMAP.md) for current work status. Raw `test-results/`
+directories are local, ignored run data; the committed reports above and JSON
+files beside them are the durable evidence index.
+
 ## Real application comparisons
 
 `benchmark_real_apps.py` reuses the rollout collector and status/pair reporting

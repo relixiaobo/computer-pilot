@@ -1,4 +1,9 @@
-# Computer Pilot — CLAUDE.md
+# Computer Pilot — Working Agreement
+
+`AGENTS.md` and `CLAUDE.md` contain the same agreement. Update both together.
+Start new work from [docs/README.md](docs/README.md); release status and remaining
+work live in [docs/ROADMAP.md](docs/ROADMAP.md). Dated benchmark reports and
+archived plans are evidence, not an implicit queue of unfinished work.
 
 ## Project Overview
 
@@ -11,8 +16,9 @@ Three-tier control: **AppleScript** (scriptable apps) → **AX tree + CGEvent** 
 ## Quick Reference
 
 ```
-bash scripts/verify.sh                        # EVERY gate: CI checks + command suite
-bash scripts/verify.sh --skip-desktop         # CI-equivalent only (no desktop needed)
+bash scripts/verify.sh                        # Rust/metadata checks + command suite
+bash scripts/verify.sh --skip-desktop         # Rust/metadata checks without desktop
+python3 -m unittest discover -s tests/agent -p 'test_benchmark*.py' # Additional hosted CI check
 cargo build --release                         # Build
 bash tests/commands/run_all.sh                # Run 700+ command-test assertions
 ./target/release/cu --human <command>         # Run in dev
@@ -28,13 +34,14 @@ bash scripts/promote-skill-stable.sh <version> # Promote a published release to 
 
 1. **Pre-flight**: clean, current `main` matches `origin/main`, version/tag/branch are new
 2. **Version bump**: update every CLI, skill, plugin, marketplace, and compatibility surface
-3. **Build & test**: `scripts/verify.sh` (every CI check plus L1) then L2, unless explicitly skipped
+3. **Build & test**: `scripts/verify.sh` (Rust/metadata checks plus L1) then L2, unless explicitly skipped. Hosted CI also runs the Python benchmark-reporting tests listed above.
 4. **PR**: commit on `release/vX.Y.Z`, push that branch, and open a draft PR
 5. **CI**: the hosted `test` job must pass. L1 is not a CI gate — `verify.sh` in step 3 is what covers it (see Testing)
 6. **Tag**: after merge, the protected Tag Release workflow tags the merged `main`
-7. **Publish**: the tag workflow packages, checksums, and publishes assets; it
-   signs/notarizes when Developer ID secrets exist, otherwise it emits a clearly
-   marked fixed-identifier ad-hoc artifact
+7. **Publish**: the tag workflow packages, checksums, and publishes assets.
+   The current manifest requires Developer ID signing and notarization;
+   missing signing secrets stop publication. The ad-hoc path is available only
+   when the tagged manifest does not require Developer ID.
 8. **Promote**: `scripts/promote-skill-stable.sh <version>` verifies the
    published release (public, checksums consistent with `release-index.json`,
    code identifier, version sync at the tag) and fast-forwards the
@@ -43,10 +50,9 @@ bash scripts/promote-skill-stable.sh <version> # Promote a published release to 
 
    The signing gate enforces the **tagged manifest's declared intent**, not a
    fixed tier: `installation.signing.required_status` must equal the
-   published `signing.status`. This is what catches the dangerous case —
-   `release.yml` silently falls back to an ad-hoc identity when Developer ID
-   secrets are absent, so a repository that declares
-   `developer-id-notarized` can never promote an ad-hoc artifact. A project
+   published `signing.status`. Publication and promotion both enforce the
+   declared signing intent, so a repository that declares
+   `developer-id-notarized` cannot publish or promote an ad-hoc artifact. A project
    without a Developer ID declares `ad-hoc-unsigned` with a null
    `requirement` (ad-hoc designated requirements are a bare cdhash that
    changes every build, so pinning one is always wrong), and integrity then
@@ -203,9 +209,10 @@ Fall back to AX snapshot+click when:
 ### 6. Focus model — `--app` and PID-targeted delivery
 
 `cu`'s non-disruption guarantee comes from **per-process CGEvent delivery**:
-when `--app <Name>` is given, every event is posted via `CGEventPostToPid`
-to the resolved pid instead of through the global HID tap. The cursor stays
+events are posted via `CGEventPostToPid` to the explicit `--app` target or,
+when omitted, the resolved current frontmost PID. The cursor stays
 put, the frontmost app stays frontmost, and the user is not interrupted.
+Only `--allow-global` selects the disruptive global HID path.
 
 `--app` accepts a unique name, a unique bundle identifier, or `pid:<PID>`.
 Names and bundle identifiers are never resolved by an active/first-instance
@@ -219,13 +226,14 @@ pid up front and pass it down to `mouse::*` / `key::*`.
 
 The `EventSource` RAII wrapper in `src/mouse.rs` and `src/key.rs` creates a
 `kCGEventSourceStateCombinedSessionState` (=0) source when targeted, so PID
-events do not collide with the user's real HID stream. Without `--app`, the
-source is null (default global source) and events go through the global tap.
+events do not collide with the user's real HID stream. With `--allow-global`,
+the source is null (default global source) and events go through the global tap.
 
-`cu type` uses **`CGEventKeyboardSetUnicodeString`** with `virtual_key=0` —
-it injects UTF-16 code units directly per CGEvent, bypassing IME and the
-clipboard. No pbcopy/pbpaste round-trip. `cu key` parses the combo and
-posts virtual-key down/up events the same way.
+Native `cu type` uses **`CGEventKeyboardSetUnicodeString`** with `virtual_key=0`,
+injecting UTF-16 directly and bypassing IME and clipboard. Chromium inputs and
+known chat apps auto-route through full-fidelity clipboard paste and report
+`paste_reason`; CJK text alone does not select paste. `cu key` parses the combo
+and posts virtual-key down/up events to the same target.
 
 Every action response carries a `method` field that documents the routing:
 `ax-action`, `ax-set-value`, `ax-perform` (best — no cursor move at all),
@@ -251,8 +259,9 @@ the same `cu click ... --app <Name>` (do NOT drop to global tap).
 ### 8. Agent operation etiquette
 
 - Snapshot, screenshot, direct AX actions, and PID-targeted events preserve the
-  user's frontmost app and real pointer. Always pass `--app`.
-- `cu window focus`, commands without `--app`, `*-global` methods, and
+  user's frontmost app and real pointer. Pass `--app` to keep the target explicit
+  across commands; omission resolves the current frontmost PID.
+- `cu window focus`, `--allow-global`, `*-global` methods, and
   visualization mode (`--full -R`) are disruptive. Use them only when the
   workflow explicitly requires foreground state.
 - Clipboard paste uses a desktop-level lock and restores the full pasteboard
@@ -290,8 +299,11 @@ the same `cu click ... --app <Name>` (do NOT drop to global tap).
 
 Broker reuse is decided by `broker_is_current` in `src/broker.rs`: same
 `INTERNAL_PROTOCOL` **and** a Broker version at least the calling CLI's.
+When a client requests the optional visual cursor, the Broker must also have
+its presentation loop enabled. A missing loop triggers idle retirement;
+disabling the cursor does not retire an otherwise compatible Broker.
 
-- **Newer or equal Broker → reused untouched.** Workers always run from the
+- **Newer or equal compatible Broker → reused untouched.** Workers always run from the
   calling CLI's own executable, so a second CLI (an older global install, an
   Agent-bundled copy) must never restart a Broker that already speaks its
   wire format.
@@ -387,8 +399,9 @@ checklist exists so a future revert doesn't bring them back.
   sandboxed apps silently drop PID-targeted events. Return state/diff evidence
   and scoped input-focus checks; never present an arbitrary diff as completion.
 - **"Send unicode CGEvents to chat apps"** — WeChat/Slack/Discord/Telegram/
-  Lark/QQ/DingTalk drop the first character. Auto-route through paste when
-  text contains CJK or target is on the chat-app list (R7).
+  Lark/QQ/DingTalk can drop the first character. Auto-route through paste for
+  Chromium inputs or targets on the chat-app list (R7); native CJK input keeps
+  Unicode events.
 - **"Capture cross-Space window via CGWindowListCreateImage"** — returns
   blank PNG. Use ScreenCaptureKit (`sck.rs`) primary path (B), and honor
   `kCGWindowSharingState=0` upfront with a structured error (A).
@@ -430,10 +443,12 @@ All tests use the release binary: `target/release/cu`. Build first with `cargo b
 
 ### What CI covers, and what it cannot
 
-`bash scripts/verify.sh` is the single pre-push/pre-merge command. Steps 1-6
-mirror the hosted `test` job exactly (version sync, skill metadata,
+`bash scripts/verify.sh` is the local pre-push/pre-merge command. Steps 1-6
+cover the hosted Rust/metadata checks (version sync, skill metadata,
 `cargo fmt --check`, `cargo clippy --all-targets -D warnings`, `cargo test`,
-release build); step 7 is L1.
+release build); step 7 is L1. The hosted `test` job additionally runs
+`python3 -m unittest discover -s tests/agent -p 'test_benchmark*.py' -v`.
+Run that command when benchmark tooling changes; `verify.sh` does not include it.
 
 **CI does not run L1.** The suite needs a macOS session already holding
 Accessibility and Screen Recording grants, which a GitHub-hosted runner

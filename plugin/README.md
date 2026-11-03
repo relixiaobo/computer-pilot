@@ -4,29 +4,23 @@ Agent plugin for [computer-pilot](https://github.com/relixiaobo/computer-pilot) 
 
 ## Install
 
-### Step 1: Install cu binary
-
-```bash
-# Option A: follow the checksum-verified Apple Silicon install in the main README
-
-# Option B: Build from source
-git clone https://github.com/relixiaobo/computer-pilot.git
-cd computer-pilot && cargo build --release
-sudo cp target/release/cu /usr/local/bin/
-```
-
-### Step 2: Grant permissions
-
-```bash
-cu setup
-```
-
-### Step 3: Install plugin in Claude Code
+### Install the plugin in Claude Code
 
 ```
 /plugin marketplace add relixiaobo/computer-pilot
 /plugin install computer-pilot@computer-pilot-marketplace
 ```
+
+The skill installs the exact CLI release pinned in `compatibility.json` on first
+use, verifies its checksum and declared signing identity, and uses a fixed
+user-owned path: `${XDG_DATA_HOME:-~/.local/share}/computer-pilot/bin/cu`.
+Keep that directory before `/usr/bin` on `PATH` so macOS's unrelated UUCP `cu`
+does not shadow it. Run `cu setup` and follow its permission guidance.
+
+For manual installation or a source build, use the
+[main install guide](../README.md#install). Agent hosts should consume
+`skill-stable`; the [release checkpoint](../docs/ROADMAP.md#release-status)
+records the latest completed promotion.
 
 ### Updating the plugin
 
@@ -35,7 +29,9 @@ cu setup
 /plugin update computer-pilot@computer-pilot-marketplace
 ```
 
-The `cu` binary is separate — re-run the curl command above to upgrade it.
+The updated skill pins its matching CLI version. Its preflight upgrades the
+managed binary atomically on next use; manual installations follow the main
+install guide. No sudo or `/usr/local/bin` copy is needed.
 
 ## What it does
 

@@ -2,6 +2,11 @@
 
 Uses the [macOSWorld benchmark](https://github.com/showlab/macosworld) (202 tasks, 30 apps, 5 languages) as the standard system test.
 
+Status as of **2026-11-03**: integration tooling exists, but a published Computer
+Pilot baseline and automated regression dashboard remain deferred
+([Roadmap E1/E2](../../docs/ROADMAP.md#sprint-3--shipped-capabilities-and-deferred-observability)).
+This is an optional L3/manual workflow, not a completed v0.9.3 release gate.
+
 ## How It Works
 
 ```
@@ -52,9 +57,13 @@ SSH into the EC2 instance and build cu:
 ssh -i credential.pem ec2-user@<host>
 # On the EC2 instance:
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-git clone <computer-pilot-repo>
+git clone https://github.com/relixiaobo/computer-pilot.git
 cd computer-pilot && cargo build --release
-sudo cp target/release/cu /usr/local/bin/
+install_root="${XDG_DATA_HOME:-$HOME/.local/share}/computer-pilot"
+mkdir -p "$install_root/bin"
+cp target/release/cu "$install_root/bin/.cu.new"
+mv "$install_root/bin/.cu.new" "$install_root/bin/cu"
+export PATH="$install_root/bin:$PATH"
 cu setup  # Grant Accessibility + Screen Recording
 ```
 
@@ -90,7 +99,8 @@ python testbench.py --base_save_dir ./results
 
 ## Local Testing (No AWS)
 
-For quick local testing without AWS EC2, run tasks manually:
+The repository's `local_test_set.json` classifies 133 locally runnable tasks.
+Use `run_selected.py --help` for the local runner. For a manual spot check:
 
 ```bash
 # 1. Read a task
@@ -108,16 +118,12 @@ cu type "Ong KC" --app Contacts
 osascript -e 'tell application "Contacts" to get the value of phones of (first person whose name is "Ong KC")' 2>/dev/null | grep -q "96910380" && echo "PASS" || echo "FAIL"
 ```
 
-## Expected Results
+## Results status
 
-| Agent | macOSWorld Score (reported) |
-|---|---|
-| Claude Computer Use | >30% |
-| GPT-4o | >30% |
-| Open-source models | <5% |
-| **cu + Claude Opus** | TBD |
-
-Our advantage: AX tree provides structured element data (refs, roles, positions) instead of relying solely on screenshots, which should improve accuracy and reduce token costs.
+No Computer Pilot macOSWorld baseline score is published here. Record the model,
+task set, evaluator revision and all failed attempts when E1 is scheduled.
+The [real-app pilot reports](../agent/README.md#status-and-evidence-index) use a
+different protocol and must not be presented as macOSWorld scores.
 
 ## Key Differences from Screenshot-Based Agents
 

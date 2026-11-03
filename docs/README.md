@@ -1,5 +1,10 @@
 # Computer Pilot — Docs
 
+Start with [release status and remaining work](ROADMAP.md). The latest recorded
+release is **v0.9.3**, published and promoted to `skill-stable` on 2026-11-03.
+For a new task, use the current working agreement and CLI reference below;
+dated research and benchmark reports preserve evidence from their own runs.
+
 ## Quick Start
 
 ```bash
@@ -26,8 +31,8 @@ Agent hosts use these same commands through their existing shell. Computer
 Pilot does not expose a separate bridge, MCP server, SDK, or host adapter.
 
 Headline calls:
-- **`cu state <app>`** — canonical first call: snapshot + windows + screenshot + frontmost in one round-trip
-- **`cu click <ref> --app X`** — 15-step AX action chain → CGEvent fallback; verify-on-by-default returns `verified` + `verify_advice`
+- **`cu state <app>`** — snapshot + windows + screenshot + frontmost when visual context is needed; use `cu tell` for scriptable data or `cu --compact snapshot <app>` for refs
+- **`cu click <ref> --app X`** — AX action chain → CGEvent fallback; returns `verify_diff` / `verify_advice`, with generic `verified:null` and a separate scoped input-focus check
 - **`cu type "..." --app X`** — Unicode CGEvent (no clipboard); auto-routes via paste for Chromium inputs / known chat apps (`paste_reason`)
 - **`cu tell <app> '<AppleScript>'`** — direct data access for scriptable apps (`S` flag in `cu apps`)
 - **`cu launch <name|bundleId>`** — spawn + wait for first AX-ready window
@@ -39,8 +44,12 @@ Per-flag reference: run `cu <command> --help`, or read [`plugin/skills/computer-
 
 | Document | Purpose |
 |----------|---------|
-| [CLAUDE.md](../CLAUDE.md) | Design rules, agent reliability principles, testing rules |
-| [ROADMAP.md](ROADMAP.md) | Sprint progress + reliability work — current source of truth |
+| [AGENTS.md](../AGENTS.md) / [CLAUDE.md](../CLAUDE.md) | Identical working agreement: design, release and testing rules |
+| [ROADMAP.md](ROADMAP.md) | Release checkpoint, remaining work and clearly marked historical progress |
 | [universal-agent-integration.md](universal-agent-integration.md) | CLI-only Agent integration and private Broker boundary |
+| [CLI reference](../plugin/skills/computer-pilot/references/commands.md) | Current commands and output semantics; `cu <command> --help` is the runtime reference |
+| [Agent tests](../tests/agent/README.md) | Current test protocol and index of dated results, including known failures |
+| [Comparison matrix](../tests/agent/comparison-matrix.md) | Benchmark design and coverage still to be completed |
+| [virtual-cursor-research.md](virtual-cursor-research.md) | Shipped implementation boundary and pinned upstream provenance |
 | [competitive-analysis.md](competitive-analysis.md) | Feature comparison snapshot (frozen 2026-04-03 — see ROADMAP for current state) |
 | [archive/](archive/) | Research, superseded plans, inventories, and candidate patches (frozen) |
