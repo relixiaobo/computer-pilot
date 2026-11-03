@@ -227,6 +227,11 @@ reconstructing a whole document from AX text for local changes. Home/End can use
 smart indentation or viewport semantics; key names and counted arrow presses do
 not establish a selection across wrapped or indented text.
 
+When moving a section, account for separators at both its source and destination.
+Cutting the last section from its heading can leave the preceding blank line at
+EOF. Choose the range from the observed boundaries and check the resulting
+spacing in the group's returned state, including the final newline.
+
 AX editor focus does not make an app frontmost. Some apps ignore background menu
 shortcuts such as Select All or Save. Prefer native scripting for document data;
 when the workflow permits and needs foreground editing, explicitly focus the
@@ -275,6 +280,11 @@ requested change, preservation constraint, and required save/export. A successfu
 action group establishes only that group's result. Reuse the returned observations
 for this comparison; obtain new evidence only for a specific missing or uncertain
 requirement.
+
+For explicit whitespace constraints, compare literal line breaks in the returned
+text with the original/requested boundaries; visually similar text is insufficient.
+Use the same editor's observed representation consistently. If it cannot establish
+the required boundary, report that uncertainty rather than claiming exact preservation.
 
 `effect_verified:null` means the CLI made no generic task judgment. Decide from
 the requested outcome, not that flag. Foreground/window checks diagnose missing

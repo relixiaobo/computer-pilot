@@ -19,6 +19,7 @@ cu-only retests do not establish a new paired speed comparison.
 | [2026-11-02 skill/long retest](results/2026-11-02-skill-long-retest.md) | Longer tasks and skill changes |
 | [2026-11-02 resource retest](results/2026-11-02-resource-retest.md) | Model-round and token budgets |
 | [2026-11-03 follow-up retest](results/2026-11-03-followup-resource-retest.md) | Latest cu-only cohort: TextEdit false completion and a VS Code budget stop remain visible |
+| [2026-11-03 TextEdit boundary analysis](results/2026-11-03-textedit-boundary-analysis.md) | Retained-trace diagnosis of one extra final LF; skill guidance updated, no new agent run |
 
 The dated experiment narratives below are historical records, including any
 "next work" suggestions made at that time. Use the
