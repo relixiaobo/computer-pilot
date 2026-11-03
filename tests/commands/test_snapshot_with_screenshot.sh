@@ -13,7 +13,7 @@ cleanup_register "/private/tmp/cu-test-fused-h.png"
 
 section "snapshot --with-screenshot — basic JSON"
 
-cu_json snapshot Finder --limit 30 --with-screenshot --output "$PNG_PATH"
+cu_json snapshot com.apple.finder --limit 30 --with-screenshot --output "$PNG_PATH"
 assert_ok "snapshot --with-screenshot ok"
 assert_json_field "screenshot path returned" ".screenshot" "$PNG_PATH"
 assert_json_field_exists "image_scale field" ".image_scale"
@@ -52,7 +52,7 @@ fi
 
 section "snapshot --with-screenshot — default output path"
 
-cu_json snapshot Finder --limit 5 --with-screenshot
+cu_json snapshot com.apple.finder --limit 5 --with-screenshot
 assert_ok "default-path --with-screenshot ok"
 DEFAULT_PATH=$(json_get '.screenshot' || echo "")
 if [[ "$DEFAULT_PATH" == /*/cu-snapshot-*.png ]]; then
@@ -69,7 +69,7 @@ fi
 
 section "snapshot — plain (no --with-screenshot) has no screenshot field"
 
-cu_json snapshot Finder --limit 5
+cu_json snapshot com.apple.finder --limit 5
 NO_SHOT=$(echo "$OUT" | python3 -c "
 import sys, json; d = json.load(sys.stdin)
 print('absent' if 'screenshot' not in d and 'image_scale' not in d else 'present')
@@ -82,7 +82,7 @@ fi
 
 section "snapshot --annotated + --with-screenshot — annotated wins"
 
-cu_json snapshot Finder --limit 5 --annotated --with-screenshot --output /private/tmp/cu-test-fused-both.png
+cu_json snapshot com.apple.finder --limit 5 --annotated --with-screenshot --output /private/tmp/cu-test-fused-both.png
 assert_ok "both flags ok"
 HAS_ANNO=$(json_get '.annotated_screenshot' || echo "")
 NO_PLAIN=$(echo "$OUT" | python3 -c "
@@ -102,7 +102,7 @@ fi
 
 section "snapshot --with-screenshot — human mode"
 
-cu_human snapshot Finder --limit 5 --with-screenshot --output /private/tmp/cu-test-fused-h.png
+cu_human snapshot com.apple.finder --limit 5 --with-screenshot --output /private/tmp/cu-test-fused-h.png
 assert_exit_zero "human --with-screenshot exits 0"
 if echo "$OUT" | grep -q "^Screenshot:"; then
   _pass "human prints 'Screenshot:' line"

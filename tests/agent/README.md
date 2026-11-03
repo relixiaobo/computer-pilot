@@ -18,8 +18,12 @@ cu-only retests do not establish a new paired speed comparison.
 | [2026-11-02 fix retest](results/2026-11-02-fix-retest.md) | Post-fix real-app evidence |
 | [2026-11-02 skill/long retest](results/2026-11-02-skill-long-retest.md) | Longer tasks and skill changes |
 | [2026-11-02 resource retest](results/2026-11-02-resource-retest.md) | Model-round and token budgets |
-| [2026-11-03 follow-up retest](results/2026-11-03-followup-resource-retest.md) | Latest cu-only cohort: TextEdit false completion and a VS Code budget stop remain visible |
+| [2026-11-03 follow-up retest](results/2026-11-03-followup-resource-retest.md) | Broader cu-only cohort: TextEdit false completion and a VS Code budget stop remain visible |
 | [2026-11-03 TextEdit boundary analysis](results/2026-11-03-textedit-boundary-analysis.md) | Retained-trace diagnosis of one extra final LF; skill guidance updated, no new agent run |
+| [2026-11-03 TextEdit boundary retest](results/2026-11-03-textedit-boundary-retest.md) | Three fresh UI-only attempts: two exact passes, one honest focus blocker; no false completion among two claims; full release gate not run |
+| [2026-11-03 focus/recovery fixes](results/2026-11-03-focus-recovery-fixes.md) | Unreleased candidate: three exact passes, no tool errors; activation/error-ref behavior and image-view accounting repaired; broad gate still red |
+| [2026-11-03 local gate repairs](results/2026-11-03-local-gate-repairs.md) | Localized launch/target tests, owned preferences and suite accounting repaired; default full gate 888 passed, 0 failed, 25 skipped; 46 Rust and 34 benchmark tests passed |
+| [2026-11-03 final independent acceptance](results/2026-11-03-final-candidate-acceptance.md) | No new blocking findings; 58 critical assertions plus owned focus passed independently; repair PR/CI accepted, publication pending configured L2 |
 
 The dated experiment narratives below are historical records, including any
 "next work" suggestions made at that time. Use the
@@ -61,6 +65,10 @@ the final response; tool calls and batched CLI actions are separate counters.
 These counters cover the participant, including its skill/API discovery;
 coordinator fixture preparation, independent audits and reporting are outside
 both arms.
+Tool counts include completed shell, MCP and image-view records; shell groups
+remain one shell call. Raw function-call wrappers are not counted again.
+Historical reports retain their original counters unless explicitly corrected;
+the focus/recovery report above documents the image-view omission and replay.
 Input includes cached input, and output includes reasoning tokens: report these
 subsets separately without adding them again to total tokens. Uncached input is
 input minus cached input. Historical comparisons must use the same definitions

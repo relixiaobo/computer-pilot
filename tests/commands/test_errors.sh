@@ -32,7 +32,7 @@ done
 
 section "errors — invalid click targets"
 
-cu_json "click 0 --app Finder --no-snapshot"
+cu_json "click 0 --app com.apple.finder --no-snapshot"
 assert_fail "click ref=0"
 
 cu_json "click abc"
@@ -66,7 +66,7 @@ assert_fail "scroll bad direction"
 section "errors — wait missing condition"
 
 EXIT=0
-OUT=$($CU wait --app Finder --timeout 1 2>/tmp/cu-test-stderr) || EXIT=$?
+OUT=$($CU wait --app com.apple.finder --timeout 1 2>/tmp/cu-test-stderr) || EXIT=$?
 ERR=$(cat /tmp/cu-test-stderr 2>/dev/null || true)
 assert_exit_nonzero "wait: no condition"
 

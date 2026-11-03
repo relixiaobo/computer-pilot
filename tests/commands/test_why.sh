@@ -5,7 +5,7 @@ source "$(dirname "$0")/helpers.sh"
 # Use Finder — always running, has many refs.
 section "why — found ref"
 
-cu_json why 1 --app Finder
+cu_json why 1 --app com.apple.finder
 assert_ok "why on running app returns ok"
 
 PARSED=$(echo "$OUT" | python3 -c "
@@ -45,7 +45,7 @@ fi
 
 section "why — missing ref"
 
-cu_json why 9999 --app Finder
+cu_json why 9999 --app com.apple.finder
 assert_ok "why with missing ref still returns ok"
 
 MISSING=$(echo "$OUT" | python3 -c "
@@ -72,7 +72,7 @@ assert_fail "why on non-existent app fails"
 
 section "why — human mode"
 
-cu_human why 1 --app Finder
+cu_human why 1 --app com.apple.finder
 assert_exit_zero "why human exits 0"
 if echo "$OUT" | grep -qE "advice:"; then
   _pass "human prints 'advice:' line"

@@ -5,7 +5,7 @@ source "$(dirname "$0")/helpers.sh"
 
 section "observation — snapshot returns bound identity"
 
-cu_json --client-key stale.agent snapshot Finder --limit 30
+cu_json --client-key stale.agent snapshot com.apple.finder --limit 30
 if ! is_json; then
   _skip "Observation identity" "snapshot Finder did not return JSON: ${OUT:0:120}"
   summary
@@ -24,7 +24,7 @@ OLD_Y=$(echo "$OUT" | python3 -c 'import json,sys; print(round(json.load(sys.std
 section "observation — another client cannot use the ref"
 
 EXIT=0
-OUT=$("$CU" --json --client-key other.agent click 1 --app Finder --observation "$OBSERVATION_ID" --no-snapshot 2>/tmp/cu-test-stderr) || EXIT=$?
+OUT=$("$CU" --json --client-key other.agent click 1 --app com.apple.finder --observation "$OBSERVATION_ID" --no-snapshot 2>/tmp/cu-test-stderr) || EXIT=$?
 ERR=$(cat /tmp/cu-test-stderr 2>/dev/null || true)
 assert_exit_nonzero "cross-client ref action rejected"
 CROSS_CODE=$(echo "$ERR" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("code", ""))' 2>/dev/null || true)
@@ -38,11 +38,11 @@ section "observation — real UI drift fails before dispatch"
 
 NEW_X=$((OLD_X + 30))
 NEW_Y=$((OLD_Y + 30))
-cu_json --client-key stale.agent window move "$NEW_X" "$NEW_Y" --app Finder
+cu_json --client-key stale.agent window move "$NEW_X" "$NEW_Y" --app com.apple.finder
 assert_ok "fixture moved Finder window"
 
 EXIT=0
-OUT=$("$CU" --json --client-key stale.agent click 1 --app Finder --observation "$OBSERVATION_ID" --no-snapshot 2>/tmp/cu-test-stderr) || EXIT=$?
+OUT=$("$CU" --json --client-key stale.agent click 1 --app com.apple.finder --observation "$OBSERVATION_ID" --no-snapshot 2>/tmp/cu-test-stderr) || EXIT=$?
 ERR=$(cat /tmp/cu-test-stderr 2>/dev/null || true)
 assert_exit_nonzero "stale ref action rejected"
 STALE_CODE=$(echo "$ERR" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("code", ""))' 2>/dev/null || true)
@@ -59,16 +59,16 @@ else
 fi
 
 # Restore the user's Finder window.
-cu_json --client-key stale.agent window move "$OLD_X" "$OLD_Y" --app Finder
+cu_json --client-key stale.agent window move "$OLD_X" "$OLD_Y" --app com.apple.finder
 assert_ok "Finder window restored"
 
 section "observation — fresh ref action succeeds"
 
-cu_json --client-key stale.agent snapshot Finder --limit 30
+cu_json --client-key stale.agent snapshot com.apple.finder --limit 30
 assert_ok "fresh snapshot succeeds"
 FRESH_OBSERVATION=$(json_get '.observation_id')
 
-cu_json --client-key stale.agent click 1 --app Finder --observation "$FRESH_OBSERVATION" --no-snapshot
+cu_json --client-key stale.agent click 1 --app com.apple.finder --observation "$FRESH_OBSERVATION" --no-snapshot
 assert_ok "fresh Observation ref dispatched"
 assert_json_field "fresh ref preserved" ".ref" "1"
 

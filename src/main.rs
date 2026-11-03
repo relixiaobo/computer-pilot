@@ -2638,12 +2638,12 @@ fn focused_input_before_type(pid: i32, name: &str) -> Result<ax::SnapshotResult,
         ))
         .with_code(ErrorCode::VerificationFailed)
         .with_hint(
-            "run `cu snapshot <pid>` and click the intended textfield/textarea ref; confirm snapshot.focused before retrying once",
+            "inspect the attached state and click the intended textfield/textarea ref; if state is unavailable, run `cu snapshot <pid>` first; confirm input focus before retrying once",
         )
         .with_diagnostics(serde_json::json!({
             "dispatched": false,
             "focused": focused,
-            "snapshot": snapshot_value(&snapshot),
+            "snapshot": recovery_snapshot_value(&snapshot),
         })));
     }
     Ok(snapshot)
@@ -2760,7 +2760,7 @@ fn cmd_type(
             "clipboard_hint": clipboard_hint,
             "focused_before": pre_input.as_ref().and_then(|snapshot| snapshot.focused.as_ref()),
             "focused_after": post_input,
-            "snapshot": captured.as_ref().map(|(_, snapshot)| snapshot_value(snapshot)),
+            "snapshot": captured.as_ref().map(|(_, snapshot)| recovery_snapshot_value(snapshot)),
         })));
     }
 
@@ -3723,7 +3723,7 @@ fn cmd_window(
 fn cmd_launch(json: bool, id: String, no_wait: bool, timeout: u64) -> Result<(), CuError> {
     use std::time::{Duration, Instant};
     let started = Instant::now();
-    system::launch_app(&id)?;
+    let launch_identity = system::launch_app(&id)?;
 
     if no_wait {
         if json {
@@ -3738,15 +3738,10 @@ fn cmd_launch(json: bool, id: String, no_wait: bool, timeout: u64) -> Result<(),
     // Poll for app to register + report a window via AX. App name resolution
     // can fail until the process appears in NSWorkspace, so we tolerate
     // resolve errors during the polling window.
-    let is_bundle_id = id.contains('.') && !id.contains(' ');
     let deadline = started + Duration::from_secs(timeout);
     let mut last_err: Option<String> = None;
     loop {
-        let resolved = if is_bundle_id {
-            system::resolve_by_bundle_id(&id)
-        } else {
-            system::resolve_target_app(&Some(id.clone()))
-        };
+        let resolved = system::resolve_launched_app(&launch_identity);
         match resolved {
             Ok((pid, name)) => {
                 if let Some((wx, wy, ww, wh)) = ax::window_bounds(pid) {
@@ -4613,6 +4608,15 @@ fn attach_verification(
 
 fn snapshot_value(snapshot: &ax::SnapshotResult) -> serde_json::Value {
     serde_json::to_value(snapshot).unwrap_or_default()
+}
+
+fn recovery_snapshot_value(snapshot: &ax::SnapshotResult) -> serde_json::Value {
+    // Error responses expose refs too. Register exactly this returned state so
+    // recovery does not compare its refs against an older successful command.
+    if snapshot.ok {
+        broker::publish_observation(snapshot);
+    }
+    snapshot_value(snapshot)
 }
 
 fn capture_action_snapshot(

@@ -1,11 +1,12 @@
 #!/bin/bash
 # Test: cu state — unified snapshot + windows + screenshot + frontmost (#4)
 source "$(dirname "$0")/helpers.sh"
+FINDER_NAME=$(app_display_name com.apple.finder)
 
 # Use Finder — always running, has at least one window.
 section "state — full call returns all expected fields"
 
-cu_json state Finder
+cu_json state com.apple.finder
 assert_ok "state Finder returns ok"
 
 PARSED=$(echo "$OUT" | python3 -c "
@@ -27,7 +28,7 @@ print('|'.join([
 " 2>/dev/null || echo "malformed")
 
 [[ "$PARSED" == *"ok=True"* ]]                   && _pass "ok=true"                || _fail "ok=true"                "$PARSED"
-[[ "$PARSED" == *"app=Finder"* ]]                && _pass "app=Finder"             || _fail "app=Finder"             "$PARSED"
+[[ "$PARSED" == *"app=$FINDER_NAME"* ]]                && _pass "app=Finder"             || _fail "app=Finder"             "$PARSED"
 [[ "$PARSED" == *"pid_ok=True"* ]]               && _pass "pid populated"          || _fail "pid populated"          "$PARSED"
 [[ "$PARSED" == *"frontmost_bool=True"* ]]       && _pass "frontmost is bool"      || _fail "frontmost is bool"      "$PARSED"
 [[ "$PARSED" == *"windows_list=True"* ]]         && _pass "windows is array"       || _fail "windows is array"       "$PARSED"
@@ -54,7 +55,7 @@ fi
 
 section "state — --no-screenshot omits image fields"
 
-cu_json state Finder --no-screenshot
+cu_json state com.apple.finder --no-screenshot
 assert_ok "state --no-screenshot returns ok"
 
 NO_SHOT=$(echo "$OUT" | python3 -c "
@@ -69,7 +70,7 @@ print('has_screenshot=' + str('screenshot' in d) + '|has_scale=' + str('image_sc
 section "state — --output sets screenshot path"
 
 OUT_PATH="/private/tmp/cu-state-test-$$.png"
-cu_json state Finder --output "$OUT_PATH"
+cu_json state com.apple.finder --output "$OUT_PATH"
 assert_ok "state --output returns ok"
 
 if [[ -f "$OUT_PATH" ]]; then
@@ -81,7 +82,7 @@ fi
 
 section "state — --limit shrinks the tree"
 
-cu_json state Finder --limit 5 --no-screenshot
+cu_json state com.apple.finder --limit 5 --no-screenshot
 assert_ok "state --limit 5 returns ok"
 
 SIZE=$(echo "$OUT" | python3 -c "import sys,json;print(json.load(sys.stdin).get('snapshot_size',-1))" 2>/dev/null || echo "-1")
@@ -98,9 +99,9 @@ assert_fail "state on non-existent app fails"
 
 section "state — human mode"
 
-cu_human state Finder --no-screenshot
+cu_human state com.apple.finder --no-screenshot
 assert_exit_zero "state human exits 0"
-if echo "$OUT" | grep -qE "Finder \(pid [0-9]+\).*windows=.*elements="; then
+if [[ "$OUT" == "$FINDER_NAME (pid "* ]] && grep -qE "\(pid [0-9]+\).*windows=.*elements=" <<< "$OUT"; then
   _pass "human prints 'app (pid N) windows=… elements=…'"
 else
   _fail "human format" "${OUT:0:200}"

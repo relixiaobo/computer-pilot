@@ -4,7 +4,7 @@ source "$(dirname "$0")/helpers.sh"
 
 section "wait — error: missing condition flag"
 
-cu_json wait --app Finder --timeout 1
+cu_json wait --app com.apple.finder --timeout 1
 assert_fail "wait without any condition fails"
 HINT=$(echo "${OUT:-$ERR}" | python3 -c "
 import sys, json
@@ -29,7 +29,7 @@ end tell' 2>/dev/null
 sleep 0.4
 
 START=$(python3 -c "import time; print(int(time.time()*1000))")
-cu_json wait --new-window --app Finder --timeout 2
+cu_json wait --new-window --app com.apple.finder --timeout 2
 END=$(python3 -c "import time; print(int(time.time()*1000))")
 ELAPSED=$((END - START))
 assert_fail "no new window → timeout (exit 1)"
@@ -42,7 +42,7 @@ section "wait --new-window — succeeds when one is opened during the wait"
 (sleep 4 && osascript -e 'tell application "Finder" to make new Finder window' >/dev/null 2>&1) &
 HELPER=$!
 
-cu_json wait --new-window --app Finder --timeout 10
+cu_json wait --new-window --app com.apple.finder --timeout 10
 assert_ok "new-window detected → ok"
 ELAPSED_MS=$(json_get '.elapsed_ms' || echo "9999")
 assert_elapsed_window "new-window detected within window" "$ELAPSED_MS" 3000 9000
@@ -52,13 +52,13 @@ section "wait --modal — times out when no modal appears"
 
 # Best-effort: TextEdit Cmd+W rarely shows save sheet on this Mac (iCloud auto-save).
 # So we only assert the timeout path here.
-cu_json wait --modal --app Finder --timeout 1
+cu_json wait --modal --app com.apple.finder --timeout 1
 assert_fail "no modal → timeout"
 
 section "wait --focused-changed — error path verifiable; timing depends on env"
 
 # Sanity-check that the flag is wired (timeout fires when nothing changes).
-cu_json wait --focused-changed --app Finder --timeout 1
+cu_json wait --focused-changed --app com.apple.finder --timeout 1
 assert_fail "no focus change → timeout"
 
 # Cleanup: close any extra Finder windows the test opened

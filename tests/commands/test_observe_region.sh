@@ -3,7 +3,7 @@
 source "$(dirname "$0")/helpers.sh"
 
 # Use the real Finder window's frame so the region tests aren't off-screen.
-cu_json snapshot Finder --limit 5
+cu_json snapshot com.apple.finder --limit 5
 WX=$(json_get '.window_frame.x' || echo "0")
 WY=$(json_get '.window_frame.y' || echo "0")
 WW=$(json_get '.window_frame.width' || echo "0")
@@ -22,7 +22,7 @@ RH=$(python3 -c "print($WH - 100)")
 
 section "observe-region — intersect (default mode)"
 
-cu_json observe-region "$RX" "$RY" "$RW" "$RH" --app Finder --limit 200
+cu_json observe-region "$RX" "$RY" "$RW" "$RH" --app com.apple.finder --limit 200
 assert_ok "observe-region default ok"
 assert_json_field "mode is intersect" ".mode" "intersect"
 assert_json_field_exists "matches array" ".matches"
@@ -37,11 +37,11 @@ fi
 
 section "observe-region — modes narrow the result set"
 
-cu_json observe-region "$RX" "$RY" "$RW" "$RH" --app Finder --limit 200 --mode center
+cu_json observe-region "$RX" "$RY" "$RW" "$RH" --app com.apple.finder --limit 200 --mode center
 assert_ok "center mode ok"
 CEN_COUNT=$(json_get '.count' || echo "0")
 
-cu_json observe-region "$RX" "$RY" "$RW" "$RH" --app Finder --limit 200 --mode inside
+cu_json observe-region "$RX" "$RY" "$RW" "$RH" --app com.apple.finder --limit 200 --mode inside
 assert_ok "inside mode ok"
 INS_COUNT=$(json_get '.count' || echo "0")
 
@@ -54,7 +54,7 @@ fi
 
 section "observe-region — center mode: each match's center IS inside the rect"
 
-cu_json observe-region "$RX" "$RY" "$RW" "$RH" --app Finder --limit 200 --mode center
+cu_json observe-region "$RX" "$RY" "$RW" "$RH" --app com.apple.finder --limit 200 --mode center
 ALL_CENTERS_IN=$(echo "$OUT" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
@@ -76,7 +76,7 @@ fi
 
 section "observe-region — inside mode: each match's bbox IS fully inside"
 
-cu_json observe-region "$RX" "$RY" "$RW" "$RH" --app Finder --limit 200 --mode inside
+cu_json observe-region "$RX" "$RY" "$RW" "$RH" --app com.apple.finder --limit 200 --mode inside
 ALL_INSIDE=$(echo "$OUT" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
@@ -98,7 +98,7 @@ fi
 
 section "observe-region — empty region (off-screen)"
 
-cu_json observe-region 99999 99999 10 10 --app Finder
+cu_json observe-region 99999 99999 10 10 --app com.apple.finder
 assert_ok "off-screen region ok=true (empty result)"
 ZERO=$(json_get '.count' || echo "1")
 if [[ "$ZERO" == "0" ]]; then
@@ -109,12 +109,12 @@ fi
 
 section "observe-region — refs match snapshot refs"
 
-cu_json observe-region "$RX" "$RY" "$RW" "$RH" --app Finder --limit 200 --mode inside
+cu_json observe-region "$RX" "$RY" "$RW" "$RH" --app com.apple.finder --limit 200 --mode inside
 FIRST_REF=$(json_get '.matches[0].ref' 2>/dev/null || echo "")
 FIRST_X=$(json_get '.matches[0].x' 2>/dev/null || echo "")
 
 if [[ -n "$FIRST_REF" && "$FIRST_REF" != "__MISSING__" ]]; then
-  cu_json snapshot Finder --limit 200
+  cu_json snapshot com.apple.finder --limit 200
   SNAP_X=$(echo "$OUT" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
@@ -134,10 +134,10 @@ fi
 
 section "observe-region — error paths"
 
-cu_json observe-region "$RX" "$RY" 0 0 --app Finder
+cu_json observe-region "$RX" "$RY" 0 0 --app com.apple.finder
 assert_fail "zero size rejected"
 
-cu_json observe-region "$RX" "$RY" 100 100 --app Finder --mode bogus
+cu_json observe-region "$RX" "$RY" 100 100 --app com.apple.finder --mode bogus
 assert_fail "unknown mode rejected"
 PARSED=$(echo "${OUT:-$ERR}" | python3 -c "
 import sys, json
@@ -156,7 +156,7 @@ assert_fail "non-existent app fails"
 
 section "observe-region — human mode"
 
-cu_human observe-region "$RX" "$RY" "$RW" "$RH" --app Finder --limit 30
+cu_human observe-region "$RX" "$RY" "$RW" "$RH" --app com.apple.finder --limit 30
 assert_exit_zero "human observe-region exits 0"
 if [[ "$OUT" =~ ^\[[0-9]+\] ]]; then
   _pass "human format: [ref] role"
@@ -165,7 +165,7 @@ else
 fi
 
 # Empty region produces "No elements" line in human mode
-cu_human observe-region 99999 99999 10 10 --app Finder
+cu_human observe-region 99999 99999 10 10 --app com.apple.finder
 if [[ "$OUT" == "No elements in region"* ]]; then
   _pass "empty region prints 'No elements in region'"
 else

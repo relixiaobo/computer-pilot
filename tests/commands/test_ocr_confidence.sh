@@ -12,7 +12,7 @@ section "ocr — aggregate confidence fields surface"
 # Finder usually has at least a few high-confidence text elements (folder
 # names, sidebar labels). OCR may take a few seconds — within the per-call
 # timeout.
-cu_json ocr Finder
+cu_json ocr com.apple.finder
 
 if ! is_json; then
   _fail "ocr ok" "non-JSON output: ${OUT:0:200}"

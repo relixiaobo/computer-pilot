@@ -7,7 +7,7 @@ let brokerPID = Int(CommandLine.arguments[2])!
 func hover() throws -> (Process, Pipe) {
     let action = Process()
     action.executableURL = URL(fileURLWithPath: binary)
-    action.arguments = ["--json", "hover", "777", "499", "--app", "Finder", "--no-snapshot"]
+    action.arguments = ["--json", "hover", "777", "499", "--app", "com.apple.finder", "--no-snapshot"]
     var environment = ProcessInfo.processInfo.environment
     environment["COMPUTER_PILOT_VISUAL_CURSOR"] = "1"
     action.environment = environment

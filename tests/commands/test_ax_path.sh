@@ -11,7 +11,7 @@ sleep 0.3
 
 section "snapshot — every element has an axPath"
 
-cu_json snapshot Finder --limit 30
+cu_json snapshot com.apple.finder --limit 30
 assert_ok "snapshot ok"
 
 PARSED=$(echo "$OUT" | python3 -c "
@@ -80,7 +80,7 @@ if [[ -n "$PICK" ]]; then
   EXPECTED_X=$(echo "$PICK" | cut -d'|' -f2)
   EXPECTED_Y=$(echo "$PICK" | cut -d'|' -f3)
 
-  cu_json click --ax-path "$AX_PATH" --app Finder --no-snapshot
+  cu_json click --ax-path "$AX_PATH" --app com.apple.finder --no-snapshot
   assert_ok "click via axPath returns ok"
 
   GOT_X=$(json_get '.x' || echo "0")
@@ -107,12 +107,12 @@ fi
 
 section "axPath — error: missing element"
 
-cu_json click --ax-path "window/this/does/not/exist:99" --app Finder --no-snapshot
+cu_json click --ax-path "window/this/does/not/exist:99" --app com.apple.finder --no-snapshot
 assert_fail "non-existent axPath fails"
 
 section "axPath — error: empty path"
 
-cu_json click --ax-path "" --app Finder --no-snapshot
+cu_json click --ax-path "" --app com.apple.finder --no-snapshot
 assert_fail "empty axPath fails"
 
 section "axPath — set-value rejects axPath without textfield-like element"
@@ -120,7 +120,7 @@ section "axPath — set-value rejects axPath without textfield-like element"
 # set-value needs a value-bearing role. A row should reject AXValue write.
 if [[ -n "$PICK" ]]; then
   AX_PATH=$(echo "$PICK" | cut -d'|' -f1)
-  cu_json set-value --ax-path "$AX_PATH" "test" --app Finder --no-snapshot
+  cu_json set-value --ax-path "$AX_PATH" "test" --app com.apple.finder --no-snapshot
   assert_fail "set-value on a row rejects (read-only role)"
 else
   _skip "set-value rejection test" "no element"
@@ -128,7 +128,7 @@ fi
 
 section "axPath — perform requires --ax-path or ref"
 
-cu_json perform AXPress --app Finder --no-snapshot
+cu_json perform AXPress --app com.apple.finder --no-snapshot
 assert_fail "perform without ref or --ax-path errors"
 
 summary

@@ -4,7 +4,7 @@ source "$(dirname "$0")/helpers.sh"
 
 section "drag — basic"
 
-cu_json "drag 100 200 400 200 --app Finder"
+cu_json "drag 100 200 400 200 --app com.apple.finder"
 assert_ok "drag horizontal"
 assert_json_field_exists "from coordinates" ".from"
 assert_json_field_exists "to coordinates" ".to"
@@ -18,29 +18,29 @@ else
   _fail "from/to coordinates" "from.x=$FROM_X to.x=$TO_X"
 fi
 
-cu_json "drag 300 100 300 500 --app Finder"
+cu_json "drag 300 100 300 500 --app com.apple.finder"
 assert_ok "drag vertical"
 
 section "drag — with modifiers"
 
-cu_json "drag 100 200 400 200 --shift --app Finder"
+cu_json "drag 100 200 400 200 --shift --app com.apple.finder"
 assert_ok "drag with shift"
 
-cu_json "drag 100 200 400 200 --alt --app Finder"
+cu_json "drag 100 200 400 200 --alt --app com.apple.finder"
 assert_ok "drag with alt (option)"
 
-cu_json "drag 100 200 400 200 --cmd --app Finder"
+cu_json "drag 100 200 400 200 --cmd --app com.apple.finder"
 assert_ok "drag with cmd"
 
 section "drag — human mode"
 
-cu_human "drag 100 200 400 200 --app Finder"
+cu_human "drag 100 200 400 200 --app com.apple.finder"
 assert_exit_zero "drag human exits 0"
 assert_contains "shows drag info" "Dragged"
 
 section "drag — auto-snapshot contract"
 
-cu_json drag 100 200 400 200 --app Finder
+cu_json drag 100 200 400 200 --app com.apple.finder
 assert_ok "drag with default attaches snapshot"
 HAS=$(echo "$OUT" | python3 -c "
 import sys, json
@@ -52,7 +52,7 @@ else
   _fail "drag attaches snapshot" "got $HAS"
 fi
 
-cu_json drag 100 200 400 200 --app Finder --no-snapshot
+cu_json drag 100 200 400 200 --app com.apple.finder --no-snapshot
 assert_ok "drag --no-snapshot ok"
 NO_SNAP=$(echo "$OUT" | python3 -c "
 import sys, json; d = json.load(sys.stdin); print('absent' if 'snapshot' not in d else 'present')
@@ -74,7 +74,7 @@ else
   _fail "refuses drag without --app" "expected refusal, got: ${OUT:0:120}"
 fi
 
-OUT=$(CU_TEST_FRONTMOST_OVERRIDE=Terminal "$CU" drag 100 200 400 200 --app Finder --no-snapshot 2>&1) || true
+OUT=$(CU_TEST_FRONTMOST_OVERRIDE=Terminal "$CU" drag 100 200 400 200 --app com.apple.finder --no-snapshot 2>&1) || true
 if echo "$OUT" | grep -q "refusing to drag"; then
   _fail "--app drag bypasses safety check" "was refused: ${OUT:0:120}"
 else

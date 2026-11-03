@@ -68,6 +68,17 @@ summary() {
   [[ $FAIL -eq 0 ]]
 }
 
+# Display names vary with macOS language; select by bundle identity first.
+app_display_name() {
+  "$CU" apps | python3 -c '
+import json, sys
+matches = [a for a in json.load(sys.stdin)["apps"] if a.get("bundle_id", "").lower() == sys.argv[1].lower()]
+if len(matches) != 1:
+    raise SystemExit("expected exactly one running app: " + sys.argv[1])
+print(matches[0]["name"])
+' "$1"
+}
+
 # ── cu runners ──────────────────────────────────────────────────────────────
 
 # Per-call timeout. A stuck `cu` (permission dialog, AX/System Events hang, …)
@@ -177,11 +188,11 @@ end tell') || return 1
   marker="cu-textedit-fixture-$$"
   _run_with_timeout 15 osascript -e "tell application \"TextEdit\" to set text of front document to \"$marker\"" >/dev/null 2>&1
   for attempt in {1..30}; do
-    snapshot=$("$CU" snapshot TextEdit --limit 5 2>/dev/null || true)
+    snapshot=$("$CU" snapshot com.apple.TextEdit --limit 5 2>/dev/null || true)
     if [[ "$snapshot" == *"$marker"* ]]; then
       _run_with_timeout 15 osascript -e 'tell application "TextEdit" to set text of front document to ""' >/dev/null 2>&1
       for _ in {1..30}; do
-        snapshot=$("$CU" snapshot TextEdit --limit 5 2>/dev/null || true)
+        snapshot=$("$CU" snapshot com.apple.TextEdit --limit 5 2>/dev/null || true)
         if printf '%s' "$snapshot" | python3 -c '
 import json, sys
 d = json.load(sys.stdin)

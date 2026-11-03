@@ -28,7 +28,7 @@ COMPUTER_PILOT_VISUAL_CURSOR=1 cu_json status
 assert_ok "visual cursor Broker starts"
 CURSOR_BROKER_PID=$(json_get '.pid')
 
-COMPUTER_PILOT_VISUAL_CURSOR=1 cu_json hover 377 299 --app Finder --no-snapshot
+COMPUTER_PILOT_VISUAL_CURSOR=1 cu_json hover 377 299 --app com.apple.finder --no-snapshot
 assert_ok "targeted hover dispatches"
 assert_json_field "targeted hover method" ".method" "cgevent-pid"
 

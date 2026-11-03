@@ -1,11 +1,12 @@
 #!/bin/bash
 # Test: cu warm — AX bridge warm-up for already-running apps (D8)
 source "$(dirname "$0")/helpers.sh"
+FINDER_NAME=$(app_display_name com.apple.finder)
 
 # Use Finder — always running, never quits.
 section "warm — running app"
 
-cu_json warm Finder
+cu_json warm com.apple.finder
 assert_ok "warm Finder returns ok"
 
 PARSED=$(echo "$OUT" | python3 -c "
@@ -20,7 +21,7 @@ print('|'.join([
 " 2>/dev/null || echo "malformed")
 
 [[ "$PARSED" == *"ok=True"* ]]         && _pass "ok=true"          || _fail "ok=true"          "$PARSED"
-[[ "$PARSED" == *"app=Finder"* ]]      && _pass "app=Finder"       || _fail "app=Finder"       "$PARSED"
+[[ "$PARSED" == *"app=$FINDER_NAME"* ]]      && _pass "app=Finder"       || _fail "app=Finder"       "$PARSED"
 [[ "$PARSED" == *"pid_ok=True"* ]]     && _pass "pid populated"    || _fail "pid populated"    "$PARSED"
 [[ "$PARSED" == *"warmup_ok=True"* ]]  && _pass "warmup_ms set"    || _fail "warmup_ms set"    "$PARSED"
 
@@ -31,7 +32,7 @@ assert_fail "warm non-existent app fails"
 
 section "warm — human mode"
 
-cu_human warm Finder
+cu_human warm com.apple.finder
 assert_exit_zero "warm human exits 0"
 if echo "$OUT" | grep -qE "Warmed AX bridge"; then
   _pass "human prints 'Warmed AX bridge ...'"

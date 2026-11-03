@@ -2,15 +2,16 @@
 # Test: cu click (ref mode, coordinate mode, modifiers)
 # Uses Finder as target — always available on macOS
 source "$(dirname "$0")/helpers.sh"
+FINDER_NAME=$(app_display_name com.apple.finder)
 
 section "click — coordinate mode"
 
-cu_json "click 100 100 --app Finder"
+cu_json "click 100 100 --app com.apple.finder"
 assert_ok "click coords (100, 100)"
 assert_json_field "x in response" ".x" "100.0"
 assert_json_field "y in response" ".y" "100.0"
 
-cu_json "click 500 300 --app Finder --no-snapshot"
+cu_json "click 500 300 --app com.apple.finder --no-snapshot"
 assert_ok "click coords with --no-snapshot"
 # Should NOT have a snapshot field
 NO_SNAP=$(echo "$OUT" | python3 -c "
@@ -24,24 +25,24 @@ fi
 
 section "click — coordinate mode with modifiers"
 
-cu_json "click 100 100 --right --app Finder --no-snapshot"
+cu_json "click 100 100 --right --app com.apple.finder --no-snapshot"
 assert_ok "right-click coords"
 assert_json_field "right flag in response" ".right" "true"
 
-cu_json "click 100 100 --app Finder --no-snapshot"
+cu_json "click 100 100 --app com.apple.finder --no-snapshot"
 assert_ok "double-click coords"
 
 section "click — ref mode (Finder)"
 
 # First snapshot Finder to get a valid ref
-cu_json "snapshot Finder --limit 20"
+cu_json "snapshot com.apple.finder --limit 20"
 FIRST_REF=$(json_get '.elements[0].ref' 2>/dev/null || echo "")
 
 if [[ -n "$FIRST_REF" && "$FIRST_REF" != "__MISSING__" ]]; then
-  cu_json "click $FIRST_REF --app Finder --no-snapshot"
+  cu_json "click $FIRST_REF --app com.apple.finder --no-snapshot"
   assert_ok "click ref [$FIRST_REF] in Finder"
   assert_json_field "ref in response" ".ref" "$FIRST_REF"
-  assert_json_field "app in response" ".app" "Finder"
+  assert_json_field "app in response" ".app" "$FINDER_NAME"
   assert_json_field_exists "method in response" ".method"
 
   METHOD=$(json_get '.method' || echo "")
@@ -58,7 +59,7 @@ section "click — ref with auto-snapshot"
 
 if [[ -n "$FIRST_REF" && "$FIRST_REF" != "__MISSING__" ]]; then
   # Without --no-snapshot, JSON output should include snapshot
-  cu_json "click $FIRST_REF --app Finder"
+  cu_json "click $FIRST_REF --app com.apple.finder"
   assert_ok "click ref with auto-snapshot"
   HAS_SNAP=$(echo "$OUT" | python3 -c "
 import sys, json; d = json.load(sys.stdin); print('yes' if 'snapshot' in d else 'no')
@@ -74,10 +75,10 @@ fi
 
 section "click — error cases"
 
-cu_json "click 9999 --app Finder --no-snapshot"
+cu_json "click 9999 --app com.apple.finder --no-snapshot"
 assert_fail "invalid ref 9999 fails"
 
-cu_json "click 0 --app Finder --no-snapshot"
+cu_json "click 0 --app com.apple.finder --no-snapshot"
 assert_fail "ref 0 fails (must be >= 1)"
 
 cu_json "click abc"
@@ -97,20 +98,23 @@ osascript -e 'tell application "Finder"
 end tell' 2>/dev/null
 sleep 1
 
-cu_json click --text "Applications" --app Finder --no-snapshot
+cu_json ocr com.apple.finder
+assert_ok "OCR source for text click"
+OCR_TEXT=$(printf '%s' "$OUT" | python3 -c 'import json,sys; print(next(t["text"] for t in json.load(sys.stdin)["texts"] if t["text"].strip()))')
+cu_json click --text "$OCR_TEXT" --app com.apple.finder --no-snapshot
 assert_ok "click --text finds visible text"
 assert_json_field "method is ocr-text-pid" ".method" "ocr-text-pid"
 assert_json_field_exists "matched text" ".text"
 
-cu_json click --text "Applications" --app Finder --region "99999,99999 10x10" --no-snapshot
+cu_json click --text "$OCR_TEXT" --app com.apple.finder --region "99999,99999 10x10" --no-snapshot
 assert_fail "click --text respects --region filter"
 
-cu_json click --text "ZZZZNONEXISTENT99" --app Finder --no-snapshot
+cu_json click --text "ZZZZNONEXISTENT99" --app com.apple.finder --no-snapshot
 assert_fail "click --text with non-existent text fails"
 
 section "click — human mode"
 
-cu_human "click 100 100 --app Finder"
+cu_human "click 100 100 --app com.apple.finder"
 assert_exit_zero "click human exits 0"
 assert_contains "shows click info" "Clicked"
 
@@ -134,7 +138,7 @@ else
 fi
 
 # --app stays PID-targeted, so the same frontmost must NOT trigger a refusal.
-OUT=$(CU_TEST_FRONTMOST_OVERRIDE=Terminal "$CU" click 100 100 --app Finder --no-snapshot 2>&1) || true
+OUT=$(CU_TEST_FRONTMOST_OVERRIDE=Terminal "$CU" click 100 100 --app com.apple.finder --no-snapshot 2>&1) || true
 if echo "$OUT" | grep -q "refusing to click"; then
   _fail "--app click bypasses safety check" "was refused: ${OUT:0:120}"
 else

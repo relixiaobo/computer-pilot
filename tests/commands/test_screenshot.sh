@@ -1,6 +1,7 @@
 #!/bin/bash
 # Test: cu screenshot
 source "$(dirname "$0")/helpers.sh"
+FINDER_NAME=$(app_display_name com.apple.finder)
 
 # cu screenshot uses CGWindowListCreateImage and captures behind other windows,
 # so we only need Finder to have a window — Finder does not need to be frontmost.
@@ -18,10 +19,10 @@ section "screenshot — window mode (Finder)"
 SHOT1="$SHOT_DIR/finder-window.png"
 cleanup_register "$SHOT1"
 
-cu_json "screenshot Finder --path $SHOT1"
+cu_json "screenshot com.apple.finder --path $SHOT1"
 assert_ok "screenshot Finder ok"
 assert_json_field "mode is window" ".mode" "window"
-assert_json_field "app is Finder" ".app" "Finder"
+assert_json_field "app is Finder" ".app" "$FINDER_NAME"
 assert_json_field "path correct" ".path" "$SHOT1"
 assert_json_field_exists "offset_x" ".offset_x"
 assert_json_field_exists "offset_y" ".offset_y"
@@ -44,7 +45,7 @@ else
   _fail "offset_x numeric" "got: $OFFSET_X"
 fi
 
-cu_json "screenshot Finder --path $SHOT1"
+cu_json "screenshot com.apple.finder --path $SHOT1"
 assert_fail "existing output is not overwritten"
 
 section "screenshot — full screen"
@@ -68,7 +69,7 @@ fi
 
 section "screenshot — default path (auto-generated)"
 
-cu_json "screenshot Finder"
+cu_json "screenshot com.apple.finder"
 assert_ok "screenshot with default path"
 DEFAULT_PATH=$(json_get '.path' || echo "")
 if [[ -n "$DEFAULT_PATH" && -f "$DEFAULT_PATH" ]]; then
@@ -83,7 +84,7 @@ section "screenshot — task output directory"
 ENV_DIR="/private/tmp/cu-output-env-$$"
 mkdir -m 700 "$ENV_DIR"
 EXIT=0
-OUT=$(_run_with_timeout "$CU_TIMEOUT_SECS" env COMPUTER_PILOT_OUTPUT_DIR="$ENV_DIR" "$CU" --json --client-key output-dir-test screenshot Finder 2>/private/tmp/cu-output-env-stderr-$$) || EXIT=$?
+OUT=$(_run_with_timeout "$CU_TIMEOUT_SECS" env COMPUTER_PILOT_OUTPUT_DIR="$ENV_DIR" "$CU" --json --client-key output-dir-test screenshot com.apple.finder 2>/private/tmp/cu-output-env-stderr-$$) || EXIT=$?
 ERR=$(cat /private/tmp/cu-output-env-stderr-$$ 2>/dev/null || true)
 assert_exit_zero "COMPUTER_PILOT_OUTPUT_DIR request succeeds"
 ENV_PATH=$(echo "$OUT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("path", ""))' 2>/dev/null || true)
@@ -96,12 +97,12 @@ fi
 
 section "screenshot — unsafe output paths"
 
-cu_json screenshot Finder --path "relative.png"
+cu_json screenshot com.apple.finder --path "relative.png"
 assert_fail "relative output path rejected"
 
 LINK_DIR="/private/tmp/cu-output-link-$$"
 ln -s "$SHOT_DIR" "$LINK_DIR"
-cu_json screenshot Finder --path "$LINK_DIR/through-link.png"
+cu_json screenshot com.apple.finder --path "$LINK_DIR/through-link.png"
 assert_fail "symlink traversal rejected"
 
 section "screenshot — region mode"
@@ -178,7 +179,7 @@ section "screenshot — human mode"
 SHOT3="$SHOT_DIR/human-test.png"
 cleanup_register "$SHOT3"
 
-cu_human "screenshot Finder --path $SHOT3"
+cu_human "screenshot com.apple.finder --path $SHOT3"
 assert_exit_zero "screenshot human exits 0"
 assert_contains "shows saved path" "Screenshot saved"
 assert_contains "shows filename" "$SHOT3"

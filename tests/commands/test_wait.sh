@@ -6,7 +6,7 @@ trap 'textedit_cleanup; cleanup_run' EXIT
 section "wait --text — existing text in Finder"
 
 # Get some text that's actually in Finder's UI
-cu_json "snapshot Finder --limit 5"
+cu_json "snapshot com.apple.finder --limit 5"
 SOME_TEXT=$(echo "$OUT" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
@@ -19,7 +19,7 @@ print('')
 " 2>/dev/null || echo "")
 
 if [[ -n "$SOME_TEXT" ]]; then
-  cu_json wait --text "$SOME_TEXT" --app Finder --timeout 3
+  cu_json wait --text "$SOME_TEXT" --app com.apple.finder --timeout 3
   assert_ok "wait --text finds existing text"
   assert_json_field_exists "elapsed_ms" ".elapsed_ms"
 
@@ -35,7 +35,7 @@ fi
 
 section "wait --text — non-existent text (timeout)"
 
-cu_json "wait --text ZZZZNONEXISTENT99999 --app Finder --timeout 2"
+cu_json "wait --text ZZZZNONEXISTENT99999 --app com.apple.finder --timeout 2"
 assert_fail "timeout on non-existent text"
 
 # Should timeout around 2 seconds
@@ -45,7 +45,7 @@ fi
 
 section "wait --ref — existing ref"
 
-cu_json "wait --ref-id 1 --app Finder --timeout 3"
+cu_json "wait --ref-id 1 --app com.apple.finder --timeout 3"
 if [[ $EXIT -eq 0 ]]; then
   assert_ok "wait --ref 1 found"
 else
@@ -55,7 +55,7 @@ fi
 section "wait --gone — non-existent ref (immediate success)"
 
 textedit_reset
-cu_json "wait --gone 9999 --app TextEdit --timeout 3"
+cu_json "wait --gone 9999 --app com.apple.TextEdit --timeout 3"
 assert_ok "wait --gone 9999 (already absent)"
 ELAPSED=$(json_get '.elapsed_ms' || echo "9999")
 if [[ "$ELAPSED" -lt 2000 ]] 2>/dev/null; then
@@ -66,7 +66,7 @@ fi
 section "wait — error: no condition specified"
 
 EXIT=0
-OUT=$($CU wait --app Finder --timeout 1 2>/tmp/cu-test-stderr) || EXIT=$?
+OUT=$($CU wait --app com.apple.finder --timeout 1 2>/tmp/cu-test-stderr) || EXIT=$?
 ERR=$(cat /tmp/cu-test-stderr 2>/dev/null || true)
 assert_exit_nonzero "missing condition fails"
 

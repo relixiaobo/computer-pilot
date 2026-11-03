@@ -1,13 +1,14 @@
 #!/bin/bash
 # Test: cu snapshot
 source "$(dirname "$0")/helpers.sh"
+FINDER_NAME=$(app_display_name com.apple.finder)
 trap 'textedit_cleanup; cleanup_run' EXIT
 
 section "snapshot — Finder (always running)"
 
-cu_json "snapshot Finder --limit 30"
+cu_json "snapshot com.apple.finder --limit 30"
 assert_ok "snapshot Finder ok"
-assert_json_field "app is Finder" ".app" "Finder"
+assert_json_field "app is Finder" ".app" "$FINDER_NAME"
 assert_json_field_exists "elements array" ".elements"
 
 ELEM_COUNT=$(json_get '.elements|length' || echo "0")
@@ -19,7 +20,7 @@ fi
 
 section "snapshot — window_frame"
 
-cu_json "snapshot Finder --limit 5"
+cu_json "snapshot com.apple.finder --limit 5"
 HAS_FRAME=$(echo "$OUT" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
@@ -37,7 +38,7 @@ fi
 
 section "snapshot — element structure"
 
-cu_json "snapshot Finder --limit 10"
+cu_json "snapshot com.apple.finder --limit 10"
 # Check first element has required fields
 HAS_FIELDS=$(echo "$OUT" | python3 -c "
 import sys, json
@@ -87,7 +88,7 @@ _pass "element roles are present"
 
 section "snapshot — --limit flag"
 
-cu_json "snapshot Finder --limit 3"
+cu_json "snapshot com.apple.finder --limit 3"
 assert_ok "snapshot limit=3 ok"
 LIM_COUNT=$(json_get '.elements|length' || echo "0")
 if [[ "$LIM_COUNT" -le 3 ]]; then
@@ -96,7 +97,7 @@ else
   _fail "limit=3" "got $LIM_COUNT elements"
 fi
 
-cu_json "snapshot Finder --limit 100"
+cu_json "snapshot com.apple.finder --limit 100"
 assert_ok "snapshot limit=100 ok"
 BIG_COUNT=$(json_get '.elements|length' || echo "0")
 if [[ "$BIG_COUNT" -ge "$LIM_COUNT" ]]; then
@@ -107,7 +108,7 @@ fi
 
 section "snapshot — truncated flag"
 
-cu_json "snapshot Finder --limit 3"
+cu_json "snapshot com.apple.finder --limit 3"
 TRUNCATED=$(json_get '.truncated' || echo "missing")
 # Should be true if there are more than 3 elements
 if [[ "$TRUNCATED" == "true" || "$TRUNCATED" == "false" ]]; then
@@ -118,9 +119,9 @@ fi
 
 section "snapshot — human mode"
 
-cu_human "snapshot Finder --limit 5"
+cu_human "snapshot com.apple.finder --limit 5"
 assert_exit_zero "snapshot human exits 0"
-assert_contains "shows app name" "[app] Finder"
+assert_contains "shows app name" "[app] $FINDER_NAME"
 # Human format: [1] role "label" (x,y WxH)
 if echo "$OUT" | grep -qE '^\[[0-9]+\]'; then
   _pass "human format: [ref] role label"
@@ -137,11 +138,11 @@ section "snapshot — focused element (A4)"
 
 # Open TextEdit and create a doc; the textarea should be the focused element
 textedit_reset
-"$CU" wait --ref 1 --app TextEdit --timeout 5 >/dev/null 2>&1 || true
-"$CU" snapshot TextEdit --limit 5 >/dev/null 2>&1 || true  # warm up
+"$CU" wait --ref 1 --app com.apple.TextEdit --timeout 5 >/dev/null 2>&1 || true
+"$CU" snapshot com.apple.TextEdit --limit 5 >/dev/null 2>&1 || true  # warm up
 sleep 0.3
 
-cu_json snapshot TextEdit --limit 30
+cu_json snapshot com.apple.TextEdit --limit 30
 assert_ok "snapshot TextEdit"
 FOCUS_INFO=$(echo "$OUT" | python3 -c "
 import sys, json
@@ -158,7 +159,7 @@ print('|'.join([
 [[ "$FOCUS_INFO" == *"has_ref=True"* ]]  && _pass "focused.ref populated"   || _fail "focused.ref populated"   "$FOCUS_INFO"
 
 # Human mode shows "Focused: ..." line
-cu_human snapshot TextEdit --limit 5
+cu_human snapshot com.apple.TextEdit --limit 5
 if echo "$OUT" | grep -q "^Focused:"; then
   _pass "human mode renders 'Focused:' line"
 else
@@ -170,14 +171,14 @@ section "snapshot — modal warning (A6)"
 if interactive_tests_enabled; then
   # Trigger TextEdit's "Save changes?" sheet by closing an unsaved document.
   # This deliberately activates TextEdit, so it is opt-in only.
-  "$CU" set-value 1 "modal-trigger" --app TextEdit --no-snapshot >/dev/null 2>&1 || true
+  "$CU" set-value 1 "modal-trigger" --app com.apple.TextEdit --no-snapshot >/dev/null 2>&1 || true
   sleep 0.2
   osascript -e 'tell application "TextEdit" to activate' 2>/dev/null
   sleep 0.3
   osascript -e 'tell application "System Events" to tell process "TextEdit" to keystroke "w" using {command down}' 2>/dev/null
   sleep 1
 
-  cu_json snapshot TextEdit --limit 30
+  cu_json snapshot com.apple.TextEdit --limit 30
   MODAL_INFO=$(echo "$OUT" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
@@ -198,7 +199,7 @@ print('|'.join([
   else
     [[ "$MODAL_INFO" == *"role=AXSheet"* ]] && _pass "modal.role is AXSheet" || _fail "modal.role is AXSheet" "$MODAL_INFO"
 
-    cu_human snapshot TextEdit --limit 5
+    cu_human snapshot com.apple.TextEdit --limit 5
     if echo "$OUT" | grep -q "^⚠ Modal:"; then
       _pass "human mode renders '⚠ Modal:' warning"
     else

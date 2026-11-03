@@ -4,7 +4,7 @@ source "$(dirname "$0")/helpers.sh"
 
 section "find — error: no filters"
 
-cu_json find --app Finder
+cu_json find --app com.apple.finder
 assert_fail "no filters → error"
 PARSED=$(echo "${OUT:-$ERR}" | python3 -c "
 import sys, json
@@ -22,7 +22,7 @@ print('|'.join([
 
 section "find — by role"
 
-cu_json find --app Finder --role row --limit 100
+cu_json find --app com.apple.finder --role row --limit 100
 assert_ok "find role=row in Finder"
 COUNT=$(json_get '.count' || echo "0")
 if [[ "$COUNT" -ge 1 ]]; then
@@ -51,7 +51,7 @@ assert_json_field_exists "truncated field" ".truncated"
 
 section "find — --first returns one match"
 
-cu_json find --app Finder --role row --limit 100 --first
+cu_json find --app com.apple.finder --role row --limit 100 --first
 assert_ok "find --first ok"
 HAS_MATCH=$(echo "$OUT" | python3 -c "
 import sys, json
@@ -69,7 +69,7 @@ assert_json_field_exists "count field" ".count"
 
 section "find — empty result is not an error"
 
-cu_json find --app Finder --title-contains zzz_definitely_not_present_xyz_4242 --limit 200
+cu_json find --app com.apple.finder --title-contains zzz_definitely_not_present_xyz_4242 --limit 200
 assert_ok "no-match returns ok=true (not an error)"
 COUNT=$(json_get '.count' || echo "1")
 if [[ "$COUNT" == "0" ]]; then
@@ -79,7 +79,7 @@ else
 fi
 
 # --first on empty result → match is null
-cu_json find --app Finder --title-contains zzz_definitely_not_present_xyz_4242 --first --limit 200
+cu_json find --app com.apple.finder --title-contains zzz_definitely_not_present_xyz_4242 --first --limit 200
 assert_ok "no-match --first ok"
 MATCH_NULL=$(echo "$OUT" | python3 -c "
 import sys, json
@@ -106,10 +106,10 @@ osascript -e 'tell application "Finder"
 end tell' 2>/dev/null
 sleep 0.3
 
-cu_json find --app Finder --title-contains documents --limit 200
+cu_json find --app com.apple.finder --title-contains documents --limit 200
 assert_ok "case-insensitive find ok"
 COUNT_LC=$(json_get '.count' || echo "0")
-cu_json find --app Finder --title-contains DOCUMENTS --limit 200
+cu_json find --app com.apple.finder --title-contains DOCUMENTS --limit 200
 COUNT_UC=$(json_get '.count' || echo "0")
 if [[ "$COUNT_LC" == "$COUNT_UC" && "$COUNT_LC" != "0" ]]; then
   _pass "lowercase and UPPERCASE searches return same count ($COUNT_LC)"
@@ -120,9 +120,9 @@ fi
 section "find — filters AND together"
 
 # role=row AND title-contains=Documents → strictly fewer than role=row alone
-cu_json find --app Finder --role row --limit 200
+cu_json find --app com.apple.finder --role row --limit 200
 ALL_ROWS=$(json_get '.count' || echo "0")
-cu_json find --app Finder --role row --title-contains documents --limit 200
+cu_json find --app com.apple.finder --role row --title-contains documents --limit 200
 ROW_AND_DOC=$(json_get '.count' || echo "0")
 if [[ "$ROW_AND_DOC" -le "$ALL_ROWS" ]]; then
   _pass "AND narrows result ($ROW_AND_DOC ≤ $ALL_ROWS)"
@@ -133,13 +133,13 @@ fi
 section "find — refs match snapshot refs"
 
 # A ref returned by find should refer to the same element as in snapshot.
-cu_json find --app Finder --role row --first --limit 200
+cu_json find --app com.apple.finder --role row --first --limit 200
 FIND_REF=$(json_get '.match.ref' || echo "")
 FIND_X=$(json_get '.match.x' || echo "")
 FIND_Y=$(json_get '.match.y' || echo "")
 
 if [[ -n "$FIND_REF" && "$FIND_REF" != "__MISSING__" ]]; then
-  cu_json snapshot Finder --limit 200
+  cu_json snapshot com.apple.finder --limit 200
   SNAP_X=$(echo "$OUT" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
@@ -170,7 +170,7 @@ fi
 section "find — --raw outputs bare ref integers (G3)"
 
 # --first --raw → single integer + exit 0 + no JSON
-RAW_OUT=$("$CU" find --app Finder --role row --first --raw --limit 200 2>&1)
+RAW_OUT=$("$CU" find --app com.apple.finder --role row --first --raw --limit 200 2>&1)
 RAW_EXIT=$?
 if [[ "$RAW_EXIT" -eq 0 && "$RAW_OUT" =~ ^[0-9]+$ ]]; then
   _pass "--first --raw → bare integer ($RAW_OUT) + exit 0"
@@ -179,7 +179,7 @@ else
 fi
 
 # --raw without --first → multiple lines, each an integer
-RAW_OUT=$("$CU" find --app Finder --role row --raw --limit 200 2>&1)
+RAW_OUT=$("$CU" find --app com.apple.finder --role row --raw --limit 200 2>&1)
 RAW_LINES=$(echo "$RAW_OUT" | wc -l | tr -d ' ')
 if [[ "$RAW_LINES" -ge 2 ]] && echo "$RAW_OUT" | python3 -c "
 import sys
@@ -192,7 +192,7 @@ else
 fi
 
 # --raw on no-match → exit 1, no output
-RAW_OUT=$("$CU" find --app Finder --title-equals zzz_NEVER_MATCHES_4242 --first --raw 2>&1) || RAW_EXIT=$?
+RAW_OUT=$("$CU" find --app com.apple.finder --title-equals zzz_NEVER_MATCHES_4242 --first --raw 2>&1) || RAW_EXIT=$?
 if [[ "${RAW_EXIT:-0}" -eq 1 && -z "$RAW_OUT" ]]; then
   _pass "--raw no-match → exit 1 + no output"
 else
@@ -200,7 +200,7 @@ else
 fi
 
 # Practical pipe test: cu click $(cu find ... --first --raw)
-REF_PIPE=$("$CU" find --app Finder --role row --first --raw --limit 200)
+REF_PIPE=$("$CU" find --app com.apple.finder --role row --first --raw --limit 200)
 if [[ -n "$REF_PIPE" && "$REF_PIPE" =~ ^[0-9]+$ ]]; then
   _pass "pipe-friendly: REF=\$(cu find --first --raw) yields '$REF_PIPE'"
 else
@@ -214,7 +214,7 @@ assert_fail "non-existent app fails"
 
 section "find — human mode"
 
-cu_human find --app Finder --role row --limit 50
+cu_human find --app com.apple.finder --role row --limit 50
 assert_exit_zero "find human exits 0"
 # Should emit lines like '[1] row "" (...)' — assert at least one bracketed ref line OR "No matches"
 if echo "$OUT" | grep -qE '^\[[0-9]+\] row|^No matches'; then
@@ -224,7 +224,7 @@ else
 fi
 
 # --first hint about extra matches in human mode
-cu_human find --app Finder --role row --first --limit 50
+cu_human find --app com.apple.finder --role row --first --limit 50
 assert_exit_zero "find --first human exits 0"
 
 summary

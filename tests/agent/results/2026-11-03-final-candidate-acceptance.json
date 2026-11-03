@@ -1,0 +1,66 @@
+{
+  "date": "2026-11-03",
+  "reviewer": "/root/final_acceptance",
+  "base_commit": "85c29ab72a4c1432dc524deb7bee07ca65a8b90f",
+  "branch": "fix/retest-focus-and-metrics",
+  "candidate_binary_sha256": "969c7a39379a8f92f3927d2f199f779b60e4c29076e266c2e4b9c636a01f6b6a",
+  "prior_manifest": "tests/agent/results/2026-11-03-local-gate-repairs.json",
+  "prior_manifest_sha256": "90b63033cac8c1bf21dc1ee97d6695ec3a965bac4eb3070276c1379c181a4dcb",
+  "prior_evidence_checked_before_documentation_update": {
+    "source_hashes": 57,
+    "log_hashes": 6,
+    "report_hash": true,
+    "binary_hash": true
+  },
+  "review": {
+    "new_blocking_code_findings": 0,
+    "ready_for_repair_pr_ci": true,
+    "ready_for_publication": false,
+    "source_edits_in_acceptance_round": false
+  },
+  "independent_validation": {
+    "rust_passed": 46,
+    "benchmark_python_passed": 34,
+    "targeted_l1": {
+      "passed": 58,
+      "failed": 0,
+      "skipped": 0
+    },
+    "owned_interactive_focus": {
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    "prior_full_l1": {
+      "passed": 888,
+      "failed": 0,
+      "skipped": 25,
+      "total": 913
+    }
+  },
+  "skip_categories": {
+    "interactive": 12,
+    "preserve_textedit_session": 7,
+    "app_state_unavailable": 4,
+    "finder_control_shape": 2
+  },
+  "l2": {
+    "exit_code": 1,
+    "stage": "credential_preflight",
+    "tasks_run": 0,
+    "llm_calls": 0,
+    "env_file_exists": false,
+    "provider_credentials_configured": false,
+    "agent_model_configured": false
+  },
+  "logs": {
+    "work/final-acceptance-independent.log": "39290826301a4cbf3bfd986852682840a6d3e4a0a8239e412074f6b43deaf334",
+    "work/final-acceptance-focus.log": "747e76ee9456eec7291a0bb5a4f0403cbac4c5d1d3929410a30e0b380af85d04",
+    "work/final-acceptance-l2-preflight.log": "d73d1e5ef25863ae264f5eca16c1d317f0f22c274cad61e0f19ed4d5e5533a9d"
+  },
+  "report_sha256": "006173c981638af0d4997adb4cc2c0934e4f132dcb6d2257c6e0449f3dd3fe65",
+  "post_acceptance_documentation_hashes": {
+    "docs/ROADMAP.md": "eac64db9092880497f493adaebac7629d9148a2cec132989293150cbb914892d",
+    "tests/agent/README.md": "a4b80808336fe85604ec2cceadd44e7be9674e00b248471fc20a1c7bf0cef670"
+  }
+}

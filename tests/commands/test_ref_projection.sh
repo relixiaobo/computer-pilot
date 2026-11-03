@@ -5,11 +5,11 @@ trap 'textedit_cleanup; cleanup_run' EXIT
 
 section "ref projection — snapshot/find/nearest share identity"
 
-cu_json snapshot Finder --limit 120
+cu_json snapshot com.apple.finder --limit 120
 assert_ok "Finder snapshot available"
 SNAPSHOT_JSON="$OUT"
 
-cu_json find --app Finder --role row --first --limit 120
+cu_json find --app com.apple.finder --role row --first --limit 120
 assert_ok "find returns a row"
 ROW_REF=$(json_get '.match.ref' || echo "")
 ROW_X=$(json_get '.match.x' || echo "")
@@ -44,7 +44,7 @@ ref = int(sys.argv[1])
 e = next(x for x in d["elements"] if x["ref"] == ref)
 print(e["y"] + e["height"] / 2)
 ' "$ROW_REF")
-  cu_json nearest "$CENTER_X" "$CENTER_Y" --app Finder --limit 120
+  cu_json nearest "$CENTER_X" "$CENTER_Y" --app com.apple.finder --limit 120
   assert_ok "nearest resolves the same row"
   assert_json_field "nearest ref matches" ".match.ref" "$ROW_REF"
 else
@@ -54,7 +54,7 @@ fi
 section "ref projection — why uses the same ref order"
 
 if [[ -n "$ROW_REF" && "$ROW_REF" != "__MISSING__" ]]; then
-  cu_json why "$ROW_REF" --app Finder --limit 120
+  cu_json why "$ROW_REF" --app com.apple.finder --limit 120
   assert_ok "why resolves the snapshot ref"
   assert_json_field "why found=true" ".found" "true"
   WHY_REF=$(json_get '.element.ref' || echo "")
@@ -75,7 +75,7 @@ PERFORM_REF=""
 WHY_ACTIONS=""
 PERFORM_PATH=""
 for candidate in $(seq 1 12); do
-  cu_json why "$candidate" --app Finder --limit 120
+  cu_json why "$candidate" --app com.apple.finder --limit 120
   if [[ "$EXIT" -ne 0 ]] || [[ "$(json_get '.found' || echo false)" != "true" ]]; then
     continue
   fi
@@ -102,9 +102,9 @@ if [[ -n "$PERFORM_REF" ]]; then
   # Only this prefix establishes the probed ref. Finder can resize offscreen
   # file-name cells while rendering; those unrelated cells must not make this
   # action-identity test fail the full-observation freshness guard.
-  cu_json snapshot Finder --limit "$PERFORM_REF"
+  cu_json snapshot com.apple.finder --limit "$PERFORM_REF"
   assert_ok "fresh observation covers the probed ref"
-  cu_json perform "$PERFORM_REF" AXCanonicalProjectionProbe --app Finder --no-snapshot
+  cu_json perform "$PERFORM_REF" AXCanonicalProjectionProbe --app com.apple.finder --no-snapshot
   PERFORM_JSON="${OUT:-$ERR}"
   PERFORM_ACTIONS=$(echo "$PERFORM_JSON" | python3 -c '
 import json, sys
@@ -119,7 +119,7 @@ print(json.dumps(sorted(d.get("diagnostics", {}).get("available_actions", [])), 
   # The stable-path entry point must expose the same action list and recovery
   # suggestions as the numeric-ref entry point.
   if [[ -n "$PERFORM_PATH" ]]; then
-    cu_json perform AXCanonicalProjectionProbe --ax-path "$PERFORM_PATH" --app Finder --no-snapshot
+    cu_json perform AXCanonicalProjectionProbe --ax-path "$PERFORM_PATH" --app com.apple.finder --no-snapshot
     PATH_JSON="${OUT:-$ERR}"
     PATH_ACTIONS=$(echo "$PATH_JSON" | python3 -c '
 import json, sys
@@ -180,7 +180,7 @@ import json,sys
 d=json.load(sys.stdin); es=d.get("elements", [])
 print(next((e["ref"] for e in es if e.get("role")=="statictext"), ""))
 ')
-  FAULT_JSON=$(CU_TEST_AX_BATCH_FAIL_ROLE="$FAULT_ROLE" COMPUTER_PILOT_BROKER_CHILD=1 "$CU" snapshot Finder --limit 120 2>/dev/null || true)
+  FAULT_JSON=$(CU_TEST_AX_BATCH_FAIL_ROLE="$FAULT_ROLE" COMPUTER_PILOT_BROKER_CHILD=1 "$CU" snapshot com.apple.finder --limit 120 2>/dev/null || true)
   FAULT_OK=$(echo "$FAULT_JSON" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("ok",False))' 2>/dev/null || echo false)
   if [[ "$FAULT_OK" == "True" ]]; then
     FAULT_DESC=$(echo "$FAULT_JSON" | python3 -c '
@@ -203,7 +203,7 @@ print(next((e["ref"] for e in es if e.get("role")=="statictext"), ""))
     _fail "batch failure injection snapshot" "fault role=$FAULT_ROLE output=${FAULT_JSON:0:160}"
   fi
 
-  CHILD_FAULT_JSON=$(CU_TEST_AX_BATCH_CHILDREN_FALLBACK_ROLE="$FAULT_ROLE" COMPUTER_PILOT_BROKER_CHILD=1 "$CU" snapshot Finder --limit 120 2>/dev/null || true)
+  CHILD_FAULT_JSON=$(CU_TEST_AX_BATCH_CHILDREN_FALLBACK_ROLE="$FAULT_ROLE" COMPUTER_PILOT_BROKER_CHILD=1 "$CU" snapshot com.apple.finder --limit 120 2>/dev/null || true)
   CHILD_FAULT_OK=$(echo "$CHILD_FAULT_JSON" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("ok",False))' 2>/dev/null || echo false)
   if [[ "$CHILD_FAULT_OK" == "True" ]]; then
     CHILD_FAULT_DESC=$(echo "$CHILD_FAULT_JSON" | python3 -c '
@@ -232,23 +232,23 @@ fi
 section "ref projection — TextEdit action paths use the same order"
 
 if textedit_reset; then
-  "$CU" snapshot TextEdit --limit 5 >/dev/null
-  cu_json set-value 1 "canonical-ref-test" --app TextEdit --no-snapshot
+  "$CU" snapshot com.apple.TextEdit --limit 5 >/dev/null
+  cu_json set-value 1 "canonical-ref-test" --app com.apple.TextEdit --no-snapshot
   if [[ "$EXIT" -ne 0 ]]; then
     # The command's preflight may observe a just-created TextEdit window at a
     # different limit; refresh the observation once before treating it as a
     # projection failure.
-    "$CU" snapshot TextEdit --limit 5 >/dev/null
-    cu_json set-value 1 "canonical-ref-test" --app TextEdit --no-snapshot
+    "$CU" snapshot com.apple.TextEdit --limit 5 >/dev/null
+    cu_json set-value 1 "canonical-ref-test" --app com.apple.TextEdit --no-snapshot
   fi
   assert_ok "set-value ref 1 resolves"
   assert_json_field "set-value method" ".method" "ax-set-value"
 
-  "$CU" snapshot TextEdit --limit 5 >/dev/null
-  cu_json click 1 --app TextEdit --no-snapshot
+  "$CU" snapshot com.apple.TextEdit --limit 5 >/dev/null
+  cu_json click 1 --app com.apple.TextEdit --no-snapshot
   if [[ "$EXIT" -ne 0 ]]; then
-    "$CU" snapshot TextEdit --limit 5 >/dev/null
-    cu_json click 1 --app TextEdit --no-snapshot
+    "$CU" snapshot com.apple.TextEdit --limit 5 >/dev/null
+    cu_json click 1 --app com.apple.TextEdit --no-snapshot
   fi
   assert_ok "click ref 1 resolves"
   CLICK_REF=$(json_get '.ref' || echo "")

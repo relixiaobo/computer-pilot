@@ -4,7 +4,7 @@ source "$(dirname "$0")/helpers.sh"
 
 section "settle_ms — present on action responses"
 
-cu_json key escape --app Finder
+cu_json key escape --app com.apple.finder
 assert_ok "cu key returns ok"
 
 PARSED=$(echo "$OUT" | python3 -c "
@@ -27,7 +27,7 @@ section "settle_ms — never above POST_ACTION_DELAY_MS cap (500ms)"
 # Sample 3 calls; max should be <= 600ms (allow small jitter for snapshot work)
 MAX=0
 for i in 1 2 3; do
-  cu_json key escape --app Finder
+  cu_json key escape --app com.apple.finder
   MS=$(json_get '.settle_ms' || echo "0")
   if [[ "$MS" -gt "$MAX" ]]; then MAX=$MS; fi
 done
@@ -39,7 +39,7 @@ fi
 
 section "auto-snapshot carries displays (D1)"
 
-cu_json key escape --app Finder
+cu_json key escape --app com.apple.finder
 HAS_DISPLAYS=$(echo "$OUT" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
@@ -68,7 +68,7 @@ print('|'.join([
 
 section "settle_ms — absent when --no-snapshot"
 
-cu_json key escape --app Finder --no-snapshot
+cu_json key escape --app com.apple.finder --no-snapshot
 HAS=$(echo "$OUT" | python3 -c "
 import sys, json
 print('yes' if 'settle_ms' in json.load(sys.stdin) else 'no')

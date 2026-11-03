@@ -80,7 +80,7 @@ print('|'.join([
 section "capture-protection — sharing=ReadOnly/ReadWrite apps still capture normally"
 
 # Finder is a baseline: layer-0, sharing=1
-cu_json screenshot Finder --path /private/tmp/cu-shareable-test.png
+cu_json screenshot com.apple.finder --path /private/tmp/cu-shareable-test.png
 assert_ok "screenshot of normal app (Finder) still ok"
 if [[ -f /private/tmp/cu-shareable-test.png ]]; then
   MAGIC=$(head -c 4 /private/tmp/cu-shareable-test.png | xxd -p)
