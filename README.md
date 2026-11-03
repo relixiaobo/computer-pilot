@@ -2,6 +2,10 @@
 
 A single-binary CLI tool for AI agents to observe and control the macOS desktop. Built in Rust, zero runtime dependencies.
 
+For development, start with the [documentation index](docs/README.md) and
+[release status / remaining work](docs/ROADMAP.md). Dated benchmark reports
+record what was actually tested, including failures and scope limits.
+
 ```bash
 cu snapshot Finder --limit 5
 # [app] Finder — "Downloads"
@@ -17,14 +21,15 @@ cu click 4 --app Finder
 
 ## Why cu?
 
-| | cu | Anthropic Computer Use | agent-desktop |
-|---|---|---|---|
-| Size | **1.3MB** | Python runtime | <15MB |
-| Latency | **<10ms** | 3-8s/step | ~200ms |
-| Dependencies | **zero** | Python | zero |
-| Perception | AX tree + OCR + screenshot | screenshot only | AX tree only |
-| Token cost | **~50 tokens/element** | ~1400 tokens/screenshot | ~50 tokens/element |
-| Commands | **31** | 7 | ~50 |
+- One Rust binary using macOS system frameworks, with no runtime dependencies.
+- AppleScript for scriptable data, AX refs for controls, OCR and screenshots
+  for visual fallback.
+- 31 public commands with structured output, target identity checks and
+  command recovery.
+
+Performance depends on the app, action and agent workflow. See the
+[measured real-app results](tests/agent/README.md#status-and-evidence-index)
+for protocol, model-round/token costs and correctness evidence.
 
 ## Why cu doesn't disrupt your workflow
 
@@ -33,15 +38,12 @@ the cursor jumps across the screen, the frontmost app changes, the clipboard
 is overwritten. `cu` is engineered so the agent can work in the background
 while you keep typing in your terminal.
 
-| | cu | Codex Computer Use | Anthropic CUA | kagete |
-|---|---|---|---|---|
-| Cursor stays put | **✓ by default** | ✓ | ✗ (warps) | ✗ (warps) |
-| Frontmost app preserved | **✓ by default** | ✓ | ✗ | ✗ |
-| Clipboard untouched | **✓ except explicit/automatic paste** | ✓ | n/a | ✗ (paste-based) |
-| IME bypassed | **✓ Unicode CGEvent** | ✓ | ✗ | ✗ |
-| Perception | AX tree + OCR + screenshot | screenshot | screenshot | AX tree |
-| AX action chain | **15-step fallback** | proprietary | n/a | basic AXPress |
-| Method audit field | **✓** in every response | ✗ | ✗ | ✗ |
+| Behavior | Default route | Explicit exception |
+|---|---|---|
+| Real pointer stays put | AX actions or PID-targeted events | `--allow-global` enables desktop-wide HID input |
+| Frontmost app preserved | Background observations and targeted actions | `cu window focus` requests foreground state |
+| Clipboard preserved | Unicode typing, or full-pasteboard save/restore for paste | A concurrent user clipboard write is kept and reported via `clipboard_hint` |
+| Input routing is visible | Action responses report a `method` | `*-global` identifies desktop-wide delivery |
 
 The mechanism is per-process event delivery: actions target the resolved PID by
 default, including the current frontmost PID when `--app` is omitted. The
@@ -53,9 +55,10 @@ development and production instances share a name or bundle ID, `cu` returns
 `ambiguous_target` instead of guessing. Copy the intended process's `selector`
 from `cu apps` and reuse it across state, action, and wait commands.
 
-`cu type` injects UTF-16 directly via `CGEventKeyboardSetUnicodeString` —
-no copy/paste, no clipboard pollution, works with any IME (Chinese, Japanese,
-emoji). `cu key` posts virtual-key events to the same pid.
+For native inputs, `cu type` injects UTF-16 directly via
+`CGEventKeyboardSetUnicodeString`, bypassing the IME without using the clipboard.
+Chromium inputs and known chat apps auto-route through clipboard paste and
+report `paste_reason`. `cu key` posts virtual-key events to the same pid.
 
 Every action response includes a `method` field documenting the routing:
 
@@ -110,7 +113,7 @@ Developer ID releases) the codesign requirement. Install the plugin (below)
 and the binary follows automatically. To run the installer yourself:
 
 ```bash
-git clone --depth 1 https://github.com/relixiaobo/computer-pilot.git
+git clone --depth 1 --branch skill-stable https://github.com/relixiaobo/computer-pilot.git
 cd computer-pilot/plugin/skills/computer-pilot
 requirement="$(sed -n 's/.*"requirement": "\(.*\)",/\1/p' compatibility.json)"
 requirement="${requirement//\\\"/\"}"
@@ -336,7 +339,7 @@ Three-tier control model — agent picks the cheapest layer for each task:
   │ cu menu       menu bar via System Events     │
   │ cu window     list/move/resize/focus         │
   │ cu click      AX action → CGEvent fallback   │
-  │ cu key/type   System Events / clipboard      │
+  │ cu key/type   PID events / scoped paste      │
   └──────────────────────────────────────────────┘
                         ↓ fallback
   Tier 3: OCR + screenshot (universal)

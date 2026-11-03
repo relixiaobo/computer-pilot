@@ -1,5 +1,10 @@
 # Virtual cursor research and implementation boundary
 
+Status: implemented in [PR #40](https://github.com/relixiaobo/computer-pilot/pull/40)
+and [PR #41](https://github.com/relixiaobo/computer-pilot/pull/41), released in
+v0.9.3. References below are pinned research evidence, not an open implementation
+plan or a claim about the latest upstream version.
+
 The Codex Computer Use experience separates two things that are easy to conflate:
 
 1. **Input delivery** sends an action to a target process or window without
@@ -78,7 +83,7 @@ The implementation follows the reconstruction requested for this cursor:
 
 Important distinctions found by reading the actual source:
 
-- Current upstream `SoftwareCursorOverlay.bestMotionCandidate` uses the newer
+- At the pinned upstream revision, `SoftwareCursorOverlay.bestMotionCandidate` uses the newer
   **HeadingDrivenCursorMotionModel**, not `OfficialCursorMotionModel`. This port
   deliberately uses the latter's binary-backed reconstruction; it does not claim
   to copy every behavior of the latest upstream runtime.

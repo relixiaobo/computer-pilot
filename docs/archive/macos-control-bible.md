@@ -20,7 +20,7 @@
 11. [Private / Undocumented APIs](#11-private--undocumented-apis)
 12. [Complete Permissions Map](#12-complete-permissions-map)
 13. [Gap Analysis: What No Tool Does Today](#13-gap-analysis)
-14. [AppleScript vs AX Tree: When to Use Which](#14-applescript-vs-ax-tree)
+14. [AppleScript vs AX Tree: When to Use Which](#14-applescript-vs-ax-tree-when-to-use-which)
 
 ---
 

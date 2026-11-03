@@ -7,20 +7,44 @@
 > - [`competitive-analysis.md`](./competitive-analysis.md) — feature grid across projects (factual snapshot)
 > - This doc — execution plan + progress log (live)
 
-Last updated: 2026-08-13. The sprint history below is retained for provenance.
-Current architecture adds four recovery commands, client-isolated Observations,
-a private per-user Broker, safe file results, and the CLI-only public Agent
-boundary documented in `universal-agent-integration.md` (**31 commands, 1,016
-passing default command-test assertions**).
+Last reconciled: **2026-11-03**, against published **v0.9.3** (`14b1a1c`).
+This page owns release status and remaining work. Dated sprint notes below are
+historical evidence; their line numbers, test counts, model comparisons and
+timing estimates are not current acceptance criteria.
+
+## Release status
+
+- [v0.9.3](https://github.com/relixiaobo/computer-pilot/releases/tag/v0.9.3)
+  was published on 2026-11-03 with Developer ID signing and Apple notarization.
+  CLI, skill and plugin archives are available. `skill-stable` was promoted to
+  the same release commit; promotion is complete, not awaiting a dry-run.
+- PRs [#30–#47](https://github.com/relixiaobo/computer-pilot/compare/v0.9.2...v0.9.3)
+  are included: pure-logic tests, input isolation, optional virtual cursor,
+  reduced AX/action work, complete snapshots, real-app reliability fixes and
+  benchmark evidence. The former `test/benchmark-matrix` and `release/v0.9.3`
+  branches have no pending implementation work.
+- The public boundary remains **31 CLI commands**, the packaged skill and an
+  existing shell, with a private per-user Broker. See
+  [integration](universal-agent-integration.md) and the shared
+  [working agreement](../AGENTS.md).
+- The latest [follow-up retest](../tests/agent/results/2026-11-03-followup-resource-retest.md)
+  recorded 10/11 normal passes, one normal TextEdit failure/false completion,
+  and one budget stop with exact saved files. Native Computer Use was not
+  rerun. These are scoped test results, not a general parity claim or a full
+  release-gate report.
+
+Release state above is a dated checkpoint. For a new release task, verify the
+remote tag, release assets and `skill-stable` again; a later documentation commit
+on `main` does not itself require a new CLI release.
 
 ---
 
-## Post-v0.9.2 optimization queue
+## Optimization queue after v0.9.3
 
-This is the active optimization queue after re-checking the July 2026 proposal
-against `main` at `80c5d15`. The original proposal and its site inventory are
-frozen under [`archive/`](./archive/) because their `v0.8.0` line references and
-several implementation assumptions are no longer current.
+The July proposal was re-baselined at `80c5d15` in August; the status below was
+reconciled with v0.9.3. Its original proposal and site inventory remain frozen
+under [`archive/`](./archive/). Open items are follow-up candidates, not release
+blockers or work already in progress.
 
 - [x] **O1 — Canonicalize AX traversal and ref projection (P0)** — **done
   2026-08-13 in [PR #35](https://github.com/relixiaobo/computer-pilot/pull/35)**
@@ -33,23 +57,22 @@ several implementation assumptions are no longer current.
     fallback. The merged baseline is 18 targeted assertions and 1,016 passing
     command-test assertions.
 
-- [ ] **O2 — Add a pure-logic Rust test foundation (P0)**
-  - **Current evidence**: the default command suite is broad, but `cargo test`
-    currently contains only four unit tests. Path parsing/projection, geometry,
-    normalization, and state-transition logic therefore rely mainly on live
-    macOS integration tests.
-  - **Required outcome**: extract testable pure helpers where needed and cover
-    boundary/error cases without AX, TCC, or running applications. Keep the
-    command suite as the behavioral layer rather than replacing it.
+- [x] **O2 — Add a pure-logic Rust test foundation (P0)** — **done
+  2026-08-18 in [PR #37](https://github.com/relixiaobo/computer-pilot/pull/37),
+  released in v0.9.3**
+  - **Outcome**: unit coverage for AX paths/projection, Broker state, diffs,
+    display geometry, errors, key parsing and CLI helpers. Run `cargo test`;
+    live command tests remain the behavioral layer.
 
-- [ ] **O3 — Unify action `--limit` semantics (P1, after O1)**
-  - **Current evidence**: snapshot/query commands expose several defaults, while
-    ref action helpers such as `ax_click`, `ax_find_element`, `ax_set_value`, and
-    `ax_perform` accept `_limit` but resolve through an unbounded independent
-    walk. The Broker's Observation check does honor the captured limit.
-  - **Required outcome**: document one meaning for the flag, enforce it on every
-    route, and test that a ref beyond the selected Observation cannot be acted
-    on through any fallback.
+- [ ] **O3 — Audit and document action `--limit` semantics (P1)**
+  - **Updated evidence**: the old independent `_limit` action helpers were
+    removed. `broker::snapshot_for_ref_action` now validates and retains the
+    selected target in one scan using `max(observation.limit, action.limit)`,
+    then restricts the returned pre-action snapshot to the action limit.
+  - **Remaining outcome**: document observation-selection versus output limits
+    across ref, path and coordinate routes, and audit the boundary coverage.
+    Reproduce a concrete contract violation before changing behavior; do not
+    restore the obsolete walkers described in the archived proposal.
 
 - [ ] **O4 — Re-evaluate AX batch-value reuse (P1, after O1)**
   - **Candidate**: the archived
@@ -59,7 +82,8 @@ several implementation assumptions are no longer current.
     Clippy, release build, and 61 targeted AX assertions. A/B identity and
     geometry gates passed, but the measured medians did not reproduce the old
     speedup (Finder `+1.7%`, Calendar `+2.6%`; positive is slower).
-  - **Required outcome**: rebase onto O1, add the equivalence behavior test to
+  - **Required outcome**: re-evaluate against the current retained-target path,
+    add the equivalence behavior test to
     the repository, and require a repeatable improvement on a quiescent target.
     Delete the candidate if it still has no measurable benefit.
 
@@ -70,7 +94,7 @@ design before it can enter this queue.
 
 ---
 
-## Reliability batch (2026-04-28, v0.5.2)
+## Historical reliability batch (2026-04-28, v0.5.2)
 
 After the E3 wrap-up the user asked for a systematic review of "what information is wrong." We landed 7 root-cause fixes plus 2 underlying migrations in one batch and lifted agent reliability to a new tier:
 
@@ -92,7 +116,11 @@ After the E3 wrap-up the user asked for a systematic review of "what information
 
 ---
 
-## Current gap snapshot (vs Codex CU)
+## Historical capability comparison (April 2026, with later cu annotations)
+
+This table preserves the original planning rationale. It is not a current
+comparison of external products; use the dated benchmark reports for measured
+results and the current CLI reference for supported behavior.
 
 | Dimension | cu state | Codex CU | Gap |
 |---|---|---|---|
@@ -423,7 +451,7 @@ Acceptance: every action command leaves the user's real cursor alone, doesn't st
 
 ---
 
-## Sprint 3 — long-term capabilities + observability (5+ days)
+## Sprint 3 — shipped capabilities and deferred observability
 
 - [x] **A2** axPath stable selector (2d) ✅ 2026-04-27
   - **Approach**: `src/ax.rs` walker computes an `axPath` field per Element on DFS, formatted `Role[Title]:N/Role[Title]/...` (`[Title]` optional, `:N` is the 0-indexed sibling occurrence). CLI adds `--ax-path` to `cu click` / `cu set-value` / `cu perform`, each routing to `ax::resolve_by_ax_path` / `ax::ax_set_value_by_path` / `ax::ax_perform_by_path` — top-down resolvers re-walking the AX tree segment by segment, no dependence on ref numbering.
@@ -445,17 +473,19 @@ Acceptance: every action command leaves the user's real cursor alone, doesn't st
 
 - ~~**A5** Chrome CDP bridge (3d)~~ — **dropped** (2026-04-27), see Out of Scope
 
-- [ ] **E1** macOSWorld baseline run + publish (1d)
-  - **Approach**: run baselines for GPT-5.4 / Claude Opus 4.7 / Sonnet 4.6, publish to README
-  - **Existing groundwork**: `tests/macosworld/` + `tests/agent/caliper_records.json` (untracked) + `tests/agent/caliper_report.py` (untracked)
+- [ ] **E1** macOSWorld baseline run + publish — **deferred**
+  - **Approach**: select available models and a fixed protocol when scheduled;
+    publish independently verified results rather than expected scores.
+  - **Existing groundwork**: `tests/macosworld/` and tracked
+    `tests/agent/caliper_report.py`; `caliper_records.json` is generated output.
   - **Acceptance**: README has the baseline table + link to a reproducible script
 
-- [ ] **E2** regression dashboard (1d)
+- [ ] **E2** regression dashboard — **deferred; no release automation yet**
   - **Approach**: each release auto-runs a macOSWorld subset, archives results, diffs against last run
 
 ---
 
-## What's already shipped (vs Codex CU craft comparison)
+## Historical shipped-feature notes (vs Codex CU craft comparison)
 
 > Not just a checklist — each item includes the detailed delta with Codex CU as a basis for retro and continuous improvement.
 
@@ -511,7 +541,6 @@ Acceptance: every action command leaves the user's real cursor alone, doesn't st
 
 | Item | Codex CU has it? | Why we don't do it |
 |---|---|---|
-| Soft-cursor overlay (virtual cursor — user sees the agent operating but isn't interrupted) | ✅ | implemented as an optional Broker-owned presentation layer; keep it separate from input delivery and the CLI contract |
 | MCP server mode | ❌ (not MCP) | violates CLAUDE.md's explicit "CLI only, no MCP" rule |
 | ghost-os style record/replay self-learning recipes | ❌ | beyond current product scope, needs a separate product decision |
 | Built-in VLM fallback (cu calling a VLM directly) | 🟡 GPT-5.4 ships with one | our agents have their own vision (Claude / GPT); cu is the reusable "hand", shouldn't redundantly call a remote VLM |
@@ -523,7 +552,7 @@ Acceptance: every action command leaves the user's real cursor alone, doesn't st
 
 ---
 
-## Major reference projects
+## Historical reference projects (counts are not maintained)
 
 | Project | Stars | Language | Borrowed module | Main value |
 |---|---|---|---|---|
@@ -541,4 +570,5 @@ Acceptance: every action command leaves the user's real cursor alone, doesn't st
 |---|---|---|---|
 | Sprint 1 — non-disruptive UX + tool surface | **complete** | 2026-04-27 | 10/10 tasks (incl. F2 closed; F2a + F2b + E3 equivalent done) |
 | Sprint 2 — VLM bridge + CLI craft + closed-loop precision | ✅ complete | 2026-04-27 | Historical 27-command milestone; current public CLI has 31 commands including recovery |
-| Sprint 3 — long-term capabilities | in progress | 2026-04-27 — | A2 axPath + D8 AX warmup + B7 cu why done (v0.4.0 release); A5 dropped (CDP); R1–R7 reliability batch + A SCK + capture-protected (v0.5.2); E1 / E2 pending |
+| Sprint 3 — long-term capabilities | shipped capabilities; E1/E2 deferred | 2026-04-27 onward | A2 axPath + D8 AX warmup + B7 cu why shipped; A5 dropped (CDP); no active macOSWorld baseline/dashboard run |
+| Post-v0.9.2 work | released in v0.9.3 | 2026-11-03 | O1/O2 complete; virtual cursor, action/snapshot simplification, reliability fixes and benchmark evidence shipped; O3/O4 remain follow-up candidates |
