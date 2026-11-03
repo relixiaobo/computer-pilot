@@ -114,15 +114,14 @@ git clone --depth 1 https://github.com/relixiaobo/computer-pilot.git
 cd computer-pilot/plugin/skills/computer-pilot
 sh scripts/install-native.sh \
   --version "$(sed -n 's/^  "version": "\(.*\)",$/\1/p' compatibility.json | head -1)" \
-  --repository relixiaobo/computer-pilot --allow-unsigned
+  --repository relixiaobo/computer-pilot \
+  --requirement "$(python3 -c 'import json; print(json.load(open("compatibility.json"))["installation"]["signing"]["requirement"])')"
 export PATH="${XDG_DATA_HOME:-$HOME/.local/share}/computer-pilot/bin:$PATH"
 cu setup
 ```
 
-Drop `--allow-unsigned` and pass
-`--requirement "<installation.signing.requirement>"` once releases are
-Developer ID signed (the manifest's `installation.signing` object declares
-the current policy).
+The requirement is read from the checked-in manifest, so the installer verifies
+the downloaded binary's Developer ID identity before replacing the managed copy.
 
 ### Option B: Download binary manually (Apple Silicon)
 
@@ -183,11 +182,10 @@ skill preflight converges the binary automatically on next use. Manual
 installs (Option B/C) repeat the same steps to upgrade — the fixed path makes
 the swap atomic.
 Every release includes a binary archive, skill archive, plugin archive,
-checksums, and `release-index.json`. Inspect `signing.status` in the index:
-`ad-hoc-unsigned` releases are verified by their published SHA-256 digests but
-carry no stable code identity — an ad-hoc designated requirement is a bare
-cdhash that changes with every build. `developer-id-notarized` adds Apple-
-verifiable provenance when signing credentials are available.
+checksums, and `release-index.json`. Official releases use
+`developer-id-notarized`, which gives the binary Apple-verifiable provenance.
+Older `ad-hoc-unsigned` releases remain verifiable by their published SHA-256
+digests but carry no stable code identity.
 
 This does not normally affect permissions. macOS attributes `cu`'s
 Accessibility and Screen Recording checks to the *responsible process* — the

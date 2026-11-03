@@ -89,12 +89,11 @@ sh scripts/install-native.sh \
   --version "<manifest version>" \
   --repository "<installation.repository>" \
   --asset-template "<installation.asset_template>" \
-  --allow-unsigned
+  --requirement "<installation.signing.requirement>"
 ```
 
-Replace `--allow-unsigned` with `--requirement "<installation.signing.requirement>"`
-when that value is set; pass `--allow-unsigned` only when the manifest
-declares `required_status` `ad-hoc-unsigned`. Never install with sudo, a
-`latest` URL, or any download outside this installer. Re-run the two
-preflight lines afterwards; the installer also reports the absolute
-`command` path if you need it.
+Use `--allow-unsigned` only for a manifest that explicitly declares
+`required_status` `ad-hoc-unsigned`. Never install with sudo, a `latest` URL,
+or any download outside this installer. Re-run the two preflight lines
+afterwards; the installer also reports the absolute `command` path if you need
+it.
