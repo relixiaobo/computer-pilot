@@ -11,9 +11,26 @@ final class Field: NSTextField {
         NSAccessibility.post(element: NSApp!, notification: .valueChanged)
     }
 }
+// A stale per-control AXFocused flag must not override the application's
+// actual focused input. The second focus request targets a non-input control.
+final class FocusSink: NSButton {
+    override var acceptsFirstResponder: Bool { true }
+}
+final class FocusDecoy: NSAccessibilityElement {
+    weak var sink: NSView?
+    var requests = 0
+    override func isAccessibilityFocused() -> Bool { true }
+    override func setAccessibilityFocused(_ focused: Bool) {
+        if focused {
+            requests += 1
+            if requests > 1, let sink = sink { sink.window?.makeFirstResponder(sink) }
+        }
+    }
+}
 final class ReorderingWindow: NSWindow {
     var armed = false
     var reordered = false
+    var focusDecoy: FocusDecoy?
     override func accessibilityChildren() -> [Any]? {
         guard var children = super.accessibilityChildren() else { return nil }
         let fields = children.indices.filter { (children[$0] as? NSCell)?.controlView is Field }
@@ -21,6 +38,7 @@ final class ReorderingWindow: NSWindow {
         // The returned array represents the current read. A later traversal
         // sees the reorder; retaining an AX object must still address it.
         if armed { armed = false; reordered.toggle() }
+        if let decoy = focusDecoy { children.append(decoy) }
         return children
     }
 }
@@ -60,7 +78,7 @@ final class Delegate: NSObject, NSApplicationDelegate {
         popup.setAccessibilityLabel("Route")
         popup.target = self; popup.action = #selector(selectRoute(_:))
         window.contentView!.addSubview(popup)
-        let next = NSButton(title: "Next page", target: self, action: #selector(nextPage))
+        let next = FocusSink(title: "Next page", target: self, action: #selector(nextPage))
         next.frame = NSRect(x: 270, y: 360, width: 100, height: 26)
         window.contentView!.addSubview(next)
         let urgent = NSButton(checkboxWithTitle: "Urgent", target: self, action: #selector(toggleUrgent(_:)))
@@ -94,6 +112,17 @@ final class Delegate: NSObject, NSApplicationDelegate {
                 }
                 return nil
             }
+            if event.keyCode == 100 { // F8: first notification is not completion.
+                input.stringValue = "burst-start"
+                NSAccessibility.post(element: NSApp!, notification: .valueChanged)
+                for (delay, value) in [(0.015, "burst-middle"), (0.030, "burst-final")] {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                        input.stringValue = value
+                        NSAccessibility.post(element: NSApp!, notification: .valueChanged)
+                    }
+                }
+                return nil
+            }
             if event.characters == "X" { // Type can also complete asynchronously.
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     input.stringValue = "delayed-type-change"
@@ -119,6 +148,14 @@ final class Delegate: NSObject, NSApplicationDelegate {
         window.makeKey()
         window.makeMain()
         window.makeFirstResponder(input)
+        let decoy = FocusDecoy()
+        decoy.sink = next
+        decoy.setAccessibilityParent(window)
+        decoy.setAccessibilityRole(.textField)
+        decoy.setAccessibilityLabel("Stale focus flag")
+        decoy.setAccessibilityValue("not an input destination")
+        decoy.setAccessibilityFrame(window.convertToScreen(NSRect(x: 20, y: 65, width: 150, height: 24)))
+        (window as? ReorderingWindow)?.focusDecoy = decoy
     }
     @objc func armReorder() {
         (window as? ReorderingWindow)?.armed = true
@@ -134,6 +171,7 @@ final class Delegate: NSObject, NSApplicationDelegate {
     }
     @objc func nextPage() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [self] in
+            (window as? ReorderingWindow)?.focusDecoy = nil
             window.contentView = NSView(frame: NSRect(x: 0, y: 0, width: 400, height: 440))
             let input = Field(frame: NSRect(x: 20, y: 395, width: 350, height: 26))
             input.setAccessibilityIdentifier("ready-input")

@@ -1,14 +1,88 @@
 """Offline saved-result checks for the real application workflows."""
 import json
+import io
+from contextlib import redirect_stdout
 from pathlib import Path
 import tempfile
 import unittest
+import sys
+import uuid
 from unittest.mock import patch
 from types import SimpleNamespace
 import benchmark_real_apps as bench
 
 
 class RealAppResults(unittest.TestCase):
+    @unittest.skipUnless(sys.platform == 'darwin', 'NSPasteboard requires macOS')
+    def test_clipboard_roundtrip_legacy_binary_multi_item_and_user_change(self):
+        # Use an isolated named board; never replace the user's clipboard.
+        name = 'computer-pilot-test-' + uuid.uuid4().hex
+        real_jxa = bench.jxa
+        def isolated(script):
+            return real_jxa(script.replace('$.NSPasteboard.generalPasteboard',
+                '$.NSPasteboard.pasteboardWithName($(' + json.dumps(name) + '))'))
+        prefix = "ObjC.import('AppKit');var p=$.NSPasteboard.generalPasteboard;"
+        try:
+            for multi in (False, True):
+                with tempfile.TemporaryDirectory() as folder, patch.object(bench, 'jxa', side_effect=isolated):
+                    trial = Path(folder)
+                    if multi:
+                        isolated(prefix + '''p.clearContents;var items=['first','second'].map(s=>{
+var i=$.NSPasteboardItem.alloc.init;i.setStringForType($(s),$('public.utf8-plain-text'));return i;});p.writeObjects($(items));''')
+                    else:
+                        isolated(prefix + '''p.clearContents;
+var types=['Apple Web Archive pasteboard type','public.utf8-plain-text','org.computer-pilot.binary'];
+p.declareTypesOwner($(types),null);types.forEach(t=>p.setDataForType(
+$.NSData.alloc.initWithBase64EncodedStringOptions($('AP8BQkM='),0),$(t)));''')
+                    bench.isolate_clipboard(trial)
+                    saved = json.loads((trial / 'clipboard.json').read_text())
+                    self.assertEqual(len(saved['items']), 2 if multi else 1)
+                    if not multi:
+                        self.assertEqual(saved['items'][0]['Apple Web Archive pasteboard type'], 'AP8BQkM=')
+                    bench.restore_clipboard(trial, trial)
+                    self.assertEqual(json.loads((trial / 'clipboard.json').read_text())['restore_status'], 'restored')
+                    second = trial / 'second'; second.mkdir()
+                    bench.isolate_clipboard(second)
+                    self.assertEqual(json.loads((second / 'clipboard.json').read_text())['items'], saved['items'])
+                    isolated(prefix + "p.clearContents;p.setStringForType($('new user data'),$('public.utf8-plain-text'));")
+                    bench.restore_clipboard(second, trial)
+                    self.assertEqual(json.loads((second / 'clipboard.json').read_text())['restore_status'], 'skipped_changed')
+                    self.assertEqual(isolated(prefix + "ObjC.unwrap(p.stringForType($('public.utf8-plain-text')));"), 'new user data')
+        finally:
+            isolated(prefix + 'p.releaseGlobally;')
+
+    def test_clipboard_restore_records_failure(self):
+        with tempfile.TemporaryDirectory() as folder:
+            trial = Path(folder)
+            (trial / 'clipboard.json').write_text(json.dumps({
+                'cleared_count': 7, 'items': [{'public.utf8-plain-text': 'YQ=='}]}))
+            with patch.object(bench, 'jxa', side_effect=RuntimeError('restore unavailable')):
+                with self.assertRaisesRegex(RuntimeError, 'restore unavailable'):
+                    bench.restore_clipboard(trial, trial)
+            saved = json.loads((trial / 'clipboard.json').read_text())
+            self.assertEqual(saved['restore_status'], 'restore_failed')
+            self.assertIn('restore unavailable', saved['restore_error'])
+
+    def test_prepared_repetitions_keep_pairs_order_and_default_resource_budgets(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            app = root / 'App'
+            (app / 'Contents').mkdir(parents=True)
+            (app / 'Contents/Info.plist').write_bytes(bench.plistlib.dumps({'CFBundleShortVersionString': 'test'}))
+            with patch.dict(bench.APPS, {'textedit': (str(app), 'TextEdit')}), patch.object(bench, 'fingerprints', return_value={}), patch.object(bench.subprocess, 'check_output', return_value='test-sha'), redirect_stdout(io.StringIO()):
+                bench.prepare(root / 'a', 'holdout', repeats=3, seed=42)
+                bench.prepare(root / 'b', 'holdout', repeats=3, seed=42)
+            a = json.loads((root / 'a/manifest.json').read_text())
+            b = json.loads((root / 'b/manifest.json').read_text())
+            self.assertEqual(a['protocol_version'], 3)
+            self.assertEqual(a['budget'], {'model_calls': 100, 'total_tokens': 8_000_000})
+            self.assertIsNone(a['wall_timeout_seconds'])
+            self.assertEqual(a['primary_metrics'], ['saved_artifact_accuracy', 'model_calls', 'tokens'])
+            self.assertEqual(a['sequence'], b['sequence'])
+            self.assertEqual(len({row['label'] for row in a['sequence']}), 6)
+            for repeat in (1, 2, 3):
+                self.assertEqual({row['arm'] for row in a['sequence'] if row['repeat'] == repeat}, {'cu', 'native'})
+
     def test_finder_tasks_verify_exact_paths_and_bytes(self):
         for scenario in ('organize', 'rename'):
             spec = bench.source('finder', 'finder', scenario)
@@ -22,6 +96,76 @@ class RealAppResults(unittest.TestCase):
                 changed['wrong/' + name] = changed.pop(name)
                 path.write_text(json.dumps({'files': changed}))
                 self.assertFalse(bench.verify(spec, path)['passed'])
+
+    def test_finder_copy_instead_of_move_fails_final_and_timeline_checks(self):
+        spec = bench.source('finder', 'finder', 'organize')
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            trial = root / 'trial'
+            trial.mkdir()
+            work = trial / 'workspace'
+            work.mkdir()
+            meta = dict(mode='finder', workspace=str(work))
+            (trial / 'meta.json').write_text(json.dumps(meta))
+            (trial / 'source.json').write_text(json.dumps(spec))
+            for name, text in {**spec['files'], **spec['expected_files']}.items():
+                path = work / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(text)
+            bench.capture_saved(root, 'trial')
+            self.assertFalse(bench.verify(spec, trial / 'saved.json')['passed'])
+            self.assertFalse(bench.saved_file_sample(meta, spec)['all_exact'])
+            for name in set(spec['files']) - set(spec['expected_files']):
+                (work / name).unlink()
+            bench.capture_saved(root, 'trial')
+            self.assertTrue(bench.verify(spec, trial / 'saved.json')['passed'])
+            self.assertTrue(bench.saved_file_sample(meta, spec)['all_exact'])
+            (work / 'extra.bin').write_bytes(b'\xff')
+            (work / 'unrelated-link').symlink_to(root / 'absent')
+            bench.capture_saved(root, 'trial')
+            self.assertFalse(bench.verify(spec, trial / 'saved.json')['passed'])
+
+    def test_finder_cleanup_uses_owned_target_url_after_navigation(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            trial = root / 'trial'
+            trial.mkdir()
+            meta = dict(pid=123, mode='finder', shared_app=True,
+                        workspace=str(root / 'owned space'), runtime_home=folder, client_key='test')
+            path = trial / 'meta.json'
+            path.write_text(json.dumps(meta))
+            broker = SimpleNamespace(returncode=0, stdout='{"running":false}')
+            with patch.object(bench, 'jxa') as jxa, patch.object(bench.subprocess, 'run', return_value=broker):
+                bench.stop(root, 'trial')
+                script = jxa.call_args.args[0]
+                self.assertIn((root / 'owned space').resolve().as_uri() + '/', script)
+                self.assertIn('w.target.url()', script)
+                self.assertIsNone(json.loads(path.read_text())['pid'])
+            path.write_text(json.dumps(meta))
+            with patch.object(bench, 'jxa', side_effect=RuntimeError('Test Finder window remains open')), \
+                 patch.object(bench, 'restore_clipboard') as restore, \
+                 patch.object(bench.subprocess, 'run', return_value=broker):
+                with self.assertRaisesRegex(RuntimeError, 'remains open'):
+                    bench.stop(root, 'trial')
+                restore.assert_called_once_with(trial, meta['workspace'])
+                self.assertEqual(json.loads(path.read_text())['pid'], 123)
+
+    def test_cleanup_error_survives_clipboard_restore_failure(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            trial = root / 'trial'
+            trial.mkdir()
+            meta = dict(pid=123, mode='finder', shared_app=True,
+                        workspace=str(root / 'owned'), runtime_home=folder,
+                        client_key='test')
+            (trial / 'meta.json').write_text(json.dumps(meta))
+            broker = SimpleNamespace(returncode=0, stdout='{"running":false}')
+            with patch.object(bench, 'jxa', side_effect=RuntimeError('cleanup failed')), \
+                 patch.object(bench, 'restore_clipboard', side_effect=RuntimeError('restore failed')) as restore, \
+                 patch.object(bench.subprocess, 'run', return_value=broker):
+                with self.assertRaisesRegex(RuntimeError, 'cleanup failed'):
+                    bench.stop(root, 'trial')
+                restore.assert_called_once_with(trial, meta['workspace'])
 
     def test_timeline_metrics_count_calls_after_first_exact_sample(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -41,6 +185,18 @@ class RealAppResults(unittest.TestCase):
                 'save_observation_count': 3, 'first_exact_index': 1,
                 'post_save_tool_calls': 2, 'post_save_tool_errors': 1,
             })
+
+    def test_backend_call_estimate_excludes_launcher_setup_and_counts_batches(self):
+        traces = [{"tools": [
+            {"command": ["/bin/zsh", "-lc", "cat > ./pilot <<'EOF'\\nEOF\\nchmod 700 ./pilot\\n./pilot snapshot"]},
+            {"command": ["/bin/zsh", "-lc", "set -e\\n./pilot key down\\n./pilot key enter"]},
+        ]}]
+        self.assertEqual(bench.shared.backend_calls_estimate(traces, 'cu'), 3)
+        native = [{"tools": [
+            {"server": "cua_repl"}, {"server": "cua_repl"},
+            {"server": "other"},
+        ]}]
+        self.assertEqual(bench.shared.backend_calls_estimate(native, 'native'), 2)
 
     def test_varied_editor_sources_keep_repeated_sections_scoped(self):
         for scenario in ('json', 'markdown', 'multi'):

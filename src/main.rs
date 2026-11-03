@@ -96,16 +96,18 @@ fn annotate_method(result: &mut serde_json::Value) {
     long_about = "macOS desktop automation CLI for AI agents.\n\n\
         THREE-TIER CONTROL:\n\
         1. AppleScript (scriptable apps) — cu tell / cu sdef\n\
-        2. AX tree + CGEvent (any app)   — cu snapshot / cu click\n\
+        2. Accessibility + CGEvent      — cu snapshot / cu click\n\
         3. OCR + screenshot (fallback)   — cu ocr / cu screenshot\n\n\
-        WORKFLOW FOR SCRIPTABLE APPS (check S flag in cu apps):\n\
-        1. cu apps                         — see what's running (S = scriptable)\n\
-        2. cu sdef <app>                   — discover scripting dictionary\n\
-        3. cu tell <app> '<AppleScript>'   — read/write app data directly\n\n\
-        WORKFLOW FOR NON-SCRIPTABLE APPS:\n\
-        1. cu menu <app>                   — discover what menus/features exist\n\
-        2. cu snapshot [app] --limit 30    — get UI elements with [ref] numbers\n\
-        3. cu click <ref> --app <name>     — click element by ref\n\n\
+        WORKFLOW FOR APP DATA (when scripting is permitted and supported):\n\
+        Use cu tell for the first useful read, group authorized writes, then read the result.\n\
+        Use cu sdef for unknown terminology; cu apps for unknown process/capability.\n\
+        Skip scripting for known unsupported operations and explicit UI-only tasks.\n\n\
+        WORKFLOW FOR UI CONTROLS:\n\
+        Reuse returned refs; otherwise use cu find for known targets or cu snapshot to explore.\n\
+        Use cu click for activation, cu set-value for native field replacement,\n\
+        cu type for insertion/controlled editors, and cu perform for specific AX actions.\n\
+        Use cu menu only to inspect menu structure; use an observed AX action, a known\n\
+        shortcut, or a permitted app-native script to activate a menu item.\n\n\
         WORKFLOW FOR VLM AGENTS (vision-equipped):\n\
         1. cu snapshot <app> --annotated   — PNG with each ref's box+number drawn\n\
         2. agent looks at PNG, picks ref by visual identification\n\
@@ -208,8 +210,8 @@ enum Cmd {
         #[arg(long)]
         annotated: bool,
         /// Attach a plain (un-annotated) window screenshot to the snapshot output.
-        /// Guarantees the tree and image are from the same instant. Skipped when --annotated
-        /// is also set (annotated already includes a screenshot).
+        /// Reads the tree and then captures the image in one call (not an atomic observation).
+        /// Skipped when --annotated is also set (annotated already includes a screenshot).
         #[arg(long = "with-screenshot")]
         with_screenshot: bool,
         /// Output path for the annotated PNG or --with-screenshot PNG.
@@ -220,7 +222,7 @@ enum Cmd {
     /// Type text into the focused element (Unicode supported)
     #[command(after_help = "\
         PREFER:\n  \
-        Use `cu set-value <ref>` for native AX fields outside AXWebArea (faster, no focus needed).\n  \
+        Use `cu set-value <ref>` to replace a whole native AX field outside AXWebArea.\n  \
         Use this when the target is Electron/browser content or when you need\n  \
         to drive a multi-step keystroke flow that requires real focus + IME-bypass entry.\n\n\
         Examples:\n  \
@@ -240,6 +242,7 @@ enum Cmd {
         Unicode events, including CJK. Original clipboard preserved.")]
     Type {
         /// Text to type
+        #[arg(allow_hyphen_values = true)]
         text: String,
         /// Target app selector — unique name, bundle ID, or pid:<PID>
         #[arg(long)]
@@ -311,9 +314,9 @@ enum Cmd {
         allow_missing_positional = true,
         after_help = "\
         PREFER:\n  \
-        Use this over `cu type` when the target is an AX textfield/textarea/combobox\n  \
-        (faster, no focus shift, no clipboard pollution).\n  \
-        Fall back to `cu click + cu type` for non-AX inputs (Electron, web pages, etc).\n\n\
+        Use this to replace a native AX textfield/textarea/combobox's whole value.\n  \
+        Use `cu type` for insertion/selected text or Electron/AXWebArea inputs.\n  \
+        Targeted type requires the intended AX text input to be focused.\n\n\
         Fastest way to fill a text field. Uses AXUIElementSetAttributeValue\n\
         on AXValue — works on AXTextField / AXTextArea / AXComboBox.\n\
         For controls that reject AXValue writes, fall back to:\n  \
@@ -450,7 +453,7 @@ enum Cmd {
     #[command(after_help = "\
         PREFER:\n  \
         Use this over `cu snapshot | grep` whenever you know what you're looking for.\n  \
-        Use `--first --raw` to pipe straight into `xargs cu click` (no jq needed).\n\n\
+        Use `--first` only for an unambiguous target; inspect count and truncated.\n\n\
         Predicate query over the AX tree — returns matching elements with refs\n\
         usable directly with `cu click`. Replaces the snapshot+search pattern.\n\n\
         Filters (combine with AND; at least one is required):\n  \
@@ -461,9 +464,9 @@ enum Cmd {
         Examples:\n  \
         cu find --app Finder --role row --title-contains Documents\n  \
         cu find --app Safari --role button --title-equals 'Reload' --first\n  \
-        cu find --app Mail --role textfield --first | jq -r .match.ref | \\\n    \
-          xargs -I{} cu set-value {} 'alice@example.com' --app Mail\n\n\
-        --first returns one best match in `.match`; otherwise `.matches` is an array.\n\
+        cu find --app Mail --role textfield --title-contains 'Subject'\n\n\
+        --first returns the first match in tree order in `.match`, not the best match.\n\
+        Otherwise `.matches` is an array; disambiguate duplicates before acting.\n\
         Empty result is not an error — check `.matches | length` (or `.match == null`).")]
     Find {
         /// Target app (default: frontmost)
@@ -569,7 +572,9 @@ enum Cmd {
         an explicit --app; --allow-global opts into the global HID tap.\n\n\
         Verify (default ON): takes a pre-action AX snapshot and diffs after the click.\n\
         Returns `verify_diff` and `verify_advice`; a generic tree change leaves `verified:null`.\n\
-        For text inputs, `focus_verified` checks the target in the same window. The\n\
+        For textfield-shaped targets, `focus_verified` is an observation only; a\n\
+        click may select a row or filename without entering edit mode. `cu type`\n\
+        performs the strict focused-input check immediately before dispatch. The\n\
         caller checks the intended content and saved result at the group boundary.")]
     Click {
         /// Element ref number, or x coordinate
@@ -842,10 +847,9 @@ enum Cmd {
 
     /// Unified state probe — snapshot + windows + screenshot + frontmost in one call
     #[command(after_help = "\
-        PREFER:\n  \
-        First call when starting a task on a specific app — saves one LLM round-trip\n  \
-        vs `cu snapshot` + `cu window list` + `cu screenshot`. The screenshot gives\n  \
-        a VLM agent visual context; the snapshot gives ref-based interaction targets.\n\n\
+        Use when window metadata or an image is needed. For routine UI control,\n\
+        cu snapshot or cu find avoids an unnecessary screenshot. The combined\n\
+        call saves a round trip when all of tree, windows, and image are needed.\n\n\
         Examples:\n  \
         cu state Safari                # full state + task-directory screenshot\n  \
         cu state Mail --no-screenshot  # tree + windows only (faster)\n  \
@@ -892,8 +896,8 @@ enum Cmd {
         cu defaults read NSGlobalDomain KeyRepeat\n  \
         cu defaults write NSGlobalDomain KeyRepeat -int 2\n  \
         cu defaults read com.apple.calculator ViewDefaultsKey\n\n\
-        After writing dock/finder settings, restart with:\n  \
-        killall Dock   or   killall Finder")]
+        A preference write does not prove the app applied it. Inspect the consuming\n\
+        app's state; do not restart user apps unless that is part of the authorized task.")]
     Defaults {
         /// Subcommand: read or write
         action: String,
@@ -916,7 +920,9 @@ enum Cmd {
         cu sdef Calendar                # calendar scripting API\n  \
         cu sdef Finder                  # file management API\n  \
         cu sdef \"System Events\"         # system controls\n\n\
-        Workflow: cu apps → cu sdef <app> → cu tell <app> '<expression>'")]
+        Use sdef for unknown terminology. For a supported operation with known\n\
+        terminology, use tell directly for the first useful read. Use apps only\n\
+        when process identity or scripting capability is unknown.")]
     Sdef {
         /// Application name
         app: String,
@@ -937,10 +943,10 @@ enum Cmd {
     /// Execute AppleScript against a scriptable app
     #[command(after_help = "\
         PREFER:\n  \
-        Check `cu apps` for the S flag — if the target is scriptable, prefer this over\n  \
-        the snapshot+click loop (faster, more reliable, fewer tokens).\n  \
-        Fall back to AX (cu snapshot + cu click) when the app has no S flag\n  \
-        (Electron, Firefox, custom-render apps) or when the data isn't in the scripting dict.\n\n\
+        Use tell for permitted app-data operations with known scripting support.\n  \
+        Make the first useful read, group authorized writes, then read the result.\n  \
+        Use sdef for unknown terminology; apps for unknown process/capability.\n  \
+        Skip scripting for known unsupported operations or explicit UI-only tasks.\n\n\
         Run AppleScript in the context of a target application.\n\
         The expression is auto-wrapped in `tell application \"<app>\" ... end tell`.\n\n\
         Examples:\n  \
@@ -955,8 +961,8 @@ enum Cmd {
         cu tell Calendar 'make new event at end of events of first calendar \\\n    \
           with properties {summary:\"Meeting\", start date:date \"2026-04-06 14:00\"}'\n  \
         cu tell Notes 'make new note with properties {name:\"Test\", body:\"Hello\"}'\n\n\
-        Tip: Use `cu apps` to see which apps are scriptable (S flag),\n\
-        then `cu sdef <app>` to discover what properties/commands are available.\n\n\
+        The app argument is an application name or bundle path, not pid:<PID>.\n\
+        A task launcher's UI PID does not bind this AppleScript target.\n\n\
         Disruptive AppleScript is refused by default: `activate` steals the\n\
         user's frontmost app, and System Events `keystroke`/`key code` send\n\
         global keyboard input to whatever the user has focused. Use cu's\n\
@@ -2567,15 +2573,22 @@ fn input_is_focused(target: Option<&ax::Element>, snapshot: Option<&ax::Snapshot
         })
 }
 
-fn enforce_text_input_focus(
+/// Attach the result of the optional post-click focus observation.
+///
+/// A click on a textfield-shaped AX node can mean selecting a row (Finder
+/// exposes filenames this way) or entering an editor. The click command
+/// cannot infer that intent from the role alone, so focus is informational at
+/// this boundary. `cu type` performs the strict focused-input check immediately
+/// before dispatching text, where the intent is unambiguous.
+fn attach_text_input_focus(
     result: &mut serde_json::Value,
     target: Option<&ax::Element>,
     pre: Option<&ax::SnapshotResult>,
     post: Option<&ax::SnapshotResult>,
     native_target: Option<&ax::RefTarget>,
-) -> Result<(), CuError> {
+) {
     let Some(target) = target.filter(|element| is_text_input_role(&element.role)) else {
-        return Ok(());
+        return;
     };
     let focus_verified = post.filter(|snapshot| snapshot.ok).and_then(|post| {
         if !pre.is_some_and(|pre| same_observed_window(pre, post)) {
@@ -2583,8 +2596,12 @@ fn enforce_text_input_focus(
         }
         if let Some(native_target) = native_target {
             // Sibling reorder can change a path while the retained object is
-            // still the intended focused input. No second tree walk is needed.
-            native_target.is_focused()
+            // still the intended input. Use the application's focused object
+            // already read for this snapshot, exactly as the type precheck does.
+            // A control's own AXFocused flag can disagree with that object.
+            post.focused_target
+                .as_ref()
+                .map(|focused| native_target.same_element(focused))
         } else {
             Some(post.focused.as_ref().is_some_and(|focused| {
                 same_control_path(
@@ -2596,44 +2613,17 @@ fn enforce_text_input_focus(
             }))
         }
     });
-    let Some(focus_verified) = focus_verified else {
-        return Err(CuError::msg(
-            "unknown outcome: click was dispatched, but target focus could not be observed",
-        )
-        .with_code(ErrorCode::UnknownOutcome)
-        .with_hint("inspect the target state before typing or retrying the click")
-        .with_diagnostics(serde_json::json!({
-            "dispatched": true,
-            "target": target,
-            "action_result": result,
-        })));
-    };
     if let Some(obj) = result.as_object_mut() {
-        obj.insert("focus_verified".into(), focus_verified.into());
-        if focus_verified {
+        obj.insert(
+            "focus_verified".into(),
+            focus_verified.map_or(serde_json::Value::Null, serde_json::Value::from),
+        );
+        if focus_verified == Some(true) {
             obj.insert("verified".into(), true.into());
             obj.insert("verification_basis".into(), "focused_target".into());
             obj.remove("verify_advice");
         }
     }
-    if focus_verified {
-        return Ok(());
-    }
-
-    Err(CuError::msg(format!(
-        "verification failed: click did not focus text input [{}]",
-        target.ref_id
-    ))
-    .with_code(ErrorCode::VerificationFailed)
-    .with_hint(
-        "inspect snapshot.focused and retry at most once with a fresh Observation; do not type until the exact target ref is focused",
-    )
-    .with_diagnostics(serde_json::json!({
-        "dispatched": true,
-        "target": target,
-        "focused": post.and_then(|snapshot| snapshot.focused.as_ref()),
-        "action_result": result,
-    })))
 }
 
 fn focused_input_before_type(pid: i32, name: &str) -> Result<ax::SnapshotResult, CuError> {
@@ -2863,11 +2853,12 @@ fn cmd_set_value(
         "method": "ax-set-value",
         "dispatched": true,
         "ax_value_written": true,
+        "effect_verified": serde_json::Value::Null,
     });
     if controlled_editor_risk {
         result["controlled_editor_risk"] = true.into();
         result["confidence"] = "low".into();
-        result["effect_advice"] = "The target is inside AXWebArea. AXValue may update only Chromium's accessibility shadow state without firing the controlled editor's input/onChange handlers. Do not use this result as proof that Send/Submit is enabled.".into();
+        result["effect_advice"] = "AXValue may change only the accessibility representation, without updating the application's document or firing input handlers. Inspect the intended result; if absent, use focused keyboard/type input instead of repeating AXValue writes.".into();
     }
     let _ = capture_and_maybe_attach_snapshot(
         &mut result,
@@ -3158,13 +3149,13 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
             post.as_ref(),
             method,
         );
-        enforce_text_input_focus(
+        attach_text_input_focus(
             &mut result,
             focus_target.as_ref(),
             pre_state.as_ref().map(|(_, _, snapshot)| snapshot),
             post.as_ref(),
             None,
-        )?;
+        );
         return if json {
             ok(result)
         } else {
@@ -3287,13 +3278,13 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
             post.as_ref(),
             method,
         );
-        enforce_text_input_focus(
+        attach_text_input_focus(
             &mut result,
             focus_target.as_ref(),
             pre_state.as_ref().map(|(_, _, snapshot)| snapshot),
             post.as_ref(),
             None,
-        )?;
+        );
         return if json {
             ok(result)
         } else {
@@ -3361,13 +3352,13 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
             post.as_ref(),
             method,
         );
-        enforce_text_input_focus(
+        attach_text_input_focus(
             &mut result,
             focus_target.as_ref(),
             pre_state.as_ref().map(|(_, _, snapshot)| snapshot),
             post.as_ref(),
             None,
-        )?;
+        );
         return if json {
             ok(result)
         } else {
@@ -3449,13 +3440,13 @@ fn cmd_click(opts: ClickOptions) -> Result<(), CuError> {
         post.as_ref(),
         method,
     );
-    enforce_text_input_focus(
+    attach_text_input_focus(
         &mut result,
         focus_target.as_ref(),
         pre_state.as_ref().map(|(_, _, snapshot)| snapshot),
         post.as_ref(),
         ref_target.as_ref(),
-    )?;
+    );
     if json {
         ok(result)
     } else {
@@ -4030,22 +4021,15 @@ fn cmd_state(
         };
 
     if json {
-        let mut full = serde_json::json!({
-            "ok": true,
-            "app": name,
-            "pid": pid,
-            "frontmost": frontmost,
-            "windows": windows,
-            "elements": snap.elements,
-            "snapshot_size": snap.elements.len(),
-            "tree_truncated": snap.truncated,
-        });
-        if let Some(frame) = &snap.window_frame {
-            full["window_frame"] = serde_json::json!({
-                "x": frame.x, "y": frame.y,
-                "width": frame.width, "height": frame.height,
-            });
-        }
+        // State is the same observation with window/capture metadata. Reuse
+        // its serialization so focus, modal and truncation evidence cannot be
+        // silently dropped by a second handwritten snapshot representation.
+        let mut full = snapshot_value(&snap);
+        full["frontmost"] = frontmost.into();
+        full["windows"] = serde_json::json!(windows);
+        full["snapshot_size"] = snap.elements.len().into();
+        let truncated = full.as_object_mut().unwrap().remove("truncated").unwrap();
+        full["tree_truncated"] = truncated;
         if let Some(file) = screenshot_info {
             full["screenshot"] = serde_json::json!(file.path);
             full["screenshot_file"] = serde_json::json!(file);
@@ -4062,6 +4046,9 @@ fn cmd_state(
             snap.elements.len(),
             if snap.truncated { " (truncated)" } else { "" },
         );
+        if let Some(hint) = &snap.truncation_hint {
+            println!("{hint}");
+        }
         if let Some(file) = &screenshot_info {
             println!("Screenshot: {}", file.path);
         } else if let Some(err) = &screenshot_err {
@@ -4197,7 +4184,7 @@ const RECIPES: &[(&str, &str, &str)] = &[
         "# Preferred: direct AX write\n\
          REF=$(cu find --app Mail --role textfield --title-contains 'Subject' --first | jq -r .match.ref)\n\
          cu set-value \"$REF\" \"Hello\" --app Mail\n\n\
-         # Fallback if set-value fails (non-AX field, e.g. Electron):\n\
+         # For controlled editors, click instead; inspect intended focus before typing:\n\
          cu click \"$REF\" --app Mail\n\
          cu type \"Hello\" --app Mail",
     ),
@@ -4213,12 +4200,7 @@ const RECIPES: &[(&str, &str, &str)] = &[
     (
         "read-app-data",
         "Read app data via scripting (no UI traversal)",
-        "# Find scriptable apps (S flag in human mode)\n\
-         cu apps | jq '.apps[] | select(.scriptable == true) | .name'\n\n\
-         # Run AppleScript directly\n\
-         cu tell Safari 'get URL of current tab of front window'\n\
-         cu tell Notes 'get plaintext of note 1'\n\
-         cu tell Mail 'get subject of message 1 of inbox'",
+        "# For known supported terminology, make the first useful read directly\ncu tell Safari 'get URL of current tab of front window'\ncu tell Notes 'get plaintext of note 1'\ncu tell Mail 'get subject of message 1 of inbox'\n# Use cu apps for unknown identity/capability; cu sdef for unknown terminology",
     ),
     (
         "wait-for-ui",
@@ -4250,10 +4232,8 @@ const RECIPES: &[(&str, &str, &str)] = &[
     ),
     (
         "menu-click",
-        "Click any menu bar item (works for ANY app)",
-        "cu menu Calculator                                # discover menu structure\n\
-         cu tell \"System Events\" 'tell process \"Calculator\" to \\\n  \
-           click menu item \"Scientific\" of menu \"View\" of menu bar 1'",
+        "Discover a menu action and its UI target",
+        "cu menu Calculator                     # discover menu structure\ncu snapshot Calculator --annotated      # locate the menu control\n# Use its observed ref, or grounded screenshot coordinates if AX lacks it.\n# Observe the opened menu before selecting the intended item.\n# A known shortcut can avoid menu traversal when the workflow permits it.",
     ),
     (
         "region-screenshot",
@@ -4266,7 +4246,7 @@ const RECIPES: &[(&str, &str, &str)] = &[
         "Change a macOS preference without opening System Settings",
         "cu defaults read  com.apple.dock autohide\n\
          cu defaults write com.apple.dock autohide -bool true\n\
-         killall Dock                                       # apply",
+         # Inspect Dock state; restart only if that is part of the authorized task.",
     ),
 ];
 
@@ -4826,21 +4806,14 @@ mod tests {
     }
 
     #[test]
-    fn unreadable_focus_is_unknown_not_a_failed_click() {
+    fn unreadable_focus_is_advisory_not_a_failed_click() {
         let good = verification_snapshot(true);
         let failed = verification_snapshot(false);
         for post in [None, Some(&failed)] {
             let mut result = serde_json::json!({"ok": true});
-            let error = enforce_text_input_focus(
-                &mut result,
-                good.elements.first(),
-                Some(&good),
-                post,
-                None,
-            )
-            .unwrap_err();
-            assert!(error.error.starts_with("unknown outcome:"));
-            assert!(result.get("focus_verified").is_none());
+            attach_text_input_focus(&mut result, good.elements.first(), Some(&good), post, None);
+            assert_eq!(result["focus_verified"], serde_json::Value::Null);
+            assert_eq!(result["ok"], true);
         }
     }
 
@@ -4966,15 +4939,12 @@ mod tests {
             after.elements[0].ax_path.as_deref(),
         ));
         let mut result = serde_json::json!({"ok":true});
-        assert!(
-            enforce_text_input_focus(
-                &mut result,
-                before.elements.first(),
-                Some(&before),
-                Some(&after),
-                None
-            )
-            .is_err()
+        attach_text_input_focus(
+            &mut result,
+            before.elements.first(),
+            Some(&before),
+            Some(&after),
+            None,
         );
         assert_eq!(result["focus_verified"], false);
         // A title rename in the same window is allowed; another window with
@@ -4985,27 +4955,23 @@ mod tests {
             Some("window[B]/webarea/textarea[editor]"),
         ));
         after.elements[1].ax_path = after.focused.as_ref().unwrap().ax_path.clone();
-        assert!(
-            enforce_text_input_focus(
-                &mut result,
-                before.elements.first(),
-                Some(&before),
-                Some(&after),
-                None
-            )
-            .is_ok()
+        attach_text_input_focus(
+            &mut result,
+            before.elements.first(),
+            Some(&before),
+            Some(&after),
+            None,
         );
+        assert_eq!(result["focus_verified"], true);
         after.window_id += 1;
-        assert!(
-            enforce_text_input_focus(
-                &mut result,
-                before.elements.first(),
-                Some(&before),
-                Some(&after),
-                None
-            )
-            .is_err()
+        attach_text_input_focus(
+            &mut result,
+            before.elements.first(),
+            Some(&before),
+            Some(&after),
+            None,
         );
+        assert_eq!(result["focus_verified"], false);
     }
 
     #[test]

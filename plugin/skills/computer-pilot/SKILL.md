@@ -1,6 +1,6 @@
 ---
 name: computer-pilot
-description: Read and operate macOS app UI through the cu CLI and the Agent's existing shell, including native controls, text input, AppleScript, screenshots and OCR. Prefer Browser Pilot for web-page DOM tasks. Not needed for ordinary file edits.
+description: Read and operate macOS apps through the cu CLI and the Agent's existing shell, using app scripting, Accessibility, keyboard/mouse input, screenshots and OCR. Not needed for ordinary file edits.
 ---
 
 # Computer Pilot
@@ -18,25 +18,44 @@ Use the caller's verified binary and permissions directly. Otherwise put
 [compatibility.json](compatibility.json). Run `cu setup` only after installation
 or a permission error.
 
-Choose the cheapest suitable interface. For a known app and a document, file,
-or other app-data task, start with one read-only `cu tell` as the capability
-probe; do not call `apps`, `sdef`, help, snapshot, or screenshot first. If that
-probe succeeds and the operation is clear, group the authorized reads and
-writes in one app-scoped script and make one final read. If it fails with an
-unknown target, permission, or terminology error, use `cu apps` or `sdef` to
-route the fallback. For UI-only work, use AX; start with a snapshot and use
-screenshots/OCR only when AX lacks the needed content.
+## Choose The Control Path
 
-When the launcher already binds an exact `pid:<PID>`, do not call `cu apps` to
-reconfirm that target; go directly to `snapshot` or `find`. Use `cu apps` only
-when the target selector or running process is unknown.
+Respect the requested interface: an explicit UI-only task stays on UI paths.
+Otherwise choose the shortest path that exposes the required operation and
+result. These are alternatives, not a mandatory discovery sequence.
 
-When the task permits app-native scripting, this data route takes precedence
-over a generic request to use the app UI: use AX only for presentation-specific
-work such as menus, geometry, selection, or visual proof. Do not discover or
-edit app data through clicks when the permitted `tell` route can address it.
+| Task and available evidence | Path |
+|---|---|
+| App data or document/file operations with known scripting support | `tell`: make the first useful read, group authorized writes, and read the result. Use `sdef` only for unknown terminology; skip scripting for known unsupported apps/operations. See [scripting](references/scripting.md). |
+| Controls, menus, dialogs, selection, or editing exposed by Accessibility | AX: reuse returned refs; otherwise `find` for a known target or `snapshot` for exploration. `click` already tries AX actions before mouse fallback; `perform` is for a specific action such as `AXShowMenu` or `AXScrollToVisible`. |
+| A canvas, missing AX text/control, or appearance that must be seen | Visual: `ocr` for text; `screenshot` for layout/non-text targets; `snapshot --with-screenshot` or `--annotated` when both tree and image are needed. Use grounded `click --text` or screen coordinates. See [visual](references/visual.md). |
+| Launching, arranging windows, or a known preference key | `launch`, `window`, or `defaults`. A preference write does not prove the app applied it; do not restart user apps merely to force a change. |
 
-For repeated actions, create one executable launcher in a fixed task directory.
+Within UI work, use `set-value` for replacing a native edit field's complete value.
+An editable-looking label is not necessarily in edit mode. Use the app's editing
+interaction to enter that mode; an AXValue write alone need not commit app data.
+Use `type` for insertion/replacing a selected range and for Electron/CEF or
+`AXWebArea` inputs; `type` automatically chooses Unicode or preserved clipboard
+paste. Use `key` for known shortcuts, `scroll` to reveal content, and `hover` or
+`drag` for pointer gestures. These are action primitives, not separate backends.
+`type` requires a focused AX text input even on the visual path: an entirely
+AX-less canvas cannot be typed into through the targeted `type` command.
+
+Use `state` when window/display metadata is needed, with `--no-screenshot` if
+no image is needed. `snapshot` and `find` suffice for ordinary AX work. Compact
+and full JSON are presentations of the same observation, not two control paths.
+For web-page DOM work, prefer Browser Pilot when available and permitted; browser
+chrome, native dialogs, and desktop apps remain Computer Pilot tasks.
+
+Use `apps` when process identity or scripting capability is unknown. Its
+`scriptable` flag does not prove that a particular operation is supported.
+An already supplied exact PID needs no rediscovery. A successful generic
+`tell <app> 'get version'` likewise does not prove document scripting support.
+
+## Keep The Task Binding
+
+For repeated actions, reuse the supplied task launcher or create one in a
+fixed task directory.
 Put the supplied binary, target and environment in it; resolve the helper path
 relative to this SKILL.md. Use this launcher for all commands, including help,
 `sdef` and `tell`, in subsequent shell calls. No shell state needs to persist:
@@ -52,7 +71,7 @@ export COMPUTER_PILOT_OUTPUT_DIR="/absolute/task/output"
 exec /bin/sh /absolute/skill-directory/scripts/session.sh "$@"
 EOF
 chmod 700 ./pilot
-./pilot snapshot
+# Invoke the first command chosen above; there is no mandatory snapshot here.
 ```
 
 The [helper](scripts/session.sh) supplies compact output and the fixed PID for UI
@@ -62,12 +81,24 @@ actions, `--no-snapshot` omits their output tree; only `click`, `type` and `key`
 accept `--no-verify`. Check the result at the group boundary. `tell` and `window`
 accept neither flag. Other commands keep ordinary arguments:
 `./pilot sdef "App Name"` accepts an app name or bundle identifier.
-`./pilot tell "App Name" '<expression>' accepts an app name or bundle path;
+`./pilot tell "App Name" '<expression>'` accepts an app name or bundle path;
 AppleScript does not accept `pid:<PID>`.
+The helper does not bind `tell` to `CU_APP`. If exact process identity matters
+and scripting cannot address that instance unambiguously, keep the work on
+PID-targeted UI commands. For multiple apps, keep separate bound launchers or
+pass each exact target explicitly using the same task client key.
 Use the launcher's absolute path if cwd changes; do not fall back to bare `cu`.
-When text begins with `-`, put all flags before the `--` separator: `./pilot type
---no-snapshot --no-verify -- '- [x] done'`. Flags after `--` are treated as
-text and the CLI will reject the request.
+When text begins with `-`, put all flags before the optional `--` separator:
+`./pilot type --no-snapshot --no-verify -- '- [x] done'`. The CLI also accepts
+a leading-hyphen text value directly; flags after `--` are always treated as
+text.
+
+Use only documented option names. `cu click` uses `--double-click` for a
+double click and has no `--count` option. `cu find` filters with `--role`,
+`--title-contains`, `--title-equals` and `--value-contains`; it has no `--text`
+predicate. If a syntax error occurs, read that command's `--help` once and
+retry with the documented form. Do not invent a flag or repeat the same invalid
+command.
 
 ## One Call Per Decision Boundary
 
@@ -87,28 +118,28 @@ Use the last action's snapshot as the group result. Stop when a new page,
 dialog or unknown control needs a decision. Grouping does not authorize
 additional external effects.
 
-- Use `set-value` for native textfields, textareas and editable comboboxes.
-  For Electron/CEF or fields inside `AXWebArea`, use the verified click/type
-  path under Controlled Editors below; AXValue writes can bypass editor handlers.
+Split a group when the next action needs information that the current state
+does not establish: a new dialog, menu item, search match, or document range.
+A known focus-and-type sequence or observed selection followed by a known
+shortcut can stay together. Do not use counted arrows or an assumed caret to
+guess an unknown selection. `--no-snapshot` omits output, not target identity
+checks; only use it when the group's final observation covers the intended edits.
+
 - Leave already-correct values, checkboxes and selections alone.
 - For a dropdown that needs changing, open it and observe the menu. Select the
   observed item with `perform <ref> AXPress` (or its supported action).
   Observe the resulting controls before further edits or navigation.
   Writing the popup's AXValue may not select the item or fire its handler.
-- After an error, use attached state to recover and resume grouping. Obtain a
-  fresh observation only when the needed state is missing. Keep established
-  local edits together; do not add a check round for every field.
 
-An action error is a branch point, not a retry signal. After a nonzero command,
-`verification_failed`, `unknown_outcome`, or `stale_observation`, never rerun
-the identical command or reuse the same ref/coordinates. Use the attached
-`diagnostics.snapshot` when present; otherwise perform one fresh `find` or
-`snapshot`, then choose a different target or method. If the same intended
-effect fails twice, stop the loop and report the concrete blocker.
+After an error, read whether dispatch occurred and reuse attached state.
+A syntax error needs corrected syntax; a stale ref needs a fresh target;
+an uncertain mutation needs observation before any retry. Do not repeat an
+unchanged failed approach or force a different method merely because the ref
+number is stale. Stop when no new evidence supports a safe next step.
 
-If AX exposes the intended control, recover with its fresh ref or `find` result;
-do not switch to screenshot coordinates or OCR for the same control. Use
-coordinates/OCR only when AX cannot expose the target.
+Prefer a fresh AX ref for recovery. If AX is absent or demonstrably unusable,
+use a current screenshot/OCR target; a visual fallback cannot bypass stale
+identity, permission, or focus failures.
 
 Treat `focus_failed` as a foreground delivery blocker. Do not continue with
 keyboard or typing commands, drop `--app`, or use global input after it. Inspect
@@ -117,11 +148,12 @@ primitive, report the concrete focus blocker instead of claiming completion.
 Likewise, a `verification_failed` result with `focused:null` does not establish
 input focus; do not send the text again until a fresh focus result exists.
 
-For UI-only work, use the shortest observation that still identifies the next
-target. If the role and label/value are already known, use one
-`find --first` and act on its returned ref; use a full `snapshot` only when the
-target or navigation is unknown, several candidates must be disambiguated, or
-the task requires a complete visual state. Do not call `window focus` before
+Reuse the last action's state when it already identifies the next target.
+Otherwise use `find` for known role/label/value filters. `--first` selects the
+first match in tree order, not the best match: use it only for an unambiguous
+target and inspect `count`/`truncated`. For duplicate labels use the returned
+candidates and context, a full JSON snapshot, or `observe-region`.
+Use `snapshot` for unknown navigation. Do not call `window focus` before
 PID-targeted observation or actions. Those commands are background-safe; focus
 only when the workflow explicitly needs foreground menus or keyboard handling.
 
@@ -129,8 +161,8 @@ only when the workflow explicitly needs foreground menus or keyboard handling.
 
 Choose the group's final observation from what is already known:
 
-- Unfamiliar navigation: `snapshot` to discover what opened, including dialogs.
-  For a known control, use `find --first` instead of a preliminary full tree.
+- Unfamiliar navigation: use the last action's snapshot to discover what opened,
+  including dialogs; request `snapshot` only if the needed state is missing.
 - Known asynchronous transition: the action followed directly by `wait` in the
   same shell call. Once the flow has been observed, reuse it on subsequent items.
   For example, when an observed confirmation returns to a list headed "All records":
@@ -171,7 +203,13 @@ may identify another element. After `stale_observation`, re-plan from the attach
 `diagnostics.snapshot`; observe once only when none is attached. Do not retry the
 old action or switch to OCR merely because its ref expired.
 Use `find` for a missing known label/role, or `why` for an unclear control.
-A window close button is not a navigation shortcut.
+PID binding selects a process, not a task window. Observations retain `window_id`
+even in compact output; identical titles can belong to different windows.
+After a window change or stale observation, match the returned window/document
+context to the authorized task before using its refs. A fresh ref in another
+window does not authorize work there.
+Use `window list` if the intended window needs locating; focus its observed index
+only when foreground work is needed. Closing windows is not a focus-recovery step.
 
 For one-off direct CLI calls, pass `--app` to actions. Keep background work PID-targeted;
 never respond to delivery failures by dropping the target, using global input,
@@ -194,23 +232,25 @@ shortcuts such as Select All or Save. Prefer native scripting for document data;
 when the workflow permits and needs foreground editing, explicitly focus the
 intended window before the edit group.
 
-For Electron/CEF or an `AXWebArea` input, use verified click/type instead of
-AXValue writes. Group the known edit in one shell call; the CLI stops on focus
-or input failure. Omit the click when the intended editor is already focused:
-
-```bash
-set -e
-./pilot click <editor-ref> --no-snapshot
-./pilot type "<intended text>"
-```
-
-The click keeps its private focus check; typing returns the group's observation.
+For Electron/CEF or an `AXWebArea` input, use keyboard/type input instead of
+AXValue writes. Omit the click when the intended editor is already focused.
+For a new editor, a shell group can check the click's `focus_verified:true`
+before typing, stopping on false/unknown without another model round.
+Click and type use the application's focused-input observation; a true click
+result establishes that clicked input at that moment, not continued focus or
+foreground delivery. A successful click with false/unknown focus may have selected
+a row instead of entering an editor. `type` checks for a focused text input
+immediately before dispatch; the caller still chooses the intended editor.
 `value_changed:true` reports an AX value change, not exact input or saving;
 `effect_verified` remains null. A click's `verify_diff` likewise reports tree
 changes; only `focus_verified` establishes the scoped input-focus result.
 Virtual editors can expose a slice or synthetic boundary newlines in AX.
 Treat AX text as an observation, not saved-file bytes: do not add/delete boundary
 characters or rewrite correct content merely to match that representation.
+An accepted AXValue/AXConfirm and a changed label can still leave application
+data unchanged. Commit through the app's editing workflow and use its resulting
+document/list/data state as evidence. When that evidence is absent, do not repeat
+AX writes or declare completion from the same editable representation.
 If the intended editor is unfocused and its AX value is empty, focus the observed
 editor before concluding it lacks content. For an actual discrepancy, inspect
 visible document/selection evidence or app-native data before another edit.
@@ -246,14 +286,16 @@ what is complete and unverified, without claiming unobserved success.
 
 ## Output And Further Commands
 
-The helper defaults to concise JSON and complete snapshots up to 200 elements,
-including unchanged controls and full values. Increase `--limit` only when a
-truncation hint says needed content is missing. `--compact`, `--json` and
+The helper defaults to concise JSON; bare `./pilot snapshot` sets a 200-element
+limit. With other snapshot options, pass `--limit` if the CLI default of 50 is
+insufficient. Observations include unchanged controls and full values within
+their limit. Increase `--limit` when truncation hides needed content.
+`--compact`, `--json` and
 `--human` before the command retain task binding; `--json` adds geometry/axPaths,
 not a different state model.
 
-Use `state` when window/display metadata or an image is needed. File outputs need
-an absolute task-owned output directory; read returned paths through the host's normal file capability.
+File outputs need an absolute task-owned output directory; read returned paths
+through the host's normal file capability.
 
 Use `./pilot <command> --help` only when syntax is genuinely unfamiliar or
 ambiguous after an error; do not call help before a known command. Read only the relevant reference:

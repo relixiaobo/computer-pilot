@@ -73,6 +73,7 @@ section "ref projection — perform diagnostics use the same target identity"
 # list read by `why`, proving both consumers resolved the same numeric ref.
 PERFORM_REF=""
 WHY_ACTIONS=""
+PERFORM_PATH=""
 for candidate in $(seq 1 12); do
   cu_json why "$candidate" --app Finder --limit 120
   if [[ "$EXIT" -ne 0 ]] || [[ "$(json_get '.found' || echo false)" != "true" ]]; then
@@ -87,6 +88,12 @@ print(json.dumps(sorted(a), separators=(",", ":")))
   if [[ "$candidate_actions" != "[]" ]]; then
     PERFORM_REF="$candidate"
     WHY_ACTIONS="$candidate_actions"
+    PERFORM_PATH=$(echo "$SNAPSHOT_JSON" | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+ref = int(sys.argv[1])
+print(next((e.get("axPath", "") for e in d.get("elements", []) if e.get("ref") == ref), ""))
+' "$candidate")
     break
   fi
 done
@@ -108,6 +115,32 @@ print(json.dumps(sorted(d.get("diagnostics", {}).get("available_actions", [])), 
     && _pass "perform ref [$PERFORM_REF] shares why action identity" \
     || _fail "perform ref shares why action identity" \
       "why=$WHY_ACTIONS perform=$PERFORM_ACTIONS exit=$EXIT output=${PERFORM_JSON:0:180}"
+
+  # The stable-path entry point must expose the same action list and recovery
+  # suggestions as the numeric-ref entry point.
+  if [[ -n "$PERFORM_PATH" ]]; then
+    cu_json perform AXCanonicalProjectionProbe --ax-path "$PERFORM_PATH" --app Finder --no-snapshot
+    PATH_JSON="${OUT:-$ERR}"
+    PATH_ACTIONS=$(echo "$PATH_JSON" | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+print(json.dumps(sorted(d.get("diagnostics", {}).get("available_actions", [])), separators=(",", ":")))
+' 2>/dev/null || echo "")
+    PATH_NEXT=$(echo "$PATH_JSON" | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+print("yes" if any("--ax-path" in item for item in d.get("suggested_next", [])) else "no")
+' 2>/dev/null || echo "")
+    [[ "$EXIT" -ne 0 && "$PATH_ACTIONS" == "$WHY_ACTIONS" ]] \
+      && _pass "perform axPath shares why action identity" \
+      || _fail "perform axPath shares why action identity" \
+        "why=$WHY_ACTIONS perform=$PATH_ACTIONS exit=$EXIT output=${PATH_JSON:0:180}"
+    [[ "$PATH_NEXT" == "yes" ]] \
+      && _pass "perform axPath suggests supported actions" \
+      || _fail "perform axPath suggests supported actions" "output=${PATH_JSON:0:240}"
+  else
+    _skip "perform axPath diagnostics" "the probed Finder element has no axPath"
+  fi
 else
   _skip "perform/why identity" "no Finder ref in the first 12 exposes an AX action"
 fi

@@ -1577,12 +1577,32 @@ unsafe fn try_ax_actions(pid: i32, element: CFTypeRef) -> Option<&'static str> {
 }
 
 unsafe fn try_action(element: CFTypeRef, action: &str) -> bool {
+    perform_action(element, action).is_ok()
+}
+
+unsafe fn perform_action(element: CFTypeRef, action: &str) -> Result<(), AXError> {
     let Some(action_str) = cfstr(action) else {
-        return false;
+        return Err(-25201);
     };
     let err = AXUIElementPerformAction(element, action_str);
     CFRelease(action_str);
-    err == AX_OK
+    (err == AX_OK).then_some(()).ok_or(err)
+}
+
+unsafe fn perform_action_with_menu_wait(
+    pid: i32,
+    element: CFTypeRef,
+    role: Option<&str>,
+    action: &str,
+) -> Result<(), AXError> {
+    let observer = (role == Some("AXMenuItem") && action == "AXPress")
+        .then(|| crate::observer::ActionObserver::menu_transition(pid))
+        .flatten();
+    perform_action(element, action)?;
+    if observer.is_some() {
+        crate::observer::wait_for_settle(observer, crate::POST_ACTION_DELAY_MS);
+    }
+    Ok(())
 }
 
 unsafe fn try_action_with_menu_wait(
@@ -1591,14 +1611,7 @@ unsafe fn try_action_with_menu_wait(
     role: Option<&str>,
     action: &str,
 ) -> bool {
-    let observer = (role == Some("AXMenuItem") && action == "AXPress")
-        .then(|| crate::observer::ActionObserver::menu_transition(pid))
-        .flatten();
-    let accepted = try_action(element, action);
-    if accepted && observer.is_some() {
-        crate::observer::wait_for_settle(observer, crate::POST_ACTION_DELAY_MS);
-    }
-    accepted
+    perform_action_with_menu_wait(pid, element, role, action).is_ok()
 }
 
 unsafe fn try_set_value(element: CFTypeRef, attr: &str, val: CFTypeRef) -> bool {
@@ -1660,11 +1673,6 @@ impl RefTarget {
         self.pid == other.pid && unsafe { CFEqual(self.element, other.element) != 0 }
     }
 
-    /// Read focus on the object actually dispatched to, not its old tree path.
-    pub fn is_focused(&self) -> Option<bool> {
-        unsafe { ax_bool(self.element, "AXFocused") }
-    }
-
     pub fn click(&self, perform_actions: bool) -> Result<(bool, f64, f64), CuError> {
         unsafe {
             let pos = ax_position(self.element).ok_or("target position is unavailable")?;
@@ -1693,24 +1701,27 @@ impl RefTarget {
             let role = (action == "AXPress")
                 .then(|| ax_string(self.element, "AXRole"))
                 .flatten();
-            if try_action_with_menu_wait(self.pid, self.element, role.as_deref(), action) {
+            let dispatch =
+                perform_action_with_menu_wait(self.pid, self.element, role.as_deref(), action);
+            if dispatch.is_ok() {
                 return Ok(());
             }
+            let ax_error = dispatch.unwrap_err();
             let available = copy_action_names(self.element);
             let mut error = CuError::msg(format!(
-                "element [{}] does not support {action}",
-                self.ref_id
+                "element [{}] rejected {action} (AX error {ax_error})",
+                self.ref_id,
             ));
             if available.is_empty() {
                 error = error.with_hint(
-                    "Element exposes no AX actions. Inspect its children or use a coordinate click.",
+                    "The element exposed no AX actions. Inspect its children or use a coordinate click.",
+                );
+            } else if available.iter().any(|supported| supported == action) {
+                error = error.with_hint(
+                    "The element advertises this AX action but macOS rejected dispatch; inspect the current state before retrying.",
                 );
             } else {
-                error = error
-                    .with_hint(format!("Available actions: {}", available.join(", ")))
-                    .with_diagnostics(serde_json::json!({
-                        "available_actions": available.clone()
-                    }));
+                error = error.with_hint(format!("Available actions: {}", available.join(", ")));
                 for supported_action in &available {
                     error = error.with_next(format!(
                         "cu perform {} {} --app <name>",
@@ -1718,6 +1729,11 @@ impl RefTarget {
                     ));
                 }
             }
+            error = error.with_diagnostics(serde_json::json!({
+                "action": action,
+                "ax_error": ax_error,
+                "available_actions": available,
+            }));
             Err(error)
         }
     }
@@ -1979,19 +1995,46 @@ pub fn resolve_by_ax_path(
 
 /// `cu perform --ax-path X` — fire the named AX action on the matched element.
 pub fn ax_perform_by_path(pid: i32, ax_path: &str, action: &str) -> Result<(), CuError> {
-    let ok = with_ax_path(pid, ax_path, |element| unsafe {
+    let result = with_ax_path(pid, ax_path, |element| unsafe {
         let role = (action == "AXPress")
             .then(|| ax_string(element, "AXRole"))
             .flatten();
-        try_action_with_menu_wait(pid, element, role.as_deref(), action)
+        match perform_action_with_menu_wait(pid, element, role.as_deref(), action) {
+            Ok(()) => Ok(()),
+            Err(ax_error) => Err((ax_error, copy_action_names(element))),
+        }
     })
     .map_err(|e| {
         CuError::msg(e).with_hint("axPath did not resolve — re-snapshot to refresh paths")
     })?;
-    if ok {
-        Ok(())
-    } else {
-        Err(format!("AX action '{action}' failed or not supported by element").into())
+    match result {
+        Ok(()) => Ok(()),
+        Err((ax_error, available)) => {
+            let mut error = CuError::msg(format!(
+                "AX action '{action}' was rejected (AX error {ax_error})"
+            ));
+            if available.is_empty() {
+                error = error.with_hint(
+                    "The element exposed no AX actions. Inspect its children or use a coordinate click.",
+                );
+            } else if available.iter().any(|supported| supported == action) {
+                error = error.with_hint(
+                    "The element advertises this AX action but macOS rejected dispatch; inspect the current state before retrying.",
+                );
+            } else {
+                error = error.with_hint(format!("Available actions: {}", available.join(", ")));
+                for supported_action in &available {
+                    error = error.with_next(format!(
+                        "cu perform --ax-path '{ax_path}' {supported_action} --app <name>"
+                    ));
+                }
+            }
+            Err(error.with_diagnostics(serde_json::json!({
+                "action": action,
+                "ax_error": ax_error,
+                "available_actions": available,
+            })))
+        }
     }
 }
 

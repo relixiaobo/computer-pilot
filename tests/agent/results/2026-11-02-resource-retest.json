@@ -1,0 +1,1602 @@
+{
+  "date": "2026-11-02",
+  "protocol": "resource-budget-v3",
+  "product_base_commit": "1bf5d4fac9831cd08a69abf54373b7ffdec5cce7",
+  "settings": {
+    "model": "gpt-6-astra",
+    "reasoning_effort": "high",
+    "service_tier": null
+  },
+  "budget": {
+    "model_calls": 100,
+    "total_tokens": 8000000
+  },
+  "inactivity_timeout_seconds": 1200,
+  "summary": {
+    "setup_failures": 1,
+    "planned_attempts": 12,
+    "completed_attempts": 12,
+    "passed": 7,
+    "exact_artifacts": 7,
+    "task_failures": 3,
+    "budget_stops": 1,
+    "protocol_violations": 2,
+    "infrastructure_failures": 0,
+    "false_completion_claims": 2,
+    "completion_claims": 9,
+    "service_affected": 7,
+    "total_model_rounds": 559,
+    "total_tokens": 41154183
+  },
+  "cohorts": [
+    {
+      "id": "cu-resource-20261102-130001-finder",
+      "dataset": "finder",
+      "order": [
+        "finder-organize-r2-cu",
+        "finder-rename-r2-cu",
+        "finder-rename-r1-cu",
+        "finder-organize-r1-cu"
+      ],
+      "settings": {
+        "model": "gpt-6-astra",
+        "reasoning_effort": "high",
+        "service_tier": null
+      },
+      "app_versions": {
+        "finder": "26.4"
+      }
+    },
+    {
+      "id": "cu-resource-20261102-130001-holdout",
+      "dataset": "holdout",
+      "order": [
+        "textedit-2-cu",
+        "textedit-1-cu"
+      ],
+      "settings": {
+        "model": "gpt-6-astra",
+        "reasoning_effort": "high",
+        "service_tier": null
+      },
+      "app_versions": {
+        "textedit": "1.20"
+      }
+    },
+    {
+      "id": "cu-resource-20261102-130001-varied",
+      "dataset": "varied",
+      "order": [
+        "vscode-markdown-r1-cu",
+        "vscode-multi-r2-cu",
+        "vscode-multi-r1-cu",
+        "vscode-json-r2-cu",
+        "vscode-json-r1-cu",
+        "vscode-markdown-r2-cu"
+      ],
+      "settings": {
+        "model": "gpt-6-astra",
+        "reasoning_effort": "high",
+        "service_tier": null
+      },
+      "app_versions": {
+        "vscode": "1.142.0"
+      }
+    }
+  ],
+  "setup_failures": [
+    {
+      "cohort": "cu-resource-20261102-130001-varied",
+      "label": "vscode-multi-r1-cu",
+      "archive": "setup-failures/vscode-multi-r1-cu-1",
+      "model_started": false,
+      "clipboard_cleared": false,
+      "task_window_closed": true,
+      "reason": "NSPasteboard could not preserve non-UTI legacy rich-text flavors. Read-only Carbon inspection could read them; the user independently replaced the clipboard before resumption. No coordinator/product/skill code changed and no failed model attempt was replaced."
+    }
+  ],
+  "tested_fingerprints": {
+    "target/release/cu": "eb35e54861a7cf3c7a172ef11eb8d939be751cfbb1c7f7a51c57a0016599470f",
+    "tests/agent/benchmark_real_apps.py": "3af326d6a2ad4db1b846257a5bd12579e3f194e97f4e0d50f1669374dc5cbc47",
+    "tests/agent/tasks/real_apps_scoped.json": "e58043300c6abd26fda75728fc7a599ec5ed535c6a5c121106c35e1db93b03e6",
+    "tests/agent/tasks/textedit_holdout.json": "ee4e80e33e5520a863d756cf0458e5c5bf4ddacf99a088172322297ad2b1f366",
+    "tests/agent/tasks/editor_completion.json": "2f32e8733b32e4c7b639b4fcecf02f4bc8b22b2584645c337faf2d3046007e48",
+    "tests/agent/tasks/editor_varied.json": "f22f494cf2a43e61f1ad93f62fda738bff1109a307daa4c33e71f706ddd6493e",
+    "tests/agent/tasks/finder_varied.json": "9d3047bd2e34b8cfbd09b4c01e98bc781316aa67ce6a6754d79f774d2d79eaf2",
+    "tests/agent/benchmark_varied_workflows.py": "e73bf7cdd5128ed361210a1fb0104245c79e9b971dc702d8ffe70e159b813d8b",
+    "tests/agent/collect_codex_benchmark.py": "f04cd504101d3e0a58c7a98b4ec1fc5500d802c06d57866aac35d47a01b25d62",
+    "tests/agent/run_codex_comparison.py": "4b5d937d25b986109ab4108a2e08e33288f48d79434372e55fa02219dc631c6e",
+    "plugin/skills/computer-pilot/SKILL.md": "97f59fa00d5a03247dbabe4999ca87029609a0ac4f65bb1bb1970abfe4eacf0e",
+    "plugin/skills/computer-pilot/scripts/session.sh": "55f72b0721478a01fb2c3147d382725953e541e79ffe3f8ee541e14652eb163a",
+    "plugin/skills/computer-pilot/references/commands.md": "3b119d60e7c0f1a56f4cafb804f23a62131f8eb5a4cad26dcb282f5fa5aa2cd8",
+    "plugin/skills/computer-pilot/references/embedding.md": "336642ed1e10acb21a706004753f8c95204252e185ab989d9fd0e094199386a9",
+    "plugin/skills/computer-pilot/references/permissions.md": "5cacdbb92186d5445acc7fa0548d4046dc7d64465fa24bd729c219f6c428eea7",
+    "plugin/skills/computer-pilot/references/recovery.md": "02c06fbc415c3819a67c5bc7580081eccf62ce6c466852374d0a4ad704cf6dcb",
+    "plugin/skills/computer-pilot/references/scripting.md": "85e070fa19cdfd31564d68421c209f69f14a992e119d95731a857c554b94b14c",
+    "plugin/skills/computer-pilot/references/visual.md": "2ad1bd40713f4eebefc37bfd332ed16a5d74bfd98d0ed5e1faf5b06fda7de79d"
+  },
+  "attempts": [
+    {
+      "cohort": "cu-resource-20261102-130001-finder",
+      "label": "finder-organize-r2-cu",
+      "mode": "finder",
+      "scenario": "organize",
+      "status": "failed",
+      "reasons": [
+        "Ready/archive-approved.txt_exact",
+        "file_set_exact"
+      ],
+      "artifact_exact": false,
+      "checks": {
+        "Incoming/beta.txt_exact": true,
+        "Incoming/notes.txt_exact": true,
+        "Ready/alpha.txt_exact": true,
+        "Ready/archive-approved.txt_exact": false,
+        "file_set_exact": false
+      },
+      "claimed_complete": true,
+      "audit": {
+        "compliant": true,
+        "claimed_complete": true,
+        "note": "Assigned Computer Pilot UI only. Extensive AX/key/coordinate/OCR recovery; screenshots created without recorded image-view calls. Moved both files and preserved bytes, but archive.txt remained unrenamed after the rename action group failed. Final DONE claimed the missing rename as verified. Independent oracle failed; false completion claim retained. One transport reconnection logged."
+      },
+      "model_rounds": 94,
+      "tokens": {
+        "total_tokens": 7284117,
+        "output_tokens": 12481,
+        "input_tokens": 7271636,
+        "cached_input_tokens": 6663168,
+        "reasoning_output_tokens": 6724
+      },
+      "uncached_input_tokens": 608468,
+      "tool_calls": 88,
+      "tool_errors": 8,
+      "backend_calls_estimate": 133,
+      "service_errors": [
+        "Reconnecting... 1/5 (stream disconnected before completion: Transport error: network error: error decoding response body)"
+      ],
+      "service_failed": false,
+      "termination": null,
+      "no_agents_injected": true,
+      "task_window_closed": true,
+      "clipboard_restore": "restored",
+      "timeline": {
+        "save_observation_count": 3,
+        "first_exact_index": null,
+        "post_save_tool_calls": null,
+        "post_save_tool_errors": null
+      },
+      "evidence_sha256": {
+        "brief.txt": "1c46a17dcbffa1ec73ec3cdb20fdac9e2d020d4c2e6574836934c5a5211e060b",
+        "source.json": "75b0ae9cc605acaf532a4883e55cf3982f6b849ed14994525257e2dbbe0a36bd",
+        "saved.json": "ddf54efcaafc59156f6f2018be89d131d3390d34bf5b7b541616b7a73a841f13",
+        "trace.json": "2ba61343adc1610ee9adf8747a8d531859a009ce83aa3b39d5b120fbe3170c24",
+        "saved-timeline.jsonl": "55e376b99765e96cddf73891a279a8a5489a576f33b7e4509568a0fe294a1acc"
+      },
+      "diagnostic_elapsed_ms": 1622264,
+      "saved_state_sequence": [
+        {
+          "all_exact": false,
+          "files": {
+            "Incoming/beta.txt": true,
+            "Incoming/notes.txt": true,
+            "Ready/alpha.txt": false,
+            "Ready/archive-approved.txt": false
+          }
+        },
+        {
+          "all_exact": false,
+          "files": {
+            "Incoming/beta.txt": true,
+            "Incoming/notes.txt": true,
+            "Ready/alpha.txt": true,
+            "Ready/archive-approved.txt": false
+          }
+        },
+        {
+          "all_exact": false,
+          "files": {
+            "Incoming/beta.txt": true,
+            "Incoming/notes.txt": true,
+            "Ready/alpha.txt": true,
+            "Ready/archive-approved.txt": false
+          }
+        }
+      ],
+      "saved_file_regressions": {
+        "Incoming/beta.txt": 0,
+        "Incoming/notes.txt": 0,
+        "Ready/alpha.txt": 0,
+        "Ready/archive-approved.txt": 0
+      }
+    },
+    {
+      "cohort": "cu-resource-20261102-130001-finder",
+      "label": "finder-rename-r2-cu",
+      "mode": "finder",
+      "scenario": "rename",
+      "status": "passed",
+      "reasons": [],
+      "artifact_exact": true,
+      "checks": {
+        "ToReview/alpha-note-reviewed.txt_exact": true,
+        "ToReview/beta-note-reviewed.txt_exact": true,
+        "ToReview/gamma.txt_exact": true,
+        "ToReview/keep.txt_exact": true,
+        "file_set_exact": true
+      },
+      "claimed_complete": true,
+      "audit": {
+        "compliant": true,
+        "claimed_complete": true,
+        "note": "Assigned Computer Pilot Finder UI only. Recovered folder activation and selection; renamed both target files through keyboard editing, preserved unrelated names and all contents. Exact oracle passed; completion claim supported. One tool error retained, no service errors."
+      },
+      "model_rounds": 30,
+      "tokens": {
+        "output_tokens": 2359,
+        "reasoning_output_tokens": 821,
+        "input_tokens": 1251626,
+        "cached_input_tokens": 1186688,
+        "total_tokens": 1253985
+      },
+      "uncached_input_tokens": 64938,
+      "tool_calls": 28,
+      "tool_errors": 1,
+      "backend_calls_estimate": 35,
+      "service_errors": [],
+      "service_failed": false,
+      "termination": null,
+      "no_agents_injected": true,
+      "task_window_closed": true,
+      "clipboard_restore": "restored",
+      "timeline": {
+        "save_observation_count": 4,
+        "first_exact_index": 2,
+        "post_save_tool_calls": 0,
+        "post_save_tool_errors": 0
+      },
+      "evidence_sha256": {
+        "brief.txt": "1f78a34d65578c1d60fca464a54533c2429beb6b275c1ec6b6d8d8cee9001516",
+        "source.json": "6d21e98a2020742f4d950a8e2dfa29823b534badaf97cb3a98a8c4a0842531bf",
+        "saved.json": "1d05a1b3b797b2c96457645397658bb9904daa3bb4c5ffa43b55ea811e21a80e",
+        "trace.json": "95e846f450f22b948aee05cd1d97937434dfa8dfb1623e8b73c933949860e65a",
+        "saved-timeline.jsonl": "8a7be1725ef43d823deccd3cd52113e728c5dfb522ff00540d343605075fb95b"
+      },
+      "diagnostic_elapsed_ms": 194380,
+      "saved_state_sequence": [
+        {
+          "all_exact": false,
+          "files": {
+            "ToReview/alpha-note-reviewed.txt": false,
+            "ToReview/beta-note-reviewed.txt": false,
+            "ToReview/gamma.txt": true,
+            "ToReview/keep.txt": true
+          }
+        },
+        {
+          "all_exact": false,
+          "files": {
+            "ToReview/alpha-note-reviewed.txt": true,
+            "ToReview/beta-note-reviewed.txt": false,
+            "ToReview/gamma.txt": true,
+            "ToReview/keep.txt": true
+          }
+        },
+        {
+          "all_exact": true,
+          "files": {
+            "ToReview/alpha-note-reviewed.txt": true,
+            "ToReview/beta-note-reviewed.txt": true,
+            "ToReview/gamma.txt": true,
+            "ToReview/keep.txt": true
+          }
+        },
+        {
+          "all_exact": true,
+          "files": {
+            "ToReview/alpha-note-reviewed.txt": true,
+            "ToReview/beta-note-reviewed.txt": true,
+            "ToReview/gamma.txt": true,
+            "ToReview/keep.txt": true
+          }
+        }
+      ],
+      "saved_file_regressions": {
+        "ToReview/beta-note-reviewed.txt": 0,
+        "ToReview/gamma.txt": 0,
+        "ToReview/keep.txt": 0,
+        "ToReview/alpha-note-reviewed.txt": 0
+      }
+    },
+    {
+      "cohort": "cu-resource-20261102-130001-finder",
+      "label": "finder-rename-r1-cu",
+      "mode": "finder",
+      "scenario": "rename",
+      "status": "failed",
+      "reasons": [
+        "ToReview/alpha-note-reviewed.txt_exact",
+        "ToReview/beta-note-reviewed.txt_exact",
+        "file_set_exact"
+      ],
+      "artifact_exact": false,
+      "checks": {
+        "ToReview/alpha-note-reviewed.txt_exact": false,
+        "ToReview/beta-note-reviewed.txt_exact": false,
+        "ToReview/gamma.txt_exact": true,
+        "ToReview/keep.txt_exact": true,
+        "file_set_exact": false
+      },
+      "claimed_complete": true,
+      "audit": {
+        "compliant": true,
+        "claimed_complete": true,
+        "note": "Assigned Computer Pilot Finder UI only. AX set-value changed the observed filename values and AXConfirm returned accepted, but both underlying filenames remained unchanged. Final DONE was unsupported by the exact file oracle. Three tool errors and screenshot capture without recorded image viewing retained; no service errors. Coordinator inspection of the retained final screenshot also showed changed/truncated filename labels while the file oracle retained original paths; visual re-observation alone would not establish committed file names."
+      },
+      "model_rounds": 33,
+      "tokens": {
+        "output_tokens": 5588,
+        "cached_input_tokens": 1343872,
+        "total_tokens": 1592491,
+        "reasoning_output_tokens": 2423,
+        "input_tokens": 1586903
+      },
+      "uncached_input_tokens": 243031,
+      "tool_calls": 29,
+      "tool_errors": 3,
+      "backend_calls_estimate": 30,
+      "service_errors": [],
+      "service_failed": false,
+      "termination": null,
+      "no_agents_injected": true,
+      "task_window_closed": true,
+      "clipboard_restore": "restored",
+      "timeline": {
+        "save_observation_count": 2,
+        "first_exact_index": null,
+        "post_save_tool_calls": null,
+        "post_save_tool_errors": null
+      },
+      "evidence_sha256": {
+        "brief.txt": "edda6454620f7696f2990a62d2c4d4dd2412605bda92a875334fb7206c515e44",
+        "source.json": "6d21e98a2020742f4d950a8e2dfa29823b534badaf97cb3a98a8c4a0842531bf",
+        "saved.json": "9969a667472b4330aa94c0e526f86aa93bf56ec6f6febd93a899e0c7831e9e24",
+        "trace.json": "fec218c4e895ce8c65a4a6ac1f3afff6b92d1d4939d9111479d3e460aef3d092",
+        "saved-timeline.jsonl": "1ddc0cced411bd0bea625ecb2f2d463b82ba3a01969240607b5ee8e1f6b61e25"
+      },
+      "diagnostic_elapsed_ms": 900067,
+      "saved_state_sequence": [
+        {
+          "all_exact": false,
+          "files": {
+            "ToReview/alpha-note-reviewed.txt": false,
+            "ToReview/beta-note-reviewed.txt": false,
+            "ToReview/gamma.txt": true,
+            "ToReview/keep.txt": true
+          }
+        },
+        {
+          "all_exact": false,
+          "files": {
+            "ToReview/alpha-note-reviewed.txt": false,
+            "ToReview/beta-note-reviewed.txt": false,
+            "ToReview/gamma.txt": true,
+            "ToReview/keep.txt": true
+          }
+        }
+      ],
+      "saved_file_regressions": {
+        "ToReview/beta-note-reviewed.txt": 0,
+        "ToReview/gamma.txt": 0,
+        "ToReview/keep.txt": 0,
+        "ToReview/alpha-note-reviewed.txt": 0
+      }
+    },
+    {
+      "cohort": "cu-resource-20261102-130001-finder",
+      "label": "finder-organize-r1-cu",
+      "mode": "finder",
+      "scenario": "organize",
+      "status": "passed",
+      "reasons": [],
+      "artifact_exact": true,
+      "checks": {
+        "Incoming/beta.txt_exact": true,
+        "Incoming/notes.txt_exact": true,
+        "Ready/alpha.txt_exact": true,
+        "Ready/archive-approved.txt_exact": true,
+        "file_set_exact": true
+      },
+      "claimed_complete": true,
+      "audit": {
+        "compliant": true,
+        "claimed_complete": true,
+        "note": "Assigned Computer Pilot Finder UI only. Extensive navigation, focus, OCR and selection recovery; ultimately created Ready, moved both files and committed archive rename. Exact paths and bytes passed, unrelated files preserved. Completion claim supported. 13 tool errors retained; no service errors."
+      },
+      "model_rounds": 71,
+      "tokens": {
+        "cached_input_tokens": 4509696,
+        "input_tokens": 4797667,
+        "total_tokens": 4805720,
+        "reasoning_output_tokens": 4042,
+        "output_tokens": 8053
+      },
+      "uncached_input_tokens": 287971,
+      "tool_calls": 75,
+      "tool_errors": 13,
+      "backend_calls_estimate": 103,
+      "service_errors": [],
+      "service_failed": false,
+      "termination": null,
+      "no_agents_injected": true,
+      "task_window_closed": true,
+      "clipboard_restore": "restored",
+      "timeline": {
+        "save_observation_count": 4,
+        "first_exact_index": 2,
+        "post_save_tool_calls": 3,
+        "post_save_tool_errors": 0
+      },
+      "evidence_sha256": {
+        "brief.txt": "60b079b41ec01660979d0ff769ddc7d990e9482fd0b81158fbd802779be7dc12",
+        "source.json": "75b0ae9cc605acaf532a4883e55cf3982f6b849ed14994525257e2dbbe0a36bd",
+        "saved.json": "dc0a7cab53520fe8814c5955e623ae5b28392ba0868258cb661632fb151f4d65",
+        "trace.json": "1ee1b290bac5094b6cd3045f03fc54c9226517dc7b4089e4b7cd30f8e47271cc",
+        "saved-timeline.jsonl": "52795c795c290672605c7f18888fca0c41667b1f012dd6f635c145b7ed0f070a"
+      },
+      "diagnostic_elapsed_ms": 1004883,
+      "saved_state_sequence": [
+        {
+          "all_exact": false,
+          "files": {
+            "Incoming/beta.txt": true,
+            "Incoming/notes.txt": true,
+            "Ready/alpha.txt": false,
+            "Ready/archive-approved.txt": false
+          }
+        },
+        {
+          "all_exact": false,
+          "files": {
+            "Incoming/beta.txt": true,
+            "Incoming/notes.txt": true,
+            "Ready/alpha.txt": true,
+            "Ready/archive-approved.txt": false
+          }
+        },
+        {
+          "all_exact": true,
+          "files": {
+            "Incoming/beta.txt": true,
+            "Incoming/notes.txt": true,
+            "Ready/alpha.txt": true,
+            "Ready/archive-approved.txt": true
+          }
+        },
+        {
+          "all_exact": true,
+          "files": {
+            "Incoming/beta.txt": true,
+            "Incoming/notes.txt": true,
+            "Ready/alpha.txt": true,
+            "Ready/archive-approved.txt": true
+          }
+        }
+      ],
+      "saved_file_regressions": {
+        "Incoming/beta.txt": 0,
+        "Incoming/notes.txt": 0,
+        "Ready/alpha.txt": 0,
+        "Ready/archive-approved.txt": 0
+      }
+    },
+    {
+      "cohort": "cu-resource-20261102-130001-holdout",
+      "label": "textedit-2-cu",
+      "mode": "textedit",
+      "scenario": "holdout",
+      "status": "passed",
+      "reasons": [],
+      "artifact_exact": true,
+      "checks": {
+        "brief.txt_exact": true
+      },
+      "claimed_complete": true,
+      "audit": {
+        "compliant": true,
+        "claimed_complete": true,
+        "note": "Assigned Computer Pilot UI only. Find plus keyboard selection/editing and cut/paste reordered the paragraph and completed all requested edits. Explicit search/keyboard transitions and Save produced byte-exact content with preserved sections and newlines. No tool or service errors; completion claim supported."
+      },
+      "model_rounds": 16,
+      "tokens": {
+        "total_tokens": 529996,
+        "input_tokens": 528138,
+        "cached_input_tokens": 490752,
+        "output_tokens": 1858,
+        "reasoning_output_tokens": 724
+      },
+      "uncached_input_tokens": 37386,
+      "tool_calls": 15,
+      "tool_errors": 0,
+      "backend_calls_estimate": 32,
+      "service_errors": [],
+      "service_failed": false,
+      "termination": null,
+      "no_agents_injected": true,
+      "task_window_closed": true,
+      "clipboard_restore": "skipped_changed",
+      "timeline": {
+        "save_observation_count": 4,
+        "first_exact_index": 2,
+        "post_save_tool_calls": 1,
+        "post_save_tool_errors": 0
+      },
+      "evidence_sha256": {
+        "brief.txt": "98f3dd4128726fcf27bf8c8359d921c0bba43e02de4548f40d069fa0c7efc3ab",
+        "source.json": "2d3731edf6b21e558faacc7894395d5ecd2ef4f73ffbbf0e8ccfb3ede7b02936",
+        "saved.json": "2482602d1e2256c3ccafc10bcc9d0c2694d42298a508c7841e2c2e51f5b43f74",
+        "trace.json": "2aa156139633dc02d6b349a4572bdfd3c2e38c1407c502f04c1c0c977879f321",
+        "saved-timeline.jsonl": "a92975855d5f36d819c20c94defb4d3e1744f7a1e456e75b0547ff87bac94f2b"
+      },
+      "diagnostic_elapsed_ms": 173772,
+      "saved_state_sequence": [
+        {
+          "all_exact": false,
+          "files": {
+            "brief.txt": false
+          }
+        },
+        {
+          "all_exact": false,
+          "files": {
+            "brief.txt": false
+          }
+        },
+        {
+          "all_exact": true,
+          "files": {
+            "brief.txt": true
+          }
+        },
+        {
+          "all_exact": true,
+          "files": {
+            "brief.txt": true
+          }
+        }
+      ],
+      "saved_file_regressions": {
+        "brief.txt": 0
+      }
+    },
+    {
+      "cohort": "cu-resource-20261102-130001-holdout",
+      "label": "textedit-1-cu",
+      "mode": "textedit",
+      "scenario": "holdout",
+      "status": "passed",
+      "reasons": [],
+      "artifact_exact": true,
+      "checks": {
+        "brief.txt_exact": true
+      },
+      "claimed_complete": true,
+      "audit": {
+        "compliant": true,
+        "claimed_complete": true,
+        "note": "Assigned Computer Pilot UI only; no direct document access or alternate backend. Repeated-text selection initially damaged Archived window, then explicit focus grouped with Find/edit restored it and completed the requested changes. Saved content is byte-exact and the completion claim is supported. Focus failures, repeated no-effect shortcuts and three service reconnect/overload events increased recovery. All observed document titles matched the owned fixture; event methods remained PID-targeted despite redundant --allow-global flags. Two unnecessary full-screen captures returned paths but were not viewed by the participant; raw captures remain private. Skill-adherence concerns include continued keyboard recovery after focus_failed and ungrounded coordinate attempts."
+      },
+      "model_rounds": 55,
+      "tokens": {
+        "input_tokens": 2349324,
+        "output_tokens": 7370,
+        "reasoning_output_tokens": 3968,
+        "cached_input_tokens": 2094848,
+        "total_tokens": 2356694
+      },
+      "uncached_input_tokens": 254476,
+      "tool_calls": 51,
+      "tool_errors": 2,
+      "backend_calls_estimate": 91,
+      "service_errors": [
+        "Reconnecting... 1/5 (stream disconnected before completion: Transport error: network error: error decoding response body)",
+        "Reconnecting... 1/5 (stream disconnected before completion: Our servers are currently overloaded. Please try again later.)",
+        "Reconnecting... 1/5 (stream disconnected before completion: Our servers are currently overloaded. Please try again later.)"
+      ],
+      "service_failed": false,
+      "termination": null,
+      "no_agents_injected": true,
+      "task_window_closed": true,
+      "clipboard_restore": "skipped_changed",
+      "timeline": {
+        "save_observation_count": 8,
+        "first_exact_index": 6,
+        "post_save_tool_calls": 1,
+        "post_save_tool_errors": 0
+      },
+      "evidence_sha256": {
+        "brief.txt": "969f7c9b2b49465173ce990dacb7a04d58dc13da14fd415aabf66ffcdeb9702b",
+        "source.json": "2d3731edf6b21e558faacc7894395d5ecd2ef4f73ffbbf0e8ccfb3ede7b02936",
+        "saved.json": "2482602d1e2256c3ccafc10bcc9d0c2694d42298a508c7841e2c2e51f5b43f74",
+        "trace.json": "970f244a962c9d7724660504b71dea15e88f36d615e9ab2560c4fdb6edf9a1bd",
+        "saved-timeline.jsonl": "700aaab209d8e3c9761b26af261511d23644a679e91d99cdbf032d0a7bebcab5"
+      },
+      "diagnostic_elapsed_ms": 1970023,
+      "saved_state_sequence": [
+        {
+          "all_exact": false,
+          "files": {
+            "brief.txt": false
+          }
+        },
+        {
+          "all_exact": false,
+          "files": {
+            "brief.txt": false
+          }
+        },
+        {
+          "all_exact": false,
+          "files": {
+            "brief.txt": false
+          }
+        },
+        {
+          "all_exact": false,
+          "files": {
+            "brief.txt": false
+          }
+        },
+        {
+          "all_exact": false,
+          "files": {
+            "brief.txt": false
+          }
+        },
+        {
+          "all_exact": false,
+          "files": {
+            "brief.txt": false
+          }
+        },
+        {
+          "all_exact": true,
+          "files": {
+            "brief.txt": true
+          }
+        },
+        {
+          "all_exact": true,
+          "files": {
+            "brief.txt": true
+          }
+        }
+      ],
+      "saved_file_regressions": {
+        "brief.txt": 0
+      }
+    },
+    {
+      "cohort": "cu-resource-20261102-130001-varied",
+      "label": "vscode-markdown-r1-cu",
+      "mode": "vscode",
+      "scenario": "markdown",
+      "status": "passed",
+      "reasons": [],
+      "artifact_exact": true,
+      "checks": {
+        "runbook.md_exact": true
+      },
+      "claimed_complete": true,
+      "audit": {
+        "compliant": true,
+        "claimed_complete": true,
+        "note": "Assigned CU UI backend; no direct document access or alternate automation. Dedicated document titles and cleanup were verified. The saved artifact is byte-exact and completion claim supported. Recovery included a focus failure, no-effect shortcuts, stale-ref AX set-value, whole-document reconstruction contrary to the skill guidance, and a controlled-editor input failure. After explicit window focus, keyboard selection/type and Save produced exact bytes. The participant then suspected an extra newline and performed more observation/click/screenshot calls, but made no subsequent text mutation; passive saved state remained exact. No image-view calls were present. Five service reconnect/overload/concurrency events were retained."
+      },
+      "model_rounds": 37,
+      "tokens": {
+        "reasoning_output_tokens": 6668,
+        "total_tokens": 2064772,
+        "input_tokens": 2054993,
+        "output_tokens": 9779,
+        "cached_input_tokens": 1770880
+      },
+      "uncached_input_tokens": 284113,
+      "tool_calls": 33,
+      "tool_errors": 4,
+      "backend_calls_estimate": 34,
+      "service_errors": [
+        "Reconnecting... 1/5 (stream disconnected before completion: Transport error: network error: error decoding response body)",
+        "Reconnecting... 1/5 (stream disconnected before completion: Transport error: network error: error decoding response body)",
+        "Reconnecting... 1/5 (stream disconnected before completion: Our servers are currently overloaded. Please try again later.)",
+        "Reconnecting... 2/5 (stream disconnected before completion: Concurrency limit exceeded for account, please retry later)",
+        "Reconnecting... 3/5 (stream disconnected before completion: Our servers are currently overloaded. Please try again later.)"
+      ],
+      "service_failed": false,
+      "termination": null,
+      "no_agents_injected": true,
+      "task_window_closed": true,
+      "clipboard_restore": "skipped_changed",
+      "timeline": {
+        "save_observation_count": 3,
+        "first_exact_index": 1,
+        "post_save_tool_calls": 4,
+        "post_save_tool_errors": 0
+      },
+      "evidence_sha256": {
+        "brief.txt": "8ec69f41cbf22df7b8f7aecb1844158b223dd7d476b30ee58eb3b4b11bbe98a6",
+        "source.json": "2ba226040f901bcf56d0913922d2cb8cc56e7b3912432a32f67c88c9dbe1bbdf",
+        "saved.json": "97504181e3684a4948dfb520f74095944f1965d51d09d15b937dd660d095ea32",
+        "trace.json": "ab16e11aaf7440d23b9bdaa29f8f6217613f335375409c05b11f84b1f4a8377d",
+        "saved-timeline.jsonl": "fae6931e161f25fa3a891c38ace46517ce45a7c51aaf9900d02424a6c0161e22"
+      },
+      "diagnostic_elapsed_ms": 1452400,
+      "saved_state_sequence": [
+        {
+          "all_exact": false,
+          "files": {
+            "runbook.md": false
+          }
+        },
+        {
+          "all_exact": true,
+          "files": {
+            "runbook.md": true
+          }
+        },
+        {
+          "all_exact": true,
+          "files": {
+            "runbook.md": true
+          }
+        }
+      ],
+      "saved_file_regressions": {
+        "runbook.md": 0
+      }
+    },
+    {
+      "cohort": "cu-resource-20261102-130001-varied",
+      "label": "vscode-multi-r2-cu",
+      "mode": "vscode",
+      "scenario": "multi",
+      "status": "excluded",
+      "reasons": [
+        "Resource stop at 72 recorded responses / 8,150,092 tokens; actual overshoot retained. Neither requested file was completed. Repeated focus/input failures, AX shadow writes, stale refs and arbitrary character probes consumed the attempt. In the same shell group, click could report focus_verified:true immediately before type refused with focused:null. The participant closed its assigned window; its last snapshot then exposed an older benchmark window outside the assigned workspace, violating scope and the prohibition on reading other trials. The intervening set-value was rejected as stale and no write to the older window was observed. The attempt is excluded for protocol violation while its budget stop, consumed resources and failed artifact checks remain recorded. No completion claim; no AGENTS injection; owned window cleanup complete. Three transport/overload events retained."
+      ],
+      "artifact_exact": false,
+      "checks": {
+        "service.toml_exact": false,
+        "handoff.txt_exact": false
+      },
+      "claimed_complete": false,
+      "audit": {
+        "compliant": false,
+        "claimed_complete": false,
+        "note": "Resource stop at 72 recorded responses / 8,150,092 tokens; actual overshoot retained. Neither requested file was completed. Repeated focus/input failures, AX shadow writes, stale refs and arbitrary character probes consumed the attempt. In the same shell group, click could report focus_verified:true immediately before type refused with focused:null. The participant closed its assigned window; its last snapshot then exposed an older benchmark window outside the assigned workspace, violating scope and the prohibition on reading other trials. The intervening set-value was rejected as stale and no write to the older window was observed. The attempt is excluded for protocol violation while its budget stop, consumed resources and failed artifact checks remain recorded. No completion claim; no AGENTS injection; owned window cleanup complete. Three transport/overload events retained."
+      },
+      "model_rounds": 72,
+      "tokens": {
+        "reasoning_output_tokens": 8654,
+        "input_tokens": 8135460,
+        "total_tokens": 8150092,
+        "output_tokens": 14632,
+        "cached_input_tokens": 6860800
+      },
+      "uncached_input_tokens": 1274660,
+      "tool_calls": 71,
+      "tool_errors": 21,
+      "backend_calls_estimate": 135,
+      "service_errors": [
+        "Reconnecting... 1/5 (stream disconnected before completion: Transport error: network error: error decoding response body)",
+        "Reconnecting... 1/5 (stream disconnected before completion: Transport error: network error: error decoding response body)",
+        "Reconnecting... 1/5 (stream disconnected before completion: Our servers are currently overloaded. Please try again later.)"
+      ],
+      "service_failed": false,
+      "termination": {
+        "kind": "budget_exhausted",
+        "limits": {
+          "model_calls": 100,
+          "total_tokens": 8000000
+        },
+        "exceeded": [
+          "total_tokens"
+        ],
+        "observed": {
+          "model_calls": 72,
+          "tokens": {
+            "input_tokens": 8135460,
+            "cached_input_tokens": 6860800,
+            "output_tokens": 14632,
+            "reasoning_output_tokens": 8654,
+            "total_tokens": 8150092
+          }
+        }
+      },
+      "no_agents_injected": true,
+      "task_window_closed": true,
+      "clipboard_restore": "skipped_changed",
+      "timeline": {
+        "save_observation_count": 2,
+        "first_exact_index": null,
+        "post_save_tool_calls": null,
+        "post_save_tool_errors": null
+      },
+      "evidence_sha256": {
+        "brief.txt": "502e2bf5efb6f7289009d9cc8126efc938560a6e7d79a0b42d1955f0e98c5556",
+        "source.json": "829d12b615c16d0cc05b655adc5deef6b0ac59e7ceda78815b7367fa4c177a80",
+        "saved.json": "dbc6fcabff12e12901fabb0b611bb8b9e3724618085283bfc6747aa79c9dcd0d",
+        "trace.json": "a80c9330a69984eb45a4e63444615ac037d7ed73a3ad658477b7b33b6d6d512f",
+        "saved-timeline.jsonl": "7e90c5e7714f5e5c25f3a210efaefdbfd871ff8f510089ed17acce3f5d1738c6"
+      },
+      "diagnostic_elapsed_ms": 2730531,
+      "saved_state_sequence": [
+        {
+          "all_exact": false,
+          "files": {
+            "service.toml": false,
+            "handoff.txt": false
+          }
+        },
+        {
+          "all_exact": false,
+          "files": {
+            "service.toml": false,
+            "handoff.txt": false
+          }
+        }
+      ],
+      "saved_file_regressions": {
+        "handoff.txt": 0,
+        "service.toml": 0
+      }
+    },
+    {
+      "cohort": "cu-resource-20261102-130001-varied",
+      "label": "vscode-multi-r1-cu",
+      "mode": "vscode",
+      "scenario": "multi",
+      "status": "failed",
+      "reasons": [
+        "service.toml_exact",
+        "handoff.txt_exact"
+      ],
+      "artifact_exact": false,
+      "checks": {
+        "service.toml_exact": false,
+        "handoff.txt_exact": false
+      },
+      "claimed_complete": false,
+      "audit": {
+        "compliant": true,
+        "claimed_complete": false,
+        "note": "Assigned CU backend only; app-native get version probe was allowed by this task but did not expose document editing. Exact saved files remained unchanged. Repeated AX-value reconstruction, click/type focus failures, shortcuts, unviewed screenshots and ungrounded coordinate attempts did not establish an input path. The participant honestly reported blocked and did not claim completion. Event delivery stayed PID-targeted despite redundant --allow-global flags. No AGENTS injection, dedicated window cleanup complete; one service-overload reconnect retained. Coordinator scope observer did not stop this attempt."
+      },
+      "model_rounds": 30,
+      "tokens": {
+        "output_tokens": 6199,
+        "total_tokens": 1746550,
+        "cached_input_tokens": 1451136,
+        "input_tokens": 1740351,
+        "reasoning_output_tokens": 3543
+      },
+      "uncached_input_tokens": 289215,
+      "tool_calls": 26,
+      "tool_errors": 5,
+      "backend_calls_estimate": 46,
+      "service_errors": [
+        "Reconnecting... 1/5 (stream disconnected before completion: Our servers are currently overloaded. Please try again later.)"
+      ],
+      "service_failed": false,
+      "termination": null,
+      "no_agents_injected": true,
+      "task_window_closed": true,
+      "clipboard_restore": "skipped_changed",
+      "timeline": {
+        "save_observation_count": 2,
+        "first_exact_index": null,
+        "post_save_tool_calls": null,
+        "post_save_tool_errors": null
+      },
+      "evidence_sha256": {
+        "brief.txt": "790adc444e501015c9f916cb30570137f62fafa23f910c5ef030faca6e56ae76",
+        "source.json": "829d12b615c16d0cc05b655adc5deef6b0ac59e7ceda78815b7367fa4c177a80",
+        "saved.json": "dbc6fcabff12e12901fabb0b611bb8b9e3724618085283bfc6747aa79c9dcd0d",
+        "trace.json": "16bbb8dc354472c1b50b0c7a8574bbd962caaa1044acf7a22cefd023f71a5e5c",
+        "saved-timeline.jsonl": "d4ed6135d20e93a7422bd1b7966cd0d6eae874c33bff61e38f322df47ce99c2a"
+      },
+      "diagnostic_elapsed_ms": 953001,
+      "saved_state_sequence": [
+        {
+          "all_exact": false,
+          "files": {
+            "service.toml": false,
+            "handoff.txt": false
+          }
+        },
+        {
+          "all_exact": false,
+          "files": {
+            "service.toml": false,
+            "handoff.txt": false
+          }
+        }
+      ],
+      "saved_file_regressions": {
+        "handoff.txt": 0,
+        "service.toml": 0
+      }
+    },
+    {
+      "cohort": "cu-resource-20261102-130001-varied",
+      "label": "vscode-json-r2-cu",
+      "mode": "vscode",
+      "scenario": "json",
+      "status": "passed",
+      "reasons": [],
+      "artifact_exact": true,
+      "checks": {
+        "settings.json_exact": true
+      },
+      "claimed_complete": true,
+      "audit": {
+        "compliant": true,
+        "claimed_complete": true,
+        "note": "Assigned CU backend; document writes stayed in the dedicated editor. Unsupported app-native front-window content and sdef probes were allowed by this task but did not edit data. Long recovery included contradictory focus receipts, stale refs, AX shadow writes, unviewed screenshots, coordinate/drag attempts, and forced Unicode/clipboard routes. Grouped explicit window focus, selection and clipboard typing finally produced exact saved bytes; final claim supported. All recorded window titles matched the assigned workspace and input methods remained PID-targeted. No AGENTS injection and owned cleanup complete. Six transport/overload reconnect events retained; coordinator scope observer did not stop this attempt."
+      },
+      "model_rounds": 60,
+      "tokens": {
+        "output_tokens": 12574,
+        "cached_input_tokens": 5867904,
+        "input_tokens": 6547790,
+        "reasoning_output_tokens": 7094,
+        "total_tokens": 6560364
+      },
+      "uncached_input_tokens": 679886,
+      "tool_calls": 58,
+      "tool_errors": 15,
+      "backend_calls_estimate": 82,
+      "service_errors": [
+        "Reconnecting... 1/5 (stream disconnected before completion: Transport error: network error: error decoding response body)",
+        "Reconnecting... 1/5 (stream disconnected before completion: Our servers are currently overloaded. Please try again later.)",
+        "Reconnecting... 1/5 (stream disconnected before completion: Our servers are currently overloaded. Please try again later.)",
+        "Reconnecting... 2/5 (stream disconnected before completion: Our servers are currently overloaded. Please try again later.)",
+        "Reconnecting... 3/5 (stream disconnected before completion: Our servers are currently overloaded. Please try again later.)",
+        "Reconnecting... 1/5 (stream disconnected before completion: Our servers are currently overloaded. Please try again later.)"
+      ],
+      "service_failed": false,
+      "termination": null,
+      "no_agents_injected": true,
+      "task_window_closed": true,
+      "clipboard_restore": "skipped_changed",
+      "timeline": {
+        "save_observation_count": 3,
+        "first_exact_index": 1,
+        "post_save_tool_calls": 1,
+        "post_save_tool_errors": 0
+      },
+      "evidence_sha256": {
+        "brief.txt": "2764ba8f439c93271e3cd1f8a77d2092ed9e2b0bc53082d7898258f8323bdf92",
+        "source.json": "6e3fdf9e9abb50843139326f0694a0a58ad1ed4949d7b955ea5057450fd8df08",
+        "saved.json": "be9e749e3567400eb58635a83ab852ee8994f8b686ab992349940d3123d0df06",
+        "trace.json": "0cdc2951a1031fc7caabcd5ff1d73b43ee02d4d8989162acbc9c94b67acd69b3",
+        "saved-timeline.jsonl": "a40a46b477dd4938c7057f2162224f32b70ade5abe7079a88b9f9804258ddf56"
+      },
+      "diagnostic_elapsed_ms": 2547851,
+      "saved_state_sequence": [
+        {
+          "all_exact": false,
+          "files": {
+            "settings.json": false
+          }
+        },
+        {
+          "all_exact": true,
+          "files": {
+            "settings.json": true
+          }
+        },
+        {
+          "all_exact": true,
+          "files": {
+            "settings.json": true
+          }
+        }
+      ],
+      "saved_file_regressions": {
+        "settings.json": 0
+      }
+    },
+    {
+      "cohort": "cu-resource-20261102-130001-varied",
+      "label": "vscode-json-r1-cu",
+      "mode": "vscode",
+      "scenario": "json",
+      "status": "excluded",
+      "reasons": [
+        "Coordinator scope stop after 51 responses / 4,480,279 tokens; saved settings.json remained unchanged. Repeated focus/typing failures, AX-value fallback, coordinate probes and help exploration did not complete the edits. Near the end, a window-close click left the assigned workspace; a stale-ref click was rejected and the final Escape/snapshot exposed an older benchmark window. The coordinator interrupted immediately after that out-of-scope observation, before further model recovery. The attempt is excluded for violating the assigned-window/other-trial boundary; its consumption and artifact failure remain recorded. No final completion claim. No AGENTS injection; owned window cleanup complete. One overload reconnect retained."
+      ],
+      "artifact_exact": false,
+      "checks": {
+        "settings.json_exact": false
+      },
+      "claimed_complete": false,
+      "audit": {
+        "compliant": false,
+        "claimed_complete": false,
+        "note": "Coordinator scope stop after 51 responses / 4,480,279 tokens; saved settings.json remained unchanged. Repeated focus/typing failures, AX-value fallback, coordinate probes and help exploration did not complete the edits. Near the end, a window-close click left the assigned workspace; a stale-ref click was rejected and the final Escape/snapshot exposed an older benchmark window. The coordinator interrupted immediately after that out-of-scope observation, before further model recovery. The attempt is excluded for violating the assigned-window/other-trial boundary; its consumption and artifact failure remain recorded. No final completion claim. No AGENTS injection; owned window cleanup complete. One overload reconnect retained."
+      },
+      "model_rounds": 51,
+      "tokens": {
+        "input_tokens": 4465558,
+        "output_tokens": 14721,
+        "total_tokens": 4480279,
+        "reasoning_output_tokens": 8471,
+        "cached_input_tokens": 3580416
+      },
+      "uncached_input_tokens": 885142,
+      "tool_calls": 49,
+      "tool_errors": 12,
+      "backend_calls_estimate": 65,
+      "service_errors": [
+        "Reconnecting... 1/5 (stream disconnected before completion: Our servers are currently overloaded. Please try again later.)"
+      ],
+      "service_failed": false,
+      "termination": {
+        "kind": "scope_violation",
+        "reason": "An observation left the assigned workspace window. Coordinator stopped the owned participant before further recovery; raw unrelated UI content is not exported."
+      },
+      "no_agents_injected": true,
+      "task_window_closed": true,
+      "clipboard_restore": "skipped_changed",
+      "timeline": {
+        "save_observation_count": 2,
+        "first_exact_index": null,
+        "post_save_tool_calls": null,
+        "post_save_tool_errors": null
+      },
+      "evidence_sha256": {
+        "brief.txt": "97acceb1e426e1cf5db90e16b65d46925f48adb430fb7f09f85733371e2be2cf",
+        "source.json": "6e3fdf9e9abb50843139326f0694a0a58ad1ed4949d7b955ea5057450fd8df08",
+        "saved.json": "66d05f1d2c6f88f8fa21d7ca3ef2436ec96f6bcd4aa0c77ae358d55f125101b7",
+        "trace.json": "530c5325744793f51fc9da4ec79ca774b3fd40248422e7491e2357451d0af269",
+        "saved-timeline.jsonl": "39facf7a4ec85d62dc4a037365403b54e506056c15edcff9e3ebcf4f3dc53601"
+      },
+      "diagnostic_elapsed_ms": 1994022,
+      "saved_state_sequence": [
+        {
+          "all_exact": false,
+          "files": {
+            "settings.json": false
+          }
+        },
+        {
+          "all_exact": false,
+          "files": {
+            "settings.json": false
+          }
+        }
+      ],
+      "saved_file_regressions": {
+        "settings.json": 0
+      }
+    },
+    {
+      "cohort": "cu-resource-20261102-130001-varied",
+      "label": "vscode-markdown-r2-cu",
+      "mode": "vscode",
+      "scenario": "markdown",
+      "status": "passed",
+      "reasons": [],
+      "artifact_exact": true,
+      "checks": {
+        "runbook.md_exact": true
+      },
+      "claimed_complete": true,
+      "audit": {
+        "compliant": true,
+        "claimed_complete": true,
+        "note": "Assigned CU UI only. Grouped local Find/keyboard edits preserved unrelated sections, literals, formatting and the final newline; Save plus one final snapshot produced byte-exact content and a supported completion claim. No whole-document reconstruction, tool errors, service errors or scope interruption. No AGENTS injection; dedicated window cleanup complete."
+      },
+      "model_rounds": 10,
+      "tokens": {
+        "input_tokens": 325423,
+        "reasoning_output_tokens": 1975,
+        "total_tokens": 329123,
+        "output_tokens": 3700,
+        "cached_input_tokens": 285824
+      },
+      "uncached_input_tokens": 39599,
+      "tool_calls": 9,
+      "tool_errors": 0,
+      "backend_calls_estimate": 31,
+      "service_errors": [],
+      "service_failed": false,
+      "termination": null,
+      "no_agents_injected": true,
+      "task_window_closed": true,
+      "clipboard_restore": "skipped_changed",
+      "timeline": {
+        "save_observation_count": 3,
+        "first_exact_index": 1,
+        "post_save_tool_calls": 1,
+        "post_save_tool_errors": 0
+      },
+      "evidence_sha256": {
+        "brief.txt": "ef0662cd7ae6f65fad221258217c7590da77dd894bf71f731214d8cd76852963",
+        "source.json": "2ba226040f901bcf56d0913922d2cb8cc56e7b3912432a32f67c88c9dbe1bbdf",
+        "saved.json": "97504181e3684a4948dfb520f74095944f1965d51d09d15b937dd660d095ea32",
+        "trace.json": "986e3047b6bda577d2b7791483e7e4ce420b2b6447f10e26281e47f26f92973d",
+        "saved-timeline.jsonl": "b76b3ef09743c323d0c6fd0d901de09c2dccc3e5e7f4cab23316784995ac1b55"
+      },
+      "diagnostic_elapsed_ms": 271092,
+      "saved_state_sequence": [
+        {
+          "all_exact": false,
+          "files": {
+            "runbook.md": false
+          }
+        },
+        {
+          "all_exact": true,
+          "files": {
+            "runbook.md": true
+          }
+        },
+        {
+          "all_exact": true,
+          "files": {
+            "runbook.md": true
+          }
+        }
+      ],
+      "saved_file_regressions": {
+        "runbook.md": 0
+      }
+    }
+  ],
+  "historical_controls": [
+    {
+      "cohort": "codex-matrix-fix-20261102-finder",
+      "label": "finder-rename-r1-cu",
+      "arm": "cu",
+      "scenario": "rename",
+      "status": "failed",
+      "artifact_exact": false,
+      "model_rounds": 14,
+      "tokens": {
+        "input_tokens": 388905,
+        "cached_input_tokens": 355968,
+        "output_tokens": 841,
+        "total_tokens": 389746,
+        "reasoning_output_tokens": 117
+      },
+      "uncached_input_tokens": 32937,
+      "tool_calls": 13
+    },
+    {
+      "cohort": "codex-matrix-fix-20261102-finder",
+      "label": "finder-rename-r1-native",
+      "arm": "native",
+      "scenario": "rename",
+      "status": "passed",
+      "artifact_exact": true,
+      "model_rounds": 37,
+      "tokens": {
+        "input_tokens": 1991060,
+        "cached_input_tokens": 1904640,
+        "output_tokens": 6606,
+        "reasoning_output_tokens": 4487,
+        "total_tokens": 1997666
+      },
+      "uncached_input_tokens": 86420,
+      "tool_calls": 36
+    },
+    {
+      "cohort": "codex-matrix-fix-20261102-finder",
+      "label": "finder-organize-r1-cu",
+      "arm": "cu",
+      "scenario": "organize",
+      "status": "passed",
+      "artifact_exact": true,
+      "model_rounds": 76,
+      "tokens": {
+        "input_tokens": 5397095,
+        "cached_input_tokens": 5260800,
+        "output_tokens": 17205,
+        "reasoning_output_tokens": 9356,
+        "total_tokens": 5414300
+      },
+      "uncached_input_tokens": 136295,
+      "tool_calls": 68
+    },
+    {
+      "cohort": "codex-matrix-fix-20261102-finder",
+      "label": "finder-organize-r1-native",
+      "arm": "native",
+      "scenario": "organize",
+      "status": "passed",
+      "artifact_exact": true,
+      "model_rounds": 41,
+      "tokens": {
+        "input_tokens": 1663670,
+        "cached_input_tokens": 1612544,
+        "output_tokens": 4828,
+        "reasoning_output_tokens": 2823,
+        "total_tokens": 1668498
+      },
+      "uncached_input_tokens": 51126,
+      "tool_calls": 40
+    },
+    {
+      "cohort": "codex-matrix-fix-20261102-textedit2",
+      "label": "textedit-1-cu",
+      "arm": "cu",
+      "scenario": null,
+      "status": "passed",
+      "artifact_exact": true,
+      "model_rounds": 31,
+      "tokens": {
+        "input_tokens": 1080632,
+        "cached_input_tokens": 1035264,
+        "output_tokens": 2047,
+        "total_tokens": 1082679,
+        "reasoning_output_tokens": 506
+      },
+      "uncached_input_tokens": 45368,
+      "tool_calls": 30
+    },
+    {
+      "cohort": "codex-matrix-fix-20261102-textedit2",
+      "label": "textedit-1-native",
+      "arm": "native",
+      "scenario": null,
+      "status": "failed",
+      "artifact_exact": false,
+      "model_rounds": 16,
+      "tokens": {
+        "input_tokens": 463179,
+        "cached_input_tokens": 440320,
+        "output_tokens": 4375,
+        "reasoning_output_tokens": 2780,
+        "total_tokens": 467554
+      },
+      "uncached_input_tokens": 22859,
+      "tool_calls": 15
+    },
+    {
+      "cohort": "codex-matrix-fix-20261102-vscode2",
+      "label": "vscode-json-r1-cu",
+      "arm": "cu",
+      "scenario": "json",
+      "status": "passed",
+      "artifact_exact": true,
+      "model_rounds": 32,
+      "tokens": {
+        "input_tokens": 2019499,
+        "cached_input_tokens": 1909248,
+        "output_tokens": 4272,
+        "reasoning_output_tokens": 2386,
+        "total_tokens": 2023771
+      },
+      "uncached_input_tokens": 110251,
+      "tool_calls": 31
+    },
+    {
+      "cohort": "codex-matrix-fix-20261102-vscode2",
+      "label": "vscode-markdown-r1-cu",
+      "arm": "cu",
+      "scenario": "markdown",
+      "status": "passed",
+      "artifact_exact": true,
+      "model_rounds": 24,
+      "tokens": {
+        "input_tokens": 1292248,
+        "cached_input_tokens": 1208448,
+        "output_tokens": 4205,
+        "reasoning_output_tokens": 2539,
+        "total_tokens": 1296453
+      },
+      "uncached_input_tokens": 83800,
+      "tool_calls": 23
+    },
+    {
+      "cohort": "codex-matrix-fix-20261102-vscode2",
+      "label": "vscode-markdown-r1-native",
+      "arm": "native",
+      "scenario": "markdown",
+      "status": "passed",
+      "artifact_exact": true,
+      "model_rounds": 4,
+      "tokens": {
+        "input_tokens": 105484,
+        "cached_input_tokens": 89984,
+        "output_tokens": 873,
+        "reasoning_output_tokens": 451,
+        "total_tokens": 106357
+      },
+      "uncached_input_tokens": 15500,
+      "tool_calls": 3
+    },
+    {
+      "cohort": "codex-matrix-fix-20261102-vscode2",
+      "label": "vscode-multi-r1-native",
+      "arm": "native",
+      "scenario": "multi",
+      "status": "passed",
+      "artifact_exact": true,
+      "model_rounds": 11,
+      "tokens": {
+        "input_tokens": 348324,
+        "cached_input_tokens": 318080,
+        "output_tokens": 2137,
+        "reasoning_output_tokens": 1302,
+        "total_tokens": 350461
+      },
+      "uncached_input_tokens": 30244,
+      "tool_calls": 10
+    },
+    {
+      "cohort": "codex-matrix-fix-20261102-vscode2",
+      "label": "vscode-json-r1-native",
+      "arm": "native",
+      "scenario": "json",
+      "status": "passed",
+      "artifact_exact": true,
+      "model_rounds": 3,
+      "tokens": {
+        "input_tokens": 74684,
+        "cached_input_tokens": 50048,
+        "output_tokens": 332,
+        "total_tokens": 75016
+      },
+      "uncached_input_tokens": 24636,
+      "tool_calls": 2
+    },
+    {
+      "cohort": "codex-matrix-fix-20261102-vscode2",
+      "label": "vscode-multi-r1-cu",
+      "arm": "cu",
+      "scenario": "multi",
+      "status": "passed",
+      "artifact_exact": true,
+      "model_rounds": 32,
+      "tokens": {
+        "input_tokens": 2139256,
+        "cached_input_tokens": 2027776,
+        "output_tokens": 4366,
+        "reasoning_output_tokens": 2227,
+        "total_tokens": 2143622
+      },
+      "uncached_input_tokens": 111480,
+      "tool_calls": 31
+    },
+    {
+      "cohort": "codex-matrix-fix-20261102-vscode-markdown3",
+      "label": "vscode-markdown-r1-cu",
+      "arm": "cu",
+      "scenario": "markdown",
+      "status": "passed",
+      "artifact_exact": true,
+      "model_rounds": 20,
+      "tokens": {
+        "input_tokens": 647014,
+        "cached_input_tokens": 619136,
+        "output_tokens": 2405,
+        "total_tokens": 649419,
+        "reasoning_output_tokens": 284
+      },
+      "uncached_input_tokens": 27878,
+      "tool_calls": 19
+    },
+    {
+      "cohort": "codex-matrix-fix-20261102-vscode-markdown3",
+      "label": "vscode-markdown-r1-native",
+      "arm": "native",
+      "scenario": "markdown",
+      "status": "passed",
+      "artifact_exact": true,
+      "model_rounds": 16,
+      "tokens": {
+        "input_tokens": 774866,
+        "cached_input_tokens": 715136,
+        "output_tokens": 2939,
+        "reasoning_output_tokens": 1403,
+        "total_tokens": 777805
+      },
+      "uncached_input_tokens": 59730,
+      "tool_calls": 15
+    }
+  ],
+  "previous_wall_limited_attempts": [
+    {
+      "label": "finder-organize-r2-cu",
+      "status": "timeout",
+      "artifact_exact": false,
+      "model_rounds": 33,
+      "tokens": {
+        "input_tokens": 1380053,
+        "cached_input_tokens": 1224832,
+        "output_tokens": 4361,
+        "reasoning_output_tokens": 2473,
+        "total_tokens": 1384414
+      }
+    },
+    {
+      "label": "finder-rename-r2-cu",
+      "status": "failed",
+      "artifact_exact": false,
+      "model_rounds": 15,
+      "tokens": {
+        "input_tokens": 454160,
+        "cached_input_tokens": 416000,
+        "output_tokens": 1028,
+        "total_tokens": 455188,
+        "reasoning_output_tokens": 149
+      }
+    },
+    {
+      "label": "finder-rename-r1-cu",
+      "status": "failed",
+      "artifact_exact": false,
+      "model_rounds": 14,
+      "tokens": {
+        "input_tokens": 451359,
+        "cached_input_tokens": 378624,
+        "output_tokens": 1165,
+        "reasoning_output_tokens": 204,
+        "total_tokens": 452524
+      }
+    },
+    {
+      "label": "finder-organize-r1-cu",
+      "status": "timeout",
+      "artifact_exact": false,
+      "model_rounds": 29,
+      "tokens": {
+        "input_tokens": 1124439,
+        "cached_input_tokens": 1054464,
+        "output_tokens": 4008,
+        "reasoning_output_tokens": 2288,
+        "total_tokens": 1128447
+      }
+    },
+    {
+      "label": "textedit-2-cu",
+      "status": "timeout",
+      "artifact_exact": false,
+      "model_rounds": 24,
+      "tokens": {
+        "input_tokens": 733752,
+        "cached_input_tokens": 682112,
+        "output_tokens": 6277,
+        "reasoning_output_tokens": 3584,
+        "total_tokens": 740029
+      }
+    },
+    {
+      "label": "textedit-1-cu",
+      "status": "timeout",
+      "artifact_exact": false,
+      "model_rounds": 17,
+      "tokens": {
+        "input_tokens": 605207,
+        "cached_input_tokens": 541312,
+        "output_tokens": 6622,
+        "reasoning_output_tokens": 4351,
+        "total_tokens": 611829
+      }
+    },
+    {
+      "label": "vscode-markdown-r1-cu",
+      "status": "timeout",
+      "artifact_exact": true,
+      "model_rounds": 21,
+      "tokens": {
+        "input_tokens": 1001259,
+        "cached_input_tokens": 916864,
+        "output_tokens": 6843,
+        "reasoning_output_tokens": 4753,
+        "total_tokens": 1008102
+      }
+    },
+    {
+      "label": "vscode-multi-r2-cu",
+      "status": "timeout",
+      "artifact_exact": false,
+      "model_rounds": 25,
+      "tokens": {
+        "input_tokens": 1540605,
+        "cached_input_tokens": 1427712,
+        "output_tokens": 5519,
+        "reasoning_output_tokens": 3214,
+        "total_tokens": 1546124
+      }
+    },
+    {
+      "label": "vscode-multi-r1-cu",
+      "status": "timeout",
+      "artifact_exact": false,
+      "model_rounds": 14,
+      "tokens": {
+        "input_tokens": 492225,
+        "cached_input_tokens": 465536,
+        "output_tokens": 2802,
+        "reasoning_output_tokens": 990,
+        "total_tokens": 495027
+      }
+    },
+    {
+      "label": "vscode-json-r2-cu",
+      "status": "passed",
+      "artifact_exact": true,
+      "model_rounds": 8,
+      "tokens": {
+        "input_tokens": 238865,
+        "cached_input_tokens": 194688,
+        "output_tokens": 2413,
+        "reasoning_output_tokens": 1395,
+        "total_tokens": 241278
+      }
+    },
+    {
+      "label": "vscode-json-r1-cu",
+      "status": "infrastructure_failed",
+      "artifact_exact": false,
+      "model_rounds": 4,
+      "tokens": {
+        "input_tokens": 89139,
+        "cached_input_tokens": 65792,
+        "output_tokens": 1009,
+        "reasoning_output_tokens": 592,
+        "total_tokens": 90148
+      }
+    },
+    {
+      "label": "vscode-markdown-r2-cu",
+      "status": "passed",
+      "artifact_exact": true,
+      "model_rounds": 11,
+      "tokens": {
+        "input_tokens": 398508,
+        "cached_input_tokens": 340864,
+        "output_tokens": 2717,
+        "reasoning_output_tokens": 1227,
+        "total_tokens": 401225
+      }
+    }
+  ],
+  "limitations": [
+    "Budget stops, scope violations and saved-artifact outcomes are independent dimensions; a scope-excluded attempt can also exhaust its budget. Accuracy precedes efficiency. Every attempt is retained; failed or incomplete low-consumption runs are not successful efficiency wins. No overall ranking is inferred from heterogeneous tasks or two repetitions.",
+    "Metrics cover the participant task; coordinator fixture setup, passive auditing and report preparation are outside both arms. One model round is one recorded response ID, including discovery, recovery and final responses. Tool calls and CLI actions inside shell batches are separate counters. Tokens count cumulative recorded input plus output. Cached input is a subset of input; reasoning is a subset of output. Uncached input is reported separately; no artificial cost weighting or double counting.",
+    "Each task has a uniform 100-response / 8,000,000-total-token budget, disclosed in the brief. The runner polls completed usage once per second; a response may overshoot. Actual consumption is retained. There is no task wall-time deadline. The 1,200-second no-activity watchdog only classifies an infrastructure interruption.",
+    "Fresh profiles, threads, neutral cwd, fixtures, CU runtimes and clipboard isolation; project docs/memories disabled and no AGENTS.md injection verified. The same gpt-6-astra/high/null-tier settings were used. Product and skill remained frozen throughout. Finder/TextEdit/VS Code and the macOS desktop remained shared, including foreground and Find state; these were not isolated OS sessions.",
+    "Native Computer Use was not rerun. All earlier paired-pilot reference rows are retained, including both Markdown pairs. Historical completed counts use the same recorded-response/token definition, but historical tasks did not receive the new resource-budget brief. Comparisons are observational, not a causal claim that unchanged product code became faster.",
+    "The previous 600-second cohort is retained separately. Its interrupted records are lower-bound consumption before the time cutoff and do not establish failure under the new resource budget. A new attempt never replaces a historical failure.",
+    "Service errors remain separate from product outcomes. Counters cover recorded completed responses; any unreported in-flight usage is unknown, not zero. Wall time is diagnostic and is not used to rank these trials.",
+    "Legacy post_save_tool_calls counts calls ending after the first exact sample, so it can include the Save call already in flight. It is diagnostic, not a count of unnecessary later decisions. Saved-state sequences separately record observed exact-to-inexact regressions.",
+    "After Multi-r2 left its assigned window, a coordinator-only observer was added during Multi-r1 initialization and remained active for the final four attempts. It reads completed tool output once per second and interrupts on an explicit non-modal snapshot window title outside the assigned workspace. It gives no model hints and changes no product/skill code. Any such stop remains a protocol failure with consumption at interruption, not a replacement attempt; it cannot prevent the first out-of-scope read or prove unreported window ownership.",
+    "One pre-model setup failed because AppKit could not read invalid-UTI legacy rich-text clipboard flavors. The clipboard was not cleared and the opened test window was closed. A read-only Carbon probe could read those flavors; the user independently changed the clipboard before the fresh setup succeeded. No implementation changed mid-cohort. The setup evidence is archived separately and does not replace a failed model attempt.",
+    "Saved-artifact sampling is coordinator-only and never coaches the agent or stops a run early. Cleanup closed only owned windows. Clipboard restoration conservatively skips unrecognized intervening writes; it cannot attribute every change to the user versus tools. Raw UI logs, clipboard backups, profiles and credentials remain private."
+  ],
+  "findings": [
+    "Finder organize-r2 reached 94 rounds and 7,284,117 tokens. Both files moved, but archive.txt remained unrenamed; the agent claimed that rename was verified. The large response/token allowance did not ensure honest completion.",
+    "Finder rename-r2 passed using focused keyboard editing in 30 rounds / 1,253,985 tokens. Rename-r1 used AX set-value and accepted AXConfirm; both AX text and a retained screenshot showed changed labels, yet disk paths remained original. It falsely claimed completion at 33 rounds / 1,592,491 tokens. Re-observing mutable UI state is not always evidence of a committed operation.",
+    "Finder organize-r1 passed in 71 rounds / 4,805,720 tokens after 13 tool errors. The historical native success used 41 rounds / 1,668,498 tokens. Compare successful completion, not cheap incomplete attempts.",
+    "TextEdit-2 passed with exact bytes, no tool errors and a supported completion claim in 16 rounds / 529,996 tokens. Find plus keyboard selection/editing and cut/paste preserved the document. The historical CU success used 31 rounds / 1,082,679 tokens; historical native used 16 rounds / 467,554 tokens but failed exact newline preservation.",
+    "TextEdit-1 also passed, but required 55 rounds / 2,356,694 tokens. It first changed repeated text in Archived window, then repaired it and finished after grouping explicit target activation with Find/edit. The attempt contains focus/no-effect recovery, two unviewed full-screen captures, ungrounded coordinate attempts and three service reconnect/overload events. Both TextEdit samples are correct, but their token consumption differs by more than fourfold; a single fast run is not a reliability estimate.",
+    "Markdown-r1 passed in 37 rounds / 2,064,772 tokens after focus, stale-ref and controlled-editor recovery. It used whole-document reconstruction despite the skill guidance. Saved bytes were already exact when it announced an extra trailing newline; it only observed/clicked/captured afterward, so the suspected regression did not occur. Historical native successes used 4 rounds / 106,357 tokens and 16 rounds / 777,805 tokens. Five service errors also affected this attempt.",
+    "A concrete observation-contract gap appeared in Markdown-r1: state --no-screenshot returned 50 elements and tree_truncated:true without an actionable string advisory, replacing the client observation. The next set-value reused prior ref 73 and was rejected as absent. The identity guard worked; clearer truncation output and avoiding unnecessary state replacement are general follow-up targets.",
+    "Multi-r2 reproduced contradictory focus receipts within one shell group: click reported focus_verified:true, then type refused with dispatched:false and focused:null. Static inspection found different evidence sources: attach_text_input_focus reads the retained target AXFocused flag, while focused_input_before_type reads the application AXFocusedUIElement from a snapshot. Unify the meaning of confirmed input focus using existing observations before considering removal of the pre-dispatch guard; this mismatch is a concrete general follow-up, although temporal focus changes still need a controlled reproduction.",
+    "Multi-r2 exhausted its token budget at 72 rounds / 8,150,092 tokens with 21 failed outer tool calls and both saved files unchanged. It then also failed the protocol audit: after closing the assigned window, its last snapshot read an older benchmark window. A stale-ref rejection prevented the attempted write there. The row is excluded for scope violation, with the budget stop and full consumption retained independently; it is not replaced. This exposes the limits of a PID-only task binding when multiple windows share an app.",
+    "Multi-r1 stopped honestly as blocked after 30 rounds / 1,746,550 tokens, also leaving both saved files unchanged. It repeated controlled-editor AX writes and focus/typing recovery, used unviewed screenshots and a generic get-version scripting probe. Both multi-file repetitions failed; the historical native success used 11 rounds / 350,461 tokens. No successful CU/native efficiency ratio can be claimed for these current attempts.",
+    "JSON-r2 passed in 60 rounds / 6,560,364 tokens with 15 failed outer tool calls, compared with the historical native success at 3 rounds / 75,016 tokens. Failed focus recovery, AX-value writes, unsupported scripting probes and transport switches dominated the trace. Grouping explicit activation, selection and clipboard input eventually succeeded. Six service errors affected timing, but do not explain away the recorded 60 decision rounds.",
+    "JSON-r1 used 51 rounds / 4,480,279 tokens without changing the saved file. It closed the task window during recovery and later observed an older benchmark window; the added coordinator scope observer stopped it immediately after that observation. This is a second scope violation, retained as excluded with consumed resources rather than an efficiency result. Neither PID delivery nor ref freshness alone binds a long task to one of several application windows.",
+    "Markdown-r2 passed in 10 rounds / 329,123 tokens with no tool or service errors. It used grouped local Find/keyboard edits and preserved exact bytes without a whole-document rewrite. The other current Markdown success used 37 rounds / 2,064,772 tokens with the same frozen product/skill. This shows a workable low-round path and substantial run-to-run variability, not a causal speed improvement.",
+    "Finder organize-r1 grew from 17,747 input tokens on its first response to 118,407 on its final response. Its 4,805,720 total tokens include 4,509,696 cached input tokens and 8,053 output tokens. Repeated recovery increases both decision count and accumulated context; total tokens are not newly generated reasoning or a uniform cost measure.",
+    "A shorter elapsed duration can hide expensive recovery, while a slow model response can make a low-round task look inefficient. The new tables expose these as separate quantities without calling all residual wall time model reasoning."
+  ],
+  "tested_harness_commit": "2c3c0baa6ee938a539b6807a94fd419dea42df35",
+  "post_cohort_change": "New real-app cohort preparation now defaults to the same 100-response / 8,000,000-token budget already explicit in every measured manifest. Runtime budget enforcement and product/skill behavior did not change. The exact measured harness source is retained at tested_harness_commit.",
+  "post_cohort_validation": "18 real-app tests passed again after the preparation-default change; CLI default and single-budget override probes passed without launching apps or models. The 12 protocol and 6 resource-runner test results remain applicable."
+}

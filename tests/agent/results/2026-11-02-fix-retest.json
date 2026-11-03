@@ -1,0 +1,514 @@
+{
+  "date": "2026-11-02",
+  "classification": "Clean fix retest; one run per planned case except the explicit leading-hyphen follow-up",
+  "product_changes": [
+    "click textfield focus is advisory; cu type remains strict before text dispatch",
+    "AX perform failures retain numeric AX error and distinguish rejected dispatch from unavailable action",
+    "arrowup/arrowdown/arrowleft/arrowright aliases accepted",
+    "type accepts leading-hyphen text values",
+    "skill documents decision-boundary batching and exact CLI predicates"
+  ],
+  "settings": {
+    "model": "gpt-6-astra",
+    "reasoning_effort": "high",
+    "service_tier": null
+  },
+  "host": {
+    "os": "macOS 26.5.2",
+    "build": "25F84",
+    "architecture": "arm64"
+  },
+  "protocol": {
+    "fresh_profiles_threads_cwds": true,
+    "project_docs_and_memories_disabled": true,
+    "clipboard_isolated": true,
+    "shared_app_processes": true,
+    "independent_exact_oracles": true,
+    "timer": "full participant turn including discovery; setup/cleanup/verifier outside"
+  },
+  "measurement": {
+    "outer_calls": "Recorded by collector; shell calls can contain several cu commands",
+    "backend_calls": "Computed from retained trace after the run: count each native CUA item or each ./pilot invocation, excluding launcher setup literals. Diagnostic estimate only; a failed shell batch can contain unexecuted later lines.",
+    "errors": "Outer tool errors, including command batches that stop early"
+  },
+  "cohorts": [
+    {
+      "id": "codex-matrix-fix-20261102-finder",
+      "dataset": "finder",
+      "app_versions": {
+        "finder": "26.4"
+      },
+      "order": [
+        "finder-rename-r1-cu",
+        "finder-rename-r1-native",
+        "finder-organize-r1-cu",
+        "finder-organize-r1-native"
+      ],
+      "attempts": [
+        {
+          "label": "finder-rename-r1-cu",
+          "arm": "cu",
+          "scenario": "rename",
+          "status": "failed",
+          "verified": false,
+          "claimed_complete": false,
+          "elapsed_ms": 71898,
+          "model_calls": 14,
+          "outer_tool_calls": 13,
+          "backend_calls_estimate": 12,
+          "tool_errors": 2,
+          "tool_interval_ms": 2005,
+          "non_tool_interval_ms": 69893,
+          "tokens": {
+            "input_tokens": 388905,
+            "cached_input_tokens": 355968,
+            "output_tokens": 841,
+            "total_tokens": 389746,
+            "reasoning_output_tokens": 117
+          },
+          "checks": {
+            "ToReview/alpha-note-reviewed.txt_exact": false,
+            "ToReview/beta-note-reviewed.txt_exact": false,
+            "ToReview/gamma.txt_exact": true,
+            "ToReview/keep.txt_exact": true,
+            "file_set_exact": false
+          },
+          "audit_note": "Computer Pilot UI route only; model used unsupported --count and --text flags, then stopped without mutating files. Independent oracle failed because requested names remained unchanged.",
+          "no_agents_injected": true,
+          "task_window_closed": true
+        },
+        {
+          "label": "finder-rename-r1-native",
+          "arm": "native",
+          "scenario": "rename",
+          "status": "passed",
+          "verified": true,
+          "claimed_complete": true,
+          "elapsed_ms": 264150,
+          "model_calls": 37,
+          "outer_tool_calls": 36,
+          "backend_calls_estimate": 36,
+          "tool_errors": 1,
+          "tool_interval_ms": 25497,
+          "non_tool_interval_ms": 238653,
+          "tokens": {
+            "input_tokens": 1991060,
+            "cached_input_tokens": 1904640,
+            "output_tokens": 6606,
+            "reasoning_output_tokens": 4487,
+            "total_tokens": 1997666
+          },
+          "checks": {
+            "ToReview/alpha-note-reviewed.txt_exact": true,
+            "ToReview/beta-note-reviewed.txt_exact": true,
+            "ToReview/gamma.txt_exact": true,
+            "ToReview/keep.txt_exact": true,
+            "file_set_exact": true
+          },
+          "audit_note": "Native Finder App API only; one stale element ID was recovered; exact file set and bytes passed.",
+          "no_agents_injected": true,
+          "task_window_closed": true
+        },
+        {
+          "label": "finder-organize-r1-cu",
+          "arm": "cu",
+          "scenario": "organize",
+          "status": "passed",
+          "verified": true,
+          "claimed_complete": true,
+          "elapsed_ms": 576342,
+          "model_calls": 76,
+          "outer_tool_calls": 68,
+          "backend_calls_estimate": 96,
+          "tool_errors": 2,
+          "tool_interval_ms": 19181,
+          "non_tool_interval_ms": 557161,
+          "tokens": {
+            "input_tokens": 5397095,
+            "cached_input_tokens": 5260800,
+            "output_tokens": 17205,
+            "reasoning_output_tokens": 9356,
+            "total_tokens": 5414300
+          },
+          "checks": {
+            "Incoming/beta.txt_exact": true,
+            "Incoming/notes.txt_exact": true,
+            "Ready/alpha.txt_exact": true,
+            "Ready/archive-approved.txt_exact": true,
+            "file_set_exact": true
+          },
+          "audit_note": "Computer Pilot UI route only; AXPress was correctly reported as rejected with numeric AX error and the model recovered a filename extension correction; exact file set and bytes passed.",
+          "no_agents_injected": true,
+          "task_window_closed": true
+        },
+        {
+          "label": "finder-organize-r1-native",
+          "arm": "native",
+          "scenario": "organize",
+          "status": "passed",
+          "verified": true,
+          "claimed_complete": true,
+          "elapsed_ms": 210294,
+          "model_calls": 41,
+          "outer_tool_calls": 40,
+          "backend_calls_estimate": 40,
+          "tool_errors": 0,
+          "tool_interval_ms": 25339,
+          "non_tool_interval_ms": 184955,
+          "tokens": {
+            "input_tokens": 1663670,
+            "cached_input_tokens": 1612544,
+            "output_tokens": 4828,
+            "reasoning_output_tokens": 2823,
+            "total_tokens": 1668498
+          },
+          "checks": {
+            "Incoming/beta.txt_exact": true,
+            "Incoming/notes.txt_exact": true,
+            "Ready/alpha.txt_exact": true,
+            "Ready/archive-approved.txt_exact": true,
+            "file_set_exact": true
+          },
+          "audit_note": "Native Finder App API only; no tool errors; exact file set and bytes passed.",
+          "no_agents_injected": true,
+          "task_window_closed": true
+        }
+      ]
+    },
+    {
+      "id": "codex-matrix-fix-20261102-textedit2",
+      "dataset": "holdout",
+      "app_versions": {
+        "textedit": "1.20"
+      },
+      "order": [
+        "textedit-1-cu",
+        "textedit-1-native"
+      ],
+      "attempts": [
+        {
+          "label": "textedit-1-cu",
+          "arm": "cu",
+          "scenario": null,
+          "status": "passed",
+          "verified": true,
+          "claimed_complete": true,
+          "elapsed_ms": 139735,
+          "model_calls": 31,
+          "outer_tool_calls": 30,
+          "backend_calls_estimate": 37,
+          "tool_errors": 0,
+          "tool_interval_ms": 3280,
+          "non_tool_interval_ms": 136455,
+          "tokens": {
+            "input_tokens": 1080632,
+            "cached_input_tokens": 1035264,
+            "output_tokens": 2047,
+            "total_tokens": 1082679,
+            "reasoning_output_tokens": 506
+          },
+          "checks": {
+            "brief.txt_exact": true
+          },
+          "audit_note": "Computer Pilot UI route only; no direct document IO or scripting; exact saved bytes passed.",
+          "no_agents_injected": true,
+          "task_window_closed": true
+        },
+        {
+          "label": "textedit-1-native",
+          "arm": "native",
+          "scenario": null,
+          "status": "failed",
+          "verified": false,
+          "claimed_complete": false,
+          "elapsed_ms": 123648,
+          "model_calls": 16,
+          "outer_tool_calls": 15,
+          "backend_calls_estimate": 15,
+          "tool_errors": 3,
+          "tool_interval_ms": 12080,
+          "non_tool_interval_ms": 111568,
+          "tokens": {
+            "input_tokens": 463179,
+            "cached_input_tokens": 440320,
+            "output_tokens": 4375,
+            "reasoning_output_tokens": 2780,
+            "total_tokens": 467554
+          },
+          "checks": {
+            "brief.txt_exact": false
+          },
+          "audit_note": "Native TextEdit App API only; three API errors were recovered, but final file retained one extra newline despite the completion claim; independent oracle failed.",
+          "no_agents_injected": true,
+          "task_window_closed": true
+        }
+      ]
+    },
+    {
+      "id": "codex-matrix-fix-20261102-vscode2",
+      "dataset": "varied",
+      "app_versions": {
+        "vscode": "1.142.0"
+      },
+      "order": [
+        "vscode-json-r1-cu",
+        "vscode-markdown-r1-cu",
+        "vscode-markdown-r1-native",
+        "vscode-multi-r1-native",
+        "vscode-json-r1-native",
+        "vscode-multi-r1-cu"
+      ],
+      "attempts": [
+        {
+          "label": "vscode-json-r1-cu",
+          "arm": "cu",
+          "scenario": "json",
+          "status": "passed",
+          "verified": true,
+          "claimed_complete": true,
+          "elapsed_ms": 157594,
+          "model_calls": 32,
+          "outer_tool_calls": 31,
+          "backend_calls_estimate": 27,
+          "tool_errors": 2,
+          "tool_interval_ms": 6781,
+          "non_tool_interval_ms": 150813,
+          "tokens": {
+            "input_tokens": 2019499,
+            "cached_input_tokens": 1909248,
+            "output_tokens": 4272,
+            "reasoning_output_tokens": 2386,
+            "total_tokens": 2023771
+          },
+          "checks": {
+            "settings.json_exact": true
+          },
+          "audit_note": "Computer Pilot route only; app-native tell probes failed because VS Code is not scriptable, then UI editing passed exact verification.",
+          "no_agents_injected": true,
+          "task_window_closed": true
+        },
+        {
+          "label": "vscode-markdown-r1-cu",
+          "arm": "cu",
+          "scenario": "markdown",
+          "status": "passed",
+          "verified": true,
+          "claimed_complete": true,
+          "elapsed_ms": 130528,
+          "model_calls": 24,
+          "outer_tool_calls": 23,
+          "backend_calls_estimate": 43,
+          "tool_errors": 2,
+          "tool_interval_ms": 9507,
+          "non_tool_interval_ms": 121021,
+          "tokens": {
+            "input_tokens": 1292248,
+            "cached_input_tokens": 1208448,
+            "output_tokens": 4205,
+            "reasoning_output_tokens": 2539,
+            "total_tokens": 1296453
+          },
+          "checks": {
+            "runbook.md_exact": true
+          },
+          "audit_note": "Computer Pilot route only; failed scripting probe and one leading-hyphen type syntax error were recovered; exact file passed.",
+          "no_agents_injected": true,
+          "task_window_closed": true
+        },
+        {
+          "label": "vscode-markdown-r1-native",
+          "arm": "native",
+          "scenario": "markdown",
+          "status": "passed",
+          "verified": true,
+          "claimed_complete": true,
+          "elapsed_ms": 38846,
+          "model_calls": 4,
+          "outer_tool_calls": 3,
+          "backend_calls_estimate": 3,
+          "tool_errors": 0,
+          "tool_interval_ms": 2484,
+          "non_tool_interval_ms": 36362,
+          "tokens": {
+            "input_tokens": 105484,
+            "cached_input_tokens": 89984,
+            "output_tokens": 873,
+            "reasoning_output_tokens": 451,
+            "total_tokens": 106357
+          },
+          "checks": {
+            "runbook.md_exact": true
+          },
+          "audit_note": "Native VS Code App API only; exact file passed.",
+          "no_agents_injected": true,
+          "task_window_closed": true
+        },
+        {
+          "label": "vscode-multi-r1-native",
+          "arm": "native",
+          "scenario": "multi",
+          "status": "passed",
+          "verified": true,
+          "claimed_complete": true,
+          "elapsed_ms": 88844,
+          "model_calls": 11,
+          "outer_tool_calls": 10,
+          "backend_calls_estimate": 10,
+          "tool_errors": 1,
+          "tool_interval_ms": 7989,
+          "non_tool_interval_ms": 80855,
+          "tokens": {
+            "input_tokens": 348324,
+            "cached_input_tokens": 318080,
+            "output_tokens": 2137,
+            "reasoning_output_tokens": 1302,
+            "total_tokens": 350461
+          },
+          "checks": {
+            "service.toml_exact": true,
+            "handoff.txt_exact": true
+          },
+          "audit_note": "Native VS Code App API only; one key error was recovered; both files passed exact verification.",
+          "no_agents_injected": true,
+          "task_window_closed": true
+        },
+        {
+          "label": "vscode-json-r1-native",
+          "arm": "native",
+          "scenario": "json",
+          "status": "passed",
+          "verified": true,
+          "claimed_complete": true,
+          "elapsed_ms": 22467,
+          "model_calls": 3,
+          "outer_tool_calls": 2,
+          "backend_calls_estimate": 2,
+          "tool_errors": 0,
+          "tool_interval_ms": 3055,
+          "non_tool_interval_ms": 19412,
+          "tokens": {
+            "input_tokens": 74684,
+            "cached_input_tokens": 50048,
+            "output_tokens": 332,
+            "total_tokens": 75016
+          },
+          "checks": {
+            "settings.json_exact": true
+          },
+          "audit_note": "Native VS Code App API only; exact file passed.",
+          "no_agents_injected": true,
+          "task_window_closed": true
+        },
+        {
+          "label": "vscode-multi-r1-cu",
+          "arm": "cu",
+          "scenario": "multi",
+          "status": "passed",
+          "verified": true,
+          "claimed_complete": true,
+          "elapsed_ms": 209543,
+          "model_calls": 32,
+          "outer_tool_calls": 31,
+          "backend_calls_estimate": 44,
+          "tool_errors": 3,
+          "tool_interval_ms": 18226,
+          "non_tool_interval_ms": 191317,
+          "tokens": {
+            "input_tokens": 2139256,
+            "cached_input_tokens": 2027776,
+            "output_tokens": 4366,
+            "reasoning_output_tokens": 2227,
+            "total_tokens": 2143622
+          },
+          "checks": {
+            "service.toml_exact": true,
+            "handoff.txt_exact": true
+          },
+          "audit_note": "Computer Pilot route only; failed scripting probe, wait timeout and stale observation were recovered; both files passed exact verification.",
+          "no_agents_injected": true,
+          "task_window_closed": true
+        }
+      ]
+    },
+    {
+      "id": "codex-matrix-fix-20261102-vscode-markdown3",
+      "dataset": "varied",
+      "app_versions": {
+        "vscode": "1.142.0"
+      },
+      "order": [
+        "vscode-markdown-r1-cu",
+        "vscode-markdown-r1-native"
+      ],
+      "attempts": [
+        {
+          "label": "vscode-markdown-r1-cu",
+          "arm": "cu",
+          "scenario": "markdown",
+          "status": "passed",
+          "verified": true,
+          "claimed_complete": true,
+          "elapsed_ms": 122860,
+          "model_calls": 20,
+          "outer_tool_calls": 19,
+          "backend_calls_estimate": 39,
+          "tool_errors": 0,
+          "tool_interval_ms": 8984,
+          "non_tool_interval_ms": 113876,
+          "tokens": {
+            "input_tokens": 647014,
+            "cached_input_tokens": 619136,
+            "output_tokens": 2405,
+            "total_tokens": 649419,
+            "reasoning_output_tokens": 284
+          },
+          "checks": {
+            "runbook.md_exact": true
+          },
+          "audit_note": "Computer Pilot route only with updated leading-hyphen input handling; no tool errors and exact file passed.",
+          "no_agents_injected": true,
+          "task_window_closed": true
+        },
+        {
+          "label": "vscode-markdown-r1-native",
+          "arm": "native",
+          "scenario": "markdown",
+          "status": "passed",
+          "verified": true,
+          "claimed_complete": true,
+          "elapsed_ms": 128045,
+          "model_calls": 16,
+          "outer_tool_calls": 15,
+          "backend_calls_estimate": 15,
+          "tool_errors": 4,
+          "tool_interval_ms": 13924,
+          "non_tool_interval_ms": 114121,
+          "tokens": {
+            "input_tokens": 774866,
+            "cached_input_tokens": 715136,
+            "output_tokens": 2939,
+            "reasoning_output_tokens": 1403,
+            "total_tokens": 777805
+          },
+          "checks": {
+            "runbook.md_exact": true
+          },
+          "audit_note": "Native VS Code App API only; four tool errors were recovered; exact file passed.",
+          "no_agents_injected": true,
+          "task_window_closed": true
+        }
+      ]
+    }
+  ],
+  "current_fingerprints": {
+    "target/release/cu": "ffecca1c594127683d19cac1b013fbb48aa97be5b8e801a55c8e0f50dc97a76d",
+    "src/main.rs": "2c7c0f4c9b7cf5299ae6c2ea7e016bec0b5540de17d5ac6f3d84283ecccbf644",
+    "src/ax.rs": "6a50e3f607d7995e05f9e1222b8c57c94ca48804a34f2f006e0f3dac918d9ca9",
+    "src/key.rs": "5251329a8fa39bd6a95a0a1b59b5ba291af6ebd22f9e68bab678c139d4d1b3cb",
+    "plugin/skills/computer-pilot/SKILL.md": "e231772c2aaadd73789a4c21bdbb95a8ad930e20d02c7b2296db9e545ec0a5db",
+    "plugin/skills/computer-pilot/references/commands.md": "99fa8d4aee65e268af0d221a982c67ec934fa88f9cd1a1dfd386a2b413752c7d",
+    "plugin/skills/computer-pilot/references/recovery.md": "a0edbf881da2c000da48a5c9efa894be901b9ed50e8c042a48a7c7567357d1d3",
+    "tests/agent/benchmark_varied_workflows.py": "93ea20af94fe840c52187f07816995a3a23e8222b93a1a6fc37402005f72b5cc",
+    "tests/agent/test_benchmark_real_apps.py": "fc9cac180c0ddb4be35b197d9ec5cd9b3b34b144b6fde76c61215eef6cbd80f3"
+  }
+}

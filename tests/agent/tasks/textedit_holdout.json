@@ -1,0 +1,11 @@
+{
+  "mode": "textedit",
+  "ui_only": true,
+  "files": {
+    "brief.txt": "Project Lantern — maintenance handoff\n\nUpcoming window\nDate: 2026-12-18\nOwner: Morgan\nDuration: 40 minutes\nStatus: awaiting review\nTicket: LTN-731 / queue[4]+backup.*\n\nArchived window\nDate: 2026-12-18\nOwner: Morgan\nDuration: 40 minutes\nStatus: awaiting review\nTicket: LTN-730 / queue[4]+backup.*\n\nChecklist\n[ ] verify rollback package\n[ ] notify external customer\n[ ] confirm monitoring\n\nContacts\nPrimary: Morgan — 值班一组\nBackup: Jules — 值班二组\n"
+  },
+  "expected_files": {
+    "brief.txt": "Project Lantern — maintenance handoff\n\nUpcoming window\nDate: 2026-12-21\nOwner: Jules\nDuration: 55 minutes\nStatus: approved internally\nTicket: LTN-731 / queue[4]+backup.*\n\nContacts\nPrimary: Morgan — 值班一组\nBackup: Jules — 值班二组\n\nArchived window\nDate: 2026-12-18\nOwner: Morgan\nDuration: 40 minutes\nStatus: awaiting review\nTicket: LTN-730 / queue[4]+backup.*\n\nChecklist\n[x] verify rollback package\n[ ] notify external customer\n[x] confirm monitoring\n"
+  },
+  "goal": "In the supplied TextEdit plain-text file {input_file}, update only Upcoming window: Date to 2026-12-21, Owner to Jules, Duration to 55 minutes, and Status to approved internally. Move the entire Contacts section immediately after Upcoming window, before Archived window, without changing its contents. Check verify rollback package and confirm monitoring with [x]; leave notify external customer unchecked. Keep Archived window unchanged, including the repeated date, owner, duration and status. Preserve both ticket strings, the document title, Unicode text, one blank line between sections and the final newline. Save the same file and observe the final contents. This is explicitly UI-only: no app scripting, AppleScript, shell document access or whole-document reconstruction from a prewritten answer. No messages or notifications should actually be sent."
+}

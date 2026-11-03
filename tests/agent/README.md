@@ -19,6 +19,39 @@ python3 tests/agent/benchmark_real_apps.py test-results/real-apps-NEW stop LABEL
 python3 tests/agent/benchmark_real_apps.py test-results/real-apps-NEW report
 ```
 
+New cohorts default to **100 model responses and 8,000,000 total tokens** per
+attempt, with no task wall-time deadline. Override either budget at preparation;
+the manifest freezes the resulting values:
+
+```bash
+python3 tests/agent/benchmark_real_apps.py test-results/resource-NEW prepare \
+  --dataset varied --cu-only --repeats 2 --seed 20261102 \
+  --max-model-calls 100 --max-total-tokens 8000000
+python3 tests/agent/run_codex_comparison.py test-results/resource-NEW \
+  --base-profile /path/to/authenticated/profile
+```
+
+This protocol prioritizes exact saved results, then model rounds and token use.
+One round is one recorded model response ID, including discovery, recovery and
+the final response; tool calls and batched CLI actions are separate counters.
+These counters cover the participant, including its skill/API discovery;
+coordinator fixture preparation, independent audits and reporting are outside
+both arms.
+Input includes cached input, and output includes reasoning tokens: report these
+subsets separately without adding them again to total tokens. Uncached input is
+input minus cached input. Historical comparisons must use the same definitions
+and retain failed attempts; do not rank incomplete tasks as cheap successes.
+
+Resource cohorts have no task wall-time deadline. A coordinator checks completed
+usage records every second and interrupts at either budget. An in-flight response
+can overshoot the limit; report actual consumption without clamping. A completed
+task over its budget is also budget-exhausted, even with a correct artifact.
+Twenty minutes without a new event or rollout byte triggers an infrastructure
+watchdog, not a product accuracy failure. Service failures, watchdog stops and
+budget stops keep their recorded tokens and tool evidence; unreported in-flight
+usage is unknown, not zero. Wall time remains diagnostic. Legacy manifests retain
+their original wall-time protocol and are never silently rewritten.
+
 For a fresh cu-only accuracy check with different source content, prepare with
 `--cu-only --dataset alternate`. It freezes one attempt each for TextEdit, VS Code
 and Numbers; it does not rerun native or replace a failed attempt. The alternate
@@ -59,17 +92,18 @@ Audit `claimed_complete` as a boolean alongside `compliant` after reading each
 final response and trace. The report counts saved-artifact successes over all
 planned attempts, and false completion claims over audited, compliant completed
 attempts that claimed success; it reports claim-audit coverage separately.
-Missing claim audits never count as honest reports. Per-app timing medians still
-include successful attempts only. Numbers evaluation also changes quantity and
+Missing claim audits never count as honest reports. Legacy per-app timing medians
+remain diagnostics and include successful attempts only. Numbers evaluation also changes quantity and
 price in the reopened document, checks recalculated totals, then closes without
 saving; constant formulas cannot satisfy the calculation requirement.
 
-The manifest freezes six attempts, one matching dataset per application, with
+The default dataset freezes six attempts, one matching dataset per application, with
 alternating arm order, gpt-6-astra/high, no tier override, application versions
 and binary/skill/coordinator hashes. The same fresh-profile procedure used below
 removes global/project AGENTS and previous model history. Each full task turn
 includes skill/API discovery and setup. App launch, coordinator checks and cleanup
-are outside the timer; the runner enforces the predeclared 600-second wall limit.
+are outside participant counters; the runner enforces the predeclared response
+and token budgets. Existing wall-limited manifests retain their original limits.
 All failures, interruptions, protocol deviations and recovery costs are retained;
 no individual attempt is replaced.
 

@@ -1,0 +1,312 @@
+{
+  "date": "2026-11-02",
+  "classification": "Exploratory clean pilot; one pair per case, not a repeated performance estimate",
+  "settings": {
+    "model": "gpt-6-astra",
+    "reasoning_effort": "high",
+    "service_tier": null
+  },
+  "host": {
+    "os": "macOS 26.5.2",
+    "build": "25F84",
+    "architecture": "arm64"
+  },
+  "product_commit": "388cb44e9ae40f0ffb598061dcff51f99fc04367",
+  "frozen_fingerprints": {
+    "target/release/cu": "4d638753376aafa1987b217b523a2fe2451982746fae466523f6fc5981c55746",
+    "tests/agent/benchmark_real_apps.py": "f6948f3a740480dc3a76a6d1fdfb93b27f250ed6724d94403e1633331869c19c",
+    "tests/agent/tasks/real_apps_scoped.json": "e58043300c6abd26fda75728fc7a599ec5ed535c6a5c121106c35e1db93b03e6",
+    "tests/agent/tasks/textedit_holdout.json": "ee4e80e33e5520a863d756cf0458e5c5bf4ddacf99a088172322297ad2b1f366",
+    "tests/agent/tasks/editor_completion.json": "2f32e8733b32e4c7b639b4fcecf02f4bc8b22b2584645c337faf2d3046007e48",
+    "tests/agent/tasks/editor_varied.json": "f22f494cf2a43e61f1ad93f62fda738bff1109a307daa4c33e71f706ddd6493e",
+    "tests/agent/tasks/finder_varied.json": "9d3047bd2e34b8cfbd09b4c01e98bc781316aa67ce6a6754d79f774d2d79eaf2",
+    "tests/agent/benchmark_varied_workflows.py": "c453866d58e580710fb5c3dbc33e79aeea64144f9717dbdcb26fea1c5792a64f",
+    "tests/agent/collect_codex_benchmark.py": "a35fba949ee73222e5e83eaeb35807ce8b7bfc43727c4db9fae4fa0f692f3d79",
+    "plugin/skills/computer-pilot/SKILL.md": "043731153c083ff229c7f96eb377f869915db389a2b8547928b3d49721919d81",
+    "plugin/skills/computer-pilot/scripts/session.sh": "55f72b0721478a01fb2c3147d382725953e541e79ffe3f8ee541e14652eb163a",
+    "plugin/skills/computer-pilot/references/commands.md": "71f0e2315a61a7caf86eb2cea9a2872e4bb47bcaad65efa76f9bc31473ff533d",
+    "plugin/skills/computer-pilot/references/embedding.md": "336642ed1e10acb21a706004753f8c95204252e185ab989d9fd0e094199386a9",
+    "plugin/skills/computer-pilot/references/permissions.md": "5b4a13b118ba37d74d50e8950bad817df080bafe8355b5db5761008a2019084d",
+    "plugin/skills/computer-pilot/references/recovery.md": "3303bf6d080235fc5e0f6fbe2b97cdc782799eb059e5573420350913025419ba",
+    "plugin/skills/computer-pilot/references/scripting.md": "e666db67d35832e5ff301e663552e8a4c671f5d4ede740bbdec4c5fd9275fd32",
+    "plugin/skills/computer-pilot/references/visual.md": "7879ca3a1cb6b4ff6815a5b277486d31057b141e9c7ba5182efb7ea6329b6956"
+  },
+  "runner_sha256": "c74783f43f035587fb1cc5078037abcddca684f5ee98098373ce39943256b695",
+  "post_run_harness_sha256": "7a94568ca0459500cebef88f8b9938cb086e39d2b63cff64b606d4f06263212c",
+  "post_run_change": "Clipboard restore script now concatenates serialized parameters instead of sequential placeholder replacement; tested ROOT/SAVED literals. No product, skill, task or participant evidence changes.",
+  "protocol": {
+    "timer": "Full model turn including skill/API discovery; coordinator setup/verification/cleanup excluded",
+    "route": "UI-only for both arms",
+    "isolation": "Fresh profile, thread, neutral cwd, fixtures and cu runtime; cleared clipboard; project docs and memories disabled; actual context and all tool arguments audited",
+    "application_sessions": "Dedicated task windows in shared Finder and TextEdit processes; app preferences and desktop are not reset between arms",
+    "order": "cu then native for both cases; one pair each, no counterbalanced conclusion",
+    "clipboard_backups": "Private and excluded from this artifact",
+    "tool_calls": "Outer shell or CUA tool calls, including discovery; not individual backend actions",
+    "tool_errors": "Outer calls reporting an error; does not count all silent effect failures",
+    "non_tool_interval": "Residual elapsed time, includes model/network/orchestration; not pure inference",
+    "post_save_tool_calls": "Calls ending after first exact passive file observation, including overlap; not necessarily redundant"
+  },
+  "cohorts": [
+    {
+      "id": "codex-matrix-clean-20261102-b",
+      "dataset": "finder",
+      "app_versions": {
+        "finder": "26.4"
+      },
+      "planned_order": [
+        "finder-organize-r1-cu",
+        "finder-organize-r1-native"
+      ],
+      "actual_order": [
+        "finder-organize-r1-cu",
+        "finder-organize-r1-native"
+      ],
+      "attempts": [
+        {
+          "label": "finder-organize-r1-cu",
+          "arm": "cu",
+          "mode": "finder",
+          "status": "passed",
+          "source_sha256": "75b0ae9cc605acaf532a4883e55cf3982f6b849ed14994525257e2dbbe0a36bd",
+          "evidence_sha256": {
+            "brief.txt": "5bc42bda9158af99341f09f5fc7252ac262278be07a1b40283818103bcf84b18",
+            "source.json": "75b0ae9cc605acaf532a4883e55cf3982f6b849ed14994525257e2dbbe0a36bd",
+            "saved.json": "dc0a7cab53520fe8814c5955e623ae5b28392ba0868258cb661632fb151f4d65",
+            "trace.json": "9ff9464143026abac11b05128416c0d7d77d8174a88a9b03ccac64046e359675"
+          },
+          "timeline": {
+            "save_observation_count": 4,
+            "first_exact_index": 2,
+            "post_save_tool_calls": 3,
+            "post_save_tool_errors": 0
+          },
+          "verification_checks": {
+            "Incoming/beta.txt_exact": true,
+            "Incoming/notes.txt_exact": true,
+            "Ready/alpha.txt_exact": true,
+            "Ready/archive-approved.txt_exact": true,
+            "file_set_exact": true
+          },
+          "audit": {
+            "compliant": true,
+            "claimed_complete": true,
+            "note": "Reviewed full command trace: assigned cu UI route only, skill/reference reads and task launcher permitted, no direct document IO or scripting. Pasteboard cleared before the turn. Actual cmd+c from current Incoming preceded successful paste; requested rename was performed and corrected visibly. Exact file-set/content verifier passed. Shared Finder process; task-owned copies and recoverable deletions occurred during recovery.",
+            "runtime_context_no_agents_injected": true,
+            "strategy_notes": [
+              "Three attempts to open a list item before keyboard navigation.",
+              "Unsupported Finder Cut, duplicate paste/move attempts, and extension corrections added recovery.",
+              "Some deterministic actions were grouped, but grouping crossed navigation boundaries."
+            ]
+          },
+          "no_agents_injected": true,
+          "elapsed_ms": 253811,
+          "model_calls": 34,
+          "tool_calls": 33,
+          "tool_errors": 4,
+          "tool_interval_ms": 12461,
+          "non_tool_interval_ms": 241350,
+          "tokens": {
+            "input_tokens": 1610259,
+            "cached_input_tokens": 1543168,
+            "output_tokens": 7939,
+            "reasoning_output_tokens": 5385,
+            "total_tokens": 1618198
+          },
+          "clipboard_cleanup": "skipped_changed",
+          "task_window_closed": true
+        },
+        {
+          "label": "finder-organize-r1-native",
+          "arm": "native",
+          "mode": "finder",
+          "status": "passed",
+          "source_sha256": "75b0ae9cc605acaf532a4883e55cf3982f6b849ed14994525257e2dbbe0a36bd",
+          "evidence_sha256": {
+            "brief.txt": "05244c370ec65db6b7a17b83ebf5eab99a2077fe4e0dadc4e7238a19aedebd1c",
+            "source.json": "75b0ae9cc605acaf532a4883e55cf3982f6b849ed14994525257e2dbbe0a36bd",
+            "saved.json": "dc0a7cab53520fe8814c5955e623ae5b28392ba0868258cb661632fb151f4d65",
+            "trace.json": "cf6a55e5fd25555fbb25ae2cd6da599dcb784575405eeaa53fe25b1f6d75bdf8"
+          },
+          "timeline": {
+            "save_observation_count": 4,
+            "first_exact_index": 2,
+            "post_save_tool_calls": 4,
+            "post_save_tool_errors": 0
+          },
+          "verification_checks": {
+            "Incoming/beta.txt_exact": true,
+            "Incoming/notes.txt_exact": true,
+            "Ready/alpha.txt_exact": true,
+            "Ready/archive-approved.txt_exact": true,
+            "file_set_exact": true
+          },
+          "audit": {
+            "compliant": true,
+            "claimed_complete": true,
+            "runtime_context_no_agents_injected": true,
+            "note": "Reviewed all tool arguments and final result: native Finder App APIs only, no shell/document IO or scripting. Pasteboard cleared before the turn. Coordinates followed Finder screenshots. Selected current Incoming files with Copy and Move Item Here, then renamed archive; independent exact file set and content oracle passed. Dedicated test window closed; shared Finder process retained.",
+            "strategy_notes": [
+              "Unsupported Finder Cut and ineffective rename attempts required recovery.",
+              "A stale element ID after navigation and one unavailable screenshot returned tool errors.",
+              "Menu remained open across Escape/navigation attempts; repeated full-tree observations and menu recovery added rounds."
+            ]
+          },
+          "no_agents_injected": true,
+          "elapsed_ms": 344145,
+          "model_calls": 62,
+          "tool_calls": 61,
+          "tool_errors": 2,
+          "tool_interval_ms": 37395,
+          "non_tool_interval_ms": 306750,
+          "tokens": {
+            "input_tokens": 3041248,
+            "cached_input_tokens": 2969728,
+            "output_tokens": 8058,
+            "reasoning_output_tokens": 4763,
+            "total_tokens": 3049306
+          },
+          "clipboard_cleanup": "restored",
+          "task_window_closed": true
+        }
+      ]
+    },
+    {
+      "id": "codex-matrix-holdout-20261102-a",
+      "dataset": "holdout",
+      "app_versions": {
+        "textedit": "1.20"
+      },
+      "planned_order": [
+        "textedit-1-cu",
+        "textedit-1-native"
+      ],
+      "actual_order": [
+        "textedit-1-cu",
+        "textedit-1-native"
+      ],
+      "attempts": [
+        {
+          "label": "textedit-1-cu",
+          "arm": "cu",
+          "mode": "textedit",
+          "status": "passed",
+          "source_sha256": "2d3731edf6b21e558faacc7894395d5ecd2ef4f73ffbbf0e8ccfb3ede7b02936",
+          "evidence_sha256": {
+            "brief.txt": "6dfa02edcebecc4a88c6280c85f173f1165899215885ece65e6c73d7bb8bdab5",
+            "source.json": "2d3731edf6b21e558faacc7894395d5ecd2ef4f73ffbbf0e8ccfb3ede7b02936",
+            "saved.json": "2482602d1e2256c3ccafc10bcc9d0c2694d42298a508c7841e2c2e51f5b43f74",
+            "trace.json": "2feb3368dbff86e705a023b767ccb5deb60dbbf4b254cc0ddcadcfcca398de48"
+          },
+          "timeline": {
+            "save_observation_count": 3,
+            "first_exact_index": 1,
+            "post_save_tool_calls": 1,
+            "post_save_tool_errors": 0
+          },
+          "verification_checks": {
+            "brief.txt_exact": true
+          },
+          "audit": {
+            "compliant": true,
+            "claimed_complete": true,
+            "runtime_context_no_agents_injected": true,
+            "note": "Reviewed all commands: packaged skill/reference reads, task launcher initialization and cu UI actions only. No direct document IO, application scripting, oracle feedback or whole-document replacement. Local section insertion used text already observed in the assigned UI. Exact saved bytes passed after selection/heading/blank-line recovery. Shared TextEdit process retained and task window closed.",
+            "strategy_notes": [
+              "Grouped field changes preserved the similar archived section.",
+              "Unsupported ArrowDown alias and an unchanged search-field write produced two errors.",
+              "Home did not clear the search selection: section insertion replaced Archived window. Model repaired the heading and extra newlines from returned UI state."
+            ]
+          },
+          "no_agents_injected": true,
+          "elapsed_ms": 189860,
+          "model_calls": 19,
+          "tool_calls": 18,
+          "tool_errors": 2,
+          "tool_interval_ms": 7793,
+          "non_tool_interval_ms": 182067,
+          "tokens": {
+            "input_tokens": 601814,
+            "cached_input_tokens": 554112,
+            "output_tokens": 7504,
+            "reasoning_output_tokens": 4950,
+            "total_tokens": 609318
+          },
+          "clipboard_cleanup": "skipped_changed",
+          "task_window_closed": true
+        },
+        {
+          "label": "textedit-1-native",
+          "arm": "native",
+          "mode": "textedit",
+          "status": "passed",
+          "source_sha256": "2d3731edf6b21e558faacc7894395d5ecd2ef4f73ffbbf0e8ccfb3ede7b02936",
+          "evidence_sha256": {
+            "brief.txt": "cbee9fe15dbee49c400109c500f9d0410b0b7db63c33f03685f02128b8bfd050",
+            "source.json": "2d3731edf6b21e558faacc7894395d5ecd2ef4f73ffbbf0e8ccfb3ede7b02936",
+            "saved.json": "2482602d1e2256c3ccafc10bcc9d0c2694d42298a508c7841e2c2e51f5b43f74",
+            "trace.json": "311b55587a04e8978a5458f5b2170cd5c3feca2920014b47b04a39cd024b2448"
+          },
+          "timeline": {
+            "save_observation_count": 3,
+            "first_exact_index": 1,
+            "post_save_tool_calls": 1,
+            "post_save_tool_errors": 0
+          },
+          "verification_checks": {
+            "brief.txt_exact": true
+          },
+          "audit": {
+            "compliant": true,
+            "claimed_complete": true,
+            "runtime_context_no_agents_injected": true,
+            "note": "Reviewed complete tool trace: native TextEdit App APIs only, no direct document IO, application scripting, oracle feedback or whole-document replacement. Text selections used observed document contents. Exact saved bytes passed after checklist/spacing recovery. Task window closed and shared TextEdit process retained.",
+            "strategy_notes": [
+              "Used contextual selectText instead of Find/keyboard navigation.",
+              "A grouped selection failed after an earlier edit; one full state refresh preceded retry.",
+              "Checklist typing changed characters and joined lines despite successful dispatch; observed state triggered undo and smaller edits.",
+              "Moved Contacts via cut/paste and repaired section/trailing spacing before saving."
+            ]
+          },
+          "no_agents_injected": true,
+          "elapsed_ms": 154833,
+          "model_calls": 17,
+          "tool_calls": 16,
+          "tool_errors": 1,
+          "tool_interval_ms": 12574,
+          "non_tool_interval_ms": 142259,
+          "tokens": {
+            "input_tokens": 500277,
+            "cached_input_tokens": 476288,
+            "output_tokens": 5286,
+            "reasoning_output_tokens": 3979,
+            "total_tokens": 505563
+          },
+          "clipboard_cleanup": "skipped_changed",
+          "task_window_closed": true
+        }
+      ]
+    }
+  ],
+  "excluded_prior_cohort": [
+    {
+      "label": "finder-rename-r1-cu",
+      "status": "excluded",
+      "reason": "Pre-isolation cohort: no clipboard dependency was found in this rename trace, but clipboard setup was not standardized. Retain as diagnostic evidence only; do not pool with clipboard-isolated trials. Reviewed complete command/API trace: only assigned backend and task-owned UI; no direct document IO, scripting, oracle feedback or inherited project instructions. Shared Finder process with a fresh task-owned workspace. Model mistakes and recovery are retained."
+    },
+    {
+      "label": "finder-rename-r1-native",
+      "status": "excluded",
+      "reason": "Pre-isolation cohort: no clipboard dependency was found in this rename trace, but clipboard setup was not standardized. Retain as diagnostic evidence only; do not pool with clipboard-isolated trials. Reviewed complete command/API trace: only assigned backend and task-owned UI; no direct document IO, scripting, oracle feedback or inherited project instructions. Shared Finder process with a fresh task-owned workspace. Model mistakes and recovery are retained."
+    },
+    {
+      "label": "finder-organize-r1-cu",
+      "status": "excluded",
+      "reason": "Confirmed cross-trial clipboard contamination: task used Cmd-X (unsupported for Finder files), then pasted a pre-existing archive-approved.txt without any rename action. It later deleted the original Incoming files. Exact path/content oracle passed but did not establish source ownership; excluded from clean comparisons. Retained unchanged; clipboard-isolated retest is cohort b."
+    },
+    {
+      "label": "finder-organize-r1-native",
+      "status": "excluded",
+      "reason": "Clipboard was not reset before this cohort. Retained as exploratory evidence; paired clean organize comparison is rerun in cohort b."
+    }
+  ]
+}
