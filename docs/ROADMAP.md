@@ -7,21 +7,28 @@
 > - [`competitive-analysis.md`](./competitive-analysis.md) — feature grid across projects (factual snapshot)
 > - This doc — execution plan + progress log (live)
 
-Last reconciled: **2026-11-03**, against published **v0.9.3** (`14b1a1c`).
+Last reconciled: **2026-11-03**, against published **v0.9.4** (`995d692`).
 This page owns release status and remaining work. Dated sprint notes below are
 historical evidence; their line numbers, test counts, model comparisons and
 timing estimates are not current acceptance criteria.
 
 ## Release status
 
-- **v0.9.4 candidate**: [draft release PR #52](https://github.com/relixiaobo/computer-pilot/pull/52)
-  is prepared with all version surfaces aligned. Local verification on the
-  v0.9.4 binary passed: 46 Rust tests, **890 L1 passes, zero failures, 24 explicit
-  skips**, plus metadata, formatting, Clippy and release build. L2 uses the
-  explicitly selected [reviewed Luna 3/3 evidence](../tests/agent/results/2026-11-03-notes-title-retest.md),
-  whose source hashes matched before the version bump. Hosted CI status is on
-  the PR. Review/merge, protected tagging/publication and stable promotion remain.
-  The current published/stable release is still v0.9.3.
+- [v0.9.4](https://github.com/relixiaobo/computer-pilot/releases/tag/v0.9.4)
+  was published on 2026-11-03 after [release PR #52](https://github.com/relixiaobo/computer-pilot/pull/52)
+  merged. The protected [Tag Release / publication workflow](https://github.com/relixiaobo/computer-pilot/actions/runs/41648919115)
+  completed Developer ID signing and Apple notarization. All 11 assets are
+  uploaded; five checksum files and all four index-listed asset digests were
+  independently verified, and the downloaded binary reports `cu 0.9.4`.
+  `promote-skill-stable.sh 0.9.4` passed its signature, checksum and version
+  gates and advanced `skill-stable` to the release commit `995d692`.
+- v0.9.4 local verification: 46 Rust tests, **890 L1 passes, zero failures,
+  24 explicit skips**, plus metadata, formatting, Clippy and release build.
+  Release PR CI passed, including the 47 Python checks. L2 used the explicitly
+  selected [reviewed Luna 3/3 evidence](../tests/agent/results/2026-11-03-notes-title-retest.md),
+  whose required source hashes matched before the version bump. The API runner
+  was not rerun. PRs #48–#52 include the post-v0.9.3 guidance, app identity/input
+  recovery, L2 discovery and reviewed-evidence release integration fixes.
 - [v0.9.3](https://github.com/relixiaobo/computer-pilot/releases/tag/v0.9.3)
   was published on 2026-11-03 with Developer ID signing and Apple notarization.
   CLI, skill and plugin archives are available. `skill-stable` was promoted to
@@ -645,3 +652,4 @@ Acceptance: every action command leaves the user's real cursor alone, doesn't st
 | Sprint 2 — VLM bridge + CLI craft + closed-loop precision | ✅ complete | 2026-04-27 | Historical 27-command milestone; current public CLI has 31 commands including recovery |
 | Sprint 3 — long-term capabilities | shipped capabilities; E1/E2 deferred | 2026-04-27 onward | A2 axPath + D8 AX warmup + B7 cu why shipped; A5 dropped (CDP); no active macOSWorld baseline/dashboard run |
 | Post-v0.9.2 work | released in v0.9.3 | 2026-11-03 | O1/O2 complete; virtual cursor, action/snapshot simplification, reliability fixes and benchmark evidence shipped; O3/O4 remain follow-up candidates |
+| Post-v0.9.3 fixes | released in v0.9.4 | 2026-11-03 | App identity/input recovery, Notes guidance, L2 task discovery and reviewed external acceptance; signed/notarized assets published and skill-stable promoted |
