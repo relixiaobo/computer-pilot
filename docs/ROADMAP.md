@@ -7,13 +7,37 @@
 > - [`competitive-analysis.md`](./competitive-analysis.md) — feature grid across projects (factual snapshot)
 > - This doc — execution plan + progress log (live)
 
-Last reconciled: **2026-11-03**, against published **v0.9.4** (`995d692`).
+Last reconciled: **2026-11-04** (Asia/Shanghai), against published **v0.9.5** (`f0ef27f`).
 This page owns release status and remaining work. Dated sprint notes below are
 historical evidence; their line numbers, test counts, model comparisons and
 timing estimates are not current acceptance criteria.
 
 ## Release status
 
+- [v0.9.5](https://github.com/relixiaobo/computer-pilot/releases/tag/v0.9.5)
+  was published on 2026-11-04 (Asia/Shanghai) after
+  [release PR #56](https://github.com/relixiaobo/computer-pilot/pull/56) merged.
+  The maintainer explicitly authorized proceeding without waiting for hosted
+  PR CI after prolonged runner queueing; that CI ended cancelled, not passed.
+  The protected [Tag Release / publication workflow](https://github.com/relixiaobo/computer-pilot/actions/runs/41736063600)
+  passed, including Developer ID signing and Apple notarization. All 11 assets,
+  five checksum files and four index-listed digests were verified. The downloaded
+  binary reports `cu 0.9.5`; packaged Skill/plugin scripts are non-executable,
+  and their Skill content and manifest match the release source.
+  `promote-skill-stable.sh 0.9.5` passed all gates and advanced `skill-stable`
+  to the release commit `f0ef27f`.
+- v0.9.5 includes [PR #54](https://github.com/relixiaobo/computer-pilot/pull/54):
+  managed-host installation guidance, runtime inheritance of host environment,
+  non-executable Skill scripts invoked through `sh`, and signature validation
+  before executing an installed binary's version probe. Local verification
+  passed metadata, formatting, Clippy, 46 Rust tests and release build; the
+  full L1 run recorded **892 passes, one launch-state failure, 24 explicit skips**.
+  A diagnostic launch rerun and the unchanged launch suite both passed; the
+  initial foreground/pointer change was not attributed. Unaffected passing
+  checks were reused. Python checks passed 47/47. Fresh
+  [Luna L2 acceptance](../tests/agent/results/2026-11-03-v0.9.5-acceptance.md)
+  passed 3/3 tasks and cleanup, with source hashes checked before the version
+  bump. The API runner and real managed-host artifact adoption were not tested.
 - [v0.9.4](https://github.com/relixiaobo/computer-pilot/releases/tag/v0.9.4)
   was published on 2026-11-03 after [release PR #52](https://github.com/relixiaobo/computer-pilot/pull/52)
   merged. The protected [Tag Release / publication workflow](https://github.com/relixiaobo/computer-pilot/actions/runs/41648919115)
@@ -653,3 +677,4 @@ Acceptance: every action command leaves the user's real cursor alone, doesn't st
 | Sprint 3 — long-term capabilities | shipped capabilities; E1/E2 deferred | 2026-04-27 onward | A2 axPath + D8 AX warmup + B7 cu why shipped; A5 dropped (CDP); no active macOSWorld baseline/dashboard run |
 | Post-v0.9.2 work | released in v0.9.3 | 2026-11-03 | O1/O2 complete; virtual cursor, action/snapshot simplification, reliability fixes and benchmark evidence shipped; O3/O4 remain follow-up candidates |
 | Post-v0.9.3 fixes | released in v0.9.4 | 2026-11-03 | App identity/input recovery, Notes guidance, L2 task discovery and reviewed external acceptance; signed/notarized assets published and skill-stable promoted |
+| Managed-host integration | released in v0.9.5 | 2026-11-04 | Skill acquisition, runtime environment inheritance and signature-before-execution fixes; signed/notarized assets published and skill-stable promoted |
