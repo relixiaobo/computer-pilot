@@ -14,6 +14,14 @@ timing estimates are not current acceptance criteria.
 
 ## Release status
 
+- **v0.9.4 candidate**: [draft release PR #52](https://github.com/relixiaobo/computer-pilot/pull/52)
+  is prepared with all version surfaces aligned. Local verification on the
+  v0.9.4 binary passed: 46 Rust tests, **890 L1 passes, zero failures, 24 explicit
+  skips**, plus metadata, formatting, Clippy and release build. L2 uses the
+  explicitly selected [reviewed Luna 3/3 evidence](../tests/agent/results/2026-11-03-notes-title-retest.md),
+  whose source hashes matched before the version bump. Hosted CI status is on
+  the PR. Review/merge, protected tagging/publication and stable promotion remain.
+  The current published/stable release is still v0.9.3.
 - [v0.9.3](https://github.com/relixiaobo/computer-pilot/releases/tag/v0.9.3)
   was published on 2026-11-03 with Developer ID signing and Apple notarization.
   CLI, skill and plugin archives are available. `skill-stable` was promoted to
@@ -91,7 +99,8 @@ also passed, with all fixtures cleaned. Skill validation, 46 Rust tests and 39
 Python tests passed. This closes the observed title failure in the new cohort;
 the earlier failure remains historical evidence. It is the user-approved Codex
 alternative, not a successful API-runner invocation. Release preparation must
-retain that distinction; no release PR or version bump has been made.
+retain that distinction. No release PR or version bump had been made at that
+acceptance checkpoint; the candidate status above tracks subsequent preparation.
 
 Release preparation now supports an explicit `--agent-evidence=<report.json>`
 route. It requires a tracked, reviewed report with every current task/check

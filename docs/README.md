@@ -2,6 +2,7 @@
 
 Start with [release status and remaining work](ROADMAP.md). The latest recorded
 release is **v0.9.3**, published and promoted to `skill-stable` on 2026-11-03.
+The **v0.9.4** candidate is prepared in [draft release PR #52](https://github.com/relixiaobo/computer-pilot/pull/52); publication and stable promotion follow the protected release flow.
 For a new task, use the current working agreement and CLI reference below;
 dated research and benchmark reports preserve evidence from their own runs.
 
