@@ -112,10 +112,12 @@ and the binary follows automatically. To run the installer yourself:
 ```bash
 git clone --depth 1 https://github.com/relixiaobo/computer-pilot.git
 cd computer-pilot/plugin/skills/computer-pilot
+requirement="$(sed -n 's/.*"requirement": "\(.*\)",/\1/p' compatibility.json)"
+requirement="${requirement//\\\"/\"}"
 sh scripts/install-native.sh \
   --version "$(sed -n 's/^  "version": "\(.*\)",$/\1/p' compatibility.json | head -1)" \
   --repository relixiaobo/computer-pilot \
-  --requirement "$(python3 -c 'import json; print(json.load(open("compatibility.json"))["installation"]["signing"]["requirement"])')"
+  --requirement "$requirement"
 export PATH="${XDG_DATA_HOME:-$HOME/.local/share}/computer-pilot/bin:$PATH"
 cu setup
 ```
