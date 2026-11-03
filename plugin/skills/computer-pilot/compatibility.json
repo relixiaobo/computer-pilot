@@ -1,12 +1,12 @@
 {
   "schema_version": 2,
-  "version": "0.9.2",
+  "version": "0.9.3",
   "integration_model": "skill-shell-cli",
   "cli": {
     "name": "cu",
-    "version": "0.9.2",
-    "tested_version": "0.9.2",
-    "minimum_version": "0.9.2",
+    "version": "0.9.3",
+    "tested_version": "0.9.3",
+    "minimum_version": "0.9.3",
     "machine_schema_version": "1.0"
   },
   "private_broker_protocol": 8,
@@ -24,8 +24,8 @@
     "command_path": "${XDG_DATA_HOME:-$HOME/.local/share}/computer-pilot/bin/cu",
     "signing": {
       "identifier": "com.linlab.computer-pilot.cu",
-      "requirement": null,
-      "required_status": "ad-hoc-unsigned"
+      "requirement": "identifier \"com.linlab.computer-pilot.cu\" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate leaf[subject.OU] = \"5NQ98WCWPD\"",
+      "required_status": "developer-id-notarized"
     }
   },
   "requires": {

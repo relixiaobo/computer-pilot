@@ -38,6 +38,11 @@ jobs:
           fi
           VERSION="${TAG#v}"
           bash scripts/check-version-sync.sh "$VERSION"
+          REQUIRED_STATUS="$(sed -n 's/.*"required_status": "\([^"]*\)".*/\1/p' plugin/skills/computer-pilot/compatibility.json)"
+          if [[ "$REQUIRED_STATUS" == "developer-id-notarized" && "$HAS_DEVELOPER_ID" != "true" ]]; then
+            echo "Refusing to publish: $TAG requires Developer ID signing and notarization, but the release environment is missing one or more signing secrets." >&2
+            exit 1
+          fi
       - name: Build Apple Silicon binary
         run: cargo build --release --locked --target aarch64-apple-darwin
       - name: Import Developer ID certificate
