@@ -72,10 +72,12 @@ binary with a newer skill.
 
 ## Files
 
-Create one output directory per task with permissions appropriate for the
-current user. Pass it through the environment on every CLI invocation. The
+Provide an output directory per shell execution with permissions appropriate
+for the current user, and inherit it on every CLI invocation in that execution.
+Preserve the host-supplied directory; use a task-owned fallback only when none
+is supplied. Reused launchers must not retain a previous execution's path. The
 private Broker transports the current request's directory to the worker; it
-must not reuse another Agent's directory.
+must not reuse another execution's or Agent's directory.
 
 Read returned absolute paths with the host's normal file or vision feature.
 
@@ -87,7 +89,7 @@ Test at least:
 - parallel reads and serialized same-target mutations;
 - user UI changes producing `stale_observation` before action dispatch;
 - request replay, conflict, cancellation, expiration, and `unknown_outcome`;
-- independent task output directories with no overwrite or symlink traversal;
+- independent execution output directories with no overwrite or symlink traversal;
 - permission continuity across an official version upgrade (the fixed
   `<install-root>/bin/cu` realpath must not change and the atomic replace
   must preserve existing TCC grants for signed identities);

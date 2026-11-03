@@ -97,4 +97,29 @@ for call in ['one', 'two']:
 PYTEST
 _pass "reused documented launcher inherits current host output, identity and install paths"
 
+section "reference examples — preserve host output and recovery identity"
+python3 - "$ROOT_DIR" "$TMP_ROOT" <<'PYTEST'
+import os, pathlib, subprocess, sys
+root, tmp = map(pathlib.Path, sys.argv[1:])
+fake = tmp / "cu"
+fake.write_text('#!/bin/sh\nprintf "%s\\n" "$COMPUTER_PILOT_CLIENT_KEY" "$COMPUTER_PILOT_OUTPUT_DIR"\n')
+fake.chmod(0o700)
+env = dict(os.environ, PATH=str(tmp) + os.pathsep + os.environ["PATH"])
+env.pop("COMPUTER_PILOT_CLIENT_KEY", None)
+env.pop("COMPUTER_PILOT_OUTPUT_DIR", None)
+for name, fallback in [
+    ("visual.md", ["", "/absolute/task-output"]),
+    ("recovery.md", ["agent.invoice-workflow", ""]),
+]:
+    text = (root / "plugin/skills/computer-pilot/references" / name).read_text()
+    example = text.split("```bash\n", 1)[1].split("\n```", 1)[0]
+    for call in ["execution one", "execution two"]:
+        fields = dict(COMPUTER_PILOT_CLIENT_KEY="host-thread", COMPUTER_PILOT_OUTPUT_DIR=str(tmp / call))
+        actual = subprocess.check_output(["sh", "-eu", "-c", example], env={**env, **fields}, text=True).splitlines()
+        assert actual == list(fields.values()), (name, actual, fields)
+    actual = subprocess.check_output(["sh", "-eu", "-c", example], env=env, text=True).splitlines()
+    assert actual == fallback, (name, actual, fallback)
+PYTEST
+_pass "visual and recovery examples preserve host values across calls and default only when absent"
+
 summary

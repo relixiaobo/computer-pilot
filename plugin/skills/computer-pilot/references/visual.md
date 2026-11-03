@@ -21,10 +21,11 @@ can use `click --text` directly when its region/uniqueness is established;
 that command performs OCR itself. Use a current visual target when AX is absent
 or demonstrably unusable, not merely because a previous ref became stale.
 
-Set the task output directory first:
+Preserve the host's output directory for the current shell execution. Set a
+task-owned fallback only when the host has not supplied one:
 
 ```bash
-export COMPUTER_PILOT_OUTPUT_DIR="/absolute/task-output"
+export COMPUTER_PILOT_OUTPUT_DIR="${COMPUTER_PILOT_OUTPUT_DIR:-/absolute/task-output}"
 cu snapshot Mail --limit 80 --annotated
 ```
 
