@@ -60,6 +60,18 @@ has focused. Use PID-targeted `cu key`/`cu type` with `--app` instead. Do not
 answer that refusal with `--allow-disruptive`; it exists only for workflows
 that genuinely require user-visible foreground activation.
 
+## Notes Title And Body
+
+Apple Notes derives a note's name from the first line of its body. Replacing
+`body` can therefore rename the note, even if creation supplied a `name`.
+Keep the requested title once as the first heading/line of the HTML body.
+For a new note, a body containing that title can establish both title and
+content; supplying both a `name` and the same body heading can duplicate it.
+Retain the created note's `id` before further edits so a renamed note remains
+addressable. After the final body edit, return its `name` and `plaintext`
+together and check both against the request. Removing a repeated heading must
+leave one title line, not remove the title altogether.
+
 ## Automation Permission
 
 Automation is granted separately for every target app. `cu setup` cannot report

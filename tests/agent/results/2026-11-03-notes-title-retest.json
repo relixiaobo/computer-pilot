@@ -1,0 +1,184 @@
+{
+  "date": "2026-11-03",
+  "base_commit": "2cf056183995b28b230962cf63306a42ff42e93f",
+  "change": "Notes title/body guidance and final name plus content verification; no CLI behavior change",
+  "execution": "Fresh sequential Codex collaboration agents, model gpt-6-luna, same task goals and Python fixture/oracle functions; no mid-task hints",
+  "reasoning_effort": "not overridden",
+  "passed": 3,
+  "total": 3,
+  "api_runner_rerun": false,
+  "results": [
+    {
+      "task_id": "mail-to-notes",
+      "model": "gpt-6-luna",
+      "agent": "/root/luna_mail_retest",
+      "agent_status": "done",
+      "verified": true,
+      "checks": [
+        {
+          "check": "Note exists with correct title",
+          "passed": true,
+          "skipped": false
+        },
+        {
+          "check": "Note contains the exact subjects of the 3 globally newest inbox messages (cross-check)",
+          "passed": true,
+          "skipped": false
+        },
+        {
+          "check": "Note is not empty / not just subjects",
+          "passed": true,
+          "skipped": false
+        }
+      ],
+      "cleanup_errors": [],
+      "shell_calls_self_reported": 11,
+      "reported_errors": [
+        "Mail read timed out; narrower read succeeded"
+      ]
+    },
+    {
+      "task_id": "finder-organize",
+      "model": "gpt-6-luna",
+      "agent": "/root/luna_inventory_retest",
+      "agent_status": "done",
+      "verified": true,
+      "checks": [
+        {
+          "check": "Note exists",
+          "passed": true,
+          "skipped": false
+        },
+        {
+          "check": "Note contains actual desktop file names (cross-check)",
+          "passed": true,
+          "skipped": false
+        }
+      ],
+      "cleanup_errors": [],
+      "shell_calls_self_reported": 4,
+      "reported_errors": []
+    },
+    {
+      "task_id": "calendar-reminder",
+      "model": "gpt-6-luna",
+      "agent": "/root/luna_calendar_retest",
+      "agent_status": "done",
+      "verified": true,
+      "checks": [
+        {
+          "check": "Calendar event exists with reminder name",
+          "passed": true,
+          "skipped": false
+        },
+        {
+          "check": "Event title matches reminder name (cross-check) (cross-check)",
+          "passed": true,
+          "skipped": false
+        }
+      ],
+      "cleanup_errors": [],
+      "shell_calls_self_reported": 2,
+      "reported_errors": []
+    }
+  ],
+  "supplementary_checks": {
+    "notes_title": "exact requested title and one title line",
+    "inventory": "all 7 desktop item names and kinds present",
+    "calendar": "exactly one event tomorrow at 10:00"
+  },
+  "validation": {
+    "skill_validator": "passed",
+    "verify_skip_desktop": "passed",
+    "rust_tests": 46,
+    "python_tests": 39,
+    "full_l1_rerun": false,
+    "owned_notes_reproduction": "passed and cleaned"
+  },
+  "source_sha256": {
+    "Cargo.lock": "ef94a72d63f05fe3a3e787e21881e2c03217cfb96cb5f5fd5cf5a6396f00a4b6",
+    "Cargo.toml": "30f767268b5b53dba42d1ec84e7a0f9c907593147e650610efe84baa1f9e8cec",
+    "plugin/skills/computer-pilot/SKILL.md": "5a2680a939043da11bea368f98771f4aae4b477432fd75de7c4b96d83f673bc4",
+    "plugin/skills/computer-pilot/agents/openai.yaml": "214b5e3d940a34c55bf506b5bf6c50871663f713c94b821c6d293535cfbc26c2",
+    "plugin/skills/computer-pilot/compatibility.json": "aae0f3870b026b4589aff714f3440f606102abf9c50ec8a20a7a7f23c4b5578e",
+    "plugin/skills/computer-pilot/references/commands.md": "368069c885993825f777f224a2c65e9ab2c29f33e54af850ddc70f5fed3c7b58",
+    "plugin/skills/computer-pilot/references/embedding.md": "336642ed1e10acb21a706004753f8c95204252e185ab989d9fd0e094199386a9",
+    "plugin/skills/computer-pilot/references/permissions.md": "fc0cf0b23fd61c85e739286c2f72f18199b98fe58d76d77ef8bc67c3725d61db",
+    "plugin/skills/computer-pilot/references/recovery.md": "02c06fbc415c3819a67c5bc7580081eccf62ce6c466852374d0a4ad704cf6dcb",
+    "plugin/skills/computer-pilot/references/scripting.md": "a96dd5919adf7703005772ac1c29526725e3a58dca577e0b1c5c10a7915983cd",
+    "plugin/skills/computer-pilot/references/visual.md": "2ad1bd40713f4eebefc37bfd332ed16a5d74bfd98d0ed5e1faf5b06fda7de79d",
+    "plugin/skills/computer-pilot/scripts/install-native.sh": "5317fa5c8c6e310f0ad52442011d5921c717cd7aacb9f53a4c9a96c3b9c2e47a",
+    "plugin/skills/computer-pilot/scripts/session.sh": "55f72b0721478a01fb2c3147d382725953e541e79ffe3f8ee541e14652eb163a",
+    "src/ax.rs": "72bf24b8bef50055e252965129d825de233528cdef89c8702c3118555e4cc10a",
+    "src/broker.rs": "d4caa9e71697ad4b5586a00a91bb3eab3e4130c4d4b8b840fce70caa347d0958",
+    "src/compact.rs": "3ee03c36605e2d932acb6c40f629b2dd9267a590506916d42a4eb1c2200161ce",
+    "src/diff.rs": "7842a44037444a9b85f0b8a333d9b1aa016454adad3ed1bb18b00577106994d4",
+    "src/display.rs": "29b0f5504f2cc840e1ae5b06b6b4726d957adfd558b6f5fd3de04f28efff4afd",
+    "src/error.rs": "a649dc1e3f83a34453446a3534c69f96ccae620ff2f840eff48b1ae7e04cfc1b",
+    "src/file_result.rs": "7b45f068380672b474a4019eaafe291f8769ef74d817b18f720803545429708f",
+    "src/key.rs": "5251329a8fa39bd6a95a0a1b59b5ba291af6ebd22f9e68bab678c139d4d1b3cb",
+    "src/main.rs": "9b94088e750a16179e7bf6e53408c23dbcf6dadb04c27dff504212479e02849f",
+    "src/mouse.rs": "ccefe2d58e083d9f2562d6c3a052d48c7640be60a37aeca9204dc9c26c5e1944",
+    "src/observer.rs": "689984e11b93bdd601fd502f51ae4a191e382491745b44a7bb3448c4e1d1445e",
+    "src/ocr.rs": "2654ea71cde2687b99453b4e49fa996947037e279fa1c576b8d313be98573ebe",
+    "src/pasteboard.rs": "b8860091bf0f676afb9c411a4e8fc851ce59c8ed72f1f2aa1cc686c610984057",
+    "src/sck.rs": "8f501156e8683b7307661bfc19ac3d2d01b91d7b5b8bef50d08c841a83f3a96f",
+    "src/screenshot.rs": "2f89efefbe54fa0c678123e3055bc72cb7342130d4433aa6d87288d7599fe27d",
+    "src/sdef.rs": "a707bc63a78ad4730ba0cf23dec8c40239f1fab123443dcbdc3405663d0adab7",
+    "src/system.rs": "b8955ed04494dfce9c9713416f4ac175cdea9498b79734aca8f90b5b39779c1c",
+    "src/visual_cursor.rs": "661aae75ab4b90f3ae30489ede7a4a847227fbda2e16e6ea44a4283fb033efa6",
+    "src/visual_cursor/cursor.png": "a85784a3f438da110c42b509b0b27b90d47b85812274a9d329f3f27b9bd8965f",
+    "src/visual_cursor/glyph.rs": "b0e5676e7a29fb695d247be0f2c512f0f7805da565cf596683d763fc590d266b",
+    "src/visual_cursor/motion.rs": "74a440e76514061d601f7d54edd0b2615e35a993ba05ea4abd72a6ca8854c272",
+    "src/wait.rs": "2293845a78e4289424c4fce8390b06037b01723c3f167b9540579dc12455dd6a",
+    "tests/agent/run.py": "c4e14bf6f202e85160ae0f6685714fa63ed7137bfde5307deb050c6d38a10518",
+    "tests/agent/tasks/e2e/calendar_reminder.json": "918cba9271650388957a0d77f44511b39e41644ec1c0108ebe2b62883ffdc56d",
+    "tests/agent/tasks/e2e/finder_organize.json": "87397c8e7421f3305cd7d0c6f05e893e0e55e61ac17f37aa553bca9403bf29f2",
+    "tests/agent/tasks/e2e/mail_to_notes.json": "5b1c5e71b7f7a7ddd8c6c87b187e9b65bd7c10d4e20e58db9a57df7a19bbc0ff"
+  },
+  "local_evidence_sha256": {
+    "test-results/luna-notes-retest-20261103/verify.log": "18e90f89731e943098a7ddd9428d657dd381c6fa01173536ebacd151ab90cd6f",
+    "test-results/luna-notes-retest-20261103/coordinate.py": "d2ed5ecb0d6142a4939228667d7282374ad33a84574c5c62f593dc8746cb1077",
+    "test-results/luna-notes-retest-20261103/python-tests.log": "ed7e0e32f003e6e9e6306f6bda0c1a0aa3e0d0c7df72c0680d2fc6822b3c551c",
+    "test-results/luna-notes-retest-20261103/mail_to_notes/result.json": "eb0dae336d4c5eee78955da156a9fa4d884f023981c4d1b9a811813b5950d242",
+    "test-results/luna-notes-retest-20261103/mail_to_notes/prepared.json": "49698ba7ac997eee4e4739d5b6e628f04655013c0957f96fe86fafd2bbf7bc18",
+    "test-results/luna-notes-retest-20261103/mail_to_notes/title-check.json": "512e186534a7123f4219d583db90d9a00dd8806559c7acd4f88faaef368e3c12",
+    "test-results/luna-notes-retest-20261103/mail_to_notes/cu": "21b4155fbdd825c6e600348c4a250ac17aa288b0b39d03ed9b9df536fd6eb6d1",
+    "test-results/luna-notes-retest-20261103/mail_to_notes/goal.txt": "4bb49fabbc5dcc994a6f993f299939d68d12df27e37d68020438f50264d0295a",
+    "test-results/luna-notes-retest-20261103/mail_to_notes/checks.json": "dfa6bd9b748c633b83d0597881d325dc63032d9ec7fb08f80c862d400ab42682",
+    "test-results/luna-notes-retest-20261103/mail_to_notes/cleanup.json": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "test-results/luna-notes-retest-20261103/mail_to_notes/participant.json": "584a7caaa2a5068aa6d4bd481eeba3a05dfa665694e205aa6a793cc8896ed7cc",
+    "test-results/luna-notes-retest-20261103/finder_organize/result.json": "90218eb38d4ddca46a0ef5263abb071862bd3db3c86eb66352d23d5190ad6a30",
+    "test-results/luna-notes-retest-20261103/finder_organize/prepared.json": "95322db729cd5f827ac476c3d5f67d8a9b6cc8407390a8f16841793d2bbd344d",
+    "test-results/luna-notes-retest-20261103/finder_organize/cu": "617738a506530c3f5bb9d1023ecd039e2bd3c1598ffa45a921684624e557cbaf",
+    "test-results/luna-notes-retest-20261103/finder_organize/goal.txt": "4f2e51e902690727bf45a27d999f0fb6612887553c95ed1d5fb94ec59981e16d",
+    "test-results/luna-notes-retest-20261103/finder_organize/checks.json": "1ca7d98bbf53ce689aff53d7f1b3d631d40729d17bb7bac3ae93ac80eef23060",
+    "test-results/luna-notes-retest-20261103/finder_organize/cleanup.json": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "test-results/luna-notes-retest-20261103/finder_organize/inventory-check.json": "1d0554f086cd3352d0d72b8976420f83c11360904499d5bc6cbd05c1655d6e78",
+    "test-results/luna-notes-retest-20261103/finder_organize/participant.json": "346795217c47dc14c6e22211d92b178cc947657601b3fb268d37cf9607880a78",
+    "test-results/luna-notes-retest-20261103/calendar_reminder/result.json": "1f81c0dbdfc2857244ccf734e3e2bd292511ee868fb9519eeb1df52127308c7b",
+    "test-results/luna-notes-retest-20261103/calendar_reminder/prepared.json": "60b258c78fe86d78b3a191878244f41a0230e96e067b112352583cdaf05edd23",
+    "test-results/luna-notes-retest-20261103/calendar_reminder/cu": "46be6a70b70df5e7fee78ce27b0a5bbf7d7046cf6354d2ada512262dfb2f8864",
+    "test-results/luna-notes-retest-20261103/calendar_reminder/goal.txt": "77f6318aae5b174249874171a57e676f32e6b4762b90975ff7587bdaed47d4f2",
+    "test-results/luna-notes-retest-20261103/calendar_reminder/checks.json": "a948d415aea32bdac17d055cd4286c97c54190c8d8cd5e3034e6a235f1d1d565",
+    "test-results/luna-notes-retest-20261103/calendar_reminder/cleanup.json": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "test-results/luna-notes-retest-20261103/calendar_reminder/schedule-check.json": "640374fa23f242af13541eddacfb3cb0124942d0cb3bcd0e1b8520382369ff1c",
+    "test-results/luna-notes-retest-20261103/calendar_reminder/participant.json": "7cfda13270f528ed8b06373c52fb812aa89f0cd574b94048fd08f4b9cb10ccd7",
+    "test-results/notes-title-20261103/reproduction.json": "0c52f7444102926d282d19a2b65b523810dd575df22d1b5fee8135ef2227b443",
+    "test-results/notes-title-20261103/reproduce.py": "dfd74e26b59aaeb85f7ba3a5fafc75fa30af708ced00900b7fdf54d929b03733"
+  },
+  "source_inventory_provenance": "Expanded for release preflight: originally recorded source hashes still match; every additional CLI, dependency and skill file was verified byte-identical to base_commit. No task result was changed.",
+  "release_integration_followup": {
+    "full_verify_exit": 0,
+    "rust_passed": 46,
+    "python_passed": 47,
+    "l1_passed": 890,
+    "l1_failed": 0,
+    "l1_skipped": 24,
+    "evidence_preflight": "passed",
+    "logs_sha256": {
+      "test-results/release-evidence-20261103/python.log": "90ae260c771c53c1a4ab94959786b8c7f0f8da5d5d846b52704d409f5d6eb7f8",
+      "test-results/release-evidence-20261103/verify.log": "3b6aa5101e5598bd9ecb6a26126fd169615c7d7ddedbfa6d08bbb6287a1843c7"
+    }
+  }
+}

@@ -31,6 +31,10 @@ result. These are alternatives, not a mandatory discovery sequence.
 | A canvas, missing AX text/control, or appearance that must be seen | Visual: `ocr` for text; `screenshot` for layout/non-text targets; `snapshot --with-screenshot` or `--annotated` when both tree and image are needed. Use grounded `click --text` or screen coordinates. See [visual](references/visual.md). |
 | Launching, arranging windows, or a known preference key | `launch`, `window`, or `defaults`. A preference write does not prove the app applied it; do not restart user apps merely to force a change. |
 
+For Apple Notes creation or body replacement, read
+[Notes title and body](references/scripting.md#notes-title-and-body): replacing
+the first body line can change the note's name.
+
 Within UI work, use `set-value` for replacing a native edit field's complete value.
 An editable-looking label is not necessarily in edit mode. Use the app's editing
 interaction to enter that mode; an AXValue write alone need not commit app data.
@@ -280,6 +284,9 @@ requested change, preservation constraint, and required save/export. A successfu
 action group establishes only that group's result. Reuse the returned observations
 for this comparison; obtain new evidence only for a specific missing or uncertain
 requirement.
+
+When the request specifies an output name/title, include it alongside content in
+the final edit group's readback. A body-only read does not verify that identity.
 
 For explicit whitespace constraints, compare literal line breaks in the returned
 text with the original/requested boundaries; visually similar text is insufficient.

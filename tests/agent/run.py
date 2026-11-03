@@ -10,7 +10,7 @@ the actual app state matches expectations. This catches problems like:
 
 Usage:
   python3 tests/agent/run.py
-  python3 tests/agent/run.py --task tests/agent/tasks/mail_to_notes.json
+  python3 tests/agent/run.py --task tests/agent/tasks/e2e/mail_to_notes.json
   python3 tests/agent/run.py --dry-run
   python3 tests/agent/run.py --model claude-sonnet-5
   python3 tests/agent/run.py --model gpt-5.6-sol   # any non-Claude id uses the OpenAI path
@@ -790,10 +790,30 @@ When done, say DONE. If stuck, say FAIL."""
     return result
 
 
+def load_tasks(task_files: list[str]) -> list[dict]:
+    """Validate the entire release task set before any fixture or model runs."""
+    tasks = []
+    for path in task_files:
+        try:
+            with open(path) as fh:
+                task = json.load(fh)
+            if not isinstance(task, dict):
+                raise ValueError("expected a task object")
+            for field in ("id", "name", "goal"):
+                if not isinstance(task.get(field), str) or not task[field].strip():
+                    raise ValueError(f"expected nonempty string '{field}'")
+            if not isinstance(task.get("verify"), list) or not task["verify"]:
+                raise ValueError("expected nonempty 'verify' checks")
+        except (OSError, ValueError) as exc:
+            raise ValueError(f"Invalid L2 task {path}: {exc}") from exc
+        tasks.append(task)
+    return tasks
+
+
 def main():
     parser = argparse.ArgumentParser(description="Agent E2E test runner")
     parser.add_argument("--task", help="Path to single task JSON")
-    parser.add_argument("--tasks-dir", default="tests/agent/tasks", help="Directory of task JSONs")
+    parser.add_argument("--tasks-dir", default="tests/agent/tasks/e2e", help="Directory of task JSONs")
     parser.add_argument("--model", default=os.environ.get("AGENT_MODEL", "claude-sonnet-5"))
     parser.add_argument("--max-steps", type=int, default=25)
     parser.add_argument("--dry-run", action="store_true")
@@ -810,10 +830,11 @@ def main():
         print("No task files found.", file=sys.stderr)
         sys.exit(1)
 
-    tasks = []
-    for f in task_files:
-        with open(f) as fh:
-            tasks.append(json.load(fh))
+    try:
+        tasks = load_tasks(task_files)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(1)
 
     if args.dry_run:
         for t in tasks:
