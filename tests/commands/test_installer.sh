@@ -58,9 +58,7 @@ fi
 
 section "installer — usable as packaged and shipped"
 
-# The skill archive is what an Agent host actually unpacks. If the installer
-# arrives without its executable bit, an agent following SKILL.md fails at
-# the first step, so assert against the real artifact rather than the repo.
+# Managed hosts acquire scripts as text and invoke them through the shell.
 SHIPPED="$SANDBOX/shipped"
 mkdir -p "$SHIPPED"
 if tar -xzf "$ASSETS_REAL/computer-pilot-skill-v$REAL_VERSION.tar.gz" -C "$SHIPPED" 2>/dev/null; then
@@ -76,20 +74,12 @@ else
   _fail "skill archive ships the installer" "missing scripts/install-native.sh"
 fi
 
-if [[ -x "$SHIPPED_INSTALLER" ]]; then
-  _pass "packaged installer keeps its executable bit"
+if [[ ! -x "$SHIPPED_INSTALLER" ]]; then
+  _pass "packaged installer is non-executable managed Skill content"
 else
-  _fail "packaged installer keeps its executable bit" \
-    "mode $(ls -l "$SHIPPED_INSTALLER" 2>/dev/null | awk '{print $1}') — direct execution would fail"
+  _fail "packaged installer is non-executable managed Skill content" "unexpected executable bit"
 fi
 
-# Both invocation forms must work: SKILL.md prescribes `sh <installer>`, and a
-# host that runs it directly must not be broken by a lost mode bit.
-if ( "$SHIPPED_INSTALLER" --help >/dev/null 2>&1 ); then
-  _pass "packaged installer runs when executed directly"
-else
-  _fail "packaged installer runs when executed directly" "direct execution failed"
-fi
 if sh "$SHIPPED_INSTALLER" --help >/dev/null 2>&1; then
   _pass "packaged installer runs via sh (the form SKILL.md prescribes)"
 else
@@ -97,7 +87,7 @@ else
 fi
 
 # SKILL.md must not tell the agent to execute it directly, since a repackaged
-# copy can lose the bit even though the official archive preserves it.
+# copy and the official archive intentionally omit the executable bit.
 SKILL_MD="$ROOT_DIR/plugin/skills/computer-pilot/SKILL.md"
 PERMISSIONS_MD="$ROOT_DIR/plugin/skills/computer-pilot/references/permissions.md"
 if grep -q 'references/permissions.md#installation' "$SKILL_MD" \
@@ -471,6 +461,21 @@ if [[ $EXIT -eq 0 && "$(out_field shadowed_by)" == "$DECOY_DIR/cu" ]]; then
   _pass "another cu earlier on PATH is reported as shadowed_by"
 else
   _fail "another cu earlier on PATH is reported as shadowed_by" "exit=$EXIT shadowed_by='$(out_field shadowed_by)'"
+fi
+
+section "installer — verify existing signature before executing version"
+UNTRUSTED_ROOT="$SANDBOX/untrusted-runtime"
+mkdir -p "$UNTRUSTED_ROOT/bin"
+printf '#!/bin/sh\ntouch "%s"\necho "cu %s"\n' "$SANDBOX/untrusted-executed" "$REAL_VERSION" > "$UNTRUSTED_ROOT/bin/cu"
+chmod 700 "$UNTRUSTED_ROOT/bin/cu"
+run_installer --version "$REAL_VERSION" --repository relixiaobo/computer-pilot \
+  --requirement 'identifier "invalid.test.identity"' --asset-directory "$ASSETS_REAL" \
+  --install-root "$UNTRUSTED_ROOT" --bin-dir "$SANDBOX/untrusted-commands"
+assert_err_code "invalid signed acquisition fails" "signature_mismatch"
+if [[ ! -e "$SANDBOX/untrusted-executed" ]]; then
+  _pass "unverified installed binary is never executed"
+else
+  _fail "unverified installed binary is never executed" "version probe executed the untrusted file"
 fi
 
 summary

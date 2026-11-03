@@ -32,10 +32,20 @@ adapter.
    command. The installer reports `path_ready=false` plus `shadowed_by` and
    `install_bin_dir` when a plain `cu` does not reach Computer Pilot.
 4. Assign one stable `COMPUTER_PILOT_CLIENT_KEY` per logical Agent.
-5. Assign an absolute, task-owned `COMPUTER_PILOT_OUTPUT_DIR`.
+5. Assign an absolute, execution-owned `COMPUTER_PILOT_OUTPUT_DIR` on each
+   shell call. Reused launchers must inherit the current directory rather than
+   capture an earlier call's output path. Concurrent shell calls need separate
+   directories so a host can attribute and adopt each result independently.
 6. Let the Agent use its existing shell execution and file/image reading tools.
 7. Preserve stdout, stderr, exit status, and JSON fields.
 8. Keep the private Broker internal to Computer Pilot.
+
+The installer accepts `COMPUTER_PILOT_INSTALL_ROOT` and
+`COMPUTER_PILOT_BIN_DIR`; preserve both when the host supplies them. Keep the
+command-link directory separate from `<install-root>/bin`, which owns the real
+binary. Skill scripts are distributed as non-executable text and invoked with
+`sh`; acquiring the Skill never runs the installer. An absent or unverified CLI
+is installed/verified at first use through the ordinary shell admission boundary.
 
 Do not generate a second tool catalog from `cu --help`; the skill plus runtime
 help is the public contract.
