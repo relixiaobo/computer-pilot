@@ -1,7 +1,7 @@
 {
   "name": "computer-pilot",
   "description": "Control macOS desktop apps through the shared Computer Pilot skill and cu CLI.",
-  "version": "0.9.3",
+  "version": "0.9.4",
   "author": {
     "name": "computer-pilot"
   },
