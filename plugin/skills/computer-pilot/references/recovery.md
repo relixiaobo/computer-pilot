@@ -5,11 +5,13 @@ uncertain command.
 
 ## Command Identity
 
-Set a stable client key for one logical Agent. Add a request ID to mutations
+Preserve the host's stable client key for the logical Agent. If none is supplied,
+choose a unique key before the first observation and reuse it during recovery;
+changing keys makes earlier observations foreign. Add a request ID to mutations
 that may need recovery:
 
 ```bash
-export COMPUTER_PILOT_CLIENT_KEY="agent.invoice-workflow"
+export COMPUTER_PILOT_CLIENT_KEY="${COMPUTER_PILOT_CLIENT_KEY:-agent.invoice-workflow}"
 cu --request-id "submit-invoice-4821" click 9 --app Acme --observation "<id>"
 ```
 

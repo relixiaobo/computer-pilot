@@ -10,7 +10,16 @@ an Agent API; do not look for an MCP server, SDK or alternative transport.
 
 ## Start The Task
 
-Use the caller's verified binary and permissions directly. Otherwise put
+Use the caller's verified binary and permissions directly. Preserve supplied
+`COMPUTER_PILOT_INSTALL_ROOT`, `COMPUTER_PILOT_BIN_DIR`, `COMPUTER_PILOT_HOME`,
+`COMPUTER_PILOT_CLIENT_KEY`, and `COMPUTER_PILOT_OUTPUT_DIR` on every call.
+When a host supplies an install root without verified acquisition evidence, run
+the manifest's installer once through the existing shell; its idempotent path
+verifies the installed signature and exact version, or installs the pinned release.
+An installed Skill alone is not evidence that its CLI is installed or verified.
+Use `<COMPUTER_PILOT_INSTALL_ROOT>/bin/cu` and prepend that `bin` directory to
+PATH; do not substitute an ambient or globally installed copy.
+Without a host install root, put
 `${XDG_DATA_HOME:-$HOME/.local/share}/computer-pilot/bin` first on PATH and run
 `cu --version` once. Computer Pilot prints `cu <semver>`; macOS's unrelated
 `/usr/bin/cu` prints `cu (Taylor UUCP)`. For a missing/outdated binary, use
@@ -62,15 +71,18 @@ For repeated actions, reuse the supplied task launcher or create one in a
 fixed task directory.
 Put the supplied binary, target and environment in it; resolve the helper path
 relative to this SKILL.md. Use this launcher for all commands, including help,
-`sdef` and `tell`, in subsequent shell calls. No shell state needs to persist:
+`sdef` and `tell`, in subsequent shell calls. The host may provide a different output directory for each shell execution.
+Keep those values inherited at launcher execution time; never freeze them from
+the shell that created the launcher or override them with a previous call's paths.
+No shell state needs to persist:
 
 ```bash
 cat > ./pilot <<'EOF'
 #!/bin/sh
 export CU_BIN="/verified/path/to/cu"
 export CU_APP="pid:89806"
-export COMPUTER_PILOT_CLIENT_KEY="<unique-stable-task-key>"
-export COMPUTER_PILOT_OUTPUT_DIR="/absolute/task/output"
+export COMPUTER_PILOT_CLIENT_KEY="${COMPUTER_PILOT_CLIENT_KEY:-<unique-stable-task-key>}"
+export COMPUTER_PILOT_OUTPUT_DIR="${COMPUTER_PILOT_OUTPUT_DIR:-/absolute/task/output}"
 # Preserve any caller-supplied COMPUTER_PILOT_HOME here too.
 exec /bin/sh /absolute/skill-directory/scripts/session.sh "$@"
 EOF

@@ -300,8 +300,8 @@ ensure_command_link() {
 # and satisfies the declared signing requirement. Still converge the command
 # symlink so a deleted link is restored.
 if [ -x "$fixed_binary" ] && [ ! -L "$fixed_binary" ] &&
-  [ "$(binary_version "$fixed_binary")" = "$version" ] &&
-  verify_requirement "$fixed_binary"; then
+  verify_requirement "$fixed_binary" &&
+  [ "$(binary_version "$fixed_binary")" = "$version" ]; then
   ensure_command_link
   emit_result "$fixed_binary"
   exit 0
