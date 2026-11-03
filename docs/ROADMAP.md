@@ -37,6 +37,15 @@ Release state above is a dated checkpoint. For a new release task, verify the
 remote tag, release assets and `skill-stable` again; a later documentation commit
 on `main` does not itself require a new CLI release.
 
+## Follow-up after the release
+
+The TextEdit false completion was traced to an extra final LF left after moving
+the last section. The saved file and final AX value agree. The skill's section
+move and completion guidance has been refined; see the
+[retained-evidence analysis](../tests/agent/results/2026-11-03-textedit-boundary-analysis.md).
+This is a post-v0.9.3 skill change, not part of the published artifact. A fresh
+agent retest is still needed before claiming a reliability improvement.
+
 ---
 
 ## Optimization queue after v0.9.3
