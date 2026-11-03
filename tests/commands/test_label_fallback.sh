@@ -16,7 +16,7 @@ section "label fallback — Finder snapshot has populated titles"
 
 # Finder is non-Electron, so AXTitle alone is enough. This test guards
 # the chain from regressing to "no titles anywhere" if the structure breaks.
-cu_json snapshot Finder --limit 50
+cu_json snapshot com.apple.finder --limit 50
 
 TITLED_COUNT=$(echo "$OUT" | python3 -c "
 import sys, json

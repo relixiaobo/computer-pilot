@@ -12,7 +12,7 @@ sleep 0.5
 
 section "type — basic text"
 
-cu_json "type hello --app TextEdit --no-snapshot"
+cu_json "type hello --app com.apple.TextEdit --no-snapshot"
 assert_ok "type 'hello'"
 assert_json_field "text echoed" ".text" "hello"
 assert_json_field "type dispatched" ".dispatched" "true"
@@ -20,7 +20,7 @@ assert_json_field "type value changed" ".value_changed" "true"
 
 section "type — with auto-snapshot"
 
-cu_json "type world --app TextEdit"
+cu_json "type world --app com.apple.TextEdit"
 assert_ok "type 'world' with snapshot"
 HAS_SNAP=$(echo "$OUT" | python3 -c "
 import sys, json; d = json.load(sys.stdin); print('yes' if 'snapshot' in d else 'no')
@@ -33,22 +33,22 @@ fi
 
 section "type — special characters"
 
-cu_json "type 'a@b#c\$d' --app TextEdit --no-snapshot"
+cu_json "type 'a@b#c\$d' --app com.apple.TextEdit --no-snapshot"
 assert_ok "type special chars @#\$"
 
 section "type — spaces and punctuation"
 
-cu_json type "hello, world!" --app TextEdit --no-snapshot
+cu_json type "hello, world!" --app com.apple.TextEdit --no-snapshot
 assert_ok "type with spaces and punctuation"
 
 section "type — non-BMP emoji (UTF-16 surrogate pairs)"
 
 # Clear the internally focused textarea. TextEdit stays in the background so
 # real user keystrokes cannot contaminate this disposable document.
-"$CU" snapshot TextEdit --limit 5 >/dev/null
-cu_json set-value 1 "" --app TextEdit --no-snapshot
+"$CU" snapshot com.apple.TextEdit --limit 5 >/dev/null
+cu_json set-value 1 "" --app com.apple.TextEdit --no-snapshot
 assert_ok "emoji fixture cleared through AX"
-cu_json type "ab 😀 🎉 cd" --app TextEdit
+cu_json type "ab 😀 🎉 cd" --app com.apple.TextEdit
 assert_ok "type emoji + ASCII"
 sleep 0.3
 EMOJI_DOC=$(_run_with_timeout 10 osascript -e 'tell application "TextEdit" to get text of front document' 2>/dev/null || true)
@@ -63,14 +63,14 @@ section "type — background PID paste fails loud"
 # Clipboard fixture writes and fidelity checks live in the opt-in paste_auto
 # tests. This check uses cu's normal full-fidelity clipboard save/restore.
 # Clear through AX instead of relying on a pre-existing keyboard selection.
-"$CU" snapshot TextEdit --limit 5 >/dev/null
-cu_json set-value 1 "" --app TextEdit --no-snapshot
+"$CU" snapshot com.apple.TextEdit --limit 5 >/dev/null
+cu_json set-value 1 "" --app com.apple.TextEdit --no-snapshot
 assert_ok "paste fixture cleared through AX"
 
-cu_json state TextEdit --no-screenshot
+cu_json state com.apple.TextEdit --no-screenshot
 TEXTEDIT_FRONTMOST=$(json_get '.frontmost' 2>/dev/null || echo "true")
 if [[ "$TEXTEDIT_FRONTMOST" == "false" ]]; then
-  cu_json type "SHOULD_NOT_LAND" --app TextEdit --paste --no-snapshot
+  cu_json type "SHOULD_NOT_LAND" --app com.apple.TextEdit --paste --no-snapshot
   assert_fail "background TextEdit paste is not reported as success"
   BACKGROUND_CODE=$(echo "$ERR" | python3 -c "import sys,json;print(json.load(sys.stdin).get('code',''))" 2>/dev/null || echo "")
   [[ "$BACKGROUND_CODE" == "unknown_outcome" || "$BACKGROUND_CODE" == "verification_failed" ]] \
@@ -86,7 +86,7 @@ fi
 
 section "type — --no-snapshot flag"
 
-cu_json "type test --app TextEdit --no-snapshot"
+cu_json "type test --app com.apple.TextEdit --no-snapshot"
 assert_ok "type with --no-snapshot"
 NO_SNAP=$(echo "$OUT" | python3 -c "
 import sys, json; d = json.load(sys.stdin); print('absent' if 'snapshot' not in d else 'present')
@@ -109,7 +109,7 @@ else
 fi
 
 # --app bypasses the check entirely (target is explicit)
-cu_json "type harmless --app TextEdit --no-snapshot"
+cu_json "type harmless --app com.apple.TextEdit --no-snapshot"
 assert_ok "--app bypasses safety check"
 
 section "type — focused input preflight"
@@ -125,7 +125,7 @@ TYPE_DISPATCHED=$(echo "$ERR" | python3 -c 'import json,sys; print((json.load(sy
 
 section "type — human mode"
 
-cu_human "type test123 --app TextEdit"
+cu_human "type test123 --app com.apple.TextEdit"
 assert_exit_zero "type human exits 0"
 assert_contains "shows typed text" "Typed"
 

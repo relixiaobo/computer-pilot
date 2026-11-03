@@ -9,35 +9,35 @@ source "$(dirname "$0")/helpers.sh"
 
 section "screenshot aliases — positional form"
 
-cu_json screenshot Finder --path /private/tmp/cu-alias-pos.png
+cu_json screenshot com.apple.finder --path /private/tmp/cu-alias-pos.png
 assert_ok "positional Finder + --path ok"
 assert_file_png "PNG written via positional + --path" /private/tmp/cu-alias-pos.png
 rm -f /private/tmp/cu-alias-pos.png
 
 section "screenshot aliases — --app form (the consistency fix)"
 
-cu_json screenshot --app Finder --path /private/tmp/cu-alias-app.png
+cu_json screenshot --app com.apple.finder --path /private/tmp/cu-alias-app.png
 assert_ok "--app Finder + --path ok"
 assert_file_png "PNG written via --app + --path" /private/tmp/cu-alias-app.png
 rm -f /private/tmp/cu-alias-app.png
 
 section "screenshot aliases — --output as --path"
 
-cu_json screenshot Finder --output /private/tmp/cu-alias-out.png
+cu_json screenshot com.apple.finder --output /private/tmp/cu-alias-out.png
 assert_ok "positional + --output ok"
 assert_file_png "PNG written via --output" /private/tmp/cu-alias-out.png
 rm -f /private/tmp/cu-alias-out.png
 
 section "screenshot aliases — --app + --output combined"
 
-cu_json screenshot --app Finder --output /private/tmp/cu-alias-both.png
+cu_json screenshot --app com.apple.finder --output /private/tmp/cu-alias-both.png
 assert_ok "--app + --output ok"
 assert_file_png "PNG written via --app + --output" /private/tmp/cu-alias-both.png
 rm -f /private/tmp/cu-alias-both.png
 
 section "screenshot aliases — positional + --app conflicts"
 
-cu_json screenshot Finder --app Finder --path /private/tmp/cu-alias-conflict.png
+cu_json screenshot com.apple.finder --app com.apple.finder --path /private/tmp/cu-alias-conflict.png
 # clap's conflicts_with should reject this with non-zero exit
 if [[ "$EXIT" -ne 0 ]]; then
   _pass "positional + --app rejected (clap conflict)"

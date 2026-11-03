@@ -12,7 +12,7 @@ sleep 0.4
 
 section "paste auto-detect — native CJK stays on Unicode"
 
-cu_json type "你好世界" --app TextEdit --no-snapshot
+cu_json type "你好世界" --app com.apple.TextEdit --no-snapshot
 assert_ok "type CJK ok"
 
 PARSED=$(echo "$OUT" | python3 -c "
@@ -28,7 +28,7 @@ CJK_DOC=$(_run_with_timeout 10 osascript -e 'tell application "TextEdit" to get 
 
 section "paste auto-detect — ASCII content stays on unicode events"
 
-cu_json type "hello world" --app TextEdit --no-snapshot
+cu_json type "hello world" --app com.apple.TextEdit --no-snapshot
 assert_ok "type ASCII ok"
 
 PARSED=$(echo "$OUT" | python3 -c "
@@ -42,7 +42,7 @@ print('method=' + str(d.get('method')) + '|has_reason=' + str('paste_reason' in 
 
 section "paste auto-detect — explicit --no-paste keeps native Unicode"
 
-cu_json type "你好" --app TextEdit --no-snapshot --no-paste
+cu_json type "你好" --app com.apple.TextEdit --no-snapshot --no-paste
 assert_ok "type CJK --no-paste ok"
 
 METHOD=$(echo "$OUT" | python3 -c "import sys,json;print(json.load(sys.stdin).get('method',''))" 2>/dev/null || echo "")
@@ -51,12 +51,12 @@ METHOD=$(echo "$OUT" | python3 -c "import sys,json;print(json.load(sys.stdin).ge
 section "paste auto-detect — unobservable explicit paste fails loud"
 
 if interactive_tests_enabled; then
-  "$CU" snapshot TextEdit --limit 5 >/dev/null
-  cu_json set-value 1 "" --app TextEdit --no-snapshot
+  "$CU" snapshot com.apple.TextEdit --limit 5 >/dev/null
+  cu_json set-value 1 "" --app com.apple.TextEdit --no-snapshot
   assert_ok "explicit paste fixture cleared"
-  cu_json window focus --app Finder
+  cu_json window focus --app com.apple.finder
   if [[ "$EXIT" -eq 0 ]]; then
-    cu_json type "hello" --app TextEdit --no-snapshot --paste
+    cu_json type "hello" --app com.apple.TextEdit --no-snapshot --paste
     assert_fail "unobservable TextEdit paste is not success"
 
     PARSED=$(echo "$ERR" | python3 -c "
@@ -136,7 +136,7 @@ if [[ "$BEFORE_PNG" == "setup-failed" || -z "$BEFORE_PNG" ]]; then
   _skip "PNG clipboard survives the paste round-trip" "could not place a PNG on the clipboard"
 else
   textedit_reset
-  cu_json type "clip-fidelity-probe" --app TextEdit --paste --no-snapshot
+  cu_json type "clip-fidelity-probe" --app com.apple.TextEdit --paste --no-snapshot
   DISPATCHED=$(echo "$OUT$ERR" | python3 -c "
 import sys, json
 try:
@@ -171,7 +171,7 @@ printf 'original-fixture-text' | pbcopy 2>/dev/null || true
   done
 ) &
 HAMMER_PID=$!
-cu_json type "hint-probe" --app TextEdit --paste --no-snapshot
+cu_json type "hint-probe" --app com.apple.TextEdit --paste --no-snapshot
 kill "$HAMMER_PID" 2>/dev/null || true
 wait "$HAMMER_PID" 2>/dev/null || true
 

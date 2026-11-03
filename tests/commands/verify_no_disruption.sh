@@ -86,7 +86,7 @@ echo ""
 echo "── B1: PID-targeted click (--app Finder) ──"
 park_cursor
 state_before=$(read_state); front_before=$(echo "$state_before" | cut -d'|' -f3)
-"$CU" click 5 5 --app Finder --no-snapshot >/dev/null 2>&1 || true
+"$CU" click 5 5 --app com.apple.finder --no-snapshot >/dev/null 2>&1 || true
 # expected behavior: cursor stays near park, NOT near (5, screen_h - 5)
 assert_not_warped "click 5 5 --app Finder" 5 $((screen_h - 5)) "$front_before"
 
@@ -95,7 +95,7 @@ echo ""
 echo "── B1: PID-targeted ref click (--app Finder) ──"
 park_cursor
 state_before=$(read_state); front_before=$(echo "$state_before" | cut -d'|' -f3)
-"$CU" click 1 --app Finder --no-snapshot >/dev/null 2>&1 || true
+"$CU" click 1 --app com.apple.finder --no-snapshot >/dev/null 2>&1 || true
 # the ref's coords are unknown; just assert cursor is still near park
 assert_not_warped "click 1 --app Finder" "$PARK_X" "$PARK_Y" "$front_before"
 
@@ -106,7 +106,7 @@ sentinel="cu-verify-sentinel-$$"
 echo -n "$sentinel" | pbcopy
 park_cursor
 state_before=$(read_state); front_before=$(echo "$state_before" | cut -d'|' -f3)
-"$CU" type "ignore-this" --app Finder --no-snapshot >/dev/null 2>&1 || true
+"$CU" type "ignore-this" --app com.apple.finder --no-snapshot >/dev/null 2>&1 || true
 assert_not_warped "type --app Finder" "$PARK_X" "$PARK_Y" "$front_before"
 clip_after=$(pbpaste)
 if [[ "$clip_after" == "$sentinel" ]]; then
@@ -122,7 +122,7 @@ echo ""
 echo "── B2: PID-targeted key (--app Finder) ──"
 park_cursor
 state_before=$(read_state); front_before=$(echo "$state_before" | cut -d'|' -f3)
-"$CU" key escape --app Finder --no-snapshot >/dev/null 2>&1 || true
+"$CU" key escape --app com.apple.finder --no-snapshot >/dev/null 2>&1 || true
 assert_not_warped "key escape --app Finder" "$PARK_X" "$PARK_Y" "$front_before"
 
 # ── PID-targeted scroll (--app Finder) ──────────────────────────────────────
@@ -130,7 +130,7 @@ echo ""
 echo "── B5: PID-targeted scroll (--app Finder) ──"
 park_cursor
 state_before=$(read_state); front_before=$(echo "$state_before" | cut -d'|' -f3)
-"$CU" scroll down 1 --x 500 --y 500 --app Finder >/dev/null 2>&1 || true
+"$CU" scroll down 1 --x 500 --y 500 --app com.apple.finder >/dev/null 2>&1 || true
 assert_not_warped "scroll --app Finder" "$PARK_X" "$PARK_Y" "$front_before"
 
 # ── PID-targeted hover (--app Finder) ───────────────────────────────────────
@@ -138,7 +138,7 @@ echo ""
 echo "── B5: PID-targeted hover (--app Finder) ──"
 park_cursor
 state_before=$(read_state); front_before=$(echo "$state_before" | cut -d'|' -f3)
-"$CU" hover 100 100 --app Finder >/dev/null 2>&1 || true
+"$CU" hover 100 100 --app com.apple.finder >/dev/null 2>&1 || true
 # expected: cursor stays near park, NOT near (100, screen_h - 100)
 assert_not_warped "hover --app Finder" 100 $((screen_h - 100)) "$front_before"
 
@@ -147,7 +147,7 @@ echo ""
 echo "── B5: PID-targeted drag (--app Finder) ──"
 park_cursor
 state_before=$(read_state); front_before=$(echo "$state_before" | cut -d'|' -f3)
-"$CU" drag 100 100 200 200 --app Finder >/dev/null 2>&1 || true
+"$CU" drag 100 100 200 200 --app com.apple.finder >/dev/null 2>&1 || true
 assert_not_warped "drag --app Finder" "$PARK_X" "$PARK_Y" "$front_before"
 
 # ── B3: set-value on TextEdit ───────────────────────────────────────────────
@@ -156,12 +156,12 @@ echo "── B3: PID-targeted set-value (--app TextEdit) ──"
 osascript -e 'tell application "TextEdit" to activate' 2>/dev/null
 sleep 1
 osascript -e 'tell application "TextEdit" to make new document' 2>/dev/null
-"$CU" wait --ref 1 --app TextEdit --timeout 5 >/dev/null 2>&1 || true
-"$CU" snapshot TextEdit --limit 5 >/dev/null 2>&1 || true  # warm up
+"$CU" wait --ref 1 --app com.apple.TextEdit --timeout 5 >/dev/null 2>&1 || true
+"$CU" snapshot com.apple.TextEdit --limit 5 >/dev/null 2>&1 || true  # warm up
 sleep 0.3
 park_cursor
 state_before=$(read_state); front_before=$(echo "$state_before" | cut -d'|' -f3)
-"$CU" set-value 1 "set via cu, no focus needed" --app TextEdit --no-snapshot >/dev/null 2>&1 || true
+"$CU" set-value 1 "set via cu, no focus needed" --app com.apple.TextEdit --no-snapshot >/dev/null 2>&1 || true
 assert_not_warped "set-value --app TextEdit" "$PARK_X" "$PARK_Y" "$front_before"
 # Verify content actually landed
 DOC=$(osascript -e 'tell application "TextEdit" to get text of front document' 2>/dev/null)

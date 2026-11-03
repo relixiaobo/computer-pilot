@@ -24,7 +24,7 @@ sleep 1
 # the leftmost and rightmost occurrence. The leftmost is the sidebar; the
 # rightmost is the main pane. If no duplicate exists in this Finder state
 # (e.g. user customized sidebar), skip rather than fail.
-cu_json ocr Finder
+cu_json ocr com.apple.finder
 LABEL_AND_COORDS=$(echo "$OUT" | python3 -c "
 import sys, json
 from collections import defaultdict
@@ -88,7 +88,7 @@ SIDEBAR_REGION=$(python3 -c "print(f'{int($SIDEBAR_X - 30)},{int($SIDEBAR_Y - 30
 MAIN_REGION=$(python3 -c "print(f'{int($MAIN_X - 30)},{int($MAIN_Y - 30)} 60x60')")
 
 # 1. Click via sidebar-region. The click x should be the sidebar x, not the main x.
-cu_json click --text "$LABEL" --app Finder --region "$SIDEBAR_REGION" --no-snapshot
+cu_json click --text "$LABEL" --app com.apple.finder --region "$SIDEBAR_REGION" --no-snapshot
 assert_ok "click '$LABEL' --region <sidebar>"
 GOT_X=$(json_get '.x' || echo "-1")
 GOT_X_ROUND=$(python3 -c "print(int(round(float('$GOT_X'))))" 2>/dev/null || echo "-1")
@@ -106,7 +106,7 @@ fi
 SIDEBAR_CLICK_X=$GOT_X_ROUND
 
 # 2. Click via main-region. The click x should be the main x.
-cu_json click --text "$LABEL" --app Finder --region "$MAIN_REGION" --no-snapshot
+cu_json click --text "$LABEL" --app com.apple.finder --region "$MAIN_REGION" --no-snapshot
 assert_ok "click '$LABEL' --region <main>"
 GOT_X=$(json_get '.x' || echo "-1")
 GOT_X_ROUND=$(python3 -c "print(int(round(float('$GOT_X'))))" 2>/dev/null || echo "-1")

@@ -10,10 +10,10 @@ dated research and benchmark reports preserve evidence from their own runs.
 ```bash
 cargo build --release
 ./target/release/cu setup
-./target/release/cu --human state Finder
+./target/release/cu --human state com.apple.finder
 ./target/release/cu --human launch TextEdit
-./target/release/cu --human type "hello" --app TextEdit
-./target/release/cu --human key cmd+s --app TextEdit
+./target/release/cu --human type "hello" --app com.apple.TextEdit
+./target/release/cu --human key cmd+s --app com.apple.TextEdit
 ./target/release/cu --human screenshot "Google Chrome"
 ```
 
@@ -29,6 +29,10 @@ cargo build --release
 
 Agent hosts use these same commands through their existing shell. Computer
 Pilot does not expose a separate bridge, MCP server, SDK, or host adapter.
+
+Application display names are localized. Use the bundle identifier or the
+`pid:<PID>` selector returned by `cu apps` for repeatable targeting. `launch`
+also accepts the installed app name and waits using its resolved bundle identity.
 
 Headline calls:
 - **`cu state <app>`** — snapshot + windows + screenshot + frontmost when visual context is needed; use `cu tell` for scriptable data or `cu --compact snapshot <app>` for refs

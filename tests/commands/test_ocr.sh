@@ -11,7 +11,7 @@ sleep 0.3
 
 section "ocr — Finder"
 
-cu_json "ocr Finder"
+cu_json "ocr com.apple.finder"
 assert_ok "ocr Finder ok"
 assert_json_field_exists "texts array" ".texts"
 
@@ -85,7 +85,7 @@ print(f'{x},{y} {w}x{h}')
 " 2>/dev/null || true)
 
 if [[ -n "$REGION" ]]; then
-  cu_json ocr Finder --region "$REGION"
+  cu_json ocr com.apple.finder --region "$REGION"
   assert_ok "ocr --region ok"
   assert_json_field_exists "region echoed" ".region.x"
   assert_json_field_exists "filtered_from present" ".filtered_from"
@@ -115,7 +115,7 @@ assert_fail "non-existent app fails"
 
 section "ocr — human mode"
 
-cu_human "ocr Finder"
+cu_human "ocr com.apple.finder"
 assert_exit_zero "ocr human exits 0"
 # Human format: [x,y WxH] "text" (confidence%)
 if [[ "$OUT" =~ ^\[ ]] || [[ "$OUT" == *"No text found"* ]]; then

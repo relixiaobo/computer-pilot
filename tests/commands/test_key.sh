@@ -14,9 +14,9 @@ section "key — basic keys with --app"
 ENTER_DISPATCHED=false
 if interactive_tests_enabled; then
   for _ in 1 2; do
-    cu_json window focus --app TextEdit
+    cu_json window focus --app com.apple.TextEdit
     [[ "$EXIT" -eq 0 ]] || continue
-    cu_json "key enter --app TextEdit --no-snapshot"
+    cu_json "key enter --app com.apple.TextEdit --no-snapshot"
     if [[ "$EXIT" -eq 0 ]] && [[ "$(json_get '.dispatched' 2>/dev/null || true)" == "true" ]]; then
       ENTER_DISPATCHED=true
       break
@@ -40,31 +40,31 @@ else
   _skip "Enter changed the TextEdit document" "interactive desktop tests disabled or foreground unavailable"
 fi
 
-cu_json "key tab --app TextEdit --no-snapshot"
+cu_json "key tab --app com.apple.TextEdit --no-snapshot"
 assert_ok "key tab"
 
-cu_json "key escape --app TextEdit --no-snapshot"
+cu_json "key escape --app com.apple.TextEdit --no-snapshot"
 assert_ok "key escape"
 
-cu_json "key space --app TextEdit --no-snapshot"
+cu_json "key space --app com.apple.TextEdit --no-snapshot"
 assert_ok "key space"
 
 section "key — modifier combos with --app"
 
-cu_json "key cmd+a --app TextEdit --no-snapshot"
+cu_json "key cmd+a --app com.apple.TextEdit --no-snapshot"
 assert_ok "key cmd+a (select all)"
 
 if interactive_tests_enabled; then
-  cu_json "key cmd+c --app TextEdit --no-snapshot"
+  cu_json "key cmd+c --app com.apple.TextEdit --no-snapshot"
   assert_ok "key cmd+c (copy)"
 else
   _skip "key cmd+c (copy)" "overwrites the system clipboard; interactive desktop tests disabled"
 fi
 
-cu_json "key cmd+z --app TextEdit --no-snapshot"
+cu_json "key cmd+z --app com.apple.TextEdit --no-snapshot"
 assert_ok "key cmd+z (undo)"
 
-cu_json "key cmd+shift+z --app TextEdit --no-snapshot"
+cu_json "key cmd+shift+z --app com.apple.TextEdit --no-snapshot"
 assert_ok "key cmd+shift+z (redo)"
 
 section "key — explicit global escape hatch"
@@ -78,7 +78,7 @@ fi
 
 section "key — with auto-snapshot"
 
-cu_json "key escape --app TextEdit"
+cu_json "key escape --app com.apple.TextEdit"
 assert_ok "key with auto-snapshot"
 HAS_SNAP=$(echo "$OUT" | python3 -c "
 import sys, json; d = json.load(sys.stdin); print('yes' if 'snapshot' in d else 'no')
@@ -91,16 +91,16 @@ fi
 
 section "key — arrow keys"
 
-cu_json "key up --app TextEdit --no-snapshot"
+cu_json "key up --app com.apple.TextEdit --no-snapshot"
 assert_ok "key up"
 
-cu_json "key down --app TextEdit --no-snapshot"
+cu_json "key down --app com.apple.TextEdit --no-snapshot"
 assert_ok "key down"
 
-cu_json "key left --app TextEdit --no-snapshot"
+cu_json "key left --app com.apple.TextEdit --no-snapshot"
 assert_ok "key left"
 
-cu_json "key right --app TextEdit --no-snapshot"
+cu_json "key right --app com.apple.TextEdit --no-snapshot"
 assert_ok "key right"
 
 section "key — function keys"
@@ -138,7 +138,7 @@ else
 fi
 
 # --app sidesteps the check entirely (target is explicit)
-cu_json "key escape --app TextEdit --no-snapshot"
+cu_json "key escape --app com.apple.TextEdit --no-snapshot"
 assert_ok "--app bypasses safety check"
 
 # Frontmost not in dangerous list → call proceeds (safety check is allow-by-default)
@@ -155,7 +155,7 @@ fi
 
 section "key — human mode"
 
-cu_human "key escape --app TextEdit"
+cu_human "key escape --app com.apple.TextEdit"
 assert_exit_zero "key human exits 0"
 assert_contains "shows key info" "Sent key"
 

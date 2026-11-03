@@ -3,7 +3,7 @@
 source "$(dirname "$0")/helpers.sh"
 
 # Get a known element from Finder so we can probe its center + corners.
-cu_json find --app Finder --role row --first --limit 200
+cu_json find --app com.apple.finder --role row --first --limit 200
 FIRST=$(json_get '.match.ref' || echo "")
 if [[ -z "$FIRST" || "$FIRST" == "__MISSING__" ]]; then
   _skip "nearest suite" "no Finder rows to probe against"
@@ -17,7 +17,7 @@ CY=$(python3 -c "print($EY + $EH / 2)")
 
 section "nearest — point inside an element"
 
-cu_json nearest "$CX" "$CY" --app Finder --limit 200
+cu_json nearest "$CX" "$CY" --app com.apple.finder --limit 200
 assert_ok "nearest at element center ok"
 M_REF=$(json_get '.match.ref' || echo "")
 M_DIST=$(json_get '.match.distance' || echo "1")
@@ -43,7 +43,7 @@ assert_json_field_exists "scanned field" ".scanned"
 section "nearest — point outside, returns positive distance"
 
 # A point far away in negative space should match SOMETHING with distance > 0.
-cu_json nearest 99999 99999 --app Finder --limit 200
+cu_json nearest 99999 99999 --app com.apple.finder --limit 200
 assert_ok "nearest at far-away point ok"
 FAR_DIST=$(json_get '.match.distance' || echo "0")
 FAR_INSIDE=$(json_get '.match.inside' || echo "true")
@@ -62,7 +62,7 @@ fi
 section "nearest — --max-distance filters"
 
 # Point inside element 1 → with max-distance 5, still hits (distance is 0)
-cu_json nearest "$CX" "$CY" --app Finder --max-distance 5 --limit 200
+cu_json nearest "$CX" "$CY" --app com.apple.finder --max-distance 5 --limit 200
 M=$(echo "$OUT" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
@@ -75,7 +75,7 @@ else
 fi
 
 # Far-away point with max-distance 10 → null
-cu_json nearest 99999 99999 --app Finder --max-distance 10 --limit 200
+cu_json nearest 99999 99999 --app com.apple.finder --max-distance 10 --limit 200
 NULL_M=$(echo "$OUT" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
@@ -98,7 +98,7 @@ fi
 section "nearest — refs match snapshot refs"
 
 # ref returned by nearest should be a real ref in snapshot at same coordinates
-cu_json snapshot Finder --limit 200
+cu_json snapshot com.apple.finder --limit 200
 SNAP_X=$(echo "$OUT" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
@@ -116,7 +116,7 @@ fi
 
 section "nearest — error: invalid coords"
 
-cu_json nearest nan 100 --app Finder
+cu_json nearest nan 100 --app com.apple.finder
 assert_fail "non-numeric coord rejected"
 
 section "nearest — error: non-existent app"
@@ -126,7 +126,7 @@ assert_fail "non-existent app fails"
 
 section "nearest — human mode"
 
-cu_human nearest "$CX" "$CY" --app Finder --limit 200
+cu_human nearest "$CX" "$CY" --app com.apple.finder --limit 200
 assert_exit_zero "human nearest exits 0"
 if echo "$OUT" | grep -qE '^\[[0-9]+\]'; then
   _pass "human format: [ref] role"

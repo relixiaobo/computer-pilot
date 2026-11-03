@@ -1,6 +1,8 @@
 #!/bin/bash
 # Test: cu window (list/move/resize/focus/minimize/close)
 source "$(dirname "$0")/helpers.sh"
+FINDER_NAME=$(app_display_name com.apple.finder)
+export FINDER_NAME
 
 # Ensure Finder has a window. We do NOT activate — `cu window list / move /
 # resize / focus` work over AX without requiring Finder to be frontmost. The
@@ -18,9 +20,9 @@ assert_json_field_exists "windows array" ".windows"
 
 # Should have at least Finder
 HAS_FINDER=$(echo "$OUT" | python3 -c "
-import sys, json
+import sys, json, os
 d = json.load(sys.stdin)
-print('yes' if any(w['app'] == 'Finder' for w in d['windows']) else 'no')
+print('yes' if any(w['app'] == os.environ['FINDER_NAME'] for w in d['windows']) else 'no')
 " 2>/dev/null || echo "no")
 if [[ "$HAS_FINDER" == "yes" ]]; then
   _pass "Finder window listed"
@@ -30,9 +32,9 @@ fi
 
 # Check window fields
 HAS_FIELDS=$(echo "$OUT" | python3 -c "
-import sys, json
+import sys, json, os
 d = json.load(sys.stdin)
-w = next((w for w in d['windows'] if w['app'] == 'Finder'), None)
+w = next((w for w in d['windows'] if w['app'] == os.environ['FINDER_NAME']), None)
 if not w: print('missing'); sys.exit()
 required = ['app','index','title','x','y','width','height','minimized','focused']
 miss = [f for f in required if f not in w]
@@ -46,13 +48,13 @@ fi
 
 section "window list --app Finder"
 
-cu_json window list --app Finder
+cu_json window list --app com.apple.finder
 assert_ok "window list --app ok"
 # Should only have Finder windows
 ONLY_FINDER=$(echo "$OUT" | python3 -c "
-import sys, json
+import sys, json, os
 d = json.load(sys.stdin)
-print('yes' if all(w['app']=='Finder' for w in d['windows']) else 'no')
+print('yes' if all(w['app']==os.environ['FINDER_NAME'] for w in d['windows']) else 'no')
 " 2>/dev/null || echo "no")
 if [[ "$ONLY_FINDER" == "yes" ]]; then
   _pass "filtered to Finder only"
@@ -62,13 +64,13 @@ fi
 
 section "window move + verify"
 
-cu_json window move 250 150 --app Finder
+cu_json window move 250 150 --app com.apple.finder
 assert_ok "window move ok"
 assert_json_field "window move uses native AX" ".method" "ax-window"
 sleep 0.3
 
 # Verify new position
-cu_json window list --app Finder
+cu_json window list --app com.apple.finder
 NEW_X=$(echo "$OUT" | python3 -c "
 import sys, json; d = json.load(sys.stdin); print(d['windows'][0]['x'])
 " 2>/dev/null || echo "0")
@@ -83,11 +85,11 @@ fi
 
 section "window resize + verify"
 
-cu_json window resize 900 600 --app Finder
+cu_json window resize 900 600 --app com.apple.finder
 assert_ok "window resize ok"
 sleep 0.3
 
-cu_json window list --app Finder
+cu_json window list --app com.apple.finder
 NEW_W=$(echo "$OUT" | python3 -c "
 import sys, json; d = json.load(sys.stdin); print(d['windows'][0]['width'])
 " 2>/dev/null || echo "0")
@@ -103,7 +105,7 @@ fi
 section "window focus"
 
 if interactive_tests_enabled; then
-  cu_json window focus --app Finder
+  cu_json window focus --app com.apple.finder
   assert_ok "window focus ok"
   # Focus selects through AX, activates the exact process, then verifies it
   # through NSWorkspace rather than treating AXRaise as application focus.
@@ -119,7 +121,7 @@ if interactive_tests_enabled; then
   else
     _fail "focus reports verified frontmost PID" "got '$FOCUSED_PID'"
   fi
-  cu_json state Finder --no-screenshot
+  cu_json state com.apple.finder --no-screenshot
   assert_ok "state after focus ok"
   assert_json_field "state confirms Finder frontmost" ".frontmost" "true"
 else
@@ -135,7 +137,7 @@ section "window — error handling"
 cu_json window move 100 100
 assert_fail "move without --app fails"
 
-cu_json window badaction --app Finder
+cu_json window badaction --app com.apple.finder
 assert_fail "unknown action fails"
 
 cu_json window list --app NonExistentApp99999
@@ -147,7 +149,7 @@ else
   _fail "non-existent app stable code" "got '$APP_ERROR_CODE'"
 fi
 
-cu_json window focus --window 999 --app Finder
+cu_json window focus --window 999 --app com.apple.finder
 assert_fail "missing window index fails"
 WINDOW_ERROR_CODE=$(echo "$ERR" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("code", ""))' 2>/dev/null || true)
 if [[ "$WINDOW_ERROR_CODE" == "window_not_found" ]]; then
@@ -158,8 +160,8 @@ fi
 
 section "window — human mode"
 
-cu_human window list --app Finder
+cu_human window list --app com.apple.finder
 assert_exit_zero "window human exits 0"
-assert_contains "shows window info" "Finder"
+assert_contains "shows window info" "$FINDER_NAME"
 
 summary

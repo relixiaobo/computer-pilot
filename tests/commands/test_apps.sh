@@ -1,6 +1,7 @@
 #!/bin/bash
 # Test: cu apps
 source "$(dirname "$0")/helpers.sh"
+FINDER_NAME=$(app_display_name com.apple.finder)
 
 section "apps — JSON mode"
 
@@ -13,7 +14,7 @@ APPS_JSON="$OUT"
 FINDER=$(echo "$APPS_JSON" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
-matches = [a for a in d.get('apps', []) if a['name'] == 'Finder']
+matches = [a for a in d.get('apps', []) if a.get('bundle_id') == 'com.apple.finder']
 print('found' if matches else 'missing')
 " 2>/dev/null || echo "error")
 if [[ "$FINDER" == "found" ]]; then
@@ -25,12 +26,12 @@ fi
 FINDER_PID=$(echo "$APPS_JSON" | python3 -c '
 import sys, json
 apps = json.load(sys.stdin).get("apps", [])
-print(next((a["pid"] for a in apps if a["name"] == "Finder"), ""))
+print(next((a["pid"] for a in apps if a.get("bundle_id") == "com.apple.finder"), ""))
 ' 2>/dev/null || true)
 FINDER_SELECTOR=$(echo "$APPS_JSON" | python3 -c '
 import sys, json
 apps = json.load(sys.stdin).get("apps", [])
-print(next((a.get("selector", "") for a in apps if a["name"] == "Finder"), ""))
+print(next((a.get("selector", "") for a in apps if a.get("bundle_id") == "com.apple.finder"), ""))
 ' 2>/dev/null || true)
 
 # Check app structure
@@ -88,9 +89,9 @@ section "apps — human mode"
 
 cu_human "apps"
 assert_exit_zero "apps human exits 0"
-assert_contains "Finder in human output" "Finder"
+assert_contains "Finder in human output" "$FINDER_NAME"
 # Human format: "* Finder (pid NNN)" or " S Finder (pid NNN)"
-if grep -qE 'Finder \(pid [0-9]+\)' <<< "$OUT"; then
+if grep -qF "$FINDER_NAME (pid $FINDER_PID)" <<< "$OUT"; then
   _pass "human format: name (pid N)"
 else
   _fail "human format: name (pid N)" "${OUT:0:200}"

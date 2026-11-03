@@ -243,7 +243,7 @@ else
       "a call failed (last exit=$EXIT err=${ERR:0:160})"
   fi
 
-  run_cu "$CU" "$HOME_REAL" snapshot Finder --limit 3
+  run_cu "$CU" "$HOME_REAL" snapshot com.apple.finder --limit 3
   assert_ok "current CLI runs real commands after the takeover"
 fi
 

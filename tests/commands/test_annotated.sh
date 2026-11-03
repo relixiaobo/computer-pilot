@@ -7,7 +7,7 @@ cleanup_register "$OUT_PATH"
 
 section "snapshot --annotated — basic JSON output"
 
-cu_json snapshot Finder --limit 30 --annotated --output "$OUT_PATH"
+cu_json snapshot com.apple.finder --limit 30 --annotated --output "$OUT_PATH"
 assert_ok "snapshot --annotated ok"
 assert_json_field "annotated_screenshot path returned" ".annotated_screenshot" "$OUT_PATH"
 assert_json_field_exists "image_scale field present" ".image_scale"
@@ -57,7 +57,7 @@ fi
 section "snapshot --annotated — default output path"
 
 # Without --output, the private runtime output directory supplies an absolute path.
-cu_json snapshot Finder --limit 5 --annotated
+cu_json snapshot com.apple.finder --limit 5 --annotated
 assert_ok "default-path --annotated ok"
 DEFAULT_PATH=$(json_get '.annotated_screenshot' || echo "")
 if [[ "$DEFAULT_PATH" == /*/cu-annotated-*.png ]]; then
@@ -75,7 +75,7 @@ fi
 section "snapshot --annotated — coexists with normal snapshot"
 
 # Plain snapshot still works (no annotated_screenshot field)
-cu_json snapshot Finder --limit 10
+cu_json snapshot com.apple.finder --limit 10
 assert_ok "plain snapshot still ok"
 NO_ANNO=$(echo "$OUT" | python3 -c "
 import sys, json; d = json.load(sys.stdin); print('absent' if 'annotated_screenshot' not in d else 'present')
@@ -90,7 +90,7 @@ section "snapshot --annotated — human mode"
 
 HUMAN_PATH="/private/tmp/cu-test-annotated-human-$$.png"
 cleanup_register "$HUMAN_PATH"
-cu_human snapshot Finder --limit 5 --annotated --output "$HUMAN_PATH"
+cu_human snapshot com.apple.finder --limit 5 --annotated --output "$HUMAN_PATH"
 assert_exit_zero "human --annotated exits 0"
 if echo "$OUT" | grep -q "Annotated screenshot:"; then
   _pass "human mode prints 'Annotated screenshot:' line"

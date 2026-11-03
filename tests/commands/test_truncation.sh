@@ -10,7 +10,7 @@ source "$(dirname "$0")/helpers.sh"
 section "truncation — hint attached when --limit is reached"
 
 # Finder reliably has well over 50 elements in its sidebar/columns.
-cu_json snapshot Finder --limit 5
+cu_json snapshot com.apple.finder --limit 5
 assert_ok "snapshot ok"
 
 PARSED=$(echo "$OUT" | python3 -c "
@@ -31,7 +31,7 @@ print('|'.join([
 
 section "truncation — hint absent when no truncation"
 
-cu_json snapshot Finder --limit 5000
+cu_json snapshot com.apple.finder --limit 5000
 assert_ok "snapshot --limit 5000 ok"
 
 PARSED=$(echo "$OUT" | python3 -c "

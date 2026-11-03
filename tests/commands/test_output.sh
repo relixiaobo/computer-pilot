@@ -11,7 +11,7 @@ assert_json "piped setup is JSON"
 cu_json "apps"
 assert_json "piped apps is JSON"
 
-cu_json "snapshot Finder --limit 3"
+cu_json "snapshot com.apple.finder --limit 3"
 assert_json "piped snapshot is JSON"
 
 section "output mode — --human flag overrides"
@@ -32,7 +32,7 @@ else
   _pass "--human apps is human text"
 fi
 
-cu_human "snapshot Finder --limit 3"
+cu_human "snapshot com.apple.finder --limit 3"
 if [[ "$OUT" == "{"* ]]; then
   _fail "--human snapshot is not JSON" "starts with {"
 else
@@ -42,7 +42,7 @@ fi
 section "output mode — JSON structure consistency"
 
 # Commands with "ok" field
-for cmd in "setup" "hover 100 100 --app Finder" "scroll down 3 --x 100 --y 100 --app Finder"; do
+for cmd in "setup" "hover 100 100 --app com.apple.finder" "scroll down 3 --x 100 --y 100 --app com.apple.finder"; do
   cu_json "$cmd"
   OK_FIELD=$(json_get '.ok' 2>/dev/null || echo "missing")
   if [[ "$OK_FIELD" == "true" || "$OK_FIELD" == "false" ]]; then
@@ -58,11 +58,11 @@ assert_json "apps is valid JSON"
 
 section "output mode — action commands echo parameters"
 
-cu_json "hover 123 456 --app Finder"
+cu_json "hover 123 456 --app com.apple.finder"
 assert_json_field "hover echoes x" ".x" "123.0"
 assert_json_field "hover echoes y" ".y" "456.0"
 
-cu_json "scroll up 7 --x 100 --y 200 --app Finder"
+cu_json "scroll up 7 --x 100 --y 200 --app com.apple.finder"
 assert_json_field "scroll echoes direction" ".direction" "up"
 assert_json_field "scroll echoes amount" ".amount" "7"
 

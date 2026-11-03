@@ -76,15 +76,24 @@ for test_file in "${TESTS[@]}"; do
   output=$(bash "$test_file" 2>&1) || suite_exit=$?
   echo "$output"
 
-  # Extract counts from the Results line
-  pass=$(echo "$output" | grep -oE '[0-9]+ passed' | grep -oE '[0-9]+' || echo "0")
-  fail=$(echo "$output" | grep -oE '[0-9]+ failed' | grep -oE '[0-9]+' || echo "0")
-  skip=$(echo "$output" | grep -oE '[0-9]+ skipped' | grep -oE '[0-9]+' || echo "0")
+  # Parse only the anchored summary. Errors can contain text like
+  # "Fixture7974 failed", which must never become a counter or break arithmetic.
+  counts=$(printf '%s\n' "$output" | sed -nE 's/^Results: ([0-9]+) passed, ([0-9]+) failed, ([0-9]+) skipped \/ ([0-9]+) total$/\1 \2 \3 \4/p')
+  pass=0 fail=0 skip=0
+  summary_valid=false
+  if [[ -n "$counts" && "$counts" != *$'\n'* ]]; then
+    read -r pass fail skip suite_total <<< "$counts"
+    [[ $((pass + fail + skip)) -eq $suite_total ]] && summary_valid=true
+  fi
 
-  # A crashed suite may never print Results. Do not count that as zero failures.
-  if [[ "$output" != *"Results:"* ]] || [[ $suite_exit -ne 0 && $fail -eq 0 ]]; then
-    echo "  FAIL $name exited with status $suite_exit without a successful summary"
-    fail=$((fail + 1))
+  # Missing, duplicate or inconsistent summaries and nonzero suite exits
+  # must always make the gate red, regardless of diagnostic text.
+  if [[ "$summary_valid" != true ]]; then
+    pass=0 fail=1 skip=0
+    echo "  FAIL $name has no unique, consistent summary (exit $suite_exit)"
+  elif [[ $suite_exit -ne 0 && $fail -eq 0 ]]; then
+    echo "  FAIL $name exited with status $suite_exit despite a passing summary"
+    fail=1
   fi
 
   TOTAL_PASS=$((TOTAL_PASS + pass))

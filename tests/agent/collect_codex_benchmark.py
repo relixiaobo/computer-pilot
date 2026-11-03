@@ -79,17 +79,21 @@ def collect_turns(path, arm, thread_id):
                     match = re.search(r'GO ((?:native|cu)-\d+)\.', item.get('output', ''))
                     if match:
                         turn['label'] = match[1]
-                if item.get('type') in ('McpToolCall', 'CommandExecution'):
-                    output = (item.get('aggregated_output', '')
-                              if item['type'] == 'CommandExecution'
-                              else item.get('result', {}))
+                if item.get('type') in ('McpToolCall', 'CommandExecution', 'ImageView'):
+                    image_view = item['type'] == 'ImageView'
+                    # ImageView completion records carry a path, not image bytes
+                    # or a status. Count the operation alongside shell/MCP calls,
+                    # without counting its raw function-call record a second time.
+                    output = ('' if image_view else item.get('aggregated_output', '')
+                              if item['type'] == 'CommandExecution' else item.get('result', {}))
                     turn['tools'].append(dict(
                         id=item['id'], kind=item['type'], server=item.get('server'),
-                        tool=item.get('tool'), command=item.get('command'),
-                        arguments=item.get('arguments'),
+                        tool='view_image' if image_view else item.get('tool'), command=item.get('command'),
+                        arguments={'path': item.get('path')} if image_view else item.get('arguments'),
                         start_ms=payload.get('started_at_ms'),
                         end_ms=payload.get('completed_at_ms'),
-                        status=item.get('status'), exit_code=item.get('exit_code'),
+                        status=item.get('status', 'completed' if image_view else None),
+                        exit_code=item.get('exit_code'),
                         output=output))
     return turns.values()
 

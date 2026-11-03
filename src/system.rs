@@ -9,6 +9,12 @@ use std::time::{Duration, Instant};
 #[link(name = "AppKit", kind = "framework")]
 unsafe extern "C" {}
 
+#[link(name = "CoreFoundation", kind = "framework")]
+unsafe extern "C" {
+    static kCFRunLoopDefaultMode: *const c_void;
+    fn CFRunLoopRunInMode(mode: *const c_void, seconds: f64, return_after_source: u8) -> i32;
+}
+
 unsafe extern "C" {
     fn objc_getClass(name: *const c_char) -> *mut c_void;
     fn sel_registerName(name: *const c_char) -> *mut c_void;
@@ -239,7 +245,19 @@ pub fn activate_pid(pid: i32) -> Result<(), CuError> {
                 "frontmost_pid": actual,
             })));
         }
-        std::thread::sleep(Duration::from_millis(25));
+        // AppKit keeps time-varying NSRunningApplication/NSWorkspace state
+        // until the main run loop advances. Sleeping here can keep returning
+        // the previous foreground PID even after activation actually succeeds.
+        // Commands execute on the worker's main thread; service notifications
+        // within the existing bound, without another activation or global input.
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        unsafe {
+            CFRunLoopRunInMode(
+                kCFRunLoopDefaultMode,
+                remaining.min(Duration::from_millis(25)).as_secs_f64(),
+                0,
+            );
+        }
     }
 }
 
@@ -720,37 +738,129 @@ pub fn defaults_write(domain: &str, key: &str, value_args: &[String]) -> Result<
 
 // ── Launch (D6) ─────────────────────────────────────────────────────────────
 
-/// Resolve a process by bundle identifier through NSWorkspace.
-/// Returns `(pid, app_name)` once the process exists, error otherwise.
-pub fn resolve_by_bundle_id(bundle_id: &str) -> Result<(i32, String), CuError> {
-    resolve_target_from_apps(&running_apps_native(), &Some(bundle_id.to_string()))
+/// Resolve Launch Services' app-name alias to the exact bundle opened and its
+/// stable identity. A bundle filename (Calculator) need not equal localizedName.
+/// This is launch-only; action selectors still require an unambiguous running
+/// name, bundle identifier or PID.
+fn launch_name_identity(name: &str) -> Option<(String, String)> {
+    let name = std::ffi::CString::new(name).ok()?;
+    unsafe {
+        let pool = objc_autoreleasePoolPush();
+        let send_id: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
+            std::mem::transmute(objc_msgSend as *const ());
+        let send_arg: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) -> *mut c_void =
+            std::mem::transmute(objc_msgSend as *const ());
+        let send_string: unsafe extern "C" fn(
+            *mut c_void,
+            *mut c_void,
+            *const c_char,
+        ) -> *mut c_void = std::mem::transmute(objc_msgSend as *const ());
+        let send_cstr: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *const c_char =
+            std::mem::transmute(objc_msgSend as *const ());
+        let workspace = send_id(
+            objc_getClass(c"NSWorkspace".as_ptr()),
+            sel_registerName(c"sharedWorkspace".as_ptr()),
+        );
+        let name_obj = send_string(
+            objc_getClass(c"NSString".as_ptr()),
+            sel_registerName(c"stringWithUTF8String:".as_ptr()),
+            name.as_ptr(),
+        );
+        // fullPathForApplication is Launch Services' name/path lookup, also
+        // used for names accepted by `open -a`; no directory/name heuristics.
+        let path_obj = send_arg(
+            workspace,
+            sel_registerName(c"fullPathForApplication:".as_ptr()),
+            name_obj,
+        );
+        let result = if path_obj.is_null() {
+            None
+        } else {
+            let bundle = send_arg(
+                objc_getClass(c"NSBundle".as_ptr()),
+                sel_registerName(c"bundleWithPath:".as_ptr()),
+                path_obj,
+            );
+            let identifier = send_id(bundle, sel_registerName(c"bundleIdentifier".as_ptr()));
+            let path = nsstring(path_obj, send_cstr);
+            let identifier = nsstring(identifier, send_cstr);
+            if path.is_empty() || identifier.is_empty() {
+                None
+            } else {
+                Some((path, identifier))
+            }
+        };
+        objc_autoreleasePoolPop(pool);
+        result
+    }
 }
 
-/// Launch an app by name or bundle identifier via Launch Services.
-/// Heuristic: an `id` argument with a `.` is treated as a bundle id (`open -b`),
-/// otherwise as an app name (`open -a`). Returns immediately — the caller is
-/// responsible for waiting on readiness if needed.
-///
-/// Always passes `-g` (background): launching must not steal the user's
-/// frontmost app. Agents that need the app foregrounded use `cu window focus`
-/// explicitly, which reports the activation as user-visible.
-pub fn launch_app(id: &str) -> Result<(), String> {
-    let flag = if id.contains('.') && !id.contains(' ') {
-        "-b"
+pub struct LaunchIdentity {
+    selector: String,
+    bundle_path: Option<String>,
+}
+
+fn resolve_launch_from_apps(
+    apps: &[NativeApp],
+    identity: &LaunchIdentity,
+) -> Result<(i32, String), CuError> {
+    let resolved = resolve_target_from_apps(apps, &Some(identity.selector.clone()))?;
+    if let Some(expected) = &identity.bundle_path {
+        let actual = &apps
+            .iter()
+            .find(|app| app.pid == resolved.0)
+            .expect("resolved app")
+            .bundle_path;
+        let same_path = actual == expected
+            || matches!(
+                (std::fs::canonicalize(actual), std::fs::canonicalize(expected)),
+                (Ok(actual), Ok(expected)) if actual == expected
+            );
+        if !same_path {
+            return Err(CuError::msg(format!(
+                "launched bundle {expected} is not running; matching PID {} belongs to {actual}",
+                resolved.0
+            ))
+            .with_code(ErrorCode::AppNotFound));
+        }
+    }
+    Ok(resolved)
+}
+
+pub fn resolve_launched_app(identity: &LaunchIdentity) -> Result<(i32, String), CuError> {
+    resolve_launch_from_apps(&running_apps_native(), identity)
+}
+
+/// Open in the background and return the identity to poll for readiness.
+/// Pin name-based launches to the resolved bundle path so opening and polling
+/// cannot disagree about a localized application name.
+pub fn launch_app(id: &str) -> Result<LaunchIdentity, String> {
+    let is_bundle_id =
+        id.contains('.') && !id.contains(' ') && !id.contains('/') && !id.ends_with(".app");
+    let identity = if is_bundle_id {
+        None
     } else {
-        "-a"
+        launch_name_identity(id)
     };
+    let (open_target, selector) = identity
+        .as_ref()
+        .map(|(path, bundle)| (path.as_str(), bundle.as_str()))
+        .unwrap_or((id, id));
+    let flag = if is_bundle_id { "-b" } else { "-a" };
     let mut last_detail = String::new();
     for attempt in 0..=10 {
         let status = Command::new("open")
-            .args(["-g", flag, id])
+            .args(["-g", flag, open_target])
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
             .output()
             .map_err(|e| format!("failed to spawn `open`: {e}"))?;
         if status.status.success() {
-            return Ok(());
+            return Ok(LaunchIdentity {
+                selector: selector.to_string(),
+                bundle_path: identity.as_ref().map(|(path, _)| path.clone()),
+            });
         }
         let stderr = String::from_utf8_lossy(&status.stderr);
         let msg = stderr.trim();
@@ -883,6 +993,44 @@ mod tests {
             active,
             activation_policy: 0,
         }
+    }
+
+    #[test]
+    fn launch_readiness_preserves_path_and_rejects_ambiguous_bundle_ids() {
+        let identity = LaunchIdentity {
+            selector: "com.example.launch".into(),
+            bundle_path: Some("/Applications/Launch.app".into()),
+        };
+        let correct = app(
+            "启动测试",
+            10,
+            "com.example.launch",
+            "/Applications/Launch.app",
+            false,
+        );
+        let other = app(
+            "启动测试",
+            20,
+            "com.example.launch",
+            "/Other/Launch.app",
+            true,
+        );
+        assert_eq!(
+            resolve_launch_from_apps(std::slice::from_ref(&correct), &identity).unwrap(),
+            (10, "启动测试".into())
+        );
+        assert_eq!(
+            resolve_launch_from_apps(std::slice::from_ref(&other), &identity)
+                .unwrap_err()
+                .code,
+            ErrorCode::AppNotFound
+        );
+        assert_eq!(
+            resolve_launch_from_apps(&[correct, other], &identity)
+                .unwrap_err()
+                .code,
+            ErrorCode::AmbiguousTarget
+        );
     }
 
     #[test]

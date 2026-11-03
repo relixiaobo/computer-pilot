@@ -27,7 +27,7 @@ timing estimates are not current acceptance criteria.
   existing shell, with a private per-user Broker. See
   [integration](universal-agent-integration.md) and the shared
   [working agreement](../AGENTS.md).
-- The latest [follow-up retest](../tests/agent/results/2026-11-03-followup-resource-retest.md)
+- The broader [follow-up retest](../tests/agent/results/2026-11-03-followup-resource-retest.md)
   recorded 10/11 normal passes, one normal TextEdit failure/false completion,
   and one budget stop with exact saved files. Native Computer Use was not
   rerun. These are scoped test results, not a general parity claim or a full
@@ -44,7 +44,27 @@ the last section. The saved file and final AX value agree. The skill's section
 move and completion guidance has been refined; see the
 [retained-evidence analysis](../tests/agent/results/2026-11-03-textedit-boundary-analysis.md).
 This is a post-v0.9.3 skill change, not part of the published artifact. A fresh
-agent retest is still needed before claiming a reliability improvement.
+[three-attempt retest](../tests/agent/results/2026-11-03-textedit-boundary-retest.md)
+at `85c29ab` with the released CLI produced two exact passes and one honest
+`focus_failed` blocker, with no false completion claims among two claims.
+Both passing attempts preserved exactly one final LF. This is scoped evidence,
+not proof of a causal reliability improvement or a complete release gate.
+A subsequent [unreleased repair and retest](../tests/agent/results/2026-11-03-focus-recovery-fixes.md)
+fixes a reproduced stale-AppKit foreground check, publishes input-error recovery
+refs, and counts benchmark image views. Its fresh cohort passed 3/3 exactly
+with zero tool errors and no false completion claims. This does not establish
+the cause of the earlier focus blocker or general reliability. The subsequent
+[local gate repairs](../tests/agent/results/2026-11-03-local-gate-repairs.md) fix localized
+launch readiness, test target/default assumptions and a false-green suite counter.
+The default full local gate now passes (888 L1 passes, zero failures,
+25 explicit skips; 46 Rust unit tests), with 34 benchmark-reporting tests
+passing separately. The final
+[independent acceptance](../tests/agent/results/2026-11-03-final-candidate-acceptance.md)
+review found no new blocking code issue; six critical suites passed 58/58 and
+owned exact-PID focus passed separately. The candidate can proceed to a repair
+PR/CI. Formal L2 stopped at missing-credential preflight (no `.env` or provider
+key/model configuration), so publication acceptance is still pending. Remaining
+interactive coverage is explicitly classified in the report. No release was prepared.
 
 ---
 

@@ -4,32 +4,32 @@ source "$(dirname "$0")/helpers.sh"
 
 section "scroll — all directions"
 
-cu_json "scroll down 3 --x 400 --y 300 --app Finder"
+cu_json "scroll down 3 --x 400 --y 300 --app com.apple.finder"
 assert_ok "scroll down"
 assert_json_field "direction" ".direction" "down"
 assert_json_field "amount" ".amount" "3"
 
-cu_json "scroll up 3 --x 400 --y 300 --app Finder"
+cu_json "scroll up 3 --x 400 --y 300 --app com.apple.finder"
 assert_ok "scroll up"
 assert_json_field "direction" ".direction" "up"
 
-cu_json "scroll left 2 --x 400 --y 300 --app Finder"
+cu_json "scroll left 2 --x 400 --y 300 --app com.apple.finder"
 assert_ok "scroll left"
 assert_json_field "direction" ".direction" "left"
 
-cu_json "scroll right 2 --x 400 --y 300 --app Finder"
+cu_json "scroll right 2 --x 400 --y 300 --app com.apple.finder"
 assert_ok "scroll right"
 assert_json_field "direction" ".direction" "right"
 
 section "scroll — default amount"
 
-cu_json "scroll down --x 400 --y 300 --app Finder"
+cu_json "scroll down --x 400 --y 300 --app com.apple.finder"
 assert_ok "scroll with default amount"
 assert_json_field "default amount is 3" ".amount" "3"
 
 section "scroll — coordinates in response"
 
-cu_json "scroll down 5 --x 123 --y 456 --app Finder"
+cu_json "scroll down 5 --x 123 --y 456 --app com.apple.finder"
 assert_ok "scroll with specific coords"
 assert_json_field "x coord" ".x" "123.0"
 assert_json_field "y coord" ".y" "456.0"
@@ -52,14 +52,14 @@ assert_exit_nonzero "missing --y fails"
 
 section "scroll — human mode"
 
-cu_human "scroll down 3 --x 400 --y 300 --app Finder"
+cu_human "scroll down 3 --x 400 --y 300 --app com.apple.finder"
 assert_exit_zero "scroll human exits 0"
 assert_contains "shows scroll info" "Scrolled"
 assert_contains "shows direction" "down"
 
 section "scroll — auto-snapshot contract (post-action UI state)"
 
-cu_json scroll down 1 --x 600 --y 400 --app Finder
+cu_json scroll down 1 --x 600 --y 400 --app com.apple.finder
 assert_ok "scroll with default attaches snapshot"
 PARSED=$(echo "$OUT" | python3 -c "
 import sys, json
@@ -72,7 +72,7 @@ print('|'.join([
 [[ "$PARSED" == *"has_snapshot=True"* ]]   && _pass "scroll attaches snapshot"   || _fail "scroll attaches snapshot"   "$PARSED"
 [[ "$PARSED" == *"has_settle_ms=True"* ]]  && _pass "scroll has settle_ms"       || _fail "scroll settle_ms"           "$PARSED"
 
-cu_json scroll down 1 --x 600 --y 400 --app Finder --no-snapshot
+cu_json scroll down 1 --x 600 --y 400 --app com.apple.finder --no-snapshot
 assert_ok "scroll --no-snapshot ok"
 NO_SNAP=$(echo "$OUT" | python3 -c "
 import sys, json; d = json.load(sys.stdin); print('absent' if 'snapshot' not in d else 'present')
@@ -94,7 +94,7 @@ else
   _fail "refuses scroll without --app" "expected refusal, got: ${OUT:0:120}"
 fi
 
-OUT=$(CU_TEST_FRONTMOST_OVERRIDE=Terminal "$CU" scroll down 1 --x 600 --y 400 --app Finder --no-snapshot 2>&1) || true
+OUT=$(CU_TEST_FRONTMOST_OVERRIDE=Terminal "$CU" scroll down 1 --x 600 --y 400 --app com.apple.finder --no-snapshot 2>&1) || true
 if echo "$OUT" | grep -q "refusing to scroll"; then
   _fail "--app scroll bypasses safety check" "was refused: ${OUT:0:120}"
 else

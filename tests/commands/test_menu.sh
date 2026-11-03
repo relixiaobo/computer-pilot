@@ -4,9 +4,9 @@ source "$(dirname "$0")/helpers.sh"
 
 section "menu — Finder (always running)"
 
-cu_json menu Finder
+cu_json menu com.apple.finder
 assert_ok "menu Finder ok"
-assert_json_field "app is Finder" ".app" "Finder"
+assert_json_field "app is Finder" ".app" "com.apple.finder"
 assert_json_field_exists "items array" ".items"
 
 # Should have standard menu items
@@ -19,24 +19,23 @@ else
   _fail "has menu items" "got $ITEM_COUNT"
 fi
 
-# Should contain standard menus (File, Edit, View, etc.)
-HAS_FILE=$(echo "$OUT" | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-has = any(i['menu'] == 'File' for i in d.get('items', []))
-print('yes' if has else 'no')
-" 2>/dev/null || echo "no")
-if [[ "$HAS_FILE" == "yes" ]]; then
-  _pass "has File menu"
-else
-  _fail "File menu" "not found"
-fi
+# Menu names are localized. Verify semantic menu/item structure, then check
+# the human rendering against the actual label returned by this app.
+MENU_NAME=$(printf '%s' "$OUT" | python3 -c '
+import json,sys
+items=json.load(sys.stdin)["items"]
+assert all(isinstance(i["menu"], str) and i["menu"] and isinstance(i["item"], str) for i in items)
+menus=list(dict.fromkeys(i["menu"] for i in items))
+assert len(menus) >= 3, menus
+print(menus[1])
+')
+[[ -n "$MENU_NAME" ]] && _pass "localized menus have named items"
 
 section "menu — human mode"
 
-cu_human menu Finder
+cu_human menu com.apple.finder
 assert_exit_zero "menu human exits 0"
-assert_contains "shows menu name" "File"
+assert_contains "shows menu name" "$MENU_NAME"
 
 section "menu — non-running app error"
 

@@ -26,13 +26,13 @@ print('yes' if got == exp else f'no|{got!r}|{exp!r}')
 set_value_fresh() {
   local value="$1"
   shift
-  "$CU" snapshot TextEdit --limit 5 >/dev/null
-  cu_json set-value 1 "$value" --app TextEdit "$@"
+  "$CU" snapshot com.apple.TextEdit --limit 5 >/dev/null
+  cu_json set-value 1 "$value" --app com.apple.TextEdit "$@"
   local code
   code=$(echo "$ERR" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("code", ""))' 2>/dev/null || true)
   if [[ "$EXIT" -ne 0 && "$code" == "stale_observation" ]]; then
-    "$CU" snapshot TextEdit --limit 5 >/dev/null
-    cu_json set-value 1 "$value" --app TextEdit "$@"
+    "$CU" snapshot com.apple.TextEdit --limit 5 >/dev/null
+    cu_json set-value 1 "$value" --app com.apple.TextEdit "$@"
   fi
 }
 
@@ -40,8 +40,8 @@ set_value_fresh() {
 # on a fresh TextEdit instance the first AXValue write can be silently
 # accepted but not propagate to the document until AX has been touched.
 textedit_reset
-"$CU" wait --ref 1 --app TextEdit --timeout 5 >/dev/null 2>&1 || true
-"$CU" snapshot TextEdit --limit 5 >/dev/null 2>&1 || true
+"$CU" wait --ref 1 --app com.apple.TextEdit --timeout 5 >/dev/null 2>&1 || true
+"$CU" snapshot com.apple.TextEdit --limit 5 >/dev/null 2>&1 || true
 sleep 0.3
 
 section "set-value — basic ASCII write"
@@ -80,19 +80,19 @@ fi
 
 section "set-value — error: ref 0"
 
-cu_json set-value 0 "x" --app TextEdit --no-snapshot
+cu_json set-value 0 "x" --app com.apple.TextEdit --no-snapshot
 assert_fail "ref 0 rejected"
 
 section "set-value — error: non-existent ref"
 
-cu_json set-value 9999 "x" --app TextEdit --no-snapshot
+cu_json set-value 9999 "x" --app com.apple.TextEdit --no-snapshot
 assert_fail "ref 9999 not found"
 
 section "set-value — failure carries structured hint + suggested_next"
 
 # Finder ref 1 is typically a non-settable container; failure JSON goes to stderr.
-"$CU" snapshot Finder --limit 50 >/dev/null
-cu_json set-value 1 "x" --app Finder --no-snapshot
+"$CU" snapshot com.apple.finder --limit 50 >/dev/null
+cu_json set-value 1 "x" --app com.apple.finder --no-snapshot
 JSON_OUT="${OUT:-$ERR}"
 PARSED=$(echo "$JSON_OUT" | python3 -c "
 import sys, json
@@ -112,8 +112,8 @@ print('|'.join([
 
 section "set-value — human mode"
 
-"$CU" snapshot TextEdit --limit 5 >/dev/null
-cu_human set-value 1 "testing" --app TextEdit
+"$CU" snapshot com.apple.TextEdit --limit 5 >/dev/null
+cu_human set-value 1 "testing" --app com.apple.TextEdit
 assert_exit_zero "set-value human exits 0"
 assert_contains "shows write confirmation" "Set"
 

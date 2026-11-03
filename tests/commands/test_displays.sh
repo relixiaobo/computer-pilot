@@ -4,7 +4,7 @@ source "$(dirname "$0")/helpers.sh"
 
 section "snapshot — displays array present"
 
-cu_json snapshot Finder --limit 5
+cu_json snapshot com.apple.finder --limit 5
 assert_ok "snapshot ok"
 
 PARSED=$(echo "$OUT" | python3 -c "

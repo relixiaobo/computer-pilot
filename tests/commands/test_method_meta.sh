@@ -4,7 +4,7 @@ source "$(dirname "$0")/helpers.sh"
 
 section "method meta — pid-targeted confidence follows observed effect"
 
-cu_json key escape --app Finder
+cu_json key escape --app com.apple.finder
 assert_ok "cu key escape --app Finder"
 
 PARSED=$(echo "$OUT" | python3 -c "
@@ -70,11 +70,11 @@ section "method meta — set-value distinguishes AX acceptance from UI effect"
 
 # Look for a textfield in whatever Finder window already exists. We deliberately
 # do NOT activate Finder — if there's no textfield, the test SKIPs cleanly.
-cu_json find --app Finder --role textfield --first
+cu_json find --app com.apple.finder --role textfield --first
 SET_REF=$(json_get '.match.ref' || echo "")
 
 if [[ -n "$SET_REF" && "$SET_REF" != "__MISSING__" && "$SET_REF" =~ ^[0-9]+$ ]]; then
-  cu_json set-value "$SET_REF" "test" --app Finder --no-snapshot
+  cu_json set-value "$SET_REF" "test" --app com.apple.finder --no-snapshot
   if [[ "$EXIT" -eq 0 ]]; then
     PARSED=$(echo "$OUT" | python3 -c "
 import sys, json

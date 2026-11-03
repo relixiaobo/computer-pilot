@@ -315,54 +315,75 @@ else
 fi
 wait "$ACTIVE_PID" || true
 
-section "broker — canonical app identity serializes aliases"
+section "broker — canonical app identity and desktop serialization"
 
-"$CU" --json --client-key agent.serial --request-id mutation-1 window move 250 150 --app Finder >"$BROKER_TEST_HOME/mutation-1.out" 2>"$BROKER_TEST_HOME/mutation-1.err" &
-MUTATION_PID_1=$!
-"$CU" --json --client-key agent.serial --request-id mutation-2 window move 250 150 --app com.apple.finder >"$BROKER_TEST_HOME/mutation-2.out" 2>"$BROKER_TEST_HOME/mutation-2.err" &
-MUTATION_PID_2=$!
-MUTATIONS=""
-MUTATION_STATES=""
-for _ in {1..40}; do
-  MUTATIONS=$("$CU" --json --client-key agent.serial commands --limit 10 2>/dev/null || true)
-  MUTATION_STATES=$(echo "$MUTATIONS" | python3 -c '
-import json,sys
-commands=json.load(sys.stdin).get("commands", [])
-states=sorted(c.get("status") for c in commands if c.get("request_id") in {"mutation-1","mutation-2"})
-print(",".join(states))
-' 2>/dev/null || true)
-  [[ "$MUTATION_STATES" == "accepted,dispatched" ]] && break
-  sleep 0.05
-done
-if [[ "$MUTATION_STATES" == "accepted,dispatched" ]]; then
-  _pass "app name and bundle ID share one mutation lock"
+if python3 - "$CU" <<'PYLOCK'
+import json
+import subprocess
+import sys
+import time
+
+cu = sys.argv[1]
+def run(*args):
+    result = subprocess.run([cu, '--json', *args], capture_output=True, text=True, timeout=15)
+    assert result.returncode == 0, (args, result.stdout, result.stderr)
+    return json.loads(result.stdout)
+
+finder = [a for a in run('apps')['apps'] if a.get('bundle_id') == 'com.apple.finder']
+assert len(finder) == 1, finder
+finder = finder[0]
+
+def check_pair(client, first, second, expected_codes, same_resource):
+    processes = []
+    def records():
+        return {c['request_id']: c for c in run('--client-key', client, 'commands', '--limit', '10')['commands']}
+    try:
+        for index, args in enumerate((first, second), 1):
+            request = f'{client}-{index}'
+            processes.append(subprocess.Popen([cu, '--json', '--client-key', client, '--request-id', request, *args],
+                                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True))
+            if index == 1:
+                deadline = time.monotonic() + 10
+                while time.monotonic() < deadline:
+                    record = records().get(request)
+                    if record and record['status'] == 'dispatched':
+                        break
+                    assert not record or record['status'] == 'accepted', record
+                    assert processes[0].poll() is None, processes[0].communicate()
+                    time.sleep(.02)
+                else:
+                    raise AssertionError('First request never dispatched')
+        for process, code in zip(processes, expected_codes):
+            out, err = process.communicate(timeout=15)
+            assert process.returncode != 0 and json.loads(err).get('code') == code, (process.returncode, out, err)
+        final = records()
+        one, two = (final[f'{client}-{i}'] for i in (1, 2))
+        assert one['status'] == two['status'] == 'completed', final
+        assert one['exit_code'] == two['exit_code'] == 1, final
+        assert two['accepted_at_ms'] < one['completed_at_ms'], ('no actual contention', final)
+        assert two['dispatched_at_ms'] >= one['completed_at_ms'], ('overlapping mutations', final)
+        if same_resource:
+            assert one['resource'] == two['resource'] == f"app:pid:{finder['pid']}", final
+    finally:
+        for process in processes:
+            if process.poll() is None:
+                process.terminate()
+                process.communicate(timeout=5)
+
+# The absent window exercises admission and dispatch without moving user windows.
+mutation = ['window', 'move', '250', '150', '--window', '999', '--app']
+check_pair('agent.serial', mutation + [finder['name']], mutation + [finder['bundle_id']],
+           ('window_not_found', 'window_not_found'), True)
+print('localized app name and bundle ID share the same PID lock')
+check_pair('agent.launch-lock', ['launch', 'NonExistentLaunchTarget99999', '--no-wait'],
+           mutation + [finder['bundle_id']], ('command_failed', 'window_not_found'), False)
+print('launch holds the desktop lock until completion')
+PYLOCK
+then
+  _pass "alias and launch locks serialize admitted competing requests"
 else
-  _fail "canonical app mutation serialization" "states=$MUTATION_STATES commands=${MUTATIONS:0:240}"
+  _fail "Broker serialization behavior" "see request/exit/lifecycle assertions above"
 fi
-wait "$MUTATION_PID_1" || true
-wait "$MUTATION_PID_2" || true
-
-section "broker — launch holds the desktop lock"
-
-"$CU" --json --client-key agent.launch-lock --request-id launch-lock-1 launch NonExistentLaunchTarget99999 --no-wait >"$BROKER_TEST_HOME/launch-lock-1.out" 2>"$BROKER_TEST_HOME/launch-lock-1.err" &
-LAUNCH_PID=$!
-"$CU" --json --client-key agent.launch-lock --request-id launch-lock-2 window move 250 150 --app Finder >"$BROKER_TEST_HOME/launch-lock-2.out" 2>"$BROKER_TEST_HOME/launch-lock-2.err" &
-LAUNCH_MUTATION_PID=$!
-sleep 0.15
-LAUNCH_COMMANDS=$("$CU" --json --client-key agent.launch-lock commands --limit 10 2>/dev/null || true)
-LAUNCH_STATES=$(echo "$LAUNCH_COMMANDS" | python3 -c '
-import json,sys
-commands=json.load(sys.stdin).get("commands", [])
-states=sorted(c.get("status") for c in commands if c.get("request_id") in {"launch-lock-1","launch-lock-2"})
-print(",".join(states))
-' 2>/dev/null || true)
-if [[ "$LAUNCH_STATES" == "accepted,dispatched" ]]; then
-  _pass "launch serializes other desktop mutations"
-else
-  _fail "launch desktop lock" "states=$LAUNCH_STATES commands=${LAUNCH_COMMANDS:0:240}"
-fi
-wait "$LAUNCH_PID" || true
-wait "$LAUNCH_MUTATION_PID" || true
 
 section "broker — cancellation and deadlines"
 
@@ -393,7 +414,7 @@ else
 fi
 
 EXIT=0
-OUT=$("$CU" --json --client-key agent.deadline --request-id expire-mutation --timeout 100 window focus --app Finder 2>/tmp/cu-test-stderr) || EXIT=$?
+OUT=$("$CU" --json --client-key agent.deadline --request-id expire-mutation --timeout 100 window focus --app com.apple.finder 2>/tmp/cu-test-stderr) || EXIT=$?
 ERR=$(cat /tmp/cu-test-stderr 2>/dev/null || true)
 UNKNOWN_CODE=$(echo "$ERR" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("code", ""))' 2>/dev/null || true)
 if [[ "$EXIT" -ne 0 && "$UNKNOWN_CODE" == "unknown_outcome" ]]; then

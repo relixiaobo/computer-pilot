@@ -433,11 +433,24 @@ try:
     assert typed["confidence"] == "medium" and typed["effect_advice"], typed
     # Replacing the same text is not a proven delivery failure. No automatic
     # retry may duplicate it, and the attached state remains available.
-    session("key", "cmd+a")
+    selected = session("key", "cmd+a")
+    selected_field = next(e for e in selected["snapshot"]["elements"] if e.get("title") == "latency-input")
+    # Reorder during the pre-type read, so the error's post-input snapshot has
+    # different ref numbers from the last published observation.
+    session("perform", "AXPress", "--ax-path", arm["axPath"], "--no-snapshot")
     unchanged = session("type", "changed-by-application", "--no-paste", ok=False)
     assert unchanged["code"] == "unknown_outcome", unchanged
     assert unchanged["diagnostics"]["value_changed"] is False, unchanged
     assert unchanged["diagnostics"]["snapshot"]["focused"]["value"] == "changed-by-application", unchanged
+    recovery = unchanged["diagnostics"]["snapshot"]
+    field = next(e for e in recovery["elements"] if e.get("title") == "latency-input")
+    other_before = next(e for e in recovery["elements"] if e.get("title") == "other-input")
+    assert field["ref"] != selected_field["ref"], (selected_field, field)
+    # Reuse the returned ref immediately: no extra snapshot or stale-ref retry.
+    repaired = session("set-value", field["ref"], "recovered-from-error")
+    assert next(e for e in repaired["snapshot"]["elements"] if e.get("title") == "latency-input")["value"] == "recovered-from-error", repaired
+    assert next(e for e in repaired["snapshot"]["elements"] if e.get("title") == "other-input")["value"] == other_before["value"], repaired
+    assert unchanged["observation_id"] != selected["observation_id"]
 
     # Default click reports actual checkbox state and diff, without equating
     # a changed tree to completion. This also covers legacy --verify and
@@ -482,6 +495,9 @@ try:
     assert refused["code"] == "verification_failed", refused
     assert refused["diagnostics"]["dispatched"] is False, refused
     assert not any("must-not-land" in e.get("value", "") for e in refused["diagnostics"]["snapshot"]["elements"]), refused
+    input_field = next(e for e in refused["diagnostics"]["snapshot"]["elements"] if e.get("title") == "latency-input")
+    recovered_focus = session("click", input_field["ref"], "--observation", refused["observation_id"])
+    assert recovered_focus["focus_verified"] is True, recovered_focus
     print("Stale AXFocused flag rejected; non-input application focus prevented text dispatch")
 
     # Replace the entire view asynchronously. Refs returned by wait must be
