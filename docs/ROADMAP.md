@@ -66,6 +66,41 @@ PR/CI. Formal L2 stopped at missing-credential preflight (no `.env` or provider
 key/model configuration), so publication acceptance is still pending. Remaining
 interactive coverage is explicitly classified in the report. No release was prepared.
 
+A subsequent [L2 discovery repair](../tests/agent/results/2026-11-03-l2-task-discovery.md)
+separates the three release tasks from benchmark recipes and validates inputs
+before execution. Credentials are now configured; formal L2 ran all three tasks
+but every first model request was rejected with `WEEKLY_LIMIT_EXCEEDED` (HTTP 429).
+The run exited 1 with 0/3 verified and no agent actions. Python checks (39),
+Rust checks (46), and the affected live cleanup suite (6) passed. Publication
+still requires a successful L2 run after provider quota is available.
+
+The user-approved [Codex Luna alternative cohort](../tests/agent/results/2026-11-03-luna-l2.md)
+then ran all three tasks through fresh `gpt-6-luna` agents with the same fixture
+and verification functions: **2/3 passed**. The mail participant rewrote the
+Notes body, lost the requested title, read back only the body, and falsely
+claimed completion. The uniquely identified orphan note was removed and its
+absence verified. This is a real acceptance failure beyond the API quota issue;
+publication remains pending a fix and fresh acceptance. The API runner's earlier
+quota failure has not been replaced or marked passed.
+
+The subsequent [Notes title correction and fresh Luna acceptance](../tests/agent/results/2026-11-03-notes-title-retest.md)
+reproduced Notes' body-derived naming behavior and added scoped skill guidance.
+With the updated skill, three fresh Luna agents passed **3/3** original L2 tasks;
+additional title, complete desktop-name/kind presence and calendar-time checks
+also passed, with all fixtures cleaned. Skill validation, 46 Rust tests and 39
+Python tests passed. This closes the observed title failure in the new cohort;
+the earlier failure remains historical evidence. It is the user-approved Codex
+alternative, not a successful API-runner invocation. Release preparation must
+retain that distinction; no release PR or version bump has been made.
+
+Release preparation now supports an explicit `--agent-evidence=<report.json>`
+route. It requires a tracked, reviewed report with every current task/check
+passed, no skipped checks or cleanup errors, and hashes matching all CLI,
+dependency, packaged skill, task and oracle sources before version edits. The
+release PR records the model, route and evidence; the API runner is not called
+for this explicitly selected route. Invalid evidence fails before branching or
+version changes, including in dry-run. No automatic API-error fallback was added.
+
 ---
 
 ## Optimization queue after v0.9.3

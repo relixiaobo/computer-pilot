@@ -24,6 +24,9 @@ cu-only retests do not establish a new paired speed comparison.
 | [2026-11-03 focus/recovery fixes](results/2026-11-03-focus-recovery-fixes.md) | Unreleased candidate: three exact passes, no tool errors; activation/error-ref behavior and image-view accounting repaired; broad gate still red |
 | [2026-11-03 local gate repairs](results/2026-11-03-local-gate-repairs.md) | Localized launch/target tests, owned preferences and suite accounting repaired; default full gate 888 passed, 0 failed, 25 skipped; 46 Rust and 34 benchmark tests passed |
 | [2026-11-03 final independent acceptance](results/2026-11-03-final-candidate-acceptance.md) | No new blocking findings; 58 critical assertions plus owned focus passed independently; repair PR/CI accepted, publication pending configured L2 |
+| [2026-11-03 L2 discovery repair](results/2026-11-03-l2-task-discovery.md) | Release task discovery fixed; 39 Python, 46 Rust and 6 live cleanup checks passed; formal L2 blocked by provider weekly quota (0/3 verified) |
+| [2026-11-03 Codex Luna L2](results/2026-11-03-luna-l2.md) | Fresh Luna agents: 2/3 passed existing checks; mail summary lost its requested Notes title after a body edit; false completion retained and orphan fixture cleaned |
+| [2026-11-03 Notes title guidance and Luna retest](results/2026-11-03-notes-title-retest.md) | Notes body/title behavior reproduced and guidance corrected; fresh Luna cohort 3/3 passed with original checks, supplemental title/time/inventory checks, and cleanup |
 
 The dated experiment narratives below are historical records, including any
 "next work" suggestions made at that time. Use the
@@ -776,16 +779,48 @@ not just whether `cu` returned `ok: true`.
 
 ## Running
 
+The release runner loads only `tasks/e2e/*.json` by default. Each file is one
+task with `id`, `name`, `goal`, and nonempty `verify` checks. It validates the
+entire selected set before touching fixtures or calling a model. The other
+JSON files under `tasks/` are benchmark recipes for their respective harnesses,
+not inputs to `run.py`. Explicit `--task` and `--tasks-dir` inputs use the same
+validation and fail with the offending filename rather than skipping it.
+
 ```bash
 # Run all agent tests
 python3 tests/agent/run.py
 
 # Run a specific test
-python3 tests/agent/run.py --task tests/agent/tasks/mail_to_notes.json
+python3 tests/agent/run.py --task tests/agent/tasks/e2e/mail_to_notes.json
 
 # Dry run (show tasks without executing)
 python3 tests/agent/run.py --dry-run
 ```
+
+## Reviewed external L2 evidence for release
+
+A user-approved external Agent cohort can replace the API-backed L2 call for
+release preparation when its report has been reviewed and committed:
+
+```bash
+bash scripts/release.sh 0.9.4 --agent-evidence=tests/agent/results/2026-11-03-notes-title-retest.json
+```
+
+`scripts/check-agent-evidence.py` validates the report even during `--dry-run`,
+before any version bump: exactly one completed/verified result per current
+`tasks/e2e` task, every original check passed without skips, no cleanup errors,
+a recorded model/execution route, and complete matching source SHA-256 digests.
+The inventory includes `src/`, Cargo manifests/lock, optional `build.rs`, the
+whole packaged skill, the runner and all release task files. Changed, added or
+removed sources require fresh evidence. Version-only edits made by the release
+script follow this check; a later release cannot reuse the old version's hashes.
+The release PR names the evidence and route, and says the API runner was not
+invoked. The full local gate still runs. This option cannot be combined with
+`--skip-agent` and is never selected automatically after an API error.
+
+The report remains a maintainer-reviewed attestation. Hashes establish that the
+recorded source tree matches, not that a model ran. Raw private app data may
+remain local; the reviewed report and its evidence digests are committed.
 
 ## Current snapshot contract
 

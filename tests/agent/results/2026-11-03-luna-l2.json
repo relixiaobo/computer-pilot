@@ -1,0 +1,138 @@
+{
+  "date": "2026-11-03",
+  "base_commit": "2cf056183995b28b230962cf63306a42ff42e93f",
+  "execution": "Codex collaboration agents; model gpt-6-luna; fresh context for each task; sequential shared desktop",
+  "api_runner_executed": false,
+  "passed": 2,
+  "total": 3,
+  "ready_for_publication": false,
+  "results": [
+    {
+      "task_id": "calendar-reminder",
+      "agent": "/root/luna_calendar",
+      "model_requested": "gpt-6-luna",
+      "agent_status": "done",
+      "verified": true,
+      "checks": [
+        {
+          "check": "Calendar event exists with reminder name",
+          "passed": true,
+          "skipped": false
+        },
+        {
+          "check": "Event title matches reminder name (cross-check) (cross-check)",
+          "passed": true,
+          "skipped": false
+        }
+      ],
+      "shell_calls_self_reported": 8,
+      "reported_errors": [
+        "Calendar could not resolve returned event ID on readback"
+      ],
+      "original_cleanup_errors": []
+    },
+    {
+      "task_id": "finder-organize",
+      "agent": "/root/luna_finder",
+      "model_requested": "gpt-6-luna",
+      "agent_status": "done",
+      "verified": true,
+      "checks": [
+        {
+          "check": "Note exists",
+          "passed": true,
+          "skipped": false
+        },
+        {
+          "check": "Note contains actual desktop file names (cross-check)",
+          "passed": true,
+          "skipped": false
+        }
+      ],
+      "shell_calls_self_reported": 8,
+      "reported_errors": [
+        "One Notes read query failed; corrected readback succeeded"
+      ],
+      "original_cleanup_errors": []
+    },
+    {
+      "task_id": "mail-to-notes",
+      "agent": "/root/luna_mail",
+      "model_requested": "gpt-6-luna",
+      "agent_status": "done",
+      "verified": false,
+      "checks": [
+        {
+          "check": "Note exists with correct title",
+          "passed": false,
+          "skipped": false
+        },
+        {
+          "check": "Note contains the exact subjects of the 3 globally newest inbox messages (cross-check)",
+          "passed": false,
+          "skipped": false
+        },
+        {
+          "check": "Note is not empty / not just subjects",
+          "passed": false,
+          "skipped": false
+        }
+      ],
+      "shell_calls_self_reported": 9,
+      "reported_errors": [
+        "One Mail read timed out at default limit; succeeded with 30-second timeout"
+      ],
+      "original_cleanup_errors": []
+    }
+  ],
+  "mail_failure": "After a body rewrite, the created note no longer had the requested title; participant read back plaintext only and claimed completion. Independent original oracle failed all three checks.",
+  "orphan_cleanup": {
+    "errors": [],
+    "verified_absent": true
+  },
+  "supplementary_checks": {
+    "calendar_start_time": "passed: exactly one title match starting tomorrow at 10:00",
+    "finder_all_items": "inconclusive: coordinator AppleScript name coercion failed; original oracle passed"
+  },
+  "source_sha256": {
+    "tests/agent/run.py": "c4e14bf6f202e85160ae0f6685714fa63ed7137bfde5307deb050c6d38a10518",
+    "plugin/skills/computer-pilot/SKILL.md": "f4b26874af85a79720d95ed4ecf8927c0e619c7e678caf277eaac268372cea02",
+    "tests/agent/tasks/e2e/calendar_reminder.json": "918cba9271650388957a0d77f44511b39e41644ec1c0108ebe2b62883ffdc56d",
+    "tests/agent/tasks/e2e/finder_organize.json": "87397c8e7421f3305cd7d0c6f05e893e0e55e61ac17f37aa553bca9403bf29f2",
+    "tests/agent/tasks/e2e/mail_to_notes.json": "5b1c5e71b7f7a7ddd8c6c87b187e9b65bd7c10d4e20e58db9a57df7a19bbc0ff"
+  },
+  "local_evidence_sha256": {
+    "test-results/luna-l2-20261103/provenance.json": "09df5bc76b72621bd0fe038aaf4172356a146743151e138ca54645f4bac927aa",
+    "test-results/luna-l2-20261103/cleanup_mail_orphan.py": "09034c91774ced816a66cfb7758fb2f3cb4fcebe2817a0d15d6a26cf390845ec",
+    "test-results/luna-l2-20261103/coordinate.py": "1fae19edd4c0c806b4f6f43eae7cd724fd46edfe9b45c73ea2ab8aa5bd258ce9",
+    "test-results/luna-l2-20261103/mail_to_notes/orphan-diagnosis.json": "4196d2ea9ee5ac13d98aa7d8dbc806990bb050f081488b8c6e4199f9c5b56229",
+    "test-results/luna-l2-20261103/mail_to_notes/retained-readback.json": "0133ad00b51cd74d11483a86e65f5d7a08495354a74f3422a6c615ac6f0cf9c6",
+    "test-results/luna-l2-20261103/mail_to_notes/orphan-cleanup-final.json": "6d1e0dba491b457b9251c1d7740bbd6d10d49a451227979131e50ca0c4ed6386",
+    "test-results/luna-l2-20261103/mail_to_notes/result.json": "826a080fa67872b52999321022dfdd9923dc7156212410ab6ae304dfe4263b08",
+    "test-results/luna-l2-20261103/mail_to_notes/prepared.json": "3b949709e11e7f13ffdd0dfe3209132e4a942279a981f549c997bb060e3d29ac",
+    "test-results/luna-l2-20261103/mail_to_notes/cu": "ccec01602ce14e17899a4e1c622e43fa44329ed46d7ccd5a9c006e0b6d1d46c1",
+    "test-results/luna-l2-20261103/mail_to_notes/goal.txt": "4bb49fabbc5dcc994a6f993f299939d68d12df27e37d68020438f50264d0295a",
+    "test-results/luna-l2-20261103/mail_to_notes/orphan-cleanup-check.json": "2f800c75124e5a3abdf952d64057200ae0b5acd2d842cfc74ee55a862f4b2a46",
+    "test-results/luna-l2-20261103/mail_to_notes/orphan-identification.json": "6e9b05a8bebd0246abbabdb0fa3e11e120d48191301f1200da2065486fea4471",
+    "test-results/luna-l2-20261103/mail_to_notes/checks.json": "371f65923fb16d6d6f4f7d0858d0c06157dda832f36ee47835ab98503938dc72",
+    "test-results/luna-l2-20261103/mail_to_notes/cleanup.json": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "test-results/luna-l2-20261103/mail_to_notes/orphan-cleanup.json": "93889c23ac8b25c3051fbcd20053fe173ccffc75b8e26842e65ddbecf8099293",
+    "test-results/luna-l2-20261103/mail_to_notes/participant.json": "a8583a8e2fe4413f85aeaa646e7e58354d7dd7d13282594222c32f919494d66d",
+    "test-results/luna-l2-20261103/finder_organize/result.json": "3822d59322742bfb8004caaa7cd5062291efb453487e66ab334feffea31b0365",
+    "test-results/luna-l2-20261103/finder_organize/prepared.json": "9fb4ecaf3df97052c04c12d8baaa3047b02e09b1cfca6906d32bbe83e3fc6cb6",
+    "test-results/luna-l2-20261103/finder_organize/cu": "dbb50c822fdbb221d6e246b5c0e0966f98a7ea0e9beac4b092e21c2dd0652fcf",
+    "test-results/luna-l2-20261103/finder_organize/goal.txt": "4f2e51e902690727bf45a27d999f0fb6612887553c95ed1d5fb94ec59981e16d",
+    "test-results/luna-l2-20261103/finder_organize/checks.json": "1ca7d98bbf53ce689aff53d7f1b3d631d40729d17bb7bac3ae93ac80eef23060",
+    "test-results/luna-l2-20261103/finder_organize/cleanup.json": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "test-results/luna-l2-20261103/finder_organize/inventory-check.json": "070db6f89f84fdd57088f3c93f7135b8edaae120e2d6cdb06d970b082a71f7c9",
+    "test-results/luna-l2-20261103/finder_organize/participant.json": "8ccff1807ca543401394efa101da938f646bd4052b683da11da56bacf942d738",
+    "test-results/luna-l2-20261103/calendar_reminder/result.json": "f692ad68bd9e5ee38ee108b4fed1ab8e3a8d99058a29591de2e592658b873aa7",
+    "test-results/luna-l2-20261103/calendar_reminder/prepared.json": "eebe98d4b68ad0e49f99af199b1c5fcd32b6f99709a65687769b15ad7e596834",
+    "test-results/luna-l2-20261103/calendar_reminder/cu": "e5e1d4d8d2d0b4d982b2310f81429bc34f342add5292faba3d94562fc561f703",
+    "test-results/luna-l2-20261103/calendar_reminder/goal.txt": "77f6318aae5b174249874171a57e676f32e6b4762b90975ff7587bdaed47d4f2",
+    "test-results/luna-l2-20261103/calendar_reminder/checks.json": "a948d415aea32bdac17d055cd4286c97c54190c8d8cd5e3034e6a235f1d1d565",
+    "test-results/luna-l2-20261103/calendar_reminder/cleanup.json": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "test-results/luna-l2-20261103/calendar_reminder/schedule-check.json": "66197a06d9efb69626ecb367865073698cf2f344524cb77e0007916143515cac",
+    "test-results/luna-l2-20261103/calendar_reminder/participant.json": "e15852c39e54bd5cf86732e24d40962bf21c78eb4220e12f812a57d75bc976b0"
+  }
+}

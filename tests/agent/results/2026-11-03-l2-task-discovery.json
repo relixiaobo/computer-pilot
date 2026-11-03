@@ -1,0 +1,28 @@
+{
+  "base_commit": "2cf056183995b28b230962cf63306a42ff42e93f",
+  "validation": {
+    "python_passed": 39,
+    "rust_passed": 46,
+    "affected_l1_passed": 6,
+    "affected_l1_failed": 0,
+    "l2_passed": 0,
+    "l2_total": 3,
+    "l2_exit_code": 1,
+    "l2_blocker": "WEEKLY_LIMIT_EXCEEDED"
+  },
+  "source_hashes": {
+    "tests/agent/run.py": "c4e14bf6f202e85160ae0f6685714fa63ed7137bfde5307deb050c6d38a10518",
+    "tests/agent/test_benchmark_runner.py": "db897ff4711ee2fb6513d211394b9ffc2e48fda7bd0b364a238c17d8359eeaed",
+    "tests/commands/test_agent_cleanup.sh": "4e79e0e77e4d18aff2ffd58578ac88a10a83041322c537cbb1b2e9553171b3d2",
+    "tests/agent/tasks/e2e/calendar_reminder.json": "918cba9271650388957a0d77f44511b39e41644ec1c0108ebe2b62883ffdc56d",
+    "tests/agent/tasks/e2e/finder_organize.json": "87397c8e7421f3305cd7d0c6f05e893e0e55e61ac17f37aa553bca9403bf29f2",
+    "tests/agent/tasks/e2e/mail_to_notes.json": "5b1c5e71b7f7a7ddd8c6c87b187e9b65bd7c10d4e20e58db9a57df7a19bbc0ff"
+  },
+  "local_evidence_sha256": {
+    "/tmp/cu-l2-discovery-tests.log": "4a3ee18720611674647836975dab051d9111813e8d7efd70ae9521d320522b02",
+    "/tmp/cu-l2-discovery-verify.log": "2734966b4b42f482e50f6e630bef7215c8b7e67c6f8d8880eb443d501fcf0529",
+    "/tmp/cu-l2-discovery-cleanup.log": "3e48ea8f0d76b3e5712bdeda9c8786ebb8a774f8a2e7fecd16ea21c03cb1cf47",
+    "/tmp/cu-l2-discovery-e2e.log": "85003dce3df3b8e166fb7000e35ab35a22973c90b25559f2da32efcf2999749a",
+    "test-results/agent-1793697699.json": "0c460fb458353e7a6ad862da879dfc246381062f67431687130052f5437b622f"
+  }
+}

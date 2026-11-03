@@ -24,6 +24,7 @@ bash tests/commands/run_all.sh                # Run 700+ command-test assertions
 ./target/release/cu --human <command>         # Run in dev
 bash scripts/release.sh <version>              # Prepare a draft release PR
 bash scripts/release.sh <version> --dry-run    # Preview release-PR preparation
+bash scripts/release.sh <version> --agent-evidence=<report.json> # Reviewed external L2
 bash scripts/check-version-sync.sh             # Verify all version surfaces
 bash scripts/promote-skill-stable.sh <version> # Promote a published release to skill-stable
 ```
@@ -34,7 +35,7 @@ bash scripts/promote-skill-stable.sh <version> # Promote a published release to 
 
 1. **Pre-flight**: clean, current `main` matches `origin/main`, version/tag/branch are new
 2. **Version bump**: update every CLI, skill, plugin, marketplace, and compatibility surface
-3. **Build & test**: `scripts/verify.sh` (Rust/metadata checks plus L1) then L2, unless explicitly skipped. Hosted CI also runs the Python benchmark-reporting tests listed above.
+3. **Build & test**: `scripts/verify.sh` (Rust/metadata checks plus L1) then L2, unless explicitly skipped. An explicitly selected `--agent-evidence=<report.json>` reuses reviewed external L2 evidence instead of calling the API runner; preflight validates all task checks, cleanup and source hashes before the version bump, and the release PR records the route/model/report. Hosted CI also runs the Python benchmark-reporting tests listed above.
 4. **PR**: commit on `release/vX.Y.Z`, push that branch, and open a draft PR
 5. **CI**: the hosted `test` job must pass. L1 is not a CI gate — `verify.sh` in step 3 is what covers it (see Testing)
 6. **Tag**: after merge, the protected Tag Release workflow tags the merged `main`
@@ -436,7 +437,7 @@ checklist exists so a future revert doesn't bring them back.
 Three layers (defined in `tests/`):
 
 - **L1 Command tests** (`tests/commands/run_all.sh`) — 700+ assertions covering every CLI command in isolation. The default run preserves the user's foreground app and pointer. Run `COMPUTER_PILOT_TEST_INTERACTIVE=1 bash tests/commands/run_all.sh` only on a dedicated desktop to include exact-PID focus, foreground Electron paste, and global HID compatibility tests. Specific suites: `bash tests/commands/run_all.sh snapshot key tell`.
-- **L2 Agent E2E** (`tests/agent/run.py`) — real LLM agent + cross-check verification. Loads `plugin/skills/computer-pilot/SKILL.md` as the system prompt so the test mirrors production. Needs `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in `.env`, plus `AGENT_MODEL` naming a model that key can actually reach (and `OPENAI_BASE_URL` when it is served by a relay). `release.sh` runs `run.py` with no flags, so `.env` is the only place a release can express which model it tests against; a mismatch between the key and the model fails the preflight before anything is built. Wired into `scripts/release.sh` — every release runs L2 unless `--skip-agent` or no API key.
+- **L2 Agent E2E** (`tests/agent/run.py`) — real LLM agent + cross-check verification. Loads `plugin/skills/computer-pilot/SKILL.md` as the system prompt so the test mirrors production. Needs `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in `.env`, plus `AGENT_MODEL` naming a model that key can actually reach (and `OPENAI_BASE_URL` when it is served by a relay). For the default API route, `release.sh` runs `run.py` with no flags, so `.env` selects the tested model; a mismatch between the key and the model fails the preflight before anything is built. Wired into `scripts/release.sh` — every release runs L2 unless reviewed external evidence is explicitly selected with `--agent-evidence=<report.json>`, `--skip-agent` is used, or no API key is configured. Evidence must cover the current release task set with no failed/skipped checks or cleanup errors, and match the pre-bump CLI, dependency, skill, task and oracle sources. See `scripts/check-agent-evidence.py`; the report is a reviewed attestation, not cryptographic proof of execution.
 - **L3 macOSWorld** (`tests/macosworld/`) — 133 locally-runnable tasks classified in `local_test_set.json`. Run via `tests/macosworld/run_selected.py`. Manual / quarterly cadence — too slow + heavy for per-release.
 
 All tests use the release binary: `target/release/cu`. Build first with `cargo build --release`.
@@ -486,7 +487,11 @@ produced different coordinates (proving the filter actually filtered).
 **Rule 2 — L2 agent E2E runs on every release**, not "when someone
 remembers." `tests/agent/run.py` is wired into `scripts/release.sh`. It
 catches what L1 cannot: agent training-prior regressions (inventing
-flags, falling back to `osascript`, ignoring `verify_advice`). Skip with
+flags, falling back to `osascript`, ignoring `verify_advice`). A user-approved
+external Agent run may satisfy L2 via `--agent-evidence=<report.json>` when the
+reviewed results and tested sources pass the evidence preflight; do not describe
+that as an API-runner pass. `--agent-evidence` and `--skip-agent` are mutually
+exclusive. Skip with
 `--skip-agent` only for emergency releases; mute by removing the API key
 from `.env` only when explicitly debugging without LLM calls.
 

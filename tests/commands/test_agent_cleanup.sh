@@ -147,7 +147,7 @@ spec = importlib.util.spec_from_file_location("harness", "tests/agent/run.py")
 harness = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(harness)
 
-task_dir = Path("tests/agent/tasks")
+task_dir = Path("tests/agent/tasks/e2e")
 tasks = {
     name: json.loads((task_dir / name).read_text())
     for name in ("calendar_reminder.json", "finder_organize.json", "mail_to_notes.json")

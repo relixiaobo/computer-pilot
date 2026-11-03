@@ -5,6 +5,7 @@
 #   bash scripts/release.sh <version>
 #   bash scripts/release.sh <version> --dry-run
 #   bash scripts/release.sh <version> --skip-tests --skip-agent
+#   bash scripts/release.sh <version> --agent-evidence=tests/agent/results/<report>.json
 
 set -euo pipefail
 
@@ -15,12 +16,15 @@ VERSION=""
 DRY_RUN=""
 SKIP_TESTS=""
 SKIP_AGENT=""
+AGENT_EVIDENCE=""
+EVIDENCE_SUMMARY=""
 
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=1 ;;
     --skip-tests) SKIP_TESTS=1 ;;
     --skip-agent) SKIP_AGENT=1 ;;
+    --agent-evidence=*) AGENT_EVIDENCE="${arg#*=}"; [[ -n "$AGENT_EVIDENCE" ]] || { echo "Error: empty agent evidence path" >&2; exit 1; } ;;
     --*) echo "Error: unknown flag '$arg'" >&2; exit 1 ;;
     *)
       if [[ -n "$VERSION" ]]; then
@@ -33,7 +37,11 @@ for arg in "$@"; do
 done
 
 if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9.]+)?$ ]]; then
-  echo "Usage: bash scripts/release.sh <semver> [--dry-run] [--skip-tests] [--skip-agent]" >&2
+  echo "Usage: bash scripts/release.sh <semver> [--dry-run] [--skip-tests] [--skip-agent | --agent-evidence=<report.json>]" >&2
+  exit 1
+fi
+if [[ -n "$SKIP_AGENT" && -n "$AGENT_EVIDENCE" ]]; then
+  echo "Error: --skip-agent and --agent-evidence are mutually exclusive." >&2
   exit 1
 fi
 
@@ -143,6 +151,15 @@ if [[ -z "$CURRENT" ]]; then
   exit 1
 fi
 
+# Check real evidence even in dry-run, before version edits change its hashes.
+if [[ -n "$AGENT_EVIDENCE" ]]; then
+  git ls-files --error-unmatch -- "$AGENT_EVIDENCE" >/dev/null 2>&1 || {
+    echo "Error: agent evidence must be a tracked repository file." >&2; exit 1;
+  }
+  EVIDENCE_SUMMARY=$(python3 scripts/check-agent-evidence.py "$AGENT_EVIDENCE")
+  echo "$EVIDENCE_SUMMARY"
+fi
+
 run git switch -c "$BRANCH"
 if [[ -n "$DRY_RUN" ]]; then
   echo "[DRY-RUN] update version $CURRENT -> $VERSION in Cargo.toml, plugin manifests, marketplace, and compatibility.json"
@@ -170,7 +187,9 @@ else
   run bash scripts/verify.sh
 fi
 
-if [[ -z "$SKIP_AGENT" && -f tests/agent/run.py ]]; then
+if [[ -n "$AGENT_EVIDENCE" ]]; then
+  echo "L2 covered by reviewed external evidence: $AGENT_EVIDENCE (matched before the version bump)."
+elif [[ -z "$SKIP_AGENT" && -f tests/agent/run.py ]]; then
   HAS_KEY=""
   if [[ -n "${ANTHROPIC_API_KEY:-}" || -n "${OPENAI_API_KEY:-}" ]]; then
     HAS_KEY=1
@@ -186,6 +205,18 @@ run git add Cargo.toml Cargo.lock plugin/.claude-plugin/plugin.json plugin/packa
 run git add .claude-plugin/marketplace.json plugin/skills/computer-pilot/compatibility.json
 run git commit -m "Prepare $TAG"
 run git push -u origin "$BRANCH"
-run gh pr create --draft --base main --head "$BRANCH" --title "Release $TAG" --body "Prepare Computer Pilot $TAG. CI must pass before merge. After merge, run the Tag Release workflow for $VERSION."
+PR_BODY=$(mktemp)
+trap 'rm -f "$PR_BODY"' EXIT
+{
+  echo "Prepare Computer Pilot $TAG. CI must pass before merge. After merge, run the Tag Release workflow for $VERSION."
+  if [[ -n "$AGENT_EVIDENCE" ]]; then
+    echo ""
+    echo "L2 uses reviewed external evidence: $AGENT_EVIDENCE."
+    echo "$EVIDENCE_SUMMARY"
+    echo "Source hashes matched the pre-version-bump tree. The API runner was not invoked."
+  fi
+} >"$PR_BODY"
+if [[ -n "$DRY_RUN" ]]; then cat "$PR_BODY"; fi
+run gh pr create --draft --base main --head "$BRANCH" --title "Release $TAG" --body-file "$PR_BODY"
 
 echo "Prepared release PR for $TAG. This script did not modify or tag main."
