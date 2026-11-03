@@ -1,0 +1,160 @@
+{
+  "date": "2026-11-03",
+  "base_commit": "cccf12287b30c0c162a99a1a2fe37f6cdc93b3c9",
+  "change": "PR #54 managed Skill acquisition and execution environment inheritance",
+  "execution": "Fresh sequential Codex collaboration agents, model gpt-6-luna; original release task goals and run.py fixture/oracle functions; no mid-task hints",
+  "reasoning_effort": "not overridden",
+  "total": 3,
+  "passed": 3,
+  "api_runner_rerun": false,
+  "results": [
+    {
+      "task_id": "calendar-reminder",
+      "model": "gpt-6-luna",
+      "agent": "/root/luna_v095_calendar",
+      "agent_status": "done",
+      "verified": true,
+      "checks": [
+        {
+          "check": "Calendar event exists with reminder name",
+          "passed": true,
+          "skipped": false
+        },
+        {
+          "check": "Event title matches reminder name (cross-check) (cross-check)",
+          "passed": true,
+          "skipped": false
+        }
+      ],
+      "cleanup_errors": [],
+      "shell_calls_self_reported": 7,
+      "reported_errors": [
+        "One readback expression failed; corrected readback succeeded."
+      ],
+      "supplementary_passed": true
+    },
+    {
+      "task_id": "finder-organize",
+      "model": "gpt-6-luna",
+      "agent": "/root/luna_v095_inventory",
+      "agent_status": "done",
+      "verified": true,
+      "checks": [
+        {
+          "check": "Note exists",
+          "passed": true,
+          "skipped": false
+        },
+        {
+          "check": "Note contains actual desktop file names (cross-check)",
+          "passed": true,
+          "skipped": false
+        }
+      ],
+      "cleanup_errors": [],
+      "shell_calls_self_reported": 13,
+      "reported_errors": [
+        "Five errors: AppleScript syntax errors and one request-ID conflict; resolved before verification."
+      ],
+      "supplementary_passed": true
+    },
+    {
+      "task_id": "mail-to-notes",
+      "model": "gpt-6-luna",
+      "agent": "/root/luna_v095_mail",
+      "agent_status": "done",
+      "verified": true,
+      "checks": [
+        {
+          "check": "Note exists with correct title",
+          "passed": true,
+          "skipped": false
+        },
+        {
+          "check": "Note contains the exact subjects of the 3 globally newest inbox messages (cross-check)",
+          "passed": true,
+          "skipped": false
+        },
+        {
+          "check": "Note is not empty / not just subjects",
+          "passed": true,
+          "skipped": false
+        }
+      ],
+      "cleanup_errors": [],
+      "shell_calls_self_reported": 14,
+      "reported_errors": [
+        "Three errors: inbox lookup, message lookup, and AppleScript syntax; corrected calls succeeded."
+      ],
+      "supplementary_passed": true
+    }
+  ],
+  "source_sha256": {
+    "Cargo.lock": "e712461bace99bb3205511f6769d2abc154a89868cd5f7c6f3324520f23e12a5",
+    "Cargo.toml": "4619889d4574ea94b673da109267c7c943c83a678208def7f9c77be785589d05",
+    "plugin/skills/computer-pilot/SKILL.md": "680a0e4d69de43ea7a9f36eeb246375abe306e65359c34fd79b765863bfacd6c",
+    "plugin/skills/computer-pilot/agents/openai.yaml": "214b5e3d940a34c55bf506b5bf6c50871663f713c94b821c6d293535cfbc26c2",
+    "plugin/skills/computer-pilot/compatibility.json": "3f2327405be8635fc800eda26fd0402163a4a5067ad77c8a2eb92a18463da8ad",
+    "plugin/skills/computer-pilot/references/commands.md": "368069c885993825f777f224a2c65e9ab2c29f33e54af850ddc70f5fed3c7b58",
+    "plugin/skills/computer-pilot/references/embedding.md": "3628f6320576138d61f0effef7e5cb5f02b3f07807d37dde99fcb2e09d6689d3",
+    "plugin/skills/computer-pilot/references/permissions.md": "fc0cf0b23fd61c85e739286c2f72f18199b98fe58d76d77ef8bc67c3725d61db",
+    "plugin/skills/computer-pilot/references/recovery.md": "4a9d995f31cf084e155b5175aa7e6ce6daa110f251edb937f836c5c4d5e8d245",
+    "plugin/skills/computer-pilot/references/scripting.md": "a96dd5919adf7703005772ac1c29526725e3a58dca577e0b1c5c10a7915983cd",
+    "plugin/skills/computer-pilot/references/visual.md": "34b83d9eb56b55bfbb12bfae3eab1364ab9624f623145067a8ddec726273240b",
+    "plugin/skills/computer-pilot/scripts/install-native.sh": "b540bddbbb15d66c1128b085f65aea2f22313a8e22ed931c3a6148519f254472",
+    "plugin/skills/computer-pilot/scripts/session.sh": "55f72b0721478a01fb2c3147d382725953e541e79ffe3f8ee541e14652eb163a",
+    "src/ax.rs": "72bf24b8bef50055e252965129d825de233528cdef89c8702c3118555e4cc10a",
+    "src/broker.rs": "d4caa9e71697ad4b5586a00a91bb3eab3e4130c4d4b8b840fce70caa347d0958",
+    "src/compact.rs": "3ee03c36605e2d932acb6c40f629b2dd9267a590506916d42a4eb1c2200161ce",
+    "src/diff.rs": "7842a44037444a9b85f0b8a333d9b1aa016454adad3ed1bb18b00577106994d4",
+    "src/display.rs": "29b0f5504f2cc840e1ae5b06b6b4726d957adfd558b6f5fd3de04f28efff4afd",
+    "src/error.rs": "a649dc1e3f83a34453446a3534c69f96ccae620ff2f840eff48b1ae7e04cfc1b",
+    "src/file_result.rs": "7b45f068380672b474a4019eaafe291f8769ef74d817b18f720803545429708f",
+    "src/key.rs": "5251329a8fa39bd6a95a0a1b59b5ba291af6ebd22f9e68bab678c139d4d1b3cb",
+    "src/main.rs": "9b94088e750a16179e7bf6e53408c23dbcf6dadb04c27dff504212479e02849f",
+    "src/mouse.rs": "ccefe2d58e083d9f2562d6c3a052d48c7640be60a37aeca9204dc9c26c5e1944",
+    "src/observer.rs": "689984e11b93bdd601fd502f51ae4a191e382491745b44a7bb3448c4e1d1445e",
+    "src/ocr.rs": "2654ea71cde2687b99453b4e49fa996947037e279fa1c576b8d313be98573ebe",
+    "src/pasteboard.rs": "b8860091bf0f676afb9c411a4e8fc851ce59c8ed72f1f2aa1cc686c610984057",
+    "src/sck.rs": "8f501156e8683b7307661bfc19ac3d2d01b91d7b5b8bef50d08c841a83f3a96f",
+    "src/screenshot.rs": "2f89efefbe54fa0c678123e3055bc72cb7342130d4433aa6d87288d7599fe27d",
+    "src/sdef.rs": "a707bc63a78ad4730ba0cf23dec8c40239f1fab123443dcbdc3405663d0adab7",
+    "src/system.rs": "b8955ed04494dfce9c9713416f4ac175cdea9498b79734aca8f90b5b39779c1c",
+    "src/visual_cursor.rs": "661aae75ab4b90f3ae30489ede7a4a847227fbda2e16e6ea44a4283fb033efa6",
+    "src/visual_cursor/cursor.png": "a85784a3f438da110c42b509b0b27b90d47b85812274a9d329f3f27b9bd8965f",
+    "src/visual_cursor/glyph.rs": "b0e5676e7a29fb695d247be0f2c512f0f7805da565cf596683d763fc590d266b",
+    "src/visual_cursor/motion.rs": "74a440e76514061d601f7d54edd0b2615e35a993ba05ea4abd72a6ca8854c272",
+    "src/wait.rs": "2293845a78e4289424c4fce8390b06037b01723c3f167b9540579dc12455dd6a",
+    "tests/agent/run.py": "c4e14bf6f202e85160ae0f6685714fa63ed7137bfde5307deb050c6d38a10518",
+    "tests/agent/tasks/e2e/calendar_reminder.json": "918cba9271650388957a0d77f44511b39e41644ec1c0108ebe2b62883ffdc56d",
+    "tests/agent/tasks/e2e/finder_organize.json": "87397c8e7421f3305cd7d0c6f05e893e0e55e61ac17f37aa553bca9403bf29f2",
+    "tests/agent/tasks/e2e/mail_to_notes.json": "5b1c5e71b7f7a7ddd8c6c87b187e9b65bd7c10d4e20e58db9a57df7a19bbc0ff"
+  },
+  "cli_sha256": "3c22c95287dccc2ff195ee4a6802ed2b89f5db2716c5abc936cfa6076ae8a51b",
+  "raw_evidence_sha256": {
+    "calendar_reminder/checks.json": "a948d415aea32bdac17d055cd4286c97c54190c8d8cd5e3034e6a235f1d1d565",
+    "calendar_reminder/cleanup.json": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "calendar_reminder/participant.json": "6b7ec86fde05477e76d35bc8dd3ab7e3056a189510b52d7d6e9daffe9e42bac9",
+    "calendar_reminder/prepared.json": "f118a1b42e07427193fb6deadd0f8ac1210e5db0736d5f03f8d9b5fa488c8833",
+    "calendar_reminder/result.json": "80286d377908fb43ac9bd80aebc4e8cbbe385d3793793d5ced2e2a0e00a33546",
+    "calendar_reminder/supplementary.json": "852977c09d8178fc8619d581cc832533226239e38705a59a545761b90b42e88e",
+    "finder_organize/checks.json": "1ca7d98bbf53ce689aff53d7f1b3d631d40729d17bb7bac3ae93ac80eef23060",
+    "finder_organize/cleanup.json": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "finder_organize/participant.json": "4e215384d6884dc8b71e6fe13b9e309e67adb5ff493f8f48c15acad1f9620152",
+    "finder_organize/prepared.json": "a7f049717f3c8ec77688e4feca252b7bc26fc6a7c95a8d7702252ed3eb3438c2",
+    "finder_organize/result.json": "96d4db65ba3b91b4f156e9adad7232330c821c5b90adb9e52f624237a897c750",
+    "finder_organize/supplementary.json": "021598fff45ab669bb697efba53e78f074bfefc4e6bb21b1c963c66d7a98efd7",
+    "mail_to_notes/checks.json": "c29f10851e6fc05b2e679cf91e41e41d7b295bcdde7689fd0936a6185ff31b99",
+    "mail_to_notes/cleanup.json": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "mail_to_notes/participant.json": "6412819ab0c88b05d212cb4d6c788261ce6d530e9f9ec0e54fcdb14c0027f540",
+    "mail_to_notes/prepared.json": "b8efc715137ef4d40a86ff963f89e4923e7150f11576642bd9a3261b6b40622f",
+    "mail_to_notes/result.json": "bf52562e25839e353080ba1a16e68bd6bade7be764ddb0629c5eeb7dad5cc997",
+    "mail_to_notes/supplementary.json": "565d66dc1a04aadabba178e84e4e0239a2d85c3309be68035a969adef68fea6d",
+    "source_sha256.json": "8e651b2bfa86b1c936095d23d3ee034e1c32e24b032928118f892c36fe95b6a5"
+  },
+  "validation": {
+    "python_tests": 47,
+    "managed_host_integration": "not run",
+    "full_local_release_gate": "runs during release preparation"
+  }
+}
