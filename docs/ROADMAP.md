@@ -214,18 +214,25 @@ blockers or work already in progress.
     passed on targeted rerun, but OCR click behavior across action limits was
     inspected in source rather than given a new comparative behavior test.
 
-- [ ] **O4 — Re-evaluate AX batch-value reuse (P1, after O1)**
-  - **Candidate**: the archived
-    [`a5-ax-walker-batch-reuse.patch`](./archive/a5-ax-walker-batch-reuse.patch)
-    remains a useful implementation sketch, not a ready change.
-  - **2026-08-13 re-check**: the patch applied to `80c5d15`, passed formatting,
-    Clippy, release build, and 61 targeted AX assertions. A/B identity and
-    geometry gates passed, but the measured medians did not reproduce the old
-    speedup (Finder `+1.7%`, Calendar `+2.6%`; positive is slower).
-  - **Required outcome**: re-evaluate against the current retained-target path,
-    add the equivalence behavior test to
-    the repository, and require a repeatable improvement on a quiescent target.
-    Delete the candidate if it still has no measurable benefit.
+- [x] **O4 — Re-evaluate AX batch-value reuse (P1, after O1)** — closed
+  **2026-11-07** with no implementation change
+  - The archived candidate was rechecked against the current retained-target
+    traversal. It no longer applies: O1's `read_batch_ref_node` reads each
+    visited node once and derives its path segment from that same read, so the
+    old `compute_child_segment` read-then-read-again path no longer exists.
+  - The prior isolated A/B run on the O1-era tree also failed the required
+    repeatable improvement gate (Finder median **+1.7%** and Calendar **+2.6%**;
+    positive is slower). Applying the patch to the current tree fails cleanly,
+    confirming it is obsolete rather than a candidate implementation.
+    A fresh interleaved `scripts/bench-ab.py` run against the published v0.9.5
+    binary and current v0.9.6 binary (`Finder --limit 120`, n=8) passed the
+    identity/geometry gate and measured **63.4 ms → 64.4 ms (+1.5%)**; only
+    3/8 rounds were stable enough to count, so it provides no speedup claim.
+  - Added a deep-ref retained-target behavior check to
+    [`test_ref_projection.sh`](../tests/commands/test_ref_projection.sh): the
+    action freshness snapshot, `why`, and `perform` must preserve the same
+    `axPath` and action identity below the output prefix. The obsolete patch was
+    deleted from `docs/archive/`.
 
 Other proposals in the archived plan are **not accepted backlog items**. Window
 identity, stale Observations, action verification, and Broker behavior changed
