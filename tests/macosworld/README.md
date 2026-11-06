@@ -2,8 +2,8 @@
 
 Uses the [macOSWorld benchmark](https://github.com/showlab/macosworld) (202 tasks, 30 apps, 5 languages) as the standard system test.
 
-Status as of **2026-11-03**: integration tooling exists, but a published Computer
-Pilot baseline and automated regression dashboard remain deferred
+Status as of **2026-11-07**: a fixed local baseline sample is published below;
+the full 133-task baseline and automated regression dashboard remain deferred
 ([Roadmap E1/E2](../../docs/ROADMAP.md#sprint-3--shipped-capabilities-and-deferred-observability)).
 This is an optional L3/manual workflow, not a completed v0.9.3 release gate.
 
@@ -120,10 +120,31 @@ osascript -e 'tell application "Contacts" to get the value of phones of (first p
 
 ## Results status
 
-No Computer Pilot macOSWorld baseline score is published here. Record the model,
-task set, evaluator revision and all failed attempts when E1 is scheduled.
-The [real-app pilot reports](../agent/README.md#status-and-evidence-index) use a
-different protocol and must not be presented as macOSWorld scores.
+The first tracked local baseline uses upstream macOSWorld revision
+`e2ca8334b3765537e5c1c428ce57990248a1bb5f`, English tasks, the `safe_low`
+`sys_apps` cohort, and a 12-step budget. It contains three fixed tasks chosen
+for temporary or read-only UI state. The relay-supported `gpt-6.1-sol` run
+passed **1/3** tasks; Calculator passed, Chess failed, and Dictionary reached
+the step budget without completing. The unsupported `gpt-6.1-terra` attempt
+made no model request and is excluded.
+
+| Date | Model | Cohort | Tasks | Passed | Binary |
+|---|---|---|---:|---:|---|
+| 2026-11-07 | `gpt-6.1-sol` | safe_low / sys_apps | 3 | 1 | `cu 0.9.6` |
+
+The sanitized result is [tracked here](../../tests/macosworld/results/2026-11-07-gpt-6.1-sol-safe-low-sys-apps.json).
+Reproduce it with [`scripts/run-macosworld-baseline.sh`](../../scripts/run-macosworld-baseline.sh)
+after checking out the pinned upstream revision:
+
+```bash
+git clone https://github.com/showlab/macosworld.git /tmp/macosworld
+git -C /tmp/macosworld checkout e2ca8334b3765537e5c1c428ce57990248a1bb5f
+MACOSWORLD_ROOT=/tmp/macosworld MODEL=gpt-6.1-sol \
+  bash scripts/run-macosworld-baseline.sh
+```
+
+The [real-app pilot reports](../agent/README.md#status-and-evidence-index) use
+a different protocol and must not be presented as macOSWorld scores.
 
 ## Key Differences from Screenshot-Based Agents
 
