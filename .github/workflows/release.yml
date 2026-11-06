@@ -3,6 +3,12 @@ name: Publish Release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to publish
+        required: true
+        type: string
   workflow_call:
     inputs:
       tag:
@@ -15,7 +21,7 @@ permissions:
 
 jobs:
   publish:
-    runs-on: macos-14
+    runs-on: macos-15
     environment: release
     env:
       TAG: ${{ inputs.tag || github.ref_name }}
