@@ -1,9 +1,9 @@
 # Computer Pilot — Docs
 
 Start with [release status and remaining work](ROADMAP.md). The latest recorded
-release is **[v0.9.5](https://github.com/relixiaobo/computer-pilot/releases/tag/v0.9.5)**,
+release is **[v0.9.6](https://github.com/relixiaobo/computer-pilot/releases/tag/v0.9.6)**,
 published with Developer ID signing and Apple notarization, and promoted to
-`skill-stable` on 2026-11-04 (Asia/Shanghai).
+`skill-stable` on 2026-11-07 (Asia/Shanghai).
 For a new task, use the current working agreement and CLI reference below;
 dated research and benchmark reports preserve evidence from their own runs.
 
