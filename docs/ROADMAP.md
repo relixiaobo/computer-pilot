@@ -620,12 +620,19 @@ Acceptance: every action command leaves the user's real cursor alone, doesn't st
 
 - ~~**A5** Chrome CDP bridge (3d)~~ — **dropped** (2026-04-27), see Out of Scope
 
-- [ ] **E1** macOSWorld baseline run + publish — **deferred**
-  - **Approach**: select available models and a fixed protocol when scheduled;
-    publish independently verified results rather than expected scores.
-  - **Existing groundwork**: `tests/macosworld/` and tracked
-    `tests/agent/caliper_report.py`; `caliper_records.json` is generated output.
-  - **Acceptance**: README has the baseline table + link to a reproducible script
+- [x] **E1** macOSWorld baseline run + publish — **2026-11-07**
+  - Published a fixed local sample in
+    [`tests/macosworld/README.md`](../tests/macosworld/README.md): upstream
+    revision `e2ca833`, English `safe_low/sys_apps`, three temporary or
+    read-only tasks, 12-step budget, and `gpt-6.1-sol`.
+  - Result: **1/3** graded tasks passed. The tracked JSON records task-level
+    status, token counts, binary hash, excluded unsupported-model attempt, and
+    the exact task revision. This is a reproducible sample baseline, not a
+    score for all 133 locally runnable tasks.
+  - The repository script
+    [`scripts/run-macosworld-baseline.sh`](../scripts/run-macosworld-baseline.sh)
+    verifies the upstream revision and reconstructs the fixed task list before
+    invoking the runner.
 
 - [ ] **E2** regression dashboard — **deferred; no release automation yet**
   - **Approach**: each release auto-runs a macOSWorld subset, archives results, diffs against last run

@@ -1,0 +1,48 @@
+{
+  "date": "2026-11-07",
+  "upstream_revision": "e2ca8334b3765537e5c1c428ce57990248a1bb5f",
+  "model": "gpt-6.1-sol",
+  "language": "en",
+  "risk_set": "safe_low",
+  "category": "sys_apps",
+  "max_steps": 12,
+  "binary_version": "cu 0.9.6",
+  "binary_sha256": "ea92af17ae33fd7df3d66fce1bd8280907dc40f00626724d6d11af67ca90763f",
+  "passed": 1,
+  "total": 3,
+  "results": [
+    {
+      "task_id": "259bcb80-aa2b-8291-1d11-6ff4ae36f8cb",
+      "task": "Calculate 160 times 9 using calculator.",
+      "status": "incomplete",
+      "grade": true,
+      "steps": 12,
+      "input_tokens": 154731,
+      "output_tokens": 396
+    },
+    {
+      "task_id": "1ef109cd-fea2-d2d5-b4e4-fbbad6689b2a",
+      "task": "Launch the app \"Chess\".",
+      "status": "fail",
+      "grade": false,
+      "steps": 4,
+      "input_tokens": 29730,
+      "output_tokens": 103
+    },
+    {
+      "task_id": "0e224b29-14f7-3629-ee27-13a9789a997d",
+      "task": "Launch Dictionary, and open the window that shows its version.",
+      "status": "incomplete",
+      "grade": false,
+      "steps": 12,
+      "input_tokens": 156306,
+      "output_tokens": 491
+    }
+  ],
+  "excluded_attempts": [
+    {
+      "model": "gpt-6.1-terra",
+      "reason": "relay returned model_not_found before the first model request; no cu commands ran"
+    }
+  ]
+}
