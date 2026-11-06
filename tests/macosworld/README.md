@@ -2,10 +2,11 @@
 
 Uses the [macOSWorld benchmark](https://github.com/showlab/macosworld) (202 tasks, 30 apps, 5 languages) as the standard system test.
 
-Status as of **2026-11-07**: a fixed local baseline sample is published below;
-the full 133-task baseline and automated regression dashboard remain deferred
+Status as of **2026-11-07**: a fixed local baseline sample and a
+report-only regression dashboard are published below. The full 133-task
+baseline and automatic benchmark execution remain deferred
 ([Roadmap E1/E2](../../docs/ROADMAP.md#sprint-3--shipped-capabilities-and-deferred-observability)).
-This is an optional L3/manual workflow, not a completed v0.9.3 release gate.
+This is an optional L3/manual workflow, not a release gate.
 
 ## How It Works
 
@@ -142,6 +143,30 @@ git -C /tmp/macosworld checkout e2ca8334b3765537e5c1c428ce57990248a1bb5f
 MACOSWORLD_ROOT=/tmp/macosworld MODEL=gpt-6.1-sol \
   bash scripts/run-macosworld-baseline.sh
 ```
+
+## Regression dashboard
+
+[`scripts/macosworld-regression.py`](../../scripts/macosworld-regression.py)
+compares two or more recorded reports. It requires the same model, pinned
+upstream revision, language, risk set, category, step budget, and task IDs in
+every report. Reports are sorted by date, and the Markdown output includes the
+pass-rate delta plus every task whose grade or status changed. Invalid JSON,
+missing fields, duplicate task IDs, or incompatible cohorts fail before any
+dashboard is written.
+
+Generate a dashboard after recording a second run:
+
+```bash
+python3 scripts/macosworld-regression.py \
+  tests/macosworld/results/2026-11-07-gpt-6.1-sol-safe-low-sys-apps.json \
+  tests/macosworld/results/2026-11-14-gpt-6.1-sol-safe-low-sys-apps.json \
+  --output tests/macosworld/results/dashboard.md
+```
+
+The comparator is pure Python and does not contact macOSWorld or an LLM. The
+benchmark itself stays a manual/local operation because it requires a TCC
+enabled macOS desktop and may incur model API cost. Its behavior checks run in
+hosted CI with `test_benchmark_macosworld.py`.
 
 The [real-app pilot reports](../agent/README.md#status-and-evidence-index) use
 a different protocol and must not be presented as macOSWorld scores.

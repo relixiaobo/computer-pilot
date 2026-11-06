@@ -634,8 +634,18 @@ Acceptance: every action command leaves the user's real cursor alone, doesn't st
     verifies the upstream revision and reconstructs the fixed task list before
     invoking the runner.
 
-- [ ] **E2** regression dashboard — **deferred; no release automation yet**
-  - **Approach**: each release auto-runs a macOSWorld subset, archives results, diffs against last run
+- [x] **E2** regression dashboard — **2026-11-07**
+  - Added the report-only comparator
+    [`scripts/macosworld-regression.py`](../scripts/macosworld-regression.py).
+    It validates the recorded schema, rejects duplicate task IDs and mixed
+    model/cohort/task sets, and renders pass-rate and task-level changes for a
+    chronological series of reports.
+  - The comparator is covered by
+    [`tests/agent/test_benchmark_macosworld.py`](../tests/agent/test_benchmark_macosworld.py),
+    which is included in the hosted benchmark-reporting test discovery.
+  - Benchmark execution remains manual/local. TCC permissions, desktop state,
+    and model API cost make automatic per-release execution unsuitable for
+    ordinary hosted CI; the dashboard compares results once they are recorded.
 
 ---
 
@@ -724,7 +734,7 @@ Acceptance: every action command leaves the user's real cursor alone, doesn't st
 |---|---|---|---|
 | Sprint 1 — non-disruptive UX + tool surface | **complete** | 2026-04-27 | 10/10 tasks (incl. F2 closed; F2a + F2b + E3 equivalent done) |
 | Sprint 2 — VLM bridge + CLI craft + closed-loop precision | ✅ complete | 2026-04-27 | Historical 27-command milestone; current public CLI has 31 commands including recovery |
-| Sprint 3 — long-term capabilities | shipped capabilities; E1/E2 deferred | 2026-04-27 onward | A2 axPath + D8 AX warmup + B7 cu why shipped; A5 dropped (CDP); no active macOSWorld baseline/dashboard run |
+| Sprint 3 — long-term capabilities | E1 baseline + E2 report dashboard shipped | 2026-04-27 onward | A2 axPath + D8 AX warmup + B7 cu why shipped; A5 dropped (CDP); macOSWorld execution remains manual/local |
 | Post-v0.9.2 work | released in v0.9.3 | 2026-11-03 | O1/O2 complete; virtual cursor, action/snapshot simplification, reliability fixes and benchmark evidence shipped; O3/O4 remain follow-up candidates |
 | Post-v0.9.3 fixes | released in v0.9.4 | 2026-11-03 | App identity/input recovery, Notes guidance, L2 task discovery and reviewed external acceptance; signed/notarized assets published and skill-stable promoted |
 | Managed-host integration | released in v0.9.5 | 2026-11-04 | Skill acquisition, runtime environment inheritance and signature-before-execution fixes; signed/notarized assets published and skill-stable promoted |
