@@ -145,6 +145,34 @@ Explain target enabled state, bounds, supported AX actions, and recovery advice.
 Always pass `--app` outside the session helper. Ordinary ref actions use the
 client's latest observation; pass `--observation` only to select an earlier one.
 
+### Action `--limit`
+
+`click`, `set-value`, and `perform` accept `--limit N` (default **200**).
+It caps the elements in the post-action snapshot, not the target's ref number.
+
+| Target route | Target selection | Effect of action `--limit` |
+|---|---|---|
+| Numeric ref | Must exist in the selected Observation and still identify the same element | Freshness scans up to the larger of the Observation and action limits; the retained target remains usable even when its ref exceeds the action limit |
+| `--ax-path` | Resolves the supplied path independently of the snapshot element limit | Bounds the returned snapshot and, for verified clicks, the pre-action snapshot |
+| Click coordinates / OCR `--text` | Uses the supplied point / OCR match, independently of the AX element limit | Bounds AX snapshots used for click evidence and output; does not filter OCR matches |
+
+For example, ref 120 from a `snapshot --limit 200` can be used with
+`click 120 --limit 10`. The returned snapshot contains at most 10 elements and
+becomes the client's latest Observation. A subsequent ref 120 action must use
+a new sufficiently large snapshot, or explicitly select the earlier
+`--observation` if its target is still unchanged. Increasing only the action
+limit cannot authorize a ref absent from the selected Observation.
+`set-value` retains the selected control's web-editor risk advisory even when
+that control is outside the returned snapshot prefix or `--no-snapshot` is used.
+
+Small limits also narrow click evidence: a target outside the captured prefix
+may have no `focus_verified` field, and `verify_diff` covers only observed
+elements. Inspect the intended result before claiming completion.
+`--no-snapshot` suppresses successful action snapshot output; click verification
+can still capture state internally. `--no-verify` never bypasses ref freshness.
+Stale-ref errors may return a recovery snapshot at the larger freshness-scan
+limit, even with `--no-snapshot`; use its returned Observation and refs to recover.
+
 ### `cu click <ref|x y> --app <app> [options]`
 
 Targets a ref, coordinates, `--ax-path`, or OCR `--text`. Supports right,
