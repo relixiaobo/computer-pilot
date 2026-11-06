@@ -1,12 +1,12 @@
 {
   "schema_version": 2,
-  "version": "0.9.5",
+  "version": "0.9.6",
   "integration_model": "skill-shell-cli",
   "cli": {
     "name": "cu",
-    "version": "0.9.5",
-    "tested_version": "0.9.5",
-    "minimum_version": "0.9.5",
+    "version": "0.9.6",
+    "tested_version": "0.9.6",
+    "minimum_version": "0.9.6",
     "machine_schema_version": "1.0"
   },
   "private_broker_protocol": 8,
