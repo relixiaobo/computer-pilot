@@ -295,7 +295,7 @@ enum Cmd {
         /// Target app
         #[arg(long)]
         app: Option<String>,
-        /// Maximum observed elements
+        /// Snapshot element limit; refs must already exist in the selected Observation
         #[arg(long, default_value = "200")]
         limit: usize,
         /// Stable element selector (axPath). Survives across snapshots.
@@ -334,7 +334,7 @@ enum Cmd {
         /// Target app
         #[arg(long)]
         app: Option<String>,
-        /// Maximum observed elements
+        /// Snapshot element limit; refs must already exist in the selected Observation
         #[arg(long, default_value = "200")]
         limit: usize,
         /// Stable element selector (axPath). Survives across snapshots.
@@ -600,7 +600,7 @@ enum Cmd {
         /// Target application
         #[arg(long)]
         app: Option<String>,
-        /// Max elements to scan in ref mode
+        /// Snapshot element limit; does not restrict an already-observed ref or path/coordinates
         #[arg(long, default_value = "200")]
         limit: usize,
         /// Right-click instead of left-click
@@ -2817,7 +2817,10 @@ fn cmd_set_value(
         let (pid, name) = system::resolve_target_app(&app)?;
         (pid, name, None, None)
     } else {
-        let (pid, name, snapshot, target) = prepare_ref_action(&app, ref_id, limit)?;
+        // Preserve the selected control's metadata for the web-editor advisory,
+        // even when it falls outside the requested post-action output prefix.
+        let target_limit = limit.max(ref_id.unwrap_or(0));
+        let (pid, name, snapshot, target) = prepare_ref_action(&app, ref_id, target_limit)?;
         (pid, name, Some(snapshot), Some(target))
     };
     let snapshot_app = fixed_target_selector(Some(pid), &app);

@@ -72,6 +72,93 @@ try:
     assert changed["effect_verified"] is None, changed
     assert next(e for e in changed["snapshot"]["elements"] if e.get("title") == "other-input")["value"] == "state recovery", changed
 
+    # O3: a high ref is authorized by its Observation, not by the action's
+    # output limit. Exercise both the exact boundary and a shorter prefix.
+    assert extra["ref"] > 100, extra
+    for cap in (extra["ref"], 1):
+        observed = run("snapshot", app, "--limit", str(extra["ref"]))
+        changed = run("set-value", str(extra["ref"]), f"limit-{cap}", "--app", app,
+                      "--observation", observed["observation_id"], "--limit", str(cap))
+        assert len(changed["snapshot"]["elements"]) == cap, changed
+        assert changed["snapshot"]["limit"] == cap and changed["snapshot"]["truncation_hint"], changed
+    # The short action snapshot is now the latest Observation. Raising the
+    # next action limit cannot authorize a target missing from that snapshot.
+    rejected = run("set-value", str(extra["ref"]), "must-not-write", "--app", app,
+                   "--limit", "200", ok=False)
+    assert rejected["code"] == "stale_observation", rejected
+    current = run("snapshot", app, "--limit", "200")
+    assert next(e for e in current["elements"] if e["ref"] == extra["ref"])["value"] == "limit-1", current
+    assert current["elements"][0]["value"] == "initial", current
+
+    # Even with both opt-outs, an old observed value must prevent dispatch.
+    # Recovery includes the larger freshness prefix, not the action limit.
+    rejected = run("click", str(extra["ref"]), "--app", app, "--limit", "1",
+                   "--observation", observed["observation_id"],
+                   "--no-snapshot", "--no-verify", ok=False)
+    assert rejected["code"] == "stale_observation", rejected
+    assert rejected["diagnostics"]["dispatched"] is False, rejected
+    recovery = rejected["diagnostics"]["snapshot"]
+    assert len(recovery["elements"]) == extra["ref"], recovery
+    assert recovery["elements"][-1]["value"] == "limit-1", recovery
+
+    # Path writes are independent of the selected Observation's short prefix.
+    run("snapshot", app, "--limit", "1")
+    changed = run("set-value", "path-limit", "--ax-path", extra["axPath"],
+                  "--app", app, "--limit", "1")
+    assert len(changed["snapshot"]["elements"]) == 1, changed
+    current = run("snapshot", app, "--limit", "200")
+    assert next(e for e in current["elements"] if e["ref"] == extra["ref"])["value"] == "path-limit", current
+
+    # Click and perform must reach the high-ref checkbox through each route.
+    # Its callback label proves application behavior beyond AX dispatch status.
+    urgent = next(e for e in current["elements"] if e.get("title") == "Urgent")
+    assert urgent["ref"] > 100 and urgent["value"] == "1", urgent
+    for route in ("ref", "path"):
+        for index, (value, label) in enumerate((("0", "off"), ("1", "on"))):
+            command = "perform" if index == 1 else "click"
+            if route == "ref":
+                run("snapshot", app, "--limit", "200")
+                selector = [str(urgent["ref"])]
+            else:
+                run("snapshot", app, "--limit", "1")
+                selector = ["--ax-path", urgent["axPath"]]
+            action = run(command, *selector, *(["AXPress"] if command == "perform" else []),
+                         "--app", app, "--limit", "1")
+            assert len(action["snapshot"]["elements"]) == 1, action
+            assert action["snapshot"]["truncation_hint"], action
+            current = run("snapshot", app, "--limit", "200")
+            actual = next(e for e in current["elements"] if e.get("title") == "Urgent")["value"]
+            assert actual == value, (route, command, actual, value)
+            assert any(e.get("value") == f"Urgent callback: {label}" for e in current["elements"]), current
+
+    # Native buttons can ignore background coordinate clicks at either limit.
+    # The fixture's event-driven label verifies receipt and exact coordinates;
+    # this proves delivery, not arbitrary native widget activation.
+    x, y = int(extra["x"] + 10), int(extra["y"] + 10)
+    for count, cap in enumerate((200, 1), start=1):
+        run("snapshot", app, "--limit", "1")
+        action = run("click", str(x), str(y), "--app", app, "--limit", str(cap))
+        assert len(action["snapshot"]["elements"]) <= cap, action
+        assert action["verified"] is None, action
+        current = run("snapshot", app, "--limit", "200")
+        assert any(e.get("value") == f"Pointer {count}: {x},{y}" for e in current["elements"]), current
+    print("Action limits: high-ref selection, output caps, stale rejection, paths and coordinates passed")
+
+    # A small output prefix must not hide the selected web control's advisory.
+    # The fixture models AXWebArea ancestry; it does not emulate browser JS.
+    for cap, presentation, flags in ((200, (), ()), (1, (), ()),
+                                     (1, ("--compact",), ("--no-snapshot",))):
+        current = run("snapshot", app, "--limit", "200")
+        web = next(e for e in current["elements"] if e.get("title") == "web-input")
+        assert web["ref"] > 100 and "webarea" in web["axPath"].lower(), web
+        changed = run(*presentation, "set-value", str(web["ref"]), f"web-{cap}", "--app", app,
+                      "--limit", str(cap), *flags)
+        assert changed.get("controlled_editor_risk") is True, (cap, changed)
+        assert changed["confidence"] == "low" and changed["effect_advice"], changed
+        assert ("snapshot" in changed) == (not flags), changed
+        current = run("snapshot", app, "--limit", "200")
+        assert next(e for e in current["elements"] if e.get("title") == "web-input")["value"] == f"web-{cap}", current
+
     # No observation/effect check may be needed between grouped shortcuts,
     # but their short-lived senders must still deliver the actual events.
     # Count delivery in the background app, independently of menu handling.

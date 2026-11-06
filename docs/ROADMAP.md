@@ -169,14 +169,37 @@ blockers or work already in progress.
     live command tests remain the behavioral layer.
 
 - [ ] **O3 — Audit and document action `--limit` semantics (P1)**
-  - **Updated evidence**: the old independent `_limit` action helpers were
-    removed. `broker::snapshot_for_ref_action` now validates and retains the
-    selected target in one scan using `max(observation.limit, action.limit)`,
-    then restricts the returned pre-action snapshot to the action limit.
-  - **Remaining outcome**: document observation-selection versus output limits
-    across ref, path and coordinate routes, and audit the boundary coverage.
-    Reproduce a concrete contract violation before changing behavior; do not
-    restore the obsolete walkers described in the archived proposal.
+  - **Local audit complete, 2026-11-06; not yet merged or released.** The
+    [command reference](../plugin/skills/computer-pilot/references/commands.md#action---limit)
+    and action help distinguish Observation-owned ref selection from snapshot
+    output limits. Ref freshness uses `max(observation.limit, action.limit)`;
+    path and coordinate selection are independent of that element limit.
+    Short action snapshots become the latest Observation; stale-ref recovery
+    may instead expose the larger freshness snapshot. Deeper testing reproduced
+    a missing web-editor risk advisory for high-ref `set-value --limit 1`:
+    the pre-action snapshot had discarded the target metadata. The local fix
+    retains that metadata without expanding the returned snapshot or adding an
+    AX read; the regression also covers compact output with `--no-snapshot`.
+  - **Behavior coverage**: the existing `action_latency` background fixture
+    passes high-ref writes at and beyond the output boundary, rejection of refs
+    absent from the latest short Observation, stale-target rejection with both
+    opt-outs, path writes, ref/path checkbox callbacks and coordinate delivery
+    at limits 1 and 200. The complete affected suite passed without skips;
+    `verify.sh --skip-desktop` (46 Rust tests) and 41 help checks also passed.
+    Subsequent full L1 and real-application results are recorded in the
+    [extended acceptance report](../tests/agent/results/2026-11-06-action-limit-audit.md).
+    A subsequent [formal API L2 run](../tests/agent/results/2026-11-06-action-limit-l2.md)
+    with `gpt-6.1-terra` verified 2/3 tasks; Mail source capture timed out before
+    its agent started, and a simple account-count read also timed out. Cleanup
+    reported no errors. After the same read recovered without code changes or
+    restarting Mail, its formal single-task rerun passed 1/1 (three checks,
+    clean cleanup). All three tasks have API passes across these two runs;
+    the original full run remains 2/3, not a single-cohort full pass.
+  - **Scope limit**: the native background checkbox ignored coordinate clicks
+    at both limits. Coordinate coverage checks received event positions and an
+    event-updated label, not native checkbox activation. Existing OCR suites
+    passed on targeted rerun, but OCR click behavior across action limits was
+    inspected in source rather than given a new comparative behavior test.
 
 - [ ] **O4 — Re-evaluate AX batch-value reuse (P1, after O1)**
   - **Candidate**: the archived

@@ -5,6 +5,11 @@ final class Group: NSView {
     override func accessibilityRole() -> NSAccessibility.Role? { .group }
     override func accessibilityChildren() -> [Any]? { subviews }
 }
+final class WebGroup: NSView {
+    override func isAccessibilityElement() -> Bool { true }
+    override func accessibilityRole() -> NSAccessibility.Role? { .init(rawValue: "AXWebArea") }
+    override func accessibilityChildren() -> [Any]? { subviews }
+}
 final class Field: NSTextField {
     override func setAccessibilityValue(_ value: Any?) {
         stringValue = value as? String ?? ""
@@ -59,6 +64,17 @@ final class Delegate: NSObject, NSApplicationDelegate {
         let label = NSTextField(labelWithString: "unchanged")
         label.frame = NSRect(x: 20, y: 360, width: 350, height: 25)
         window.contentView!.addSubview(label)
+        // Observe coordinate delivery independently of AppKit's inactive-window
+        // button handling. This label changes only when the app receives input.
+        var pointerCount = 0
+        NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { event in
+            if let point = event.cgEvent?.location {
+                pointerCount += 1
+                label.stringValue = "Pointer \(pointerCount): \(Int(point.x)),\(Int(point.y))"
+                NSAccessibility.post(element: NSApp!, notification: .valueChanged)
+            }
+            return event
+        }
         // More than 100 elements exercise both action and pre-type coverage.
         for index in 0..<120 {
             let button = NSButton(title: "Item \(index)", target: nil, action: nil)
@@ -97,6 +113,12 @@ final class Delegate: NSObject, NSApplicationDelegate {
         let transform = NSButton(title: "Transform next input", target: self, action: #selector(armTransform))
         transform.frame = NSRect(x: 200, y: 30, width: 180, height: 20)
         window.contentView!.addSubview(transform)
+        let webGroup = WebGroup(frame: NSRect(x: 20, y: 90, width: 170, height: 26))
+        let webInput = Field(frame: webGroup.bounds)
+        webInput.stringValue = "web initial"
+        webInput.setAccessibilityIdentifier("web-input")
+        webGroup.addSubview(webInput)
+        window.contentView!.addSubview(webGroup)
         var keyCount = 0
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             if self.transformInput {
