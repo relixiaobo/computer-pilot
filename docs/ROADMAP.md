@@ -7,12 +7,24 @@
 > - [`competitive-analysis.md`](./competitive-analysis.md) — feature grid across projects (factual snapshot)
 > - This doc — execution plan + progress log (live)
 
-Last reconciled: **2026-11-04** (Asia/Shanghai), against published **v0.9.5** (`f0ef27f`).
+Last reconciled: **2026-11-07** (Asia/Shanghai), against published **v0.9.6** (`5a188db`).
 This page owns release status and remaining work. Dated sprint notes below are
 historical evidence; their line numbers, test counts, model comparisons and
 timing estimates are not current acceptance criteria.
 
 ## Release status
+
+- [v0.9.6](https://github.com/relixiaobo/computer-pilot/releases/tag/v0.9.6)
+  was published on 2026-11-07 (Asia/Shanghai) after
+  [release PR #59](https://github.com/relixiaobo/computer-pilot/pull/59)
+  merged. The tag and publish workflow initially hit an unavailable
+  `macos-14-arm64-us-default` runner before starting the publish job;
+  [PR #60](https://github.com/relixiaobo/computer-pilot/pull/60) moved the
+  publisher to the CI-proven `macos-15` runner and added an existing-tag retry
+  entry point. The retry completed Developer ID signing and Apple notarization;
+  all 11 assets were uploaded and the release index and checksums passed.
+  `promote-skill-stable.sh 0.9.6` passed every gate and advanced `skill-stable`
+  to `5a188db`.
 
 - [v0.9.5](https://github.com/relixiaobo/computer-pilot/releases/tag/v0.9.5)
   was published on 2026-11-04 (Asia/Shanghai) after
@@ -168,9 +180,9 @@ blockers or work already in progress.
     display geometry, errors, key parsing and CLI helpers. Run `cargo test`;
     live command tests remain the behavioral layer.
 
-- [x] **O3 — Audit and document action `--limit` semantics (P1)**
-  - **Implemented and verified 2026-11-06 in
-    [PR #58](https://github.com/relixiaobo/computer-pilot/pull/58); not yet released.** The
+- [x] **O3 — Audit and document action `--limit` semantics (P1)** — released in
+  **v0.9.6** via [PR #58](https://github.com/relixiaobo/computer-pilot/pull/58)
+  - **Implemented and verified 2026-11-06.** The
     [command reference](../plugin/skills/computer-pilot/references/commands.md#action---limit)
     and action help distinguish Observation-owned ref selection from snapshot
     output limits. Ref freshness uses `max(observation.limit, action.limit)`;
