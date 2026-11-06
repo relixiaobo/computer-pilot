@@ -145,6 +145,54 @@ else
   _skip "perform/why identity" "no Finder ref in the first 12 exposes an AX action"
 fi
 
+section "retained target — deep ref keeps batch identity"
+
+# The current retained-target traversal reads each visited node's batch once and
+# uses that same node for ref projection and action dispatch. A deep ref makes
+# this exercise the path below the default output prefix without relying on a
+# second snapshot or a stable numeric ref across observations.
+DEEP_REF=$(echo "$SNAPSHOT_JSON" | python3 -c '
+import json, sys
+es = json.load(sys.stdin).get("elements", [])
+print(es[-1]["ref"] if len(es) >= 20 else "")
+')
+if [[ -n "$DEEP_REF" ]]; then
+  DEEP_SNAPSHOT_PATH=$(echo "$SNAPSHOT_JSON" | python3 -c '
+import json, sys
+ref = int(sys.argv[1])
+es = json.load(sys.stdin).get("elements", [])
+print(next(e.get("axPath", "") for e in es if e.get("ref") == ref))
+' "$DEEP_REF")
+  cu_json why "$DEEP_REF" --app com.apple.finder --limit 120
+  DEEP_WHY_PATH=$(json_get '.element.axPath' || echo "")
+  [[ "$DEEP_WHY_PATH" == "$DEEP_SNAPSHOT_PATH" ]] \
+    && _pass "deep ref [${DEEP_REF}] keeps the snapshot axPath" \
+    || _fail "deep ref keeps the snapshot axPath" \
+      "snapshot=$DEEP_SNAPSHOT_PATH why=$DEEP_WHY_PATH"
+
+  DEEP_ACTIONS=$({ json_get '.checks.actions_supported' || echo '[]'; } | python3 -c '
+import ast, json, sys
+try:
+    values = ast.literal_eval(sys.stdin.read())
+except (SyntaxError, ValueError):
+    values = []
+print(json.dumps(sorted(values), separators=(",", ":")))
+' 2>/dev/null)
+  cu_json snapshot com.apple.finder --limit "$DEEP_REF"
+  assert_ok "deep ref freshness snapshot reaches the target"
+  cu_json perform "$DEEP_REF" AXRetainedTargetProbe --app com.apple.finder --no-snapshot
+  DEEP_PERFORM_ACTIONS=$(echo "${OUT:-$ERR}" | python3 -c '
+import json, sys
+print(json.dumps(sorted(json.load(sys.stdin).get("diagnostics", {}).get("available_actions", [])), separators=(",", ":")))
+' 2>/dev/null || echo "[]")
+  [[ "$EXIT" -ne 0 && "$DEEP_PERFORM_ACTIONS" == "$DEEP_ACTIONS" ]] \
+    && _pass "deep retained target shares why action identity" \
+    || _fail "deep retained target shares why action identity" \
+      "why=$DEEP_ACTIONS perform=$DEEP_PERFORM_ACTIONS exit=$EXIT"
+else
+  _skip "deep retained target identity" "Finder exposed fewer than 20 elements"
+fi
+
 section "ref projection — static/zero-size nodes do not create gaps"
 
 REF_SEQUENCE=$(echo "$SNAPSHOT_JSON" | python3 -c '
