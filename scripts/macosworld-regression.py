@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import re
 import sys
 from typing import Any, Iterable
 
@@ -31,6 +32,7 @@ REQUIRED_FIELDS = (
 )
 COHORT_FIELDS = ("upstream_revision", "language", "risk_set", "category", "max_steps")
 RESULT_FIELDS = ("task_id", "status", "grade", "steps", "input_tokens", "output_tokens")
+SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 
 
 class ReportError(ValueError):
@@ -111,6 +113,8 @@ def load_report(path: str | Path) -> Report:
         _require_type(data[field], str, f"{path}.{field}")
         if not data[field]:
             raise ReportError(f"{path}.{field} must not be empty")
+    if not SHA256_RE.fullmatch(data["binary_sha256"]):
+        raise ReportError(f"{path}.binary_sha256 must be a 64-character hexadecimal SHA-256 digest")
     _require_type(data["max_steps"], int, f"{path}.max_steps")
     _require_type(data["passed"], int, f"{path}.passed")
     _require_type(data["total"], int, f"{path}.total")
@@ -200,7 +204,7 @@ def render_markdown(reports: Iterable[Report], title: str = "macOSWorld regressi
             delta_passed = _signed(report.data["passed"] - previous.data["passed"])
             delta_rate = _signed_pp(_rate(report) - _rate(previous))
         lines.append(
-            f"| {report.date} | `{report.data['binary_version']}` | "
+            f"| {report.date} | `{report.data['binary_version']} ({report.data['binary_sha256'][:12]})` | "
             f"{report.data['passed']}/{report.data['total']} | {_rate(report):.1f}% | "
             f"{delta_passed} | {delta_rate} |"
         )

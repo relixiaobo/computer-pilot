@@ -27,7 +27,7 @@ def report(date, passed, *, model="test-model", category="sys_apps", results=Non
         "category": category,
         "max_steps": 12,
         "binary_version": f"cu 0.9.{date[-1]}",
-        "binary_sha256": date * 4,
+        "binary_sha256": (date.replace("-", "") + "0" * 64)[:64],
         "passed": passed,
         "total": len(results),
         "results": results,
@@ -55,6 +55,7 @@ class MacOSWorldDashboardTests(unittest.TestCase):
         output = dashboard.render_markdown(reports)
         self.assertIn("1/2", output)
         self.assertIn("2/2", output)
+        self.assertIn("20261101", output)
         self.assertIn("+1", output)
         self.assertIn("+50.0 pp", output)
         self.assertIn("task-b", output)
@@ -87,6 +88,10 @@ class MacOSWorldDashboardTests(unittest.TestCase):
             bad_total["total"] = 3
             with self.assertRaisesRegex(dashboard.ReportError, "does not match results length"):
                 dashboard.load_report(self.write(directory, "total.json", bad_total))
+            bad_digest = dict(base)
+            bad_digest["binary_sha256"] = "not-a-digest"
+            with self.assertRaisesRegex(dashboard.ReportError, "64-character hexadecimal"):
+                dashboard.load_report(self.write(directory, "digest.json", bad_digest))
 
     def test_cli_writes_output_file(self):
         with tempfile.TemporaryDirectory() as directory:
