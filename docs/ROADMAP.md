@@ -168,8 +168,9 @@ blockers or work already in progress.
     display geometry, errors, key parsing and CLI helpers. Run `cargo test`;
     live command tests remain the behavioral layer.
 
-- [ ] **O3 — Audit and document action `--limit` semantics (P1)**
-  - **Local audit complete, 2026-11-06; not yet merged or released.** The
+- [x] **O3 — Audit and document action `--limit` semantics (P1)**
+  - **Implemented and verified 2026-11-06 in
+    [PR #58](https://github.com/relixiaobo/computer-pilot/pull/58); not yet released.** The
     [command reference](../plugin/skills/computer-pilot/references/commands.md#action---limit)
     and action help distinguish Observation-owned ref selection from snapshot
     output limits. Ref freshness uses `max(observation.limit, action.limit)`;
