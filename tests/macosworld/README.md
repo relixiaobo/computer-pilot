@@ -150,6 +150,11 @@ MACOSWORLD_ROOT=/tmp/macosworld MODEL=gpt-6.1-sol \
   bash scripts/run-macosworld-baseline.sh
 ```
 
+Each model request has a 120-second timeout by default. Set
+`MACOSWORLD_LLM_TIMEOUT` to a positive number of seconds when a relay needs a
+different bound; a stalled request is recorded as a task-level `error` instead
+of leaving the runner blocked indefinitely.
+
 ## Regression dashboard
 
 [`scripts/macosworld-regression.py`](../../scripts/macosworld-regression.py)
