@@ -84,6 +84,13 @@ class MacOSWorldDashboardTests(unittest.TestCase):
                 with self.assertRaises(dashboard.ReportError):
                     dashboard.validate_comparison(self.load_pair(base, other))
 
+    def test_comparison_rejects_duplicate_input_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self.write(directory, "report.json", report("2026-11-01", 1))
+            loaded = dashboard.load_report(path)
+            with self.assertRaisesRegex(dashboard.ReportError, "duplicate input paths"):
+                dashboard.validate_comparison([loaded, loaded])
+
     def test_loader_rejects_missing_fields_duplicate_tasks_and_bad_totals(self):
         base = report("2026-11-01", 1)
         with tempfile.TemporaryDirectory() as directory:

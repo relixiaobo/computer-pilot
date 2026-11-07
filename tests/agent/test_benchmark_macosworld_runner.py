@@ -18,7 +18,7 @@ class MacOSWorldRunnerTimeoutTests(unittest.TestCase):
             self.assertEqual(run_benchmark.llm_timeout_seconds(), 120.0)
 
     def test_invalid_or_nonpositive_timeout_uses_default(self):
-        for value in ("bad", "0", "-5"):
+        for value in ("bad", "0", "-5", "inf", "1e309"):
             with self.subTest(value=value), patch.dict(os.environ, {"MACOSWORLD_LLM_TIMEOUT": value}):
                 self.assertEqual(run_benchmark.llm_timeout_seconds(), 120.0)
 

@@ -145,6 +145,9 @@ def validate_comparison(reports: Iterable[Report]) -> list[Report]:
     reports = list(reports)
     if len(reports) < 2:
         raise ReportError("at least two reports are required for a regression comparison")
+    paths = [report.path.resolve() for report in reports]
+    if len(set(paths)) != len(paths):
+        raise ReportError("reports contain duplicate input paths; provide each report file once")
     models = {report.model for report in reports}
     if len(models) != 1:
         raise ReportError("reports use different models; compare one model at a time")

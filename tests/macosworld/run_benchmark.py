@@ -19,6 +19,7 @@ Usage:
 
 import argparse
 import json
+import math
 import os
 import shlex
 import subprocess
@@ -44,7 +45,7 @@ def llm_timeout_seconds() -> float:
         timeout = float(raw)
     except ValueError:
         return DEFAULT_LLM_TIMEOUT
-    return timeout if timeout > 0 else DEFAULT_LLM_TIMEOUT
+    return timeout if timeout > 0 and math.isfinite(timeout) else DEFAULT_LLM_TIMEOUT
 
 def cu(command: str) -> dict:
     """Run a cu command locally, return parsed JSON."""
