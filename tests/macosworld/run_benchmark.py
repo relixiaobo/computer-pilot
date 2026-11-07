@@ -19,6 +19,7 @@ Usage:
 
 import argparse
 import json
+import math
 import os
 import shlex
 import subprocess
@@ -30,6 +31,21 @@ from glob import glob
 # ── cu CLI interface ─────────────────────────────────────────────────────────
 
 CU = os.environ.get("CU", "./target/release/cu")
+DEFAULT_LLM_TIMEOUT = 120.0
+
+
+def llm_timeout_seconds() -> float:
+    """Return a bounded timeout for each provider request.
+
+    Relay outages must become a task-level error instead of leaving the
+    benchmark process blocked in an unbounded TLS read.
+    """
+    raw = os.environ.get("MACOSWORLD_LLM_TIMEOUT", str(DEFAULT_LLM_TIMEOUT))
+    try:
+        timeout = float(raw)
+    except ValueError:
+        return DEFAULT_LLM_TIMEOUT
+    return timeout if timeout > 0 and math.isfinite(timeout) else DEFAULT_LLM_TIMEOUT
 
 def cu(command: str) -> dict:
     """Run a cu command locally, return parsed JSON."""
@@ -98,7 +114,7 @@ def call_llm(model: str, messages: list[dict]) -> tuple[str, int, int]:
 
 def _call_anthropic(model: str, messages: list[dict]) -> tuple[str, int, int]:
     import anthropic
-    client = anthropic.Anthropic()
+    client = anthropic.Anthropic(timeout=llm_timeout_seconds())
     response = client.messages.create(
         model=model,
         max_tokens=4096,
@@ -110,7 +126,7 @@ def _call_anthropic(model: str, messages: list[dict]) -> tuple[str, int, int]:
 
 def _call_openai(model: str, messages: list[dict]) -> tuple[str, int, int]:
     import openai
-    client = openai.OpenAI()
+    client = openai.OpenAI(timeout=llm_timeout_seconds())
     response = client.chat.completions.create(
         model=model,
         max_completion_tokens=4096,
@@ -210,7 +226,7 @@ What cu commands should I run next?
 
     # Grade — wait briefly for UI to settle, then evaluate
     grade_pass = False
-    if grading:
+    if grading and status != "error":
         time.sleep(1)
         local_user = os.environ.get("USER", "ec2-user")
         for cmd_pair in grading:

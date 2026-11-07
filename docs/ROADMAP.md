@@ -643,6 +643,10 @@ Acceptance: every action command leaves the user's real cursor alone, doesn't st
   - The comparator is covered by
     [`tests/agent/test_benchmark_macosworld.py`](../tests/agent/test_benchmark_macosworld.py),
     which is included in the hosted benchmark-reporting test discovery.
+  - A same-day rerun of the fixed cohort recorded **0/3** and is captured in
+    the tracked [dashboard sample](../tests/macosworld/results/dashboard.md).
+    All task results were written; the runner was interrupted only after it
+    blocked in the relay TLS read during shutdown.
   - Benchmark execution remains manual/local. TCC permissions, desktop state,
     and model API cost make automatic per-release execution unsuitable for
     ordinary hosted CI; the dashboard compares results once they are recorded.
