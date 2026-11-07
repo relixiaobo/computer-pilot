@@ -61,6 +61,17 @@ class MacOSWorldDashboardTests(unittest.TestCase):
         self.assertIn("task-b", output)
         self.assertIn("fail (fail) → pass (done)", output)
 
+    def test_same_day_reports_use_input_order_and_run_numbers(self):
+        first = report("2026-11-07", 1)
+        second = report("2026-11-07", 0, results=[
+            {"task_id": "task-a", "status": "incomplete", "grade": False, "steps": 2, "input_tokens": 10, "output_tokens": 2},
+            {"task_id": "task-b", "status": "fail", "grade": False, "steps": 3, "input_tokens": 11, "output_tokens": 3},
+        ])
+        output = dashboard.render_markdown(self.load_pair(first, second))
+        self.assertIn("| 2026-11-07 | 1 |", output)
+        self.assertIn("| 2026-11-07 | 2 |", output)
+        self.assertIn("2026-11-07 #1 → 2026-11-07 #2", output)
+
     def test_comparison_rejects_mixed_model_cohort_and_task_set(self):
         base = report("2026-11-01", 1)
         cases = [

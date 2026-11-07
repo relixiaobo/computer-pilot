@@ -124,16 +124,22 @@ osascript -e 'tell application "Contacts" to get the value of phones of (first p
 The first tracked local baseline uses upstream macOSWorld revision
 `e2ca8334b3765537e5c1c428ce57990248a1bb5f`, English tasks, the `safe_low`
 `sys_apps` cohort, and a 12-step budget. It contains three fixed tasks chosen
-for temporary or read-only UI state. The relay-supported `gpt-6.1-sol` run
-passed **1/3** tasks; Calculator passed, Chess failed, and Dictionary reached
-the step budget without completing. The unsupported `gpt-6.1-terra` attempt
-made no model request and is excluded.
+for temporary or read-only UI state. The first relay-supported `gpt-6.1-sol`
+run passed **1/3** tasks; Calculator passed, Chess failed, and Dictionary
+reached the step budget without completing. A same-day rerun recorded **0/3**:
+the three task results were written, then the runner was interrupted after it
+remained blocked in the relay TLS read during shutdown. The unsupported
+`gpt-6.1-terra` attempt made no model request and is excluded.
 
 | Date | Model | Cohort | Tasks | Passed | Binary |
 |---|---|---|---:|---:|---|
 | 2026-11-07 | `gpt-6.1-sol` | safe_low / sys_apps | 3 | 1 | `cu 0.9.6` |
+| 2026-11-07 (rerun) | `gpt-6.1-sol` | safe_low / sys_apps | 3 | 0 | `cu 0.9.6` |
 
 The sanitized result is [tracked here](../../tests/macosworld/results/2026-11-07-gpt-6.1-sol-safe-low-sys-apps.json).
+The same-day rerun is [tracked here](../../tests/macosworld/results/2026-11-07-gpt-6.1-sol-safe-low-sys-apps-rerun.json),
+and the generated [regression dashboard](../../tests/macosworld/results/dashboard.md)
+shows the task-level changes and the shared binary digest prefix.
 Reproduce it with [`scripts/run-macosworld-baseline.sh`](../../scripts/run-macosworld-baseline.sh)
 after checking out the pinned upstream revision:
 
@@ -149,17 +155,19 @@ MACOSWORLD_ROOT=/tmp/macosworld MODEL=gpt-6.1-sol \
 [`scripts/macosworld-regression.py`](../../scripts/macosworld-regression.py)
 compares two or more recorded reports. It requires the same model, pinned
 upstream revision, language, risk set, category, step budget, and task IDs in
-every report. Reports are sorted by date, and the Markdown output includes the
-pass-rate delta plus every task whose grade or status changed. Invalid JSON,
+every report. Reports are sorted by date; same-day reports retain the
+command-line order and receive run numbers in the table. The Markdown output
+includes the pass-rate delta plus every task whose grade or status changed.
+Invalid JSON,
 missing fields, duplicate task IDs, or incompatible cohorts fail before any
 dashboard is written.
 
-Generate a dashboard after recording a second run:
+Generate a dashboard after recording another run:
 
 ```bash
 python3 scripts/macosworld-regression.py \
   tests/macosworld/results/2026-11-07-gpt-6.1-sol-safe-low-sys-apps.json \
-  tests/macosworld/results/2026-11-14-gpt-6.1-sol-safe-low-sys-apps.json \
+  tests/macosworld/results/2026-11-07-gpt-6.1-sol-safe-low-sys-apps-rerun.json \
   --output tests/macosworld/results/dashboard.md
 ```
 

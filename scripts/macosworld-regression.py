@@ -151,9 +151,8 @@ def validate_comparison(reports: Iterable[Report]) -> list[Report]:
     cohorts = {report.cohort for report in reports}
     if len(cohorts) != 1:
         raise ReportError("reports use different cohorts; upstream revision, language, risk set, category, and max_steps must match")
-    dates = [report.date for report in reports]
-    if len(set(dates)) != len(dates):
-        raise ReportError("reports contain duplicate dates")
+    # Same-day reruns are valid. Stable sorting preserves the caller's order
+    # for equal dates, which supplies the run order in the rendered table.
     reports = sorted(reports, key=lambda report: report.date)
     task_sets = {frozenset(result["task_id"] for result in report.results) for report in reports}
     if len(task_sets) != 1:
@@ -193,18 +192,18 @@ def render_markdown(reports: Iterable[Report], title: str = "macOSWorld regressi
         f"- Cohort: `{cohort_text}`; max steps `{cohort[4]}`",
         f"- Upstream revision: `{cohort[0]}`",
         "",
-        "| Date | Binary | Passed | Pass rate | Δ passed | Δ rate |",
-        "|---|---|---:|---:|---:|---:|",
+        "| Date | Run | Binary | Passed | Pass rate | Δ passed | Δ rate |",
+        "|---|---:|---|---:|---:|---:|---:|",
     ]
     previous: Report | None = None
-    for report in reports:
+    for index, report in enumerate(reports, start=1):
         if previous is None:
             delta_passed, delta_rate = "—", "—"
         else:
             delta_passed = _signed(report.data["passed"] - previous.data["passed"])
             delta_rate = _signed_pp(_rate(report) - _rate(previous))
         lines.append(
-            f"| {report.date} | `{report.data['binary_version']} ({report.data['binary_sha256'][:12]})` | "
+            f"| {report.date} | {index} | `{report.data['binary_version']} ({report.data['binary_sha256'][:12]})` | "
             f"{report.data['passed']}/{report.data['total']} | {_rate(report):.1f}% | "
             f"{delta_passed} | {delta_rate} |"
         )
@@ -212,7 +211,9 @@ def render_markdown(reports: Iterable[Report], title: str = "macOSWorld regressi
 
     lines.extend(["", "## Task status changes", ""])
     changes = []
-    for before, after in zip(reports, reports[1:]):
+    for before_index, (before, after) in enumerate(zip(reports, reports[1:]), start=1):
+        before_label = f"{before.date} #{before_index}"
+        after_label = f"{after.date} #{before_index + 1}"
         before_results, after_results = _result_map(before), _result_map(after)
         for task_id in sorted(after_results):
             old, new = before_results[task_id], after_results[task_id]
@@ -221,7 +222,7 @@ def render_markdown(reports: Iterable[Report], title: str = "macOSWorld regressi
             if old_state != new_state:
                 old_mark = "pass" if old["grade"] else "fail"
                 new_mark = "pass" if new["grade"] else "fail"
-                changes.append(f"| {before.date} → {after.date} | `{task_id}` | {old_mark} ({old['status']}) → {new_mark} ({new['status']}) |")
+                changes.append(f"| {before_label} → {after_label} | `{task_id}` | {old_mark} ({old['status']}) → {new_mark} ({new['status']}) |")
     if changes:
         lines.extend(["| From → to | Task | Result |", "|---|---|---|"])
         lines.extend(changes)

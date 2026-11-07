@@ -1,0 +1,44 @@
+{
+  "model": "gpt-6.1-sol",
+  "passed": 0,
+  "total": 3,
+  "results": [
+    {
+      "task_id": "259bcb80-aa2b-8291-1d11-6ff4ae36f8cb",
+      "task": "Calculate 160 times 9 using calculator. ",
+      "status": "incomplete",
+      "grade": false,
+      "steps": 12,
+      "input_tokens": 153730,
+      "output_tokens": 1401
+    },
+    {
+      "task_id": "1ef109cd-fea2-d2d5-b4e4-fbbad6689b2a",
+      "task": "Launch the app \"Chess\".  ",
+      "status": "done",
+      "grade": false,
+      "steps": 12,
+      "input_tokens": 151167,
+      "output_tokens": 1396
+    },
+    {
+      "task_id": "0e224b29-14f7-3629-ee27-13a9789a997d",
+      "task": "Launch Dictionary, and open the window (usually the about window) that shows its version. ",
+      "status": "incomplete",
+      "grade": false,
+      "steps": 12,
+      "input_tokens": 147555,
+      "output_tokens": 2770
+    }
+  ],
+  "date": "2026-11-07",
+  "upstream_revision": "e2ca8334b3765537e5c1c428ce57990248a1bb5f",
+  "language": "en",
+  "risk_set": "safe_low",
+  "category": "sys_apps",
+  "max_steps": 12,
+  "binary_version": "cu 0.9.6",
+  "binary_sha256": "ea92af17ae33fd7df3d66fce1bd8280907dc40f00626724d6d11af67ca90763f",
+  "runner_status": "interrupted_after_results",
+  "execution_note": "All three task results were written; the runner was interrupted after it remained blocked in the relay TLS read during shutdown."
+}
