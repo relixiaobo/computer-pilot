@@ -225,7 +225,7 @@ What cu commands should I run next?
 
     # Grade — wait briefly for UI to settle, then evaluate
     grade_pass = False
-    if grading:
+    if grading and status != "error":
         time.sleep(1)
         local_user = os.environ.get("USER", "ec2-user")
         for cmd_pair in grading:

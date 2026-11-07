@@ -58,6 +58,21 @@ class MacOSWorldRunnerTimeoutTests(unittest.TestCase):
             self.assertEqual(run_benchmark._call_anthropic("model", [])[0], "DONE")
         self.assertEqual(created, [("openai", {"timeout": 17.5}), ("anthropic", {"timeout": 17.5})])
 
+    def test_llm_error_skips_grading_and_cannot_become_a_pass(self):
+        task = {
+            "id": "timeout-task",
+            "task": {"en": "Timed out task"},
+            "grading_command": [["true"]],
+        }
+        with patch.object(run_benchmark, "cu_raw", return_value="{}"), \
+                patch.object(run_benchmark, "call_llm", side_effect=TimeoutError("relay timeout")), \
+                patch.object(run_benchmark.time, "sleep"), \
+                patch.object(run_benchmark.subprocess, "run") as grader:
+            result = run_benchmark.run_task(task, "gpt-6.1-sol", max_steps=1, verbose=False)
+        self.assertEqual(result["status"], "error")
+        self.assertFalse(result["grade"])
+        grader.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
